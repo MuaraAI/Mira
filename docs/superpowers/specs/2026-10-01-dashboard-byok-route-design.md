@@ -1,35 +1,59 @@
-# Specification: Dashboard MuaraAI — Login Tanpa API Key (Hosted) + API Key untuk Custom/Self-Host
+# Specification: UBSI API — Landing Page Murni & Centralized Vault Integration (muaraai.com)
 
 **Date:** 2026-10-01
-**Status:** Approved by user (brainstorming) — menunggu review spec
-**Supersedes:** `2026-09-30-monorepo-frontend-split-and-local-dashboard-design.md` (folder `web/` terpisah dibatalkan); merevisi versi BYOK-murni spesifikasi ini
-**Component:** Dashboard route `/dashboard` di `landing-page/` + jalur auth JWT di backend
+**Status:** Approved by Core Team
+**Update 2026-10-04:** Mengikuti keputusan konsolidasi ekosistem Muara AI & PR #11 ai-web: Pembuatan key dan dashboard lokal di repo ini DITIADAKAN. Seluruh manajemen kunci API (`muara_ubsi_...`) dipusatkan di portal komunitas `https://muaraai.com/dashboard/vault`.
+**Supersedes:** `2026-09-30-monorepo-frontend-split-and-local-dashboard-design.md` & rute `/dashboard` lokal di landing-page dibatalkan; `landing-page/` menjadi murni landing page & dokumentasi teknis.
+**Component:** `landing-page/` (showcase & docs) + backend auth `app/vault.py` (FastAPI VPS Tencent)
 **Target Repository:** `MuaraAI/UBSI-API`
 
 ---
 
-## 1. Keputusan Arsitektur
+## 1. Keputusan Arsitektur Terbaru (Konsolidasi Ekosistem)
 
-Satu aplikasi Next.js (`landing-page/`) dengan dua route: `/` (showcase, eksisting) dan `/dashboard` (baru). Dua jalur autentikasi untuk dua khalayak:
+Untuk mencegah fragmentasi sistem login dan duplikasi dashboard di banyak subdomain, seluruh manajemen akun dan pembuatan API key dipusatkan di satu pintu:
 
 ```text
-HOSTED (ubsi-api.muaraai.com/dashboard)
-  "Login with MuaraAI" (Supabase Auth, project "muaraai")
-    → cek public.members.registration_status = 'approved' (RLS aktif)
-    → dashboard memanggil API pakai Authorization: Bearer <supabase_jwt>
-    → ZERO API key di browser. Yang terbaca bila XSS = sesi JWT pendek
-      yang bisa di-revoke, bukan kredensial permanen.
+PORTAL UTAMA (muaraai.com/dashboard/vault)
+  → Satu-satunya tempat login (GitHub OAuth SSO)
+  → Member generate key muara_ubsi_... secara terpusat (WebCrypto view-once)
+  → Key hash disimpan ke database Supabase (ubsi_api.api_keys via view public.api_keys)
 
-CUSTOM / SCRIPT / SELF-HOST
-  → API Key (muara_live_... / master key) via header X-API-Key
-  → key dibuat dari portal member muaraai.com (generate → tampil SEKALI)
-  → self-host: clone repo, pakai master key .env lokal, tanpa Supabase
+FRONTEND UBSI API (ubsi-api.muaraai.com)
+  → MURNI Landing Page & Dokumentasi Teknis 19 Endpoint Kampus
+  → ZERO login, ZERO database/Supabase di sisi browser
+  → Tombol CTA mengarahkan pengguna: "Dapatkan API Key di muaraai.com"
+
+BACKEND VPS TENCENT (api.muaraai.com/v1/ubsi-api/*)
+  → Header: X-API-Key: muara_ubsi_...
+  → Hashing sha256 -> Cek Redis Cache (10m) -> Fallback query Supabase REST API
+  → Dekripsi NIM & password kampus (AES-256-GCM) -> Eksekusi scraping kampus multi-tenant
 ```
 
 Prinsip yang dipertahankan:
 - Vault `ubsi_api.api_keys` tetap **hash-only sha256**. Tidak ada komponen yang bisa "membaca key dari DB" — by design. Key asli hanya pernah ada di layar portal saat generate, dan di sisi user.
 - Zero database dan zero secret baru di dashboard. Backend satu pintu dengan dua jalur verifikasi.
 - Satu kode dashboard, dua mode: hosted (login wajib) dan self-host clone (BYOK).
+
+### 1.1 Update 2026-10-02: SSO antar portal "Login With MuaraAI"
+
+Dashboard ini ikut konvensi SSO ekosistem MuaraAI (spec: `MuaraAI/ai-web/docs/superpowers/specs/2026-10-02-ai-web-portal-design.md` §1.1):
+
+- Supabase client dibuat dengan `cookieOptions: { name: "sb-muaraai-auth-token", domain: ".muaraai.com" }` + PKCE (bukan cookie default per-subdomain).
+- Efek: login di `ubsi-api.muaraai.com` otomatis ter-login di `ai.muaraai.com` dan sebaliknya (satu `auth.users`, satu cookie domain).
+- Perlu didaftarkan di Supabase Auth settings: redirect URL `https://ubsi-api.muaraai.com/auth/callback` (di samping yang dari ai-web).
+- Konsekuensi kode: `landing-page/` memakai `@supabase/ssr` (bukan supabase-js polos) untuk cookie-based session — dependency baru di §2 berubah dari `@supabase/supabase-js` menjadi `@supabase/ssr` (yang membawa supabase-js).
+
+### 1.2 Update 2026-10-02: konvensi key per produk (jangan tertukar)
+
+Ekosistem MuaraAI kini punya dua produk API dengan prefix key berbeda dan TIDAK saling dipakai:
+
+| Produk | Prefix key | Gateway | Sumber key |
+|---|---|---|---|
+| UBSI API | `muara_ubsi_` | `api.muaraai.com/v1/ubsi-api/*` | portal ini (`POST /v1/auth/provision` / muaraai.com nanti) |
+| Muara V1 Flash (AI) | `muara_ai_` | `api.muaraai.com/v1/ai/*` | `ai.muaraai.com` dashboard |
+
+`ubsi_api.api_keys` dan `ai.api_keys` adalah table terpisah di project Supabase yang sama. Spec ini HANYA menangani `muara_ubsi_`; spesifikasi AI ada di `MuaraAI/ai-backend/docs/superpowers/specs/2026-10-02-ai-gateway-muara-design.md`.
 
 ## 2. Struktur
 
@@ -70,12 +94,12 @@ Member yang belum punya key bisa membuatnya langsung dari dashboard (hosted), ta
 - **Body:** `{"nim": "...", "studentv2_pass": "...", "elearning_pass": "..."}`.
 - **Alur:**
   1. Validasi kredensial LIVE ke kampus dengan **reuse logika `POST /v1/auth/verify`** (paralel SIAKAD + MyBest). Gagal → 400 `INVALID_CREDENTIALS`, tidak ada yang disimpan.
-  2. Generate key `muara_live_<urlsafe-random-32B>`.
+  2. Generate key `muara_ubsi_<urlsafe-random-32B>`.
   3. Simpan: `key_hash = sha256(key)` + kredensial terenkripsi AES-256-GCM (reuse `encrypt_credential` dari `app/vault.py`) ke `ubsi_api.api_keys` (`user_id` = sub member).
   4. Response menampilkan key plaintext **SEKALI** (view-once). Server tidak pernah menyimpan plaintext.
 - **Aturan:** 1 member = 1 key aktif. Generate ulang (regenerate) = revoke key lama; endpoint regenerate wajib kirim `{"confirm": true}`.
 - **Rate limit:** 3 req/menit per `member:{sub}` (anti spam key + anti brute-force kampus).
-- **Response:** `{"api_key": "muara_live_...", "key_prefix": "muara_live_abcd", "created_at": ...}`.
+- **Response:** `{"api_key": "muara_ubsi_...", "key_prefix": "muara_ubsi_abcd", "created_at": ...}`.
 - Tests: `tests/test_auth_provision.py` (offline): sukses, kredensial kampus salah (tidak tersimpan), member belum approved, tanpa JWT, rate limit, regenerate merevoke key lama.
 
 - CORS sudah mengizinkan `https://ubsi-api.muaraai.com` (diterapkan 2026-10-01).
