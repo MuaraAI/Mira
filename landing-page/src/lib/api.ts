@@ -4,20 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export function getApiBase(): string {
-  const envUrl =
-    process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL;
+  const envUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
   if (envUrl) {
     return envUrl.replace(/\/+$/, "");
   }
-  if (typeof window !== "undefined") {
-    const host = window.location.hostname;
-    if (
-      host.includes("muaraai.com") ||
-      host.includes("vercel.app") ||
-      host.includes("curzy.dev")
-    ) {
-      return "https://api.muaraai.com/v1/ubsi-api";
-    }
+  if (typeof window !== "undefined" && window.location.hostname === "ubsi-api.muaraai.com") {
+    return "https://api.muaraai.com/v1/ubsi-api";
   }
   return "http://127.0.0.1:8300";
 }
