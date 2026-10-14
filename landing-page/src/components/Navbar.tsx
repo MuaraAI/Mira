@@ -67,7 +67,7 @@ export function Navbar({ starsCount = 2 }: { starsCount?: number }) {
 
           <a
             href="/login"
-            className="hidden sm:inline-flex items-center gap-1 px-3.5 py-1.5 rounded-pill bg-[#0284C7] hover:bg-[#0369A1] text-xs font-mono text-white font-bold transition-all shadow-sm"
+            className="hidden sm:inline-flex items-center gap-1 px-3.5 py-1.5 rounded-pill bg-[#0369A1] hover:bg-[#0284C7] text-xs font-mono text-white font-bold transition-all shadow-sm"
           >
             Login BSI
           </a>
@@ -105,7 +105,7 @@ export function Navbar({ starsCount = 2 }: { starsCount?: number }) {
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-expanded={mobileMenuOpen}
             aria-controls="mobile-menu"
-            className="md:hidden p-2 rounded-card bg-white/40 border border-stroke text-foreground hover:text-accent transition-colors"
+            className="md:hidden p-2 rounded-card bg-white/40 border border-stroke text-foreground hover:text-[#08738a] transition-colors"
             aria-label="Toggle navigation menu"
           >
             {mobileMenuOpen ? (
@@ -129,43 +129,43 @@ export function Navbar({ starsCount = 2 }: { starsCount?: number }) {
           <a
             href="#showcase"
             onClick={() => setMobileMenuOpen(false)}
-            className="block text-sm font-medium text-secondary hover:text-accent py-1.5 transition-colors"
+            className="block text-sm font-medium text-secondary hover:text-[#08738a] py-1.5 transition-colors"
           >
             Showcase
           </a>
           <a
             href="#modules"
             onClick={() => setMobileMenuOpen(false)}
-            className="block text-sm font-medium text-secondary hover:text-accent py-1.5 transition-colors"
+            className="block text-sm font-medium text-secondary hover:text-[#08738a] py-1.5 transition-colors"
           >
             Modul Layanan
           </a>
           <a
             href="#quickstart"
             onClick={() => setMobileMenuOpen(false)}
-            className="block text-sm font-medium text-secondary hover:text-accent py-1.5 transition-colors"
+            className="block text-sm font-medium text-secondary hover:text-[#08738a] py-1.5 transition-colors"
           >
             Quickstart (Instalasi)
-          </a>
-          <a
-            href="#contributors"
-            onClick={() => setMobileMenuOpen(false)}
-            className="block text-sm font-medium text-secondary hover:text-accent py-1.5 transition-colors"
-          >
-            Kontributor Mahasiswa
           </a>
           <Link
             href="/recap"
             onClick={() => setMobileMenuOpen(false)}
-            className="block text-sm font-medium text-secondary hover:text-accent py-1.5 transition-colors"
+            className="block text-sm font-medium text-secondary hover:text-[#08738a] py-1.5 transition-colors"
           >
             Rekap Nilai
           </Link>
+          <a
+            href="#contributors"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block text-sm font-medium text-secondary hover:text-[#08738a] py-1.5 transition-colors"
+          >
+            Kontributor Mahasiswa
+          </a>
 
           <div className="pt-2 border-t border-stroke">
             <a
               href="/login"
-              className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-pill bg-[#0284C7] text-white text-xs font-bold font-mono"
+              className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-pill bg-[#0369A1] hover:bg-[#0284C7] text-white text-xs font-bold font-mono"
             >
               Login BSI
             </a>

@@ -45,7 +45,7 @@ type GradesData = {
 };
 
 function fmt(value: number | null | undefined): string {
-  if (value === null || value === undefined) return "—";
+  if (value === null || value === undefined) return "-";
   return Number.isInteger(value) ? String(value) : value.toFixed(2);
 }
 
@@ -137,7 +137,7 @@ export function RecapDashboard() {
         <code className="font-mono text-[13px] text-[#08738a]">
           /v1/elearning/grades
         </code>{" "}
-        pada backend UBSI API lokal Anda — tanpa konfigurasi tambahan.
+        pada backend UBSI API lokal Anda, tanpa konfigurasi tambahan.
       </p>
 
       {/* Aksi */}
@@ -148,7 +148,7 @@ export function RecapDashboard() {
             disabled={loading}
             className="inline-flex items-center justify-center px-6 py-2.5 rounded-md bg-accent hover:bg-accent-hover text-accent-dark font-semibold text-sm transition-all duration-200 ease-glass disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {loading ? "Memuat…" : hasData ? "Muat Ulang" : "Muat Rekap"}
+            {loading ? "Memuat..." : hasData ? "Muat Ulang" : "Muat Rekap"}
           </button>
           <p className="text-[11px] font-mono text-secondary leading-relaxed">
             {backend ? (
@@ -156,9 +156,9 @@ export function RecapDashboard() {
                 Backend: {backend}
                 {meta && (
                   <>
-                    {" · "}
+                    {" / "}
                     Sumber: {meta.stale ? "cache (stale)" : meta.cached ? "cache" : "live"}
-                    {" · "}
+                    {" / "}
                     {meta.fetchedAt}
                   </>
                 )}
@@ -177,7 +177,7 @@ export function RecapDashboard() {
           className="mt-6 rounded-md border border-amber-300/70 bg-amber-50/80 px-5 py-4"
         >
           <p className="text-sm font-semibold text-[#92400e]">{error.title}</p>
-          <p className="mt-1 text-sm leading-relaxed text-[#a16207]">{error.hint}</p>
+          <p className="mt-1 text-sm leading-relaxed text-[#854d0e]">{error.hint}</p>
         </div>
       )}
 
@@ -187,8 +187,8 @@ export function RecapDashboard() {
           <p className="text-sm leading-relaxed text-secondary">
             Tekan &ldquo;Muat Rekap&rdquo; untuk menarik data. Pastikan backend
             berjalan dengan kredensial Elearning terisi di{" "}
-            <code className="font-mono text-[13px] text-[#08738a]">.env</code> —
-            pengambilan pertama memerlukan login ke MyBest, biasanya 10–30 detik.
+            <code className="font-mono text-[13px] text-[#08738a]">.env</code>:
+            pengambilan pertama memerlukan login ke MyBest, biasanya 10-30 detik.
           </p>
         </div>
       )}
@@ -196,8 +196,8 @@ export function RecapDashboard() {
       {/* Loading */}
       {loading && (
         <p className="mt-6 font-mono text-sm text-secondary" aria-live="polite">
-          Mengambil data dari server — pengambilan pertama memerlukan login dan
-          parsing seluruh mata kuliah, biasanya 10–30 detik…
+          Mengambil data dari server. Pengambilan pertama memerlukan login dan
+          parsing seluruh mata kuliah, biasanya 10-30 detik...
         </p>
       )}
 
@@ -237,12 +237,12 @@ export function RecapDashboard() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-stroke bg-white/40">
-                    <th className={thClass}>Pertemuan</th>
-                    <th className={thClass}>Tugas</th>
-                    <th className={thClass}>Dinilai</th>
-                    <th className={thClass}>Belum</th>
-                    <th className={thClass}>Rata-rata</th>
-                    <th className={thClass}>Rentang</th>
+                    <th scope="col" className={thClass}>Pertemuan</th>
+                    <th scope="col" className={thClass}>Tugas</th>
+                    <th scope="col" className={thClass}>Dinilai</th>
+                    <th scope="col" className={thClass}>Belum</th>
+                    <th scope="col" className={thClass}>Rata-rata</th>
+                    <th scope="col" className={thClass}>Rentang</th>
                   </tr>
                 </thead>
                 <tbody className="font-mono text-foreground">
@@ -253,7 +253,7 @@ export function RecapDashboard() {
                       <td className={tdClass}>{row.sudah_dinilai}</td>
                       <td className={tdClass}>
                         {row.belum_dinilai > 0 ? (
-                          <span className="text-amber-600">{row.belum_dinilai}</span>
+                          <span className="text-amber-800 font-semibold">{row.belum_dinilai}</span>
                         ) : (
                           <span>0</span>
                         )}
@@ -261,8 +261,8 @@ export function RecapDashboard() {
                       <td className={`${tdClass} font-semibold`}>{fmt(row.rata_nilai)}</td>
                       <td className={`${tdClass} text-secondary`}>
                         {row.nilai_min === null || row.nilai_max === null
-                          ? "—"
-                          : `${fmt(row.nilai_min)} – ${fmt(row.nilai_max)}`}
+                          ? "-"
+                          : `${fmt(row.nilai_min)} - ${fmt(row.nilai_max)}`}
                       </td>
                     </tr>
                   ))}
@@ -287,10 +287,10 @@ export function RecapDashboard() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-stroke bg-white/40">
-                    <th className={thClass}>Kode</th>
-                    <th className={thClass}>Mata Kuliah</th>
-                    <th className={thClass}>Total Tugas</th>
-                    <th className={thClass}>Rata-rata</th>
+                    <th scope="col" className={thClass}>Kode</th>
+                    <th scope="col" className={thClass}>Mata Kuliah</th>
+                    <th scope="col" className={thClass}>Total Tugas</th>
+                    <th scope="col" className={thClass}>Rata-rata</th>
                   </tr>
                 </thead>
                 <tbody className="font-mono text-foreground">
@@ -298,7 +298,7 @@ export function RecapDashboard() {
                     <tr key={kode} className="border-b border-stroke/60 last:border-0">
                       <td className={tdClass}>{kode}</td>
                       <td className={`${tdClass} font-sans text-secondary`}>
-                        {courseNames[kode] ?? "—"}
+                        {courseNames[kode] ?? "-"}
                       </td>
                       <td className={tdClass}>{stat.total_tugas}</td>
                       <td className={`${tdClass} font-semibold`}>{fmt(stat.rata_nilai)}</td>
@@ -326,21 +326,21 @@ export function RecapDashboard() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-stroke bg-white/40">
-                      <th className={thClass}>Paket</th>
-                      <th className={thClass}>Kode</th>
-                      <th className={thClass}>Dosen</th>
-                      <th className={thClass}>Mulai</th>
-                      <th className={thClass}>Selesai</th>
+                      <th scope="col" className={thClass}>Paket</th>
+                      <th scope="col" className={thClass}>Kode</th>
+                      <th scope="col" className={thClass}>Dosen</th>
+                      <th scope="col" className={thClass}>Mulai</th>
+                      <th scope="col" className={thClass}>Selesai</th>
                     </tr>
                   </thead>
                   <tbody className="font-mono text-foreground">
                     {data.kuis.map((q, i) => (
                       <tr key={`${q.paket}-${q.kode_mtk}-${i}`} className="border-b border-stroke/60 last:border-0">
-                        <td className={tdClass}>{q.paket ?? "—"}</td>
-                        <td className={tdClass}>{q.kode_mtk ?? "—"}</td>
-                        <td className={`${tdClass} font-sans`}>{q.dosen ?? "—"}</td>
-                        <td className={`${tdClass} text-secondary`}>{q.ujian_mulai ?? "—"}</td>
-                        <td className={`${tdClass} text-secondary`}>{q.ujian_selesai ?? "—"}</td>
+                        <td className={tdClass}>{q.paket ?? "-"}</td>
+                        <td className={tdClass}>{q.kode_mtk ?? "-"}</td>
+                        <td className={`${tdClass} font-sans`}>{q.dosen ?? "-"}</td>
+                        <td className={`${tdClass} text-secondary`}>{q.ujian_mulai ?? "-"}</td>
+                        <td className={`${tdClass} text-secondary`}>{q.ujian_selesai ?? "-"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -359,11 +359,11 @@ export function RecapDashboard() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-stroke bg-white/40">
-                      <th className={thClass}>Kode</th>
-                      <th className={thClass}>Judul</th>
-                      <th className={thClass}>Pertemuan</th>
-                      <th className={thClass}>Nilai</th>
-                      <th className={thClass}>Komentar Dosen</th>
+                      <th scope="col" className={thClass}>Kode</th>
+                      <th scope="col" className={thClass}>Judul</th>
+                      <th scope="col" className={thClass}>Pertemuan</th>
+                      <th scope="col" className={thClass}>Nilai</th>
+                      <th scope="col" className={thClass}>Komentar Dosen</th>
                     </tr>
                   </thead>
                   <tbody className="text-foreground">
@@ -380,7 +380,7 @@ export function RecapDashboard() {
                           )}
                         </td>
                         <td className="px-5 py-3 max-w-xs truncate font-sans text-secondary" title={s.komentar_dosen ?? undefined}>
-                          {s.komentar_dosen ?? "—"}
+                          {s.komentar_dosen ?? "-"}
                         </td>
                       </tr>
                     ))}

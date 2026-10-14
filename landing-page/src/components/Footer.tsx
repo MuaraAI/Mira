@@ -23,16 +23,16 @@ export function Footer() {
           UBSI API adalah proyek riset independen non-komersial komunitas Muara AI dan tidak berafiliasi secara resmi dengan institusi Universitas Bina Sarana Informatika.
         </p>
 
-        <div className="flex items-center gap-4 text-xs font-mono text-secondary">
+        <div className="flex items-center gap-3 text-xs font-mono text-secondary">
           <span>MIT License</span>
-          <span>\u2022</span>
+          <span aria-hidden="true">/</span>
           <a
             href="https://github.com/MuaraAI/UBSI-API/releases"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-accent transition-colors duration-200"
+            className="hover:text-foreground transition-colors duration-200"
           >
-            v1.1.7 Stable
+            v1.2.0 Stable
           </a>
         </div>
       </div>

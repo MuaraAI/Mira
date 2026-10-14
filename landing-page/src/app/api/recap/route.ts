@@ -80,7 +80,7 @@ export async function GET() {
         CONFIG_MISSING:
           "Set ELEARNING_NIM dan ELEARNING_PASS di berkas .env backend, lalu restart server backend.",
         AUTH_FAILED:
-          "Periksa ELEARNING_NIM / ELEARNING_PASS di .env backend, atau coba lagi — captcha kampus kadang gagal pada percobaan pertama.",
+          "Periksa ELEARNING_NIM / ELEARNING_PASS di .env backend, atau coba lagi. Captcha kampus kadang gagal pada percobaan pertama.",
         HTTP_401:
           "Nilai API_KEY di .env backend berbeda dengan yang dipakai server web.",
         HTTP_429:

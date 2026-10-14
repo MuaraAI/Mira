@@ -5,7 +5,7 @@ import { RecapDashboard } from "@/components/RecapDashboard";
 import { getGitHubStats } from "@/lib/github";
 
 export const metadata: Metadata = {
-  title: "Rekap Nilai Tugas & Kuis — UBSI API",
+  title: "Rekap Nilai Tugas & Kuis | UBSI API",
   description:
     "Dashboard rekap nilai tugas dan kuis MyBest Elearning per pertemuan, ditarik langsung dari backend UBSI API milik Anda sendiri.",
 };
