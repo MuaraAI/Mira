@@ -44,7 +44,9 @@ cp .env.example .env.local
 
 | Variable | Required | Description |
 |---|---|---|
-| `NEXT_PUBLIC_API_URL` | Optional | Active UBSI API backend URL (e.g. `http://127.0.0.1:8300` or `https://ubsi-api.muaraai.com`). If omitted, the status indicator defaults to standby without runtime errors. |
+| `NEXT_PUBLIC_API_URL` | Required | Active UBSI API backend URL (e.g. `http://127.0.0.1:8300` or `https://api.muaraai.com/v1/ubsi-api`). Required for dashboard and login operations. |
+| `UBSI_BACKEND_URL` | Optional | Server-side backend URL for the `/recap` proxy page. Defaults to root `.env` or local port 8300. |
+| `UBSI_API_KEY` | Optional | Master API key used by the `/recap` server-side proxy route. |
 
 ## Deployment on Vercel
 
@@ -53,7 +55,7 @@ This application is designed for native deployment on Vercel:
 1. Import the `MuaraAI/UBSI-API` repository into Vercel.
 2. Set **Root Directory** to `landing-page`.
 3. Framework preset will automatically detect **Next.js**.
-4. (Optional) Set `NEXT_PUBLIC_API_URL` in the project Environment Variables dashboard.
+4. Set `NEXT_PUBLIC_API_URL` in the project Environment Variables dashboard (e.g. `https://api.muaraai.com/v1/ubsi-api`).
 5. Deploy.
 
 ## Design Reference
