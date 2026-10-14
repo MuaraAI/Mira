@@ -46,7 +46,7 @@ UBSI-API/
 │   ├── src/components/        # Komponen UI Deep Water (Navbar, Hero, CodeShowcase, dll.)
 │   ├── src/data/              # Dataset statis modul kampus, kontributor, dan contoh payload
 │   ├── public/fonts/          # Self-hosted woff2 Google Fonts (Space Grotesk, Inter, JetBrains Mono)
-│   └── DESIGN.md              # Token desain resmi Deep Water (navy, teal, dark-first)
+│   └── DESIGN.md              # Token desain resmi Fluid Currents Light (canvas terang, tinta riverbed, accent biru arus)
 │
 ├── tests/                     # [TEST SUITE] Pytest 100% Offline (78+ Passing Tests)
 │   ├── fixtures/              # Snapshot HTML statis kampus (sv2_*.html, el_*.html)
