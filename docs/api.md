@@ -76,6 +76,42 @@ Pre-validation endpoint to verify that student credentials actually authenticate
   }
   ```
 
+### `POST /v1/auth/login`
+Authenticates student credentials live against both SIAKAD and MyBest portals, creates an in-memory session in Redis (sliding 7 days TTL), and issues a session cookie `ubsi_session` plus bearer token.
+- **Access**: Public
+- **Rate Limit**: Max 5 requests/minute per NIM.
+- **Request Body**:
+  ```json
+  {
+    "nim": "15260767",
+    "studentv2_pass": "siakad_password",
+    "elearning_pass": "mybest_password"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "nim": "15260767",
+      "token": "ubsi_sess_random_token_32B",
+      "message": "Login berhasil. Session aktif 7 hari (sliding)."
+    }
+  }
+  ```
+
+### `POST /v1/auth/logout`
+Terminates the current device session and clears the session cookie and Redis key.
+- **Access**: Session Token Required (`Authorization: Bearer <token>` or cookie `ubsi_session`).
+
+### `POST /v1/auth/logout_all`
+Terminates all active sessions across all devices for the authenticated student.
+- **Access**: Session Token Required.
+
+### `GET /v1/auth/me`
+Retrieves authentication state for the calling client. Returns NIM for student session tokens or identity `master` for Master Key.
+- **Access**: Session Token or Master Key.
+
 ---
 
 ## 1. System
@@ -367,3 +403,67 @@ Performs a full-text search across institutional research publications.
 ### `GET /v1/ejournal/journals`
 Lists the catalog of 23 official UBSI peer-reviewed scientific journals.
 - **Cache TTL**: 1 hour (3600 seconds)
+
+---
+
+## 6. Webhook Notification Channels
+
+Manage personal student notification endpoints persisted in local SQLite WAL (`data/ubsi.db`).
+
+### `GET /v1/channels`
+Lists all active and inactive notification channels registered by the authenticated student (maximum 5 channels per NIM).
+- **Access**: Session Token Required.
+- **Sample Response**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "channels": [
+        {
+          "id": 1,
+          "type": "discord",
+          "categories": ["berita-kampus"],
+          "config": {
+            "url": "https://discord.com/api/webhooks/..."
+          },
+          "is_active": true,
+          "created_at": "2026-10-14 12:00:00"
+        }
+      ],
+      "total": 1
+    }
+  }
+  ```
+
+### `POST /v1/channels`
+Registers a new notification channel for the authenticated student. New channels start as inactive (`is_active: false`) until verified via the test endpoint.
+- **Access**: Session Token Required.
+- **Payload (`type: discord`)**:
+  ```json
+  {
+    "type": "discord",
+    "categories": ["berita-kampus"],
+    "config": {
+      "url": "https://discord.com/api/webhooks/1234567890123/abcdef..."
+    }
+  }
+  ```
+- **Payload (`type: telegram`)**:
+  ```json
+  {
+    "type": "telegram",
+    "categories": ["berita-kampus"],
+    "config": {
+      "bot_token": "123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ",
+      "chat_id": "@channel_or_id"
+    }
+  }
+  ```
+
+### `DELETE /v1/channels/{channel_id}`
+Deletes a notification channel. Students can only delete channels registered under their own NIM.
+- **Access**: Session Token Required.
+
+### `POST /v1/channels/{channel_id}/test`
+Dispatches a test notification to the designated channel. On delivery success, activates the channel (`is_active = true`).
+- **Access**: Session Token Required.

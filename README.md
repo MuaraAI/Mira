@@ -189,7 +189,7 @@ UBSI API merapikan semuanya menjadi satu backend JSON yang cepat, berjalan lokal
 ## Teknologi
 
 - **Backend API** — Python 3.12+, FastAPI, Uvicorn (uvloop).
-- **Frontend Landing Page** — Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS, shadcn/ui, Anime.js.
+- **Frontend Landing Page** — Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS.
 - **HTTP client & parsing** — Scrapling (FetcherSession), `curl_cffi`, lxml.
 - **Caching & Limiter** — Redis DB 2 (asyncio), single-flight mutex, sliding-window limiter.
 - **Testing & Quality** — Pytest (118 lulus), Pytest-Asyncio, HTTPX (ASGITransport).
@@ -241,7 +241,7 @@ UBSI-API/
 ├── skills/
 │   └── SKILL.md               # Definisi agent skill untuk asisten AI
 ├── docs/
-│   ├── api.md                 # Kamus 19 endpoint & format payload JSON
+│   ├── api.md                 # Kamus lengkap endpoint & format payload JSON
 │   ├── architecture.md        # Siklus request & alur cache
 │   ├── anti-ban.md            # Panduan penggunaan bertanggung jawab
 │   ├── deploy.md              # Operasi produksi VPS via PM2
@@ -340,7 +340,7 @@ Konfigurasi produksi menggunakan PM2 (`ecosystem.config.cjs`) di target folder `
 
 ## Dokumentasi
 
-- [API Reference](docs/api.md) — Kamus lengkap 19 endpoint beserta format request dan response JSON.
+- [API Reference](docs/api.md) — Kamus lengkap seluruh endpoint beserta format request dan response JSON.
 - [System Architecture](docs/architecture.md) — Siklus request, two-tier cache, dan single-flight mutex.
 - [Access & Account Safety](docs/anti-ban.md) — Kebijakan penggunaan bertanggung jawab: manajemen sesi, jeda adaptif, dan batas laju request.
 - [Production Deployment](docs/deploy.md) — Panduan operasi dan pemeliharaan server VPS via PM2.

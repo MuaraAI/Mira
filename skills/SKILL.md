@@ -1,6 +1,6 @@
 ---
 name: ubsi-api
-version: 1.1.7
+version: 1.2.0
 description: Agent skill for consuming, extending, and operating the UBSI API (Unofficial BSI Campus Aggregator).
 metadata:
   repository: https://github.com/MuaraAI/UBSI-API
@@ -47,8 +47,10 @@ Panduan operasional dan referensi teknis bagi AI Coding Agent dan pengembang yan
 | Domain | Key Endpoints | Deskripsi & Scope |
 |---|---|---|
 | **Sistem** | `GET /health`<br>`GET /metrics` | Status server, konektivitas Redis, dan metrik ukuran session pool |
+| **Autentikasi** | `POST /v1/auth/login`<br>`POST /v1/auth/logout`<br>`POST /v1/auth/verify`<br>`GET /v1/auth/me` | Login BSI mandiri NIM + password kampus, session token Redis sliding 7 hari, dan verifikasi kredensial |
+| **Notifikasi** | `GET /v1/channels`<br>`POST /v1/channels`<br>`DELETE /v1/channels/{id}`<br>`POST /v1/channels/{id}/test` | Manajemen channel webhook personal mahasiswa (Discord, Telegram, Custom) di SQLite WAL |
 | **SIAKAD** | `GET /v1/studentv2/dashboard`<br>`GET /v1/studentv2/schedule`<br>`GET /v1/studentv2/grades`<br>`GET /v1/studentv2/announcements`<br>`GET /v1/studentv2/news` | Dashboard paralel (4 seksi sekaligus), jadwal kuliah aktif, nilai murni lengkap (UTS/UAS/Tugas/Grade), edaran PDF, dan arsip berita |
-| **MyBest LMS** | `GET /v1/elearning/courses`<br>`GET /v1/elearning/assignments`<br>`GET /v1/elearning/presence`<br>`GET /v1/elearning/materials`<br>`GET /v1/elearning/quiz` | Kartu matkul & token terenkripsi, deadline tugas & nilai dosen, rekap presensi hadir, tautan ZIP silabus/modul, kuis online |
+| **MyBest LMS** | `GET /v1/elearning/courses`<br>`GET /v1/elearning/assignments`<br>`GET /v1/elearning/grades`<br>`GET /v1/elearning/presence`<br>`GET /v1/elearning/materials`<br>`GET /v1/elearning/quiz` | Kartu matkul & token, deadline tugas & nilai, rekapitulasi nilai per pertemuan, presensi hadir, tautan materi ZIP/PDF, kuis online |
 | **Perpustakaan** | `GET /v1/elibrary/search?q={query}&opsi={buku}`<br>`GET /v1/elibrary/book/{book_id}` | Pencarian OPAC katalog, metadata buku, klasifikasi, dan stok fisik di rak |
 | **Berita Resmi** | `GET /v1/news?page={1}&per_page={10}&search={query}`<br>`GET /v1/news/{id}`<br>`POST /v1/news/webhook/test` | Berita kampus resmi via native WP REST API (`news.bsi.ac.id`), auto-broadcaster Discord/Telegram/Custom, dan endpoint uji coba |
 | **Publikasi** | `GET /v1/repository/recent`<br>`GET /v1/repository/search?q={query}`<br>`GET /v1/ejournal/journals` | EPrints skripsi/penelitian terbaru dan katalog 23 jurnal ilmiah resmi UBSI via OAI bypass |

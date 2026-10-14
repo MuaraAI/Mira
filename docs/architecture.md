@@ -124,20 +124,30 @@ UBSI-API/
 ├── app/
 │   ├── modules/
 │   │   ├── studentv2.py       # SIAKAD: Jadwal, Nilai, Berita, Pengumuman, Dashboard
-│   │   ├── elearning.py       # MyBest: Captcha solver, Courses, Absensi, Tugas, Materi, Kuis
+│   │   ├── elearning.py       # MyBest: Courses, Absensi, Tugas, Materi, Kuis, Rekap Nilai
 │   │   ├── elibrary.py        # Perpus: OPAC search, Book detail, 60s retry
 │   │   ├── news.py            # Portal: Native WP REST API & Multi-channel Webhook
 │   │   ├── repository.py      # EPrints: Recent publications & search
-│   │   └── ejournal.py        # OJS: 23 Journal catalog with real titles
+│   │   ├── ejournal.py        # OJS: 23 Journal catalog with real titles
+│   │   ├── auth.py            # Auth: Login BSI, session, verify, logout, me
+│   │   └── channels.py        # Channels: Webhook notification CRUD & testing
 │   ├── cache.py               # Redis 2-tier cache (fresh + LGG) & single-flight mutex
+│   ├── channels_db.py         # SQLite WAL persistence for student notification channels
+│   ├── channel_validation.py  # Anti-SSRF and payload validation for webhooks
 │   ├── config.py              # Pydantic Settings & tiered TTLs
-│   ├── deps.py                # Modular credential validation (Option B)
+│   ├── deps.py                # Session credential injection & header overrides
 │   ├── envelope.py            # Clean Minimalist JSON envelope
 │   ├── limiter.py             # Sliding window rate limiter (60 req/min)
 │   ├── retry.py               # Exponential backoff retry with jitter
 │   ├── router_helper.py       # Helper generik cache, lock, & SWR
 │   ├── session_pool.py        # Pool sesi per-NIM dengan idle TTL (15m)
+│   ├── session_store.py       # Redis session storage (sliding 7 days TTL)
 │   └── main.py                # Base FastAPI app & global middleware
+├── landing-page/              # Next.js 15 App Router Frontend & Student Dashboard
+│   ├── public/fonts/          # Self-hosted woff2/otf fonts (Gordita, Inter, JetBrains Mono, Anton)
+│   ├── src/app/               # Landing, /login, /dashboard/*, /recap, robots, sitemap
+│   ├── src/components/        # Deep Water UI components & dashboard layouts
+│   └── src/lib/               # Client apiFetch wrapper, hooks, and session guards
 ├── tests/
 │   ├── fixtures/              # Snapshot HTML offline (sv2_*.html, el_*.html)
 │   ├── conftest.py            # Fixture autouse & test auth client
@@ -152,7 +162,7 @@ UBSI-API/
 ├── skills/
 │   └── SKILL.md               # Agent skill definition for AI assistants
 ├── docs/
-│   ├── api.md                 # 20 Endpoints dictionary & JSON payloads
+│   ├── api.md                 # Complete API dictionary & JSON payloads
 │   ├── architecture.md        # Request lifecycle, session pool, and cache flow
 │   ├── anti-ban.md            # Account security & safety protocols
 │   ├── deploy.md              # VPS PM2 production operations
