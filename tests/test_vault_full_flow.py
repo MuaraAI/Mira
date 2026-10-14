@@ -59,7 +59,7 @@ async def test_full_flow_member_key_vault_resolution():
             mock_cache_get.return_value = None
             
             # Request to public endpoint with member key
-            res = await ac.get("/v1/news", headers={"X-API-Key": "muara_live_full_test"})
+            res = await ac.get("/v1/news", headers={"X-API-Key": "muara_ubsi_full_test"})
             assert res.status_code == 200
             assert res.json()["success"] is True
             assert mock_supabase_client.get.called
@@ -86,7 +86,7 @@ async def test_full_flow_invalid_member_key_rejected():
             
             mock_cache_get.return_value = None
             
-            res = await ac.get("/v1/news", headers={"X-API-Key": "muara_live_revoked"})
+            res = await ac.get("/v1/news", headers={"X-API-Key": "muara_ubsi_revoked"})
             assert res.status_code == 401
             assert res.json()["error"]["code"] == "UNAUTHORIZED"
 
@@ -108,12 +108,12 @@ async def test_full_flow_rate_limit_per_member_key_isolation():
         # Key A allowed
         mock_limiter.return_value = True
         async with AsyncClient(transport=transport, base_url="http://test") as ac:
-            r1 = await ac.get("/v1/news", headers={"X-API-Key": "muara_live_key_a"})
+            r1 = await ac.get("/v1/news", headers={"X-API-Key": "muara_ubsi_key_a"})
             assert r1.status_code == 200
             
         # Key B rate limit exceeded
         mock_limiter.return_value = False
         async with AsyncClient(transport=transport, base_url="http://test") as ac:
-            r2 = await ac.get("/v1/news", headers={"X-API-Key": "muara_live_key_b"})
+            r2 = await ac.get("/v1/news", headers={"X-API-Key": "muara_ubsi_key_b"})
             assert r2.status_code == 429
             assert r2.json()["error"]["code"] == "RATE_LIMIT_EXCEEDED"

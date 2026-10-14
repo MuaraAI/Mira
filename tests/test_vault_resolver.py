@@ -30,7 +30,7 @@ async def test_resolve_member_key_cache_miss_fetches_supabase():
         mock_resp.json.return_value = mock_db_row
         mock_http_get.return_value = mock_resp
         
-        res = await resolve_member_key("muara_live_testkey123")
+        res = await resolve_member_key("muara_ubsi_testkey123")
         assert res is not None
         assert res["nim"] == "15260767"
         assert res["elearning_pass"] == "mypassword_el"
@@ -54,7 +54,7 @@ async def test_resolve_member_key_cache_hit_skips_supabase():
         
         mock_get_cache.return_value = cached_payload
         
-        res = await resolve_member_key("muara_live_cachedkey")
+        res = await resolve_member_key("muara_ubsi_cachedkey")
         assert res == cached_payload
         assert not mock_http_get.called
 
@@ -65,7 +65,7 @@ async def test_resolve_member_key_unconfigured_returns_none():
         mock_settings.SUPABASE_SERVICE_KEY = ""
         mock_settings.VAULT_ENCRYPTION_KEY = ""
         
-        res = await resolve_member_key("muara_live_anykey")
+        res = await resolve_member_key("muara_ubsi_anykey")
         assert res is None
 
 @pytest.mark.asyncio
@@ -84,7 +84,7 @@ async def test_resolve_member_key_not_found_returns_none():
         mock_resp.json.return_value = []
         mock_http_get.return_value = mock_resp
         
-        res = await resolve_member_key("muara_live_unknownkey")
+        res = await resolve_member_key("muara_ubsi_unknownkey")
         assert res is None
 
 @pytest.mark.asyncio
@@ -100,5 +100,5 @@ async def test_resolve_member_key_network_error_returns_none():
         mock_get_cache.return_value = None
         mock_http_get.side_effect = Exception("Connection timed out")
         
-        res = await resolve_member_key("muara_live_failingkey")
+        res = await resolve_member_key("muara_ubsi_failingkey")
         assert res is None

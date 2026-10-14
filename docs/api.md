@@ -43,7 +43,7 @@ Run locally or on your own VPS with a single master key:
 
 ### 2. Cloud Hosted Mode (Muara AI Platform)
 Deployed on `api.muaraai.com` or `ubsi-api.muaraai.com` with multi-tenancy:
-- Header: `X-API-Key: muara_live_<member_key>`
+- Header: `X-API-Key: muara_ubsi_<member_key>`
 - The backend automatically resolves and decrypts (AES-256-GCM) the student's bound NIM and campus passwords from the Supabase Vault with zero DB latency (Redis cached for 10 minutes).
 - Rate limiting: 60 requests/minute per member key (sliding-window).
 

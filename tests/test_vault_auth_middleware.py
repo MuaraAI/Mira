@@ -32,7 +32,7 @@ async def test_auth_member_key_resolves_and_allows_request():
              patch("app.vault.resolve_member_key", new_callable=AsyncMock) as mock_resolve:
             mock_resolve.return_value = member_payload
             
-            res = await ac.get("/v1/news", headers={"X-API-Key": "muara_live_valid123"})
+            res = await ac.get("/v1/news", headers={"X-API-Key": "muara_ubsi_valid123"})
             assert res.status_code == 200
             assert mock_resolve.called
 
@@ -44,7 +44,7 @@ async def test_auth_member_key_invalid_returns_401():
              patch("app.vault.resolve_member_key", new_callable=AsyncMock) as mock_resolve:
             mock_resolve.return_value = None
             
-            res = await ac.get("/v1/news", headers={"X-API-Key": "muara_live_invalidkey"})
+            res = await ac.get("/v1/news", headers={"X-API-Key": "muara_ubsi_invalidkey"})
             assert res.status_code == 401
             data = res.json()
             assert data["success"] is False
@@ -73,12 +73,12 @@ async def test_rate_limiter_isolates_member_keys():
         # Key 1 allowed
         mock_limiter.return_value = True
         async with AsyncClient(transport=transport, base_url="http://test") as ac:
-            r1 = await ac.get("/v1/news", headers={"X-API-Key": "muara_live_key1"})
+            r1 = await ac.get("/v1/news", headers={"X-API-Key": "muara_ubsi_key1"})
             assert r1.status_code == 200
         
         # Key 2 blocked by rate limit
         mock_limiter.return_value = False
         async with AsyncClient(transport=transport, base_url="http://test") as ac:
-            r2 = await ac.get("/v1/news", headers={"X-API-Key": "muara_live_key2"})
+            r2 = await ac.get("/v1/news", headers={"X-API-Key": "muara_ubsi_key2"})
             assert r2.status_code == 429
             assert r2.json()["error"]["code"] == "RATE_LIMIT_EXCEEDED"

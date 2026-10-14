@@ -188,7 +188,7 @@ async def test_news_webhook_test_endpoint_requires_master_key():
          patch("app.vault.resolve_member_key", new_callable=AsyncMock) as mock_resolve:
         mock_resolve.return_value = {"nim": "15260767", "elearning_pass": "p1", "studentv2_pass": "p2"}
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-            res = await ac.post("/v1/news/webhook/test?channel=all", headers={"X-API-Key": "muara_live_member_key"})
+            res = await ac.post("/v1/news/webhook/test?channel=all", headers={"X-API-Key": "muara_ubsi_member_key"})
             assert res.status_code == 403
             assert res.json()["error"]["code"] == "FORBIDDEN"
 

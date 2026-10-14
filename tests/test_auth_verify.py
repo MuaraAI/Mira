@@ -14,7 +14,7 @@ async def test_verify_requires_master_key():
             mock_resolve.return_value = {"nim": "15260767", "elearning_pass": "p1", "studentv2_pass": "p2"}
             res = await ac.post(
                 "/v1/auth/verify",
-                headers={"X-API-Key": "muara_live_member_key"},
+                headers={"X-API-Key": "muara_ubsi_member_key"},
                 json={"nim": "15260767", "elearning_pass": "p1", "studentv2_pass": "p2"}
             )
             assert res.status_code == 403
