@@ -22,12 +22,10 @@ export function Hero() {
 
           <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
             <a
-              href="https://muaraai.com/dashboard/vault"
-              target="_blank"
-              rel="noopener noreferrer"
+              href="/login"
               className="inline-flex items-center justify-center px-7 py-3.5 rounded-pill bg-[#0284C7] hover:bg-[#0369A1] text-white font-semibold text-sm transition-all duration-200 ease-glass shadow-float"
             >
-              Dapatkan API Key
+              Login BSI
             </a>
             <a
               href="#showcase"

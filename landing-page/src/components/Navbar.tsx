@@ -63,12 +63,10 @@ export function Navbar({ starsCount = 2 }: { starsCount?: number }) {
           </nav>
 
           <a
-            href="https://muaraai.com/dashboard/vault"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/login"
             className="hidden sm:inline-flex items-center gap-1 px-3.5 py-1.5 rounded-pill bg-[#0284C7] hover:bg-[#0369A1] text-xs font-mono text-white font-bold transition-all shadow-sm"
           >
-            Dapatkan API Key
+            Login BSI
           </a>
 
           <a
@@ -156,12 +154,10 @@ export function Navbar({ starsCount = 2 }: { starsCount?: number }) {
 
           <div className="pt-2 border-t border-stroke">
             <a
-              href="https://muaraai.com/dashboard/vault"
-              target="_blank"
-              rel="noopener noreferrer"
+              href="/login"
               className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-pill bg-[#0284C7] text-white text-xs font-bold font-mono"
             >
-              Dapatkan API Key
+              Login BSI
             </a>
           </div>
         </div>

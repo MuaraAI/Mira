@@ -43,16 +43,17 @@ Run locally or on your own VPS with a single master key:
 
 ### 2. Cloud Hosted Mode (Muara AI Platform)
 Deployed on `api.muaraai.com` or `ubsi-api.muaraai.com` with multi-tenancy:
-- Header: `X-API-Key: muara_ubsi_<member_key>`
-- The backend automatically resolves and decrypts (AES-256-GCM) the student's bound NIM and campus passwords from the Supabase Vault with zero DB latency (Redis cached for 10 minutes).
-- Rate limiting: 60 requests/minute per member key (sliding-window).
+- Login BSI di dashboard (`ubsi-api.muaraai.com/login`) dengan NIM + password kampus.
+- Session token (Redis, TTL 7 hari sliding) dikirim via cookie `ubsi_session` atau header `Authorization: Bearer <token>`.
+- Backend meng-inject kredensial kampus dari session ke setiap request (tidak ada kredensial di disk).
+- Rate limiting: 60 requests/minute per session.
 
 ### API Gateway Prefix (`ROOT_PATH`)
 When proxied behind an API Gateway (e.g., Caddy handling `api.muaraai.com/v1/ubsi-api/*`), set `ROOT_PATH=/v1/ubsi-api` in `.env`. Swagger UI (`/docs`) and OpenAPI schema automatically adjust to the sub-path prefix.
 
 ### `POST /v1/auth/verify`
-Pre-validation endpoint used by community portal (`muaraai.com`) to verify that student credentials actually authenticate against both campus portals (`students.bsi.ac.id` and `elearning.bsi.ac.id`) before persisting them into the encrypted vault.
-- **Access**: Master Key Only (`request.state.is_master == True`). Member keys return `403 FORBIDDEN`.
+Pre-validation endpoint to verify that student credentials actually authenticate against both campus portals (`students.bsi.ac.id` and `elearning.bsi.ac.id`). Dipakai juga oleh `POST /v1/auth/login` (via `verify_live_credentials`).
+- **Access**: Master Key Only (`request.state.is_master == True`). Key tidak dikenal return `401 UNAUTHORIZED`.
 - **Rate Limit**: Max 5 requests/minute per NIM (sliding-window anti-brute-force protection).
 - **Request Body**:
   ```json
