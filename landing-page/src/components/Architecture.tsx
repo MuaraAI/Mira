@@ -36,10 +36,10 @@ export function Architecture() {
           {specs.map((s, idx) => (
             <div
               key={idx}
-              className="p-5 rounded-[18px] bg-white/50 border border-white/80 shadow-sm flex flex-col justify-between hover:bg-white/80 hover:border-[#92EEFF]/80 hover:shadow-float transition-all duration-300"
+              className="p-5 rounded-[18px] bg-white/50 border border-white/80 shadow-sm flex flex-col justify-between hover:bg-white/80 hover:border-[#0369A1]/30 hover:shadow-float transition-all duration-300"
             >
               <div>
-                <span className="font-display text-2xl font-bold text-[#083344]">
+                <span className="font-display text-2xl font-bold text-[#072033]">
                   {s.metric}
                 </span>
                 <h3 className="font-display text-sm font-semibold text-foreground mt-1">

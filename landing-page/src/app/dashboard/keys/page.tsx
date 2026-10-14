@@ -133,9 +133,9 @@ export default function ApiKeysPage() {
         />
 
         <div className="flex items-center gap-3">
-          <div className="px-3.5 py-1.5 rounded-pill bg-[#0a1220] border border-[#92EEFF]/30 text-xs font-mono">
+          <div className="px-3.5 py-1.5 rounded-pill bg-[#072033] border border-[#0369A1]/30 text-xs font-mono">
             <span className="text-secondary">Slot: </span>
-            <span className={atLimit ? "text-amber-400 font-bold" : "text-[#92EEFF] font-bold"}>
+            <span className={atLimit ? "text-amber-400 font-bold" : "text-[#0369A1] font-bold"}>
               {keys.length} / {MAX_KEYS}
             </span>
           </div>
@@ -193,12 +193,12 @@ export default function ApiKeysPage() {
                   <tr key={k.id} className="hover:bg-white/5 transition-colors">
                     <td className="py-3 px-4 font-semibold text-foreground">
                       <div className="flex items-center gap-2">
-                        <KeyRound className="h-3.5 w-3.5 text-[#92EEFF]" />
+                        <KeyRound className="h-3.5 w-3.5 text-[#0369A1]" />
                         <span>{k.name}</span>
                       </div>
                     </td>
-                    <td className="py-3 px-4 font-mono text-[#92EEFF]">
-                      <span className="px-2 py-0.5 rounded bg-[#050B14]/70 border border-white/10">
+                    <td className="py-3 px-4 font-mono text-[#0369A1]">
+                      <span className="px-2 py-0.5 rounded bg-[#F0F7FB] border border-[#D9E5ED]">
                         {k.prefix}
                       </span>
                     </td>
@@ -226,7 +226,7 @@ export default function ApiKeysPage() {
                         type="button"
                         onClick={() => handleRevoke(k.id)}
                         disabled={revokingId === k.id}
-                        className={`${ghostButtonClass} text-xs py-1 px-2.5 text-[#b42318] hover:border-[#fda4af] hover:bg-rose-500/10`}
+                        className={`${ghostButtonClass} text-xs py-1 px-2.5 text-[#BE123C] hover:border-[#BE123C]/40 hover:bg-rose-500/10`}
                       >
                         <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                         Revoke
@@ -243,25 +243,25 @@ export default function ApiKeysPage() {
       {/* DOKUMENTASI CARA MENGGUNAKAN KEY */}
       <div className="glass-card p-6 space-y-4">
         <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
-          <Code2 className="h-4 w-4 text-[#92EEFF]" />
+          <Code2 className="h-4 w-4 text-[#0369A1]" />
           <span>Cara Menggunakan Personal API Key</span>
         </div>
         <p className="text-xs text-secondary leading-relaxed font-sans">
-          Sertakan kunci di header <code className="text-[#92EEFF] font-mono">Authorization: Bearer muara_ubsi_***</code> atau{" "}
-          <code className="text-[#92EEFF] font-mono">X-API-Key: muara_ubsi_***</code> pada setiap pemanggilan HTTP.
+          Sertakan kunci di header <code className="text-[#0369A1] font-mono">Authorization: Bearer muara_ubsi_***</code> atau{" "}
+          <code className="text-[#0369A1] font-mono">X-API-Key: muara_ubsi_***</code> pada setiap pemanggilan HTTP.
         </p>
 
-        <div className="bg-[#050B14] p-4 rounded-xl border border-white/10 font-mono text-xs text-code-text overflow-x-auto space-y-3">
+        <div className="bg-[#131B26] p-4 rounded-xl border border-white/10 font-mono text-xs text-code-text overflow-x-auto space-y-3">
           <div>
-            <p className="text-secondary text-[11px] mb-1"># 1. Ambil Jadwal Kuliah Anda lewat cURL:</p>
-            <pre className="text-[#92EEFF]">
-              curl -H &quot;Authorization: Bearer muara_ubsi_YOUR_KEY&quot; \
+            <p className="text-code-text/60 text-[11px] mb-1"># 1. Ambil Jadwal Kuliah Anda lewat cURL:</p>
+            <pre className="text-[#7DD3FC]">
+              curl -H &quot;Authorization: Bearer muara_ubsi_***&quot; \\
                 https://api.muaraai.com/v1/ubsi-api/v1/studentv2/schedule
             </pre>
           </div>
           <div className="pt-2 border-t border-white/10">
-            <p className="text-secondary text-[11px] mb-1"># 2. Skrip Python Otomasi:</p>
-            <pre className="text-foreground/90">
+            <p className="text-code-text/60 text-[11px] mb-1"># 2. Skrip Python Otomasi:</p>
+            <pre className="text-code-text/90">
 {`import requests
 
 headers = {"Authorization": "Bearer muara_ubsi_YOUR_KEY"}
@@ -276,7 +276,7 @@ print(res.json())`}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
           <div
-            className="glass-card-3d w-full max-w-lg p-6 sm:p-7 relative rounded-2xl shadow-2xl border border-[#92EEFF]/30 space-y-5"
+            className="glass-card-3d w-full max-w-lg p-6 sm:p-7 relative rounded-2xl shadow-2xl border border-[#0369A1]/30 space-y-5"
             role="dialog"
             aria-modal="true"
             aria-labelledby="key-modal-title"
@@ -305,8 +305,8 @@ print(res.json())`}
 
             {createdKey ? (
               <div className="space-y-4">
-                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs flex items-start gap-2.5">
-                  <AlertCircle className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
+                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 text-xs flex items-start gap-2.5">
+                  <AlertCircle className="h-4 w-4 shrink-0 text-amber-700 mt-0.5" />
                   <p className="leading-relaxed">
                     <strong>PENTING:</strong> Kunci ini <u>hanya ditampilkan satu kali</u>. Salin dan simpan di tempat aman (seperti file .env atau password manager) sekarang juga.
                   </p>
@@ -321,7 +321,7 @@ print(res.json())`}
                       type="text"
                       readOnly
                       value={createdKey}
-                      className={`${inputClass} font-mono text-xs select-all text-[#92EEFF] bg-[#050B14]`}
+                      className={`${inputClass} font-mono text-xs select-all text-[#7DD3FC] bg-[#131B26]`}
                     />
                     <button
                       type="button"
@@ -359,7 +359,7 @@ print(res.json())`}
             ) : (
               <form onSubmit={handleCreate} className="space-y-4">
                 {formError && (
-                  <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+                  <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-800 text-xs flex items-center gap-2">
                     <AlertCircle className="h-4 w-4 shrink-0" />
                     <span>{formError}</span>
                   </div>

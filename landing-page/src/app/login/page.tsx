@@ -105,7 +105,7 @@ export default function LoginPage() {
               <Monogram className="w-9 h-9" />
               <div>
                 <h1 className="text-xl font-display font-bold tracking-tight">Login Mahasiswa</h1>
-                <p className="text-xs font-mono tracking-widest text-[#08738a] font-bold uppercase">
+                <p className="text-xs font-mono tracking-widest text-[#0369A1] font-bold uppercase">
                   UBSI API Dashboard
                 </p>
               </div>
@@ -117,11 +117,11 @@ export default function LoginPage() {
             </p>
 
             {error && (
-              <div className="mb-5 rounded-sm border border-[#fda4af]/60 bg-[#fff1f2] px-4 py-3" role="alert">
-                <p className="font-mono text-xs font-bold uppercase tracking-widest text-[#b42318]">
+              <div className="mb-5 rounded-sm border border-[#BE123C]/30 bg-[#F0F7FB] px-4 py-3" role="alert">
+                <p className="font-mono text-xs font-bold uppercase tracking-widest text-[#BE123C]">
                   {error.code}
                 </p>
-                <p className="mt-0.5 text-sm text-[#881337]">{error.message}</p>
+                <p className="mt-0.5 text-sm text-[#BE123C]">{error.message}</p>
               </div>
             )}
 

@@ -14,7 +14,7 @@ export function Quickstart() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="glass-card-3d p-7 flex flex-col justify-between">
           <div>
-            <span className="w-9 h-9 rounded-full bg-[#0a1220] border border-[#92EEFF]/40 text-[#92EEFF] font-mono text-sm font-bold flex items-center justify-center mb-4 shadow-sm">
+            <span className="w-9 h-9 rounded-full bg-[#072033] border border-[#7DD3FC]/40 text-[#7DD3FC] font-mono text-sm font-bold flex items-center justify-center mb-4 shadow-sm">
               1
             </span>
             <h3 className="font-display text-base font-semibold text-foreground">
@@ -34,7 +34,7 @@ pip install -r requirements.txt`}</code>
 
         <div className="glass-card-3d p-7 flex flex-col justify-between">
           <div>
-            <span className="w-9 h-9 rounded-full bg-[#0a1220] border border-[#92EEFF]/40 text-[#92EEFF] font-mono text-sm font-bold flex items-center justify-center mb-4 shadow-sm">
+            <span className="w-9 h-9 rounded-full bg-[#072033] border border-[#7DD3FC]/40 text-[#7DD3FC] font-mono text-sm font-bold flex items-center justify-center mb-4 shadow-sm">
               2
             </span>
             <h3 className="font-display text-base font-semibold text-foreground">
@@ -55,7 +55,7 @@ pip install -r requirements.txt`}</code>
 
         <div className="glass-card-3d p-7 flex flex-col justify-between">
           <div>
-            <span className="w-9 h-9 rounded-full bg-[#0a1220] border border-[#92EEFF]/40 text-[#92EEFF] font-mono text-sm font-bold flex items-center justify-center mb-4 shadow-sm">
+            <span className="w-9 h-9 rounded-full bg-[#072033] border border-[#7DD3FC]/40 text-[#7DD3FC] font-mono text-sm font-bold flex items-center justify-center mb-4 shadow-sm">
               3
             </span>
             <h3 className="font-display text-base font-semibold text-foreground">

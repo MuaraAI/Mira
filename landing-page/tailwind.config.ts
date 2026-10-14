@@ -1,5 +1,7 @@
 import type { Config } from "tailwindcss";
 
+// Fluid Currents Light v2 (Muara AI DESIGNV2)
+// Palette: light estuary canvas, deep riverbed ink, river current blue accent.
 const config: Config = {
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
@@ -9,19 +11,23 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "#eef1f6",
+        background: "#F7FAFC",
+        "surface-alt": "#F0F7FB",
         surface: "rgba(255, 255, 255, 0.60)",
         "surface-solid": "#ffffff",
-        stroke: "rgba(17, 24, 39, 0.08)",
-        foreground: "#1a1d26",
-        secondary: "#5a616e",
+        stroke: "#D9E5ED",
+        foreground: "#072033",
+        secondary: "#3B5A70",
         accent: {
-          DEFAULT: "#92EEFF",
-          hover: "#B8F5FF",
-          dark: "#062535",
-          muted: "rgba(146, 238, 255, 0.15)",
-          glow: "rgba(146, 238, 255, 0.40)",
+          DEFAULT: "#0369A1",
+          hover: "#075985",
+          dark: "#072033",
+          muted: "rgba(3, 105, 161, 0.12)",
+          glow: "rgba(3, 105, 161, 0.25)",
         },
+        success: "#0F766E",
+        warning: "#9A3412",
+        danger: "#BE123C",
         glass: {
           DEFAULT: "rgba(255, 255, 255, 0.60)",
           hover: "rgba(255, 255, 255, 0.80)",
@@ -31,6 +37,8 @@ const config: Config = {
         code: {
           bg: "#131b26",
           text: "#cdd6f4",
+          // Light accent readable on the dark code surface (8.9:1).
+          accent: "#7DD3FC",
         },
       },
       fontFamily: {
@@ -44,13 +52,14 @@ const config: Config = {
         "3xl": "48px",
       },
       boxShadow: {
-        glass: "0 8px 32px rgba(26, 58, 92, 0.06)",
-        "glass-lg": "0 24px 48px rgba(26, 58, 92, 0.10)",
-        "glass-xl": "0 36px 64px rgba(26, 58, 92, 0.14)",
-        "glass-3d": "inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 2px 0 rgba(146, 238, 255, 0.25), 0 10px 30px -10px rgba(30, 41, 90, 0.12), 0 4px 12px -2px rgba(30, 41, 90, 0.06)",
-        "glass-3d-hover": "inset 0 2px 4px 0 rgba(255, 255, 255, 1), inset 0 0 20px 0 rgba(146, 238, 255, 0.25), 0 20px 40px -10px rgba(146, 238, 255, 0.35), 0 10px 20px -5px rgba(26, 40, 70, 0.12)",
+        // Diffusion shadow (water light refraction) per DESIGNV2.
+        float: "0 12px 32px -8px rgba(7, 32, 51, 0.10), 0 2px 6px -1px rgba(7, 32, 51, 0.05)",
+        glass: "0 12px 32px -8px rgba(7, 32, 51, 0.05), 0 2px 6px -1px rgba(7, 32, 51, 0.03)",
+        "glass-lg": "0 24px 48px rgba(7, 32, 51, 0.08)",
+        "glass-xl": "0 36px 64px rgba(7, 32, 51, 0.12)",
+        "glass-3d": "inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 2px 0 rgba(3, 105, 161, 0.10), 0 10px 30px -10px rgba(7, 32, 51, 0.10), 0 4px 12px -2px rgba(7, 32, 51, 0.05)",
+        "glass-3d-hover": "inset 0 2px 4px 0 rgba(255, 255, 255, 1), inset 0 0 20px 0 rgba(3, 105, 161, 0.10), 0 20px 40px -10px rgba(7, 32, 51, 0.14), 0 10px 20px -5px rgba(7, 32, 51, 0.10)",
         "glass-edge": "inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -1px 1px rgba(255,255,255,0.35)",
-        float: "0 8px 32px rgba(146, 238, 255, 0.35)",
       },
       borderRadius: {
         sm: "12px",
@@ -60,7 +69,7 @@ const config: Config = {
         pill: "100px",
       },
       transitionTimingFunction: {
-        glass: "cubic-bezier(0.22, 1, 0.36, 1)",
+        glass: "cubic-bezier(0.16, 1, 0.3, 1)",
       },
     },
   },

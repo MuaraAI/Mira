@@ -4,7 +4,7 @@ import { ROADMAP_ITEMS } from "@/data/roadmap";
 const STATUS_DOT: Record<string, string> = {
   tersedia: "bg-emerald-500",
   upcoming: "bg-amber-500",
-  "in-progress": "bg-[#08738a]",
+  "in-progress": "bg-[#0369A1]",
   planned: "bg-zinc-400",
 };
 
@@ -47,12 +47,12 @@ export function RoadmapTeaser() {
                   />
                   Status
                 </span>
-                <span className="text-[#08738a] font-semibold capitalize">{item.status}</span>
+                <span className="text-[#0369A1] font-semibold capitalize">{item.status}</span>
               </div>
               {item.href && (
                 <Link
                   href={item.href}
-                  className="mt-2.5 inline-block text-[11px] font-mono font-semibold text-[#08738a] hover:text-foreground underline underline-offset-4 decoration-[#92EEFF] transition-colors duration-200"
+                  className="mt-2.5 inline-block text-[11px] font-mono font-semibold text-[#0369A1] hover:text-foreground underline underline-offset-4 decoration-[#0369A1] transition-colors duration-200"
                 >
                   Buka halaman &rarr;
                 </Link>

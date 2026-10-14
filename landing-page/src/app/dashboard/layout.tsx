@@ -40,7 +40,7 @@ export default function DashboardLayout({
               <span className="font-display font-bold text-sm sm:text-base tracking-tight text-foreground">
                 UBSI API
               </span>
-              <span className="text-[10px] font-mono tracking-widest text-[#08738a] font-bold uppercase -mt-0.5">
+              <span className="text-[10px] font-mono tracking-widest text-[#0369A1] font-bold uppercase -mt-0.5">
                 Dashboard Mahasiswa
               </span>
             </div>
@@ -57,7 +57,7 @@ export default function DashboardLayout({
                       aria-current={active ? "page" : undefined}
                       className={`flex items-center gap-1.5 whitespace-nowrap rounded-pill px-3 py-1.5 text-xs sm:text-sm font-semibold transition-all duration-200 ease-glass ${
                         active
-                          ? "bg-[#0a1220] text-[#92EEFF] border border-[#92EEFF]/35"
+                          ? "bg-[#072033] text-white border border-white/25"
                           : "text-secondary hover:text-foreground border border-transparent"
                       }`}
                     >

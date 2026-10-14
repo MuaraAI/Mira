@@ -52,7 +52,7 @@ export function CodeShowcase() {
                   onClick={() => setActiveTab(tab)}
                   className={`px-2.5 py-1 rounded-sm text-xs font-mono transition-colors duration-200 ${
                     activeTab === tab
-                      ? "bg-[#92EEFF]/20 text-[#92EEFF] border border-[#92EEFF]/40 font-semibold"
+                      ? "bg-[#0369A1]/25 text-[#7DD3FC] border border-[#7DD3FC]/40 font-semibold"
                       : "text-code-text/60 hover:text-code-text"
                   }`}
                 >
@@ -75,7 +75,7 @@ export function CodeShowcase() {
           <div className="p-4 sm:p-6 bg-code-bg overflow-x-auto">
             <div className="flex items-center justify-between text-xs font-mono text-code-text/50 mb-3">
               <span>REQUEST SNIPPET</span>
-              <span className="text-accent">Authorization: Bearer</span>
+              <span className="text-code-accent">Authorization: ***</span>
             </div>
             <pre className="font-mono text-xs sm:text-sm text-code-text leading-relaxed whitespace-pre">
               <code>{activeExample.snippet}</code>

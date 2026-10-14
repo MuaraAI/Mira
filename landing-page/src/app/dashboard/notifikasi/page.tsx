@@ -231,9 +231,9 @@ export default function NotifikasiPage() {
         />
 
         <div className="flex items-center gap-3">
-          <div className="px-3.5 py-1.5 rounded-pill bg-[#0a1220] border border-[#92EEFF]/30 text-xs font-mono">
+          <div className="px-3.5 py-1.5 rounded-pill bg-[#F0F7FB] border border-[#D9E5ED] text-xs font-mono">
             <span className="text-secondary">Slot: </span>
-            <span className={atLimit ? "text-amber-400 font-bold" : "text-[#92EEFF] font-bold"}>
+            <span className={atLimit ? "text-amber-800 font-bold" : "text-[#0369A1] font-bold"}>
               {channels.length} / {MAX_CHANNELS}
             </span>
           </div>
@@ -276,7 +276,7 @@ export default function NotifikasiPage() {
           {channels.map((ch) => (
             <div
               key={ch.id}
-              className="glass-card p-5 flex flex-col justify-between hover:border-[#92EEFF]/30 transition-all duration-200"
+              className="glass-card p-5 flex flex-col justify-between hover:border-[#0369A1]/30 transition-all duration-200"
             >
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-2">
@@ -289,14 +289,14 @@ export default function NotifikasiPage() {
 
                 <div className="space-y-1.5 text-xs text-secondary">
                   {ch.config.url && (
-                    <div className="bg-[#050B14]/60 p-2 rounded-lg border border-white/5 font-mono truncate">
-                      <span className="text-[#92EEFF] font-semibold">URL: </span>
+                    <div className="bg-[#F0F7FB] p-2 rounded-lg border border-[#D9E5ED] font-mono truncate">
+                      <span className="text-[#0369A1] font-semibold">URL: </span>
                       <span className="text-foreground/80">{ch.config.url}</span>
                     </div>
                   )}
                   {ch.config.chat_id && (
-                    <div className="bg-[#050B14]/60 p-2 rounded-lg border border-white/5 font-mono">
-                      <span className="text-[#92EEFF] font-semibold">Chat ID: </span>
+                    <div className="bg-[#F0F7FB] p-2 rounded-lg border border-[#D9E5ED] font-mono">
+                      <span className="text-[#0369A1] font-semibold">Chat ID: </span>
                       <span className="text-foreground/80">{ch.config.chat_id}</span>
                     </div>
                   )}
@@ -309,7 +309,7 @@ export default function NotifikasiPage() {
                       {ch.categories.map((c) => (
                         <span
                           key={c}
-                          className="px-2 py-0.5 rounded-md bg-white/5 text-[11px] font-mono text-[#92EEFF] border border-white/10"
+                          className="px-2 py-0.5 rounded-md bg-[#F0F7FB] text-[11px] font-mono text-[#0369A1] border border-[#D9E5ED]"
                         >
                           {c}
                         </span>
@@ -322,8 +322,8 @@ export default function NotifikasiPage() {
                   <div
                     className={`text-xs p-2 rounded-lg flex items-center gap-1.5 ${
                       actionStatus[ch.id].ok
-                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                        : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                        ? "bg-emerald-500/10 text-emerald-800 border border-emerald-500/25"
+                        : "bg-rose-500/10 text-rose-800 border border-rose-500/25"
                     }`}
                   >
                     {actionStatus[ch.id].ok ? (
@@ -350,7 +350,7 @@ export default function NotifikasiPage() {
                   type="button"
                   onClick={() => handleDelete(ch.id)}
                   disabled={busyId === ch.id}
-                  className={`${ghostButtonClass} text-xs py-1.5 px-3 text-[#b42318] hover:border-[#fda4af] hover:bg-rose-500/10`}
+                  className={`${ghostButtonClass} text-xs py-1.5 px-3 text-[#BE123C] hover:border-[#BE123C]/40 hover:bg-rose-500/10`}
                 >
                   <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                   Hapus
@@ -380,7 +380,7 @@ export default function NotifikasiPage() {
                 disabled={Boolean(triggering)}
                 className={`${ghostButtonClass} text-xs py-1.5 px-3`}
               >
-                <CalendarCheck className="h-3.5 w-3.5 text-[#92EEFF]" />
+                <CalendarCheck className="h-3.5 w-3.5 text-[#0369A1]" />
                 {triggering === "matkul-besok" ? "Mengirim..." : "Tes Notif Matkul Besok"}
               </button>
               <button
@@ -389,15 +389,15 @@ export default function NotifikasiPage() {
                 disabled={Boolean(triggering)}
                 className={`${ghostButtonClass} text-xs py-1.5 px-3`}
               >
-                <BookOpen className="h-3.5 w-3.5 text-[#92EEFF]" />
+                <BookOpen className="h-3.5 w-3.5 text-[#0369A1]" />
                 {triggering === "quiz-tugas" ? "Mengirim..." : "Tes Notif Tugas & Kuis"}
               </button>
             </div>
           </div>
 
           {triggerStatus && (
-            <div className="text-xs p-3 rounded-xl bg-white/5 border border-white/10 text-[#92EEFF] flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+            <div className="text-xs p-3 rounded-xl bg-[#F0F7FB] border border-[#D9E5ED] text-[#0369A1] flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-emerald-700 shrink-0" />
               <span>{triggerStatus}</span>
             </div>
           )}
@@ -408,7 +408,7 @@ export default function NotifikasiPage() {
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
           <div
-            className="glass-card-3d w-full max-w-xl p-6 sm:p-7 relative max-h-[90vh] overflow-y-auto space-y-5 rounded-2xl shadow-2xl border border-[#92EEFF]/30"
+            className="glass-card-3d w-full max-w-xl p-6 sm:p-7 relative max-h-[90vh] overflow-y-auto space-y-5 rounded-2xl shadow-2xl border border-[#0369A1]/30"
             role="dialog"
             aria-modal="true"
             aria-labelledby="modal-title"
@@ -453,7 +453,7 @@ export default function NotifikasiPage() {
                       onClick={() => setType(t)}
                       className={`p-2.5 rounded-xl border text-xs font-semibold flex flex-col items-center gap-1.5 transition-all ${
                         type === t
-                          ? "bg-[#0369A1]/30 border-[#92EEFF] text-[#92EEFF] shadow-sm"
+                          ? "bg-[#0369A1]/30 border-[#0369A1] text-[#0369A1] shadow-sm"
                           : "bg-white/5 border-white/10 text-secondary hover:bg-white/10"
                       }`}
                     >
@@ -528,7 +528,7 @@ export default function NotifikasiPage() {
                         onClick={() => toggleCategory(cat.id)}
                         className={`p-3 rounded-xl border cursor-pointer transition-all flex items-start gap-3 ${
                           active
-                            ? "bg-[#0369A1]/20 border-[#92EEFF]/60 text-foreground"
+                            ? "bg-[#0369A1]/20 border-[#0369A1]/60 text-foreground"
                             : "bg-white/5 border-white/10 text-secondary hover:bg-white/10"
                         }`}
                       >
@@ -536,11 +536,11 @@ export default function NotifikasiPage() {
                           type="checkbox"
                           checked={active}
                           onChange={() => {}}
-                          className="mt-1 rounded text-[#0369A1] focus:ring-[#92EEFF]"
+                          className="mt-1 rounded text-[#0369A1] focus:ring-[#0369A1]"
                         />
                         <div className="flex-1">
                           <div className="flex items-center gap-1.5 font-semibold text-xs text-foreground">
-                            <Icon className="h-3.5 w-3.5 text-[#92EEFF]" />
+                            <Icon className="h-3.5 w-3.5 text-[#0369A1]" />
                             <span>{cat.label}</span>
                           </div>
                           <p className="text-[11px] text-secondary mt-0.5 leading-relaxed">

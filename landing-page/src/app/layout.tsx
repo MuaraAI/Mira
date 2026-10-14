@@ -175,7 +175,7 @@ export default function RootLayout({
       <body className="bg-background text-foreground antialiased min-h-screen font-sans">
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-accent focus:text-accent-dark focus:font-semibold focus:rounded-md focus:shadow-float focus:outline-none focus:ring-2 focus:ring-accent"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-accent focus:text-white focus:font-semibold focus:rounded-md focus:shadow-float focus:outline-none focus:ring-2 focus:ring-accent"
         >
           Langsung ke konten utama
         </a>

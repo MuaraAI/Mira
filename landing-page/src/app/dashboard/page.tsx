@@ -60,7 +60,7 @@ export default function DashboardOverviewPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="glass-card p-6">
-          <IdCard className="h-5 w-5 text-[#08738a]" aria-hidden="true" />
+          <IdCard className="h-5 w-5 text-[#0369A1]" aria-hidden="true" />
           <p className="mt-3 text-xs font-mono uppercase tracking-widest text-secondary font-bold">
             Identitas
           </p>
@@ -71,7 +71,7 @@ export default function DashboardOverviewPage() {
         </div>
 
         <div className="glass-card p-6">
-          <BellRing className="h-5 w-5 text-[#08738a]" aria-hidden="true" />
+          <BellRing className="h-5 w-5 text-[#0369A1]" aria-hidden="true" />
           <p className="mt-3 text-xs font-mono uppercase tracking-widest text-secondary font-bold">
             Channel Notifikasi
           </p>
@@ -87,7 +87,7 @@ export default function DashboardOverviewPage() {
         </div>
 
         <div className="glass-card p-6">
-          <CalendarDays className="h-5 w-5 text-[#08738a]" aria-hidden="true" />
+          <CalendarDays className="h-5 w-5 text-[#0369A1]" aria-hidden="true" />
           <p className="mt-3 text-xs font-mono uppercase tracking-widest text-secondary font-bold">
             Jadwal Hari {today}
           </p>
@@ -116,7 +116,7 @@ export default function DashboardOverviewPage() {
           <ul className="grid gap-3 sm:grid-cols-2">
             {todaySchedule.map((s) => (
               <li key={s.id} className="glass-card p-5">
-                <p className="font-mono text-xs font-bold text-[#08738a]">{s.kode}</p>
+                <p className="font-mono text-xs font-bold text-[#0369A1]">{s.kode}</p>
                 <p className="mt-1 font-bold text-foreground">{s.nama}</p>
                 <p className="mt-1 text-sm text-secondary">
                   {s.jam} : {s.ruang} : {s.kode_dosen}

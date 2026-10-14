@@ -74,7 +74,7 @@ export default function JadwalPage() {
                 <tbody>
                   {items.map((s) => (
                     <tr key={s.id} className="border-b border-stroke/60 last:border-0">
-                      <td className="px-4 py-3 font-mono text-xs font-bold text-[#08738a]">{s.kode}</td>
+                      <td className="px-4 py-3 font-mono text-xs font-bold text-[#0369A1]">{s.kode}</td>
                       <td className="px-4 py-3 font-semibold text-foreground">
                         {s.nama}
                         {s.kelompok_praktek && (
