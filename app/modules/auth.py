@@ -188,12 +188,13 @@ async def login(req_body: LoginRequest, request: Request):
             }
         ),
     )
+    is_https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
     response.set_cookie(
         key="ubsi_session",
         value=token,
         max_age=7 * 24 * 3600,
         httponly=True,
-        secure=request.url.scheme == "https",
+        secure=is_https,
         samesite="lax",
         domain=settings.SESSION_COOKIE_DOMAIN or None,
     )

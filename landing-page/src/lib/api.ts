@@ -121,7 +121,7 @@ export function useApi<T>(path: string) {
 
 export function useRequireSession() {
   const router = useRouter();
-  const { data, loading, error } = useApi<{ nim: string; auth_type?: string }>(
+  const { data, loading, error, reload } = useApi<{ nim: string; auth_type?: string }>(
     "/v1/auth/me"
   );
 
@@ -131,5 +131,12 @@ export function useRequireSession() {
     }
   }, [error, router]);
 
-  return { nim: data?.nim ?? null, authType: data?.auth_type ?? null, checking: loading, authed: !loading && !error };
+  return {
+    nim: data?.nim ?? null,
+    authType: data?.auth_type ?? null,
+    checking: loading,
+    authed: !loading && !error,
+    error,
+    reload,
+  };
 }

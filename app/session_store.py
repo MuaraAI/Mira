@@ -63,7 +63,14 @@ class SessionStore:
         if not raw:
             return None
         await client.expire(key, SESSION_TTL_SECONDS)
-        return json.loads(raw)
+        try:
+            data = json.loads(raw)
+            nim = data.get("nim")
+            if nim:
+                await client.expire(_INDEX_PREFIX + nim, SESSION_TTL_SECONDS)
+            return data
+        except Exception:
+            return None
 
     async def delete(self, token: str) -> None:
         client = await self.get_client()

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CalendarDays, LayoutDashboard, Newspaper, BellRing, UserRound } from "lucide-react";
 import { useRequireSession } from "@/lib/api";
-import { LoadingState } from "@/components/dashboard-ui";
+import { ErrorState, LoadingState } from "@/components/dashboard-ui";
 import { Monogram } from "@/components/Monogram";
 
 const NAV_ITEMS = [
@@ -21,7 +21,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { authed, checking } = useRequireSession();
+  const { authed, checking, error, reload } = useRequireSession();
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground selection:bg-accent/25">
@@ -72,7 +72,13 @@ export default function DashboardLayout({
       </header>
 
       <main id="main-content" className="flex-1 w-full max-w-5xl mx-auto px-4 sm:px-6 py-8">
-        {checking ? <LoadingState label="Memeriksa sesi login" /> : authed ? children : null}
+        {checking ? (
+          <LoadingState label="Memeriksa sesi login" />
+        ) : error ? (
+          <ErrorState error={error} onRetry={reload} />
+        ) : authed ? (
+          children
+        ) : null}
       </main>
 
       <footer className="py-6 px-4 text-center">

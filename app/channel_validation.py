@@ -31,8 +31,10 @@ def validate_channel_payload(
         if not chat_id:
             return False, "Telegram chat ID wajib diisi"
     else:
+        from app.modules.news import is_safe_webhook_url
+
         url = str(config.get("url", "")).strip()
-        if not _CUSTOM_URL_RE.match(url):
-            return False, "Custom webhook URL harus URL https yang valid"
+        if not _CUSTOM_URL_RE.match(url) or not is_safe_webhook_url(url):
+            return False, "Custom webhook URL harus URL https publik yang valid (anti-SSRF)"
 
     return True, ""

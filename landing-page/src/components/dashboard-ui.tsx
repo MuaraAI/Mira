@@ -79,7 +79,11 @@ export function PageHeader({
 }
 
 export function ChannelTypeBadge({ type }: { type: string }) {
-  return <span className="accent-badge font-mono uppercase">{type}</span>;
+  return (
+    <span className="inline-flex items-center rounded-pill bg-[#08738a]/10 border border-[#08738a]/30 px-2.5 py-0.5 text-[11px] font-bold font-mono text-[#08738a] uppercase">
+      {type}
+    </span>
+  );
 }
 
 export function ChannelActiveBadge({ active }: { active: boolean }) {

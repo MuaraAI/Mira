@@ -85,6 +85,7 @@ export default function NotifikasiPage() {
   }
 
   async function handleDelete(id: number) {
+    if (!window.confirm("Hapus channel notifikasi ini?")) return;
     setBusyId(id);
     setActionStatus((s) => ({ ...s, [id]: { ok: true, message: "" } }));
     try {

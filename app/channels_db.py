@@ -149,7 +149,7 @@ def _sync_list_active_by_category(category: str) -> list[dict[str, Any]]:
     conn = _connect()
     try:
         rows = conn.execute(
-            "SELECT id, nim, type, config FROM webhook_channels "
+            "SELECT id, nim, type, categories, config FROM webhook_channels "
             "WHERE is_active = 1 ORDER BY id"
         ).fetchall()
         matched = []

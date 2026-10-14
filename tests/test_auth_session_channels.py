@@ -262,3 +262,40 @@ async def test_channel_limit_max_five_per_nim(fake_redis):
         res = await ac.post("/v1/channels", headers=auth_headers, json=payload)
         assert res.status_code == 400
         assert res.json()["error"]["code"] == "CHANNEL_LIMIT"
+
+
+@pytest.mark.asyncio
+async def test_custom_webhook_ssrf_rejected(fake_redis):
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        token = await _login(ac, fake_redis)
+        auth_headers = {"Authorization": f"Bearer {token}"}
+        
+        # Private IP rejection
+        res = await ac.post(
+            "/v1/channels",
+            headers=auth_headers,
+            json={
+                "type": "custom",
+                "categories": ["berita-kampus"],
+                "config": {"url": "https://127.0.0.1:8000/hook"},
+            },
+        )
+        assert res.status_code == 400
+        assert "SSRF" in res.json()["error"]["message"]
+
+
+@pytest.mark.asyncio
+async def test_active_channels_by_category_query(fake_redis):
+    from app.channels_db import add_channel, set_channel_active, list_active_by_category
+
+    ch_id = await add_channel("15260767", "custom", ["berita-kampus"], {"url": "https://example.com/h"})
+    await set_channel_active("15260767", ch_id, True)
+
+    matched = await list_active_by_category("berita-kampus")
+    assert len(matched) == 1
+    assert matched[0]["id"] == ch_id
+    assert matched[0]["nim"] == "15260767"
+
+    unmatched = await list_active_by_category("tugas-baru")
+    assert len(unmatched) == 0

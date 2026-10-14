@@ -307,10 +307,19 @@ async def broadcast_news_article(post: dict[str, Any]) -> dict[str, bool]:
 
 async def poll_news_webhook() -> int:
     """Cek artikel berita baru dan broadcast ke seluruh channel aktif."""
+    from app.channels_db import list_active_by_category
+
+    user_channels = []
+    try:
+        user_channels = await list_active_by_category("berita-kampus")
+    except Exception:
+        pass
+
     has_channel = bool(
         settings.DISCORD_WEBHOOK_URL
         or (settings.TELEGRAM_BOT_TOKEN and settings.TELEGRAM_CHAT_ID)
         or settings.NEWS_WEBHOOK_URL
+        or user_channels
     )
     if not has_channel:
         return 0
