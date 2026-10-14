@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, LayoutDashboard, Newspaper, BellRing, UserRound } from "lucide-react";
+import { CalendarDays, LayoutDashboard, Newspaper, BellRing, UserRound, KeyRound } from "lucide-react";
 import { useRequireSession } from "@/lib/api";
 import { ErrorState, LoadingState } from "@/components/dashboard-ui";
 import { Monogram } from "@/components/Monogram";
@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/jadwal", label: "Jadwal", icon: CalendarDays, exact: false },
   { href: "/dashboard/berita", label: "Berita", icon: Newspaper, exact: false },
   { href: "/dashboard/notifikasi", label: "Notifikasi", icon: BellRing, exact: false },
+  { href: "/dashboard/keys", label: "API Keys", icon: KeyRound, exact: false },
   { href: "/dashboard/sesi", label: "Sesi", icon: UserRound, exact: false },
 ];
 

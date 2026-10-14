@@ -240,6 +240,7 @@ async def logout_all(request: Request):
 async def me(request: Request):
     nim = getattr(request.state, "nim", None)
     is_master = getattr(request.state, "is_master", False)
+    auth_type = getattr(request.state, "auth_type", "session")
     if is_master:
         return success_response(data={"identity": "master", "nim": None})
     if not nim:
@@ -249,7 +250,86 @@ async def me(request: Request):
                 code="UNAUTHORIZED", message="Belum login", module="auth"
             ),
         )
-    return success_response(data={"nim": nim, "auth_type": "session"})
+    return success_response(data={"nim": nim, "auth_type": auth_type})
+
+
+class CreateApiKeyRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=50, description="Label / nama API Key")
+
+
+@router.get("/keys")
+async def get_my_api_keys(request: Request):
+    nim = getattr(request.state, "nim", None)
+    if not nim:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=error_response(
+                code="UNAUTHORIZED", message="Wajib login terlebih dahulu", module="auth"
+            ),
+        )
+    from app.api_keys_db import list_api_keys
+
+    keys = await list_api_keys(str(nim))
+    return success_response(data={"keys": keys, "total": len(keys)})
+
+
+@router.post("/keys")
+async def create_my_api_key(request: Request, body: CreateApiKeyRequest):
+    nim = getattr(request.state, "nim", None)
+    sv2_pass = getattr(request.state, "studentv2_pass", None)
+    el_pass = getattr(request.state, "elearning_pass", None)
+
+    if not nim or not sv2_pass or not el_pass:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=error_response(
+                code="UNAUTHORIZED",
+                message="Wajib login dengan kredensial aktif untuk membuat API Key",
+                module="auth",
+            ),
+        )
+
+    from app.api_keys_db import create_api_key
+
+    try:
+        key_info = await create_api_key(
+            nim=str(nim),
+            name=body.name,
+            studentv2_pass=str(sv2_pass),
+            elearning_pass=str(el_pass),
+        )
+        return success_response(data=key_info)
+    except ValueError as err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_response(code="LIMIT_EXCEEDED", message=str(err), module="auth"),
+        )
+
+
+@router.delete("/keys/{key_id}")
+async def revoke_my_api_key(request: Request, key_id: int):
+    nim = getattr(request.state, "nim", None)
+    if not nim:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=error_response(
+                code="UNAUTHORIZED", message="Wajib login terlebih dahulu", module="auth"
+            ),
+        )
+
+    from app.api_keys_db import revoke_api_key
+
+    ok = await revoke_api_key(str(nim), key_id)
+    if not ok:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=error_response(
+                code="KEY_NOT_FOUND",
+                message="API Key tidak ditemukan atau sudah dinonaktifkan",
+                module="auth",
+            ),
+        )
+    return success_response(data={"revoked": True, "id": key_id})
 
 
 def _bearer_token(request: Request) -> str:

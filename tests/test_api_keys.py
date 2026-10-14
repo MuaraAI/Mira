@@ -1,0 +1,158 @@
+import pytest
+from httpx import AsyncClient, ASGITransport
+
+from app.main import app
+from app.api_keys_db import (
+    init_api_keys_db,
+    create_api_key,
+    list_api_keys,
+    revoke_api_key,
+    resolve_api_key,
+)
+from app.session_store import session_store
+
+
+class FakeRedis:
+    def __init__(self):
+        self.kv: dict = {}
+        self.sets: dict = {}
+
+    async def get(self, key):
+        return self.kv.get(key)
+
+    async def set(self, key, val, ex=None):
+        self.kv[key] = str(val)
+        return True
+
+    async def delete(self, *keys):
+        c = 0
+        for k in keys:
+            if k in self.kv:
+                del self.kv[k]
+                c += 1
+            if k in self.sets:
+                del self.sets[k]
+                c += 1
+        return c
+
+    async def expire(self, key, seconds):
+        return True
+
+    async def sadd(self, key, *members):
+        s = self.sets.setdefault(key, set())
+        for m in members:
+            s.add(str(m))
+        return len(members)
+
+    async def smembers(self, key):
+        return self.sets.get(key, set())
+
+    async def srem(self, key, *members):
+        s = self.sets.get(key, set())
+        for m in members:
+            s.discard(str(m))
+        return len(members)
+
+    async def incr(self, key):
+        self.kv[key] = int(self.kv.get(key, 0)) + 1
+        return self.kv[key]
+
+
+@pytest.fixture(autouse=True)
+def setup_test_env(tmp_path, monkeypatch):
+    test_db = str(tmp_path / "test_ubsi.db")
+    monkeypatch.setattr("app.config.settings.SQLITE_DB_PATH", test_db)
+    init_api_keys_db()
+
+    fake = FakeRedis()
+    monkeypatch.setattr("app.session_store.session_store._client", fake)
+    # Mock cache client for api_keys_db
+    monkeypatch.setattr("app.cache.cache.get_client", lambda: fake)
+
+
+@pytest.mark.asyncio
+async def test_api_key_lifecycle_direct():
+    # 1. Create Key
+    key_info = await create_api_key("15260767", "Bot Discord", "pass_sv2", "pass_el")
+    assert key_info["nim"] == "15260767"
+    assert key_info["name"] == "Bot Discord"
+    assert key_info["key"].startswith("muara_ubsi_")
+    plain_key = key_info["key"]
+
+    # 2. List Keys
+    keys = await list_api_keys("15260767")
+    assert len(keys) == 1
+    assert keys[0]["id"] == key_info["id"]
+    assert "key" not in keys[0]  # Plain key never returned in list
+    assert keys[0]["prefix"].startswith("muara_ubsi_")
+
+    # 3. Resolve Key
+    resolved = await resolve_api_key(plain_key)
+    assert resolved is not None
+    assert resolved["nim"] == "15260767"
+    assert resolved["studentv2_pass"] == "pass_sv2"
+    assert resolved["elearning_pass"] == "pass_el"
+
+    # 4. Resolve Invalid Key
+    assert await resolve_api_key("muara_ubsi_invalid_random_string_12345") is None
+    assert await resolve_api_key("not_muara_prefix") is None
+
+    # 5. Revoke Key
+    revoked = await revoke_api_key("15260767", key_info["id"])
+    assert revoked is True
+    assert await resolve_api_key(plain_key) is None
+
+    # 6. List after revoke
+    keys_after = await list_api_keys("15260767")
+    assert len(keys_after) == 0
+
+
+@pytest.mark.asyncio
+async def test_api_key_endpoints_async():
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        # 1. Create session
+        session_token = await session_store.create(
+            nim="15260767",
+            studentv2_pass="pass_sv2_real",
+            elearning_pass="pass_el_real",
+        )
+        headers = {"Authorization": f"Bearer {session_token}"}
+
+        # 2. Get keys (initially empty)
+        res = await client.get("/v1/auth/keys", headers=headers)
+        assert res.status_code == 200
+        assert res.json()["data"]["keys"] == []
+
+        # 3. Create key
+        res_create = await client.post(
+            "/v1/auth/keys", headers=headers, json={"name": "Otomasi Mahasiswa"}
+        )
+        assert res_create.status_code == 200
+        created_data = res_create.json()["data"]
+        plain_key = created_data["key"]
+        assert plain_key.startswith("muara_ubsi_")
+        key_id = created_data["id"]
+
+        # 4. Access endpoint using Personal API Key (Bearer)
+        apikey_headers = {"Authorization": f"Bearer {plain_key}"}
+        res_me = await client.get("/v1/auth/me", headers=apikey_headers)
+        assert res_me.status_code == 200
+        assert res_me.json()["data"]["nim"] == "15260767"
+        assert res_me.json()["data"]["auth_type"] == "api_key"
+
+        # Also test X-API-Key header
+        res_me_x = await client.get("/v1/auth/me", headers={"x-api-key": plain_key})
+        assert res_me_x.status_code == 200
+        assert res_me_x.json()["data"]["nim"] == "15260767"
+
+        # 5. Revoke key
+        res_del = await client.delete(f"/v1/auth/keys/{key_id}", headers=headers)
+        assert res_del.status_code == 200
+        assert res_del.json()["data"]["revoked"] is True
+
+        # 6. Access with revoked key -> 401
+        res_me_revoked = await client.get("/v1/auth/me", headers=apikey_headers)
+        assert res_me_revoked.status_code == 401
+        assert res_me_revoked.json()["error"]["code"] == "UNAUTHORIZED"

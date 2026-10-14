@@ -103,6 +103,26 @@ export default function NotifikasiPage() {
   const [actionStatus, setActionStatus] = useState<
     Record<number, { ok: boolean; message: string }>
   >({});
+  const [triggerStatus, setTriggerStatus] = useState<string | null>(null);
+  const [triggering, setTriggering] = useState<string | null>(null);
+
+  async function handleSimulate(cat: "matkul-besok" | "quiz-tugas") {
+    setTriggering(cat);
+    setTriggerStatus(null);
+    try {
+      const res = await apiFetch<{ message: string }>(
+        "/v1/channels/trigger-reminder",
+        { json: { category: cat } }
+      );
+      setTriggerStatus(res.message);
+    } catch (err) {
+      setTriggerStatus(
+        err instanceof ApiError ? err.message : "Gagal mengirim simulasi pengingat."
+      );
+    } finally {
+      setTriggering(null);
+    }
+  }
 
   // Close modal on Escape
   useEffect(() => {
@@ -338,6 +358,49 @@ export default function NotifikasiPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* UJI COBA SIMULASI PENGINGAT OTOMATIS */}
+      {channels.length > 0 && (
+        <div className="glass-card p-5 sm:p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h3 className="font-display font-semibold text-sm text-foreground">
+                Simulasi Pengingat Webhook
+              </h3>
+              <p className="text-xs text-secondary mt-0.5 font-sans">
+                Uji format tampilan pengingat matkul H-1 dan tugas kuis langsung ke channel aktif Anda.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handleSimulate("matkul-besok")}
+                disabled={Boolean(triggering)}
+                className={`${ghostButtonClass} text-xs py-1.5 px-3`}
+              >
+                <CalendarCheck className="h-3.5 w-3.5 text-[#92EEFF]" />
+                {triggering === "matkul-besok" ? "Mengirim..." : "Tes Notif Matkul Besok"}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSimulate("quiz-tugas")}
+                disabled={Boolean(triggering)}
+                className={`${ghostButtonClass} text-xs py-1.5 px-3`}
+              >
+                <BookOpen className="h-3.5 w-3.5 text-[#92EEFF]" />
+                {triggering === "quiz-tugas" ? "Mengirim..." : "Tes Notif Tugas & Kuis"}
+              </button>
+            </div>
+          </div>
+
+          {triggerStatus && (
+            <div className="text-xs p-3 rounded-xl bg-white/5 border border-white/10 text-[#92EEFF] flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+              <span>{triggerStatus}</span>
+            </div>
+          )}
         </div>
       )}
 

@@ -45,8 +45,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     try:
         from app.channels_db import init_db
+        from app.api_keys_db import init_api_keys_db
 
         init_db()
+        init_api_keys_db()
     except Exception:
         pass
 
@@ -118,14 +120,43 @@ async def api_key_auth_middleware(request: Request, call_next):
     if request.url.path.rstrip("/") in public_paths:
         return await call_next(request)
 
-    # 3a. Session token (dashboard login BSI): Authorization Bearer ATAU cookie
-    session_token = ""
+    # 3a. Extract candidate tokens from Authorization Bearer, cookies, or X-API-Key
     auth_header = request.headers.get("authorization", "")
-    if auth_header.lower().startswith("bearer "):
-        session_token = auth_header[7:].strip()
-    if not session_token:
-        session_token = request.cookies.get("ubsi_session", "")
+    bearer_token = auth_header[7:].strip() if auth_header.lower().startswith("bearer ") else ""
+    raw_api_key = request.headers.get("x-api-key")
+    api_key = raw_api_key.strip() if raw_api_key else ""
+    cookie_token = request.cookies.get("ubsi_session", "")
 
+    # 3b. Personal API Key check (prefix: muara_ubsi_)
+    candidate_api_key = ""
+    if bearer_token.startswith("muara_ubsi_"):
+        candidate_api_key = bearer_token
+    elif api_key.startswith("muara_ubsi_"):
+        candidate_api_key = api_key
+
+    if candidate_api_key:
+        from app.api_keys_db import resolve_api_key
+
+        key_data = await resolve_api_key(candidate_api_key)
+        if key_data:
+            request.state.is_master = False
+            request.state.key_id = f"apikey:{key_data['nim']}"
+            request.state.nim = key_data["nim"]
+            request.state.studentv2_pass = key_data["studentv2_pass"]
+            request.state.elearning_pass = key_data["elearning_pass"]
+            request.state.auth_type = "api_key"
+            return await call_next(request)
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content=error_response(
+                code="UNAUTHORIZED",
+                message="Akses ditolak: API Key tidak valid atau telah dinonaktifkan.",
+                module="auth",
+            ),
+        )
+
+    # 3c. Session token (dashboard login BSI): Authorization Bearer ATAU cookie
+    session_token = bearer_token or cookie_token
     if session_token:
         from app.session_store import session_store
 
@@ -136,6 +167,7 @@ async def api_key_auth_middleware(request: Request, call_next):
             request.state.nim = session_data["nim"]
             request.state.elearning_pass = session_data["elearning_pass"]
             request.state.studentv2_pass = session_data["studentv2_pass"]
+            request.state.auth_type = "session"
             return await call_next(request)
         return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -146,25 +178,22 @@ async def api_key_auth_middleware(request: Request, call_next):
             ),
         )
 
-    # 3b. Validate X-API-Key
-    raw_api_key = request.headers.get("x-api-key")
-    api_key = raw_api_key.strip() if raw_api_key else ""
+    # 3d. Master Key check via X-API-Key
     if not api_key:
         return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
             content=error_response(
                 code="UNAUTHORIZED",
-                message="Akses ditolak: Header X-API-Key tidak valid atau tidak disertakan",
-                module="auth"
-            )
+                message="Akses ditolak: Header X-API-Key atau Authorization Bearer tidak valid",
+                module="auth",
+            ),
         )
 
     configured_key = settings.API_KEY
-
-    # 3c. Master Key check
     if configured_key and secrets.compare_digest(api_key, configured_key):
         request.state.is_master = True
         request.state.key_id = "master"
+        request.state.auth_type = "master"
         return await call_next(request)
 
     return JSONResponse(
@@ -172,8 +201,8 @@ async def api_key_auth_middleware(request: Request, call_next):
         content=error_response(
             code="UNAUTHORIZED",
             message="Akses ditolak: Header X-API-Key tidak valid atau tidak disertakan",
-            module="auth"
-        )
+            module="auth",
+        ),
     )
 
 @app.middleware("http")
