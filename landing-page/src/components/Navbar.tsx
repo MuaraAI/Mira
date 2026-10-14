@@ -65,12 +65,12 @@ export function Navbar({ starsCount = 2 }: { starsCount?: number }) {
             </a>
           </nav>
 
-          <a
+          <Link
             href="/login"
             className="hidden sm:inline-flex items-center gap-1 px-3.5 py-1.5 rounded-pill bg-[#0369A1] hover:bg-[#0284C7] text-xs font-mono text-white font-bold transition-all shadow-sm"
           >
             Login BSI
-          </a>
+          </Link>
 
           <a
             href="https://github.com/MuaraAI/UBSI-API"
@@ -163,12 +163,13 @@ export function Navbar({ starsCount = 2 }: { starsCount?: number }) {
           </a>
 
           <div className="pt-2 border-t border-stroke">
-            <a
+            <Link
               href="/login"
+              onClick={() => setMobileMenuOpen(false)}
               className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-pill bg-[#0369A1] hover:bg-[#0284C7] text-white text-xs font-bold font-mono"
             >
               Login BSI
-            </a>
+            </Link>
           </div>
         </div>
       )}

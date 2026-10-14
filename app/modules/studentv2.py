@@ -1,11 +1,14 @@
 import asyncio
 import hashlib
+import logging
 import re
 from typing import Any, Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from scrapling.parser import Adaptor
+
+logger = logging.getLogger("app.studentv2")
 
 from app.config import settings
 from app.deps import require_studentv2_creds
@@ -161,8 +164,10 @@ class StudentV2Client:
             if "mahasiswa/beranda" in str(r2.url) or "students.bsi.ac.id/mahasiswa" in str(r2.url) or "studentv2.bsi.ac.id/mahasiswa" in str(r2.url):
                 self._logged_in = True
                 return True
+            logger.warning("SIAKAD login rejected for %s: ended at %s (status %s)", nim, r2.url, r2.status_code)
             return False
-        except Exception:
+        except Exception as err:
+            logger.error("SIAKAD login exception for %s: %s", nim, err)
             return False
 
     def fetch_page(self, path: str, nim: str, password: str) -> str:

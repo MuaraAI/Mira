@@ -3,10 +3,11 @@ import { RoadmapItem } from "@/types";
 export const ROADMAP_ITEMS: RoadmapItem[] = [
   {
     version: "v1.2",
-    title: "Ekspor Kalender iCal (.ics)",
+    title: "Dashboard Mahasiswa & Webhook",
     description:
-      "Sinkronisasi otomatis jadwal kuliah SIAKAD langsung ke Google Calendar di Android dan Apple Calendar di iOS.",
-    status: "upcoming",
+      "Akses mandiri jadwal, berita, dan integrasi notifikasi warta kampus ke Discord/Telegram pribadi tanpa API key.",
+    status: "tersedia",
+    href: "/login",
   },
   {
     version: "v1.2",
@@ -15,6 +16,13 @@ export const ROADMAP_ITEMS: RoadmapItem[] = [
       "Tracking status pengumpulan dan rekapitulasi nilai tugas 6 mata kuliah aktif per setiap pertemuan secara terstruktur.",
     status: "tersedia",
     href: "/recap",
+  },
+  {
+    version: "v1.2",
+    title: "Ekspor Kalender iCal (.ics)",
+    description:
+      "Sinkronisasi otomatis jadwal kuliah SIAKAD langsung ke Google Calendar di Android dan Apple Calendar di iOS.",
+    status: "upcoming",
   },
   {
     version: "v1.2",

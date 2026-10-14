@@ -1,4 +1,3 @@
-import React from "react";
 import Link from "next/link";
 import { ROADMAP_ITEMS } from "@/data/roadmap";
 

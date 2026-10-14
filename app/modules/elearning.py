@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import logging
 import re
 import statistics
 from typing import Any, Optional
@@ -7,6 +8,8 @@ from typing import Any, Optional
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from scrapling.parser import Adaptor
+
+logger = logging.getLogger("app.elearning")
 
 from app.config import settings
 from app.deps import require_elearning_creds
@@ -400,8 +403,10 @@ class ElearningClient:
             if "dashboard" in str(r2.url) or "elearning.bsi.ac.id/user" in str(r2.url):
                 self._logged_in = True
                 return True
+            logger.warning("Elearning login rejected for %s: ended at %s (status %s)", nim, r2.url, r2.status_code)
             return False
-        except Exception:
+        except Exception as err:
+            logger.error("Elearning login exception for %s: %s", nim, err)
             return False
 
     def fetch_page(self, path: str, nim: str, password: str) -> str:

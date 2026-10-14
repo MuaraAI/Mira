@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { CODE_EXAMPLES } from "@/data/codeExamples";
 
 export function CodeShowcase() {
@@ -75,7 +75,7 @@ export function CodeShowcase() {
           <div className="p-4 sm:p-6 bg-code-bg overflow-x-auto">
             <div className="flex items-center justify-between text-xs font-mono text-code-text/50 mb-3">
               <span>REQUEST SNIPPET</span>
-              <span className="text-accent">X-API-Key: ***</span>
+              <span className="text-accent">Authorization: Bearer</span>
             </div>
             <pre className="font-mono text-xs sm:text-sm text-code-text leading-relaxed whitespace-pre">
               <code>{activeExample.snippet}</code>
@@ -87,7 +87,7 @@ export function CodeShowcase() {
               <span>RESPONSE PAYLOAD (JSON)</span>
               <div className="flex items-center gap-2">
                 <span className="text-emerald-400 font-semibold">200 OK</span>
-                <span className="text-code-text/40">• {activeExample.latencyMs}ms</span>
+                <span className="text-code-text/40">/ {activeExample.latencyMs}ms</span>
               </div>
             </div>
             <pre className="font-mono text-xs text-code-text/70 leading-relaxed whitespace-pre max-h-[360px] overflow-y-auto">

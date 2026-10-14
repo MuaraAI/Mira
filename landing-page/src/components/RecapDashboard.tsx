@@ -127,7 +127,7 @@ export function RecapDashboard() {
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 py-14 sm:py-20">
       {/* Header */}
-      <p className="section-kicker mb-3">MyBest Elearning · v1.2</p>
+      <p className="section-kicker mb-3">MyBest Elearning / v1.2</p>
       <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
         Rekap Nilai Tugas &amp; Kuis.
       </h1>

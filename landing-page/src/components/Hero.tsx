@@ -1,4 +1,4 @@
-import React from "react";
+import Link from "next/link";
 
 export function Hero() {
   return (
@@ -18,12 +18,12 @@ export function Hero() {
           </p>
 
           <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
-            <a
+            <Link
               href="/login"
               className="inline-flex items-center justify-center px-7 py-3.5 rounded-pill bg-[#0369A1] hover:bg-[#0284C7] text-white font-semibold text-sm transition-all duration-200 ease-glass shadow-float"
             >
               Login BSI
-            </a>
+            </Link>
             <a
               href="#showcase"
               className="inline-flex items-center justify-center px-6 py-3.5 rounded-pill bg-white/60 hover:bg-white border border-stroke text-foreground font-semibold text-sm transition-all duration-200 ease-glass shadow-sm"
@@ -93,7 +93,7 @@ export function Hero() {
                   </span>
                 </div>
                 <span className="text-[10px] font-mono text-[#94A7BC]">
-                  Open Core · MIT
+                  Open Core / MIT
                 </span>
               </div>
               <p className="text-xs text-[#94A7BC] leading-relaxed font-sans">

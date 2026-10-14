@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -6,10 +7,11 @@ from pydantic import BaseModel, Field
 from app.config import settings
 from app.envelope import success_response, error_response
 from app.limiter import limiter
-from app.modules.studentv2 import StudentV2Client
+from app.modules.studentv2 import StudentV2Client, studentv2_client
 from app.modules.elearning import ElearningClient, elearning_client
 from app.proxy import get_proxy
 
+logger = logging.getLogger("app.auth")
 router = APIRouter(prefix="/v1/auth", tags=["auth"])
 studentv2_client = StudentV2Client()
 
@@ -83,8 +85,12 @@ async def verify_live_credentials(nim: str, elearning_pass: str, studentv2_pass:
             if hasattr(studentv2_client.login, "assert_called"):
                 return studentv2_client.login(nim, studentv2_pass)
             proxy = get_proxy(seed=nim)
-            return StudentV2Client(proxy=proxy).login(nim, studentv2_pass)
-        except Exception:
+            ok = StudentV2Client(proxy=proxy).login(nim, studentv2_pass)
+            if not ok:
+                logger.warning("SIAKAD login returned False for NIM %s", nim)
+            return ok
+        except Exception as err:
+            logger.error("SIAKAD login exception for NIM %s: %s", nim, err)
             return False
 
     def _test_el():
@@ -92,8 +98,12 @@ async def verify_live_credentials(nim: str, elearning_pass: str, studentv2_pass:
             if hasattr(elearning_client.login, "assert_called"):
                 return elearning_client.login(nim, elearning_pass)
             proxy = get_proxy(seed=nim)
-            return ElearningClient(proxy=proxy).login(nim, elearning_pass)
-        except Exception:
+            ok = ElearningClient(proxy=proxy).login(nim, elearning_pass)
+            if not ok:
+                logger.warning("Elearning login returned False for NIM %s", nim)
+            return ok
+        except Exception as err:
+            logger.error("Elearning login exception for NIM %s: %s", nim, err)
             return False
 
     sv2_ok, el_ok = await asyncio.gather(

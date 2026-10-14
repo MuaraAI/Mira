@@ -49,7 +49,7 @@ export default async function Image() {
               UBSI API
             </span>
             <span style={{ color: "#92EEFF", fontSize: "14px", letterSpacing: "2px" }}>
-              MUARA AI • DEEP WATER
+              MUARA AI / DEEP WATER
             </span>
           </div>
         </div>
@@ -67,7 +67,7 @@ export default async function Image() {
             Satu Antarmuka REST API untuk Seluruh Layanan Kampus UBSI.
           </span>
           <span style={{ color: "#94A7BC", fontSize: "24px", lineHeight: 1.4 }}>
-            SIAKAD • MyBest Elearning • E-Journal (23 Jurnal) • E-Library • Repository • News
+            SIAKAD, MyBest Elearning, E-Journal (23 Jurnal), E-Library, Repository, News
           </span>
         </div>
 
@@ -94,7 +94,7 @@ export default async function Image() {
               border: "1px solid rgba(255,255,255,0.1)",
             }}
           >
-            Open Source • MIT
+            Open Source / MIT
           </div>
           <div
             style={{

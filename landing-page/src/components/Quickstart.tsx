@@ -1,5 +1,3 @@
-import React from "react";
-
 export function Quickstart() {
   return (
     <section id="quickstart" className="py-16 px-4 sm:px-6 max-w-7xl mx-auto">
@@ -23,7 +21,7 @@ export function Quickstart() {
               Clone & Setup Environment
             </h3>
             <p className="text-xs text-secondary mt-2 mb-4 leading-relaxed font-sans">
-              Unduh repositori resmi dan aktifkan virtual environment Python 3.10+.
+              Unduh repositori resmi dan aktifkan virtual environment Python 3.12+.
             </p>
           </div>
           <pre className="p-3 rounded-md bg-code-bg font-mono text-xs text-code-text overflow-x-auto border border-white/10 leading-relaxed">
