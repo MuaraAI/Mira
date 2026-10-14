@@ -19,6 +19,7 @@ from app.modules.news import router as news_router
 from app.modules.repository import router as repository_router
 from app.modules.ejournal import router as ejournal_router
 from app.modules.auth import router as auth_router
+from app.modules.channels import router as channels_router
 
 def extract_client_ip(request: Request) -> str:
     """Ekstraksi IP klien dengan prioritas Cloudflare -> Forwarded Proxy -> socket host.
@@ -42,6 +43,13 @@ def extract_client_ip(request: Request) -> str:
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     if not settings.API_KEY and not os.getenv("PYTEST_CURRENT_TEST"):
         raise RuntimeError("API_KEY wajib disetel di file .env!")
+
+    try:
+        from app.channels_db import init_db
+
+        init_db()
+    except Exception:
+        pass
 
     async def _eviction_worker():
         while True:
@@ -104,6 +112,7 @@ app.include_router(news_router)
 app.include_router(repository_router)
 app.include_router(ejournal_router)
 app.include_router(auth_router)
+app.include_router(channels_router)
 
 @app.middleware("http")
 async def api_key_auth_middleware(request: Request, call_next):
@@ -111,11 +120,40 @@ async def api_key_auth_middleware(request: Request, call_next):
     if request.method == "OPTIONS":
         return await call_next(request)
 
-    # 2. Allow /health without auth (resilient to trailing slash)
-    if request.url.path.rstrip("/") == "/health":
+    # 2. Allow /health + /v1/auth/login without auth (resilient to trailing slash)
+    public_paths = {"/health", "/v1/auth/login"}
+    if request.url.path.rstrip("/") in public_paths:
         return await call_next(request)
 
-    # 3. Validate X-API-Key
+    # 3a. Session token (dashboard login BSI): Authorization Bearer ATAU cookie
+    session_token = ""
+    auth_header = request.headers.get("authorization", "")
+    if auth_header.lower().startswith("bearer "):
+        session_token = auth_header[7:].strip()
+    if not session_token:
+        session_token = request.cookies.get("ubsi_session", "")
+
+    if session_token:
+        from app.session_store import session_store
+
+        session_data = await session_store.resolve(session_token)
+        if session_data:
+            request.state.is_master = False
+            request.state.key_id = "session:" + session_token[:8]
+            request.state.nim = session_data["nim"]
+            request.state.elearning_pass = session_data["elearning_pass"]
+            request.state.studentv2_pass = session_data["studentv2_pass"]
+            return await call_next(request)
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content=error_response(
+                code="SESSION_EXPIRED",
+                message="Session kedaluwarsa. Silakan login kembali.",
+                module="auth",
+            ),
+        )
+
+    # 3b. Validate X-API-Key
     raw_api_key = request.headers.get("x-api-key")
     api_key = raw_api_key.strip() if raw_api_key else ""
     if not api_key:
@@ -130,21 +168,10 @@ async def api_key_auth_middleware(request: Request, call_next):
 
     configured_key = settings.API_KEY
 
-    # 3a. Master Key check
+    # 3c. Master Key check
     if configured_key and secrets.compare_digest(api_key, configured_key):
         request.state.is_master = True
         request.state.key_id = "master"
-        return await call_next(request)
-
-    # 3b. Member Key check (Supabase Vault)
-    from app.vault import resolve_member_key
-    member_data = await resolve_member_key(api_key)
-    if member_data:
-        request.state.is_master = False
-        request.state.key_id = hashlib.sha256(api_key.encode("utf-8")).hexdigest()[:12]
-        request.state.nim = member_data["nim"]
-        request.state.elearning_pass = member_data["elearning_pass"]
-        request.state.studentv2_pass = member_data["studentv2_pass"]
         return await call_next(request)
 
     return JSONResponse(

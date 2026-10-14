@@ -22,10 +22,16 @@ export function Hero() {
 
           <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
             <a
-              href="#showcase"
-              className="inline-flex items-center justify-center px-7 py-3.5 rounded-pill bg-accent hover:bg-accent-hover text-accent-dark font-semibold text-sm transition-all duration-200 ease-glass shadow-float"
+              href="/login"
+              className="inline-flex items-center justify-center px-7 py-3.5 rounded-pill bg-[#0284C7] hover:bg-[#0369A1] text-white font-semibold text-sm transition-all duration-200 ease-glass shadow-float"
             >
-              Lihat Contoh Response
+              Login BSI
+            </a>
+            <a
+              href="#showcase"
+              className="inline-flex items-center justify-center px-6 py-3.5 rounded-pill bg-white/60 hover:bg-white border border-stroke text-foreground font-semibold text-sm transition-all duration-200 ease-glass shadow-sm"
+            >
+              Lihat Response
             </a>
             <a
               href="https://github.com/MuaraAI/UBSI-API"

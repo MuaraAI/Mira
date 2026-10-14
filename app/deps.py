@@ -12,7 +12,7 @@ def require_studentv2_creds(
         cfg = request
         request = None
 
-    # Tier 1: Member Vault (injected by api_key_auth_middleware into request.state)
+    # Tier 1: Session Login BSI (injected by api_key_auth_middleware into request.state)
     if request is not None and hasattr(request, "state"):
         nim = getattr(request.state, "nim", None)
         pwd = getattr(request.state, "studentv2_pass", None)
@@ -50,7 +50,7 @@ def require_elearning_creds(
         cfg = request
         request = None
 
-    # Tier 1: Member Vault (injected by api_key_auth_middleware into request.state)
+    # Tier 1: Session Login BSI (injected by api_key_auth_middleware into request.state)
     if request is not None and hasattr(request, "state"):
         nim = getattr(request.state, "nim", None)
         pwd = getattr(request.state, "elearning_pass", None)

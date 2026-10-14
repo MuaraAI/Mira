@@ -268,14 +268,35 @@ async def dispatch_telegram_message(post: dict[str, Any], bot_token: str, chat_i
         return False
 
 async def broadcast_news_article(post: dict[str, Any]) -> dict[str, bool]:
-    """Kirim artikel secara paralel ke seluruh channel yang aktif."""
+    """Fan-out berita ke channel admin (env) + channel user terdaftar."""
     tasks: dict[str, Any] = {}
+
     if settings.DISCORD_WEBHOOK_URL:
         tasks["discord"] = dispatch_discord_webhook(post, settings.DISCORD_WEBHOOK_URL)
     if settings.TELEGRAM_BOT_TOKEN and settings.TELEGRAM_CHAT_ID:
         tasks["telegram"] = dispatch_telegram_message(post, settings.TELEGRAM_BOT_TOKEN, settings.TELEGRAM_CHAT_ID)
     if settings.NEWS_WEBHOOK_URL:
         tasks["custom"] = dispatch_webhook_notification(post, settings.NEWS_WEBHOOK_URL)
+
+    # Channel per-user (dashboard login BSI) dengan kategori berita-kampus
+    try:
+        from app.channels_db import list_active_by_category
+
+        user_channels = await list_active_by_category("berita-kampus")
+        for channel in user_channels:
+            config = channel["config"]
+            channel_key = f"user:{channel['id']}"
+            if channel["type"] == "discord":
+                tasks[channel_key] = dispatch_discord_webhook(post, config["url"])
+            elif channel["type"] == "telegram":
+                tasks[channel_key] = dispatch_telegram_message(
+                    post, config["bot_token"], config["chat_id"]
+                )
+            else:
+                tasks[channel_key] = dispatch_webhook_notification(post, config["url"])
+    except Exception:
+        # SQLite down / belum ada tabel: tetap kirim ke channel admin
+        pass
 
     if not tasks:
         return {}

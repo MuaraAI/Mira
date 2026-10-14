@@ -10,10 +10,9 @@ class Settings(BaseSettings):
     TRUSTED_PROXIES: str = "127.0.0.1"
     ROOT_PATH: str = ""
 
-    # Supabase Vault & Member Key Configuration (Opsional - Cloud Mode)
-    SUPABASE_URL: str = ""
-    SUPABASE_SERVICE_KEY: str = ""
-    VAULT_ENCRYPTION_KEY: str = ""
+    # Session Login BSI (Redis-backed, sliding 7 hari)
+    SESSION_COOKIE_DOMAIN: str = ""
+    SQLITE_DB_PATH: str = "data/ubsi.db"
 
     # Scraper Proxy Configuration (Opsional - Single Proxy / Rotating Pool)
     SCRAPER_PROXY: str = ""

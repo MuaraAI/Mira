@@ -5,20 +5,17 @@ from app.main import app
 from app.config import settings
 
 @pytest.mark.asyncio
-async def test_verify_requires_master_key():
-    """Member Key cannot access verify endpoint; returns 403."""
+async def test_verify_rejects_non_master_key():
+    """Member key vault sudah dihapus (arsitektur self-auth): key tak dikenal -> 401."""
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        with patch.object(settings, "API_KEY", "master_secret"), \
-             patch("app.vault.resolve_member_key", new_callable=AsyncMock) as mock_resolve:
-            mock_resolve.return_value = {"nim": "15260767", "elearning_pass": "p1", "studentv2_pass": "p2"}
-            res = await ac.post(
-                "/v1/auth/verify",
-                headers={"X-API-Key": "muara_live_member_key"},
-                json={"nim": "15260767", "elearning_pass": "p1", "studentv2_pass": "p2"}
-            )
-            assert res.status_code == 403
-            assert res.json()["error"]["code"] == "FORBIDDEN"
+        res = await ac.post(
+            "/v1/auth/verify",
+            headers={"X-API-Key": "muara_ubsi_member_key"},
+            json={"nim": "15260767", "elearning_pass": "p1", "studentv2_pass": "p2"}
+        )
+        assert res.status_code == 401
+        assert res.json()["error"]["code"] == "UNAUTHORIZED"
 
 @pytest.mark.asyncio
 async def test_verify_without_key_returns_401():
