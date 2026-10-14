@@ -4,17 +4,17 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export function getApiBase(): string {
-  const envUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-  if (envUrl) {
-    return envUrl.replace(/\/+$/, "");
+  const envUrl =
+    process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL;
+  if (!envUrl) {
+    throw new ApiError(
+      "CONFIG_MISSING",
+      "Variabel lingkungan NEXT_PUBLIC_API_URL belum disetel. Harap atur di file .env.local atau Vercel Project Settings.",
+      0
+    );
   }
-  if (typeof window !== "undefined" && window.location.hostname === "ubsi-api.muaraai.com") {
-    return "https://api.muaraai.com/v1/ubsi-api";
-  }
-  return "http://127.0.0.1:8300";
+  return envUrl.replace(/\/+$/, "");
 }
-
-export const API_BASE = getApiBase();
 
 export class ApiError extends Error {
   code: string;
