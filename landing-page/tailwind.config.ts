@@ -42,10 +42,9 @@ const config: Config = {
         },
       },
       fontFamily: {
-        sans: ["var(--font-gordita)", "var(--font-inter)", "system-ui", "-apple-system", "sans-serif"],
-        display: ["var(--font-gordita)", "var(--font-inter)", "system-ui", "-apple-system", "sans-serif"],
+        sans: ["var(--font-inter)", "system-ui", "-apple-system", "sans-serif"],
+        display: ["var(--font-space-grotesk)", "var(--font-inter)", "system-ui", "-apple-system", "sans-serif"],
         mono: ["var(--font-jetbrains-mono)", "monospace"],
-        anton: ["var(--font-anton)", "Impact", "sans-serif"],
       },
       backdropBlur: {
         glass: "24px",
@@ -62,10 +61,9 @@ const config: Config = {
         "glass-edge": "inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -1px 1px rgba(255,255,255,0.35)",
       },
       borderRadius: {
-        sm: "12px",
+        sm: "6px",
         card: "18px",
-        "card-3d": "20px",
-        lg: "26px",
+        lg: "28px",
         pill: "100px",
       },
       transitionTimingFunction: {

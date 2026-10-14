@@ -92,10 +92,6 @@ export default function LoginPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
-      <div className="ambient-bg" aria-hidden="true">
-        <div className="ambient-blob ambient-blob-1" />
-        <div className="ambient-blob ambient-blob-2" />
-      </div>
       <div className="grid-overlay" aria-hidden="true" />
 
       <main id="main-content" className="flex-1 flex items-center justify-center px-4 py-12">

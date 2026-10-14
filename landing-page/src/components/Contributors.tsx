@@ -27,7 +27,7 @@ export function Contributors({
   return (
     <section id="contributors" className="w-full scroll-mt-16 bg-[#F0F7FB]">
       <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-24">
-        <h2 className="font-anton uppercase leading-[0.95] tracking-[0.005em] text-[#072033] text-[40px] sm:text-[56px] sm:leading-[0.93] lg:text-[64px]">
+        <h2 className="font-display font-bold uppercase leading-[0.95] tracking-[-0.02em] text-[#072033] text-[40px] sm:text-[56px] sm:leading-[0.93] lg:text-[64px]">
           Dibangun oleh Mahasiswa,
           <br />
           untuk Komunitas.
