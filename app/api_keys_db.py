@@ -41,7 +41,9 @@ CREATE INDEX IF NOT EXISTS idx_api_keys_nim ON api_keys(nim);
 
 
 def _get_fernet() -> Fernet:
-    secret = settings.API_KEY or "fallback-master-key-must-be-set-in-env"
+    secret = settings.API_KEY
+    if not secret:
+        raise RuntimeError("API_KEY wajib disetel di file .env server!")
     key = base64.urlsafe_b64encode(hashlib.sha256(secret.encode("utf-8")).digest())
     return Fernet(key)
 

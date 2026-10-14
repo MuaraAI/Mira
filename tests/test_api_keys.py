@@ -62,6 +62,7 @@ class FakeRedis:
 def setup_test_env(tmp_path, monkeypatch):
     test_db = str(tmp_path / "test_ubsi.db")
     monkeypatch.setattr("app.config.settings.SQLITE_DB_PATH", test_db)
+    monkeypatch.setattr("app.config.settings.API_KEY", "test_master_secret_key_123456789")
     init_api_keys_db()
 
     fake = FakeRedis()
