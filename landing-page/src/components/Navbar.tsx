@@ -57,9 +57,6 @@ export function Navbar({ starsCount = 2 }: { starsCount?: number }) {
             <a href="#quickstart" className="hover:text-foreground transition-colors duration-200 ease-glass">
               Quickstart
             </a>
-            <Link href="/recap" className="hover:text-foreground transition-colors duration-200 ease-glass">
-              Rekap Nilai
-            </Link>
             <a href="#contributors" className="hover:text-foreground transition-colors duration-200 ease-glass">
               Kontributor
             </a>
@@ -147,13 +144,6 @@ export function Navbar({ starsCount = 2 }: { starsCount?: number }) {
           >
             Quickstart (Instalasi)
           </a>
-          <Link
-            href="/recap"
-            onClick={() => setMobileMenuOpen(false)}
-            className="block text-sm font-medium text-secondary hover:text-[#08738a] py-1.5 transition-colors"
-          >
-            Rekap Nilai
-          </Link>
           <a
             href="#contributors"
             onClick={() => setMobileMenuOpen(false)}

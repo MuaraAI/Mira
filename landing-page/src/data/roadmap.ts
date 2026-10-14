@@ -11,11 +11,11 @@ export const ROADMAP_ITEMS: RoadmapItem[] = [
   },
   {
     version: "v1.2",
-    title: "Rekap Nilai Tugas & Kuis Elearning",
+    title: "Personal API Key Vault",
     description:
-      "Tracking status pengumpulan dan rekapitulasi nilai tugas 6 mata kuliah aktif per setiap pertemuan secara terstruktur.",
+      "Generate personal API key terenkripsi untuk otomasi bot pribadi, integrasi kalender, dan skrip mahasiswa mandiri.",
     status: "tersedia",
-    href: "/recap",
+    href: "/dashboard",
   },
   {
     version: "v1.2",

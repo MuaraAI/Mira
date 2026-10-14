@@ -4,7 +4,13 @@ DISCORD_WEBHOOK_RE = re.compile(r"^https://discord\.com/api/webhooks/\d{5,}/[\w-
 TELEGRAM_BOT_TOKEN_RE = re.compile(r"^\d{5,}:[A-Za-z0-9_-]{30,}$")
 _CUSTOM_URL_RE = re.compile(r"^https://[^\s]+$")
 
-ALLOWED_CATEGORIES = ("berita-kampus", "tugas-baru", "pengumuman-siakad")
+ALLOWED_CATEGORIES = (
+    "berita-kampus",
+    "matkul-besok",
+    "quiz-tugas",
+    "tugas-baru",
+    "pengumuman-siakad",
+)
 
 
 def validate_channel_payload(

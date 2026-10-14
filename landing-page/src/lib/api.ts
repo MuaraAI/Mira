@@ -92,30 +92,85 @@ interface ApiState<T> {
   error: ApiError | null;
 }
 
-export function useApi<T>(path: string) {
-  const [state, setState] = useState<ApiState<T>>({
-    data: null,
-    loading: true,
-    error: null,
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+
+const memoryCache = new Map<string, CacheEntry<unknown>>();
+const DEFAULT_TTL_MS = 3 * 60 * 1000; // 3 menit cache RAM di browser
+
+export function clearApiCache(pathPrefix?: string) {
+  if (!pathPrefix) {
+    memoryCache.clear();
+    return;
+  }
+  for (const key of Array.from(memoryCache.keys())) {
+    if (key.startsWith(pathPrefix)) {
+      memoryCache.delete(key);
+    }
+  }
+}
+
+export function useApi<T>(
+  path: string,
+  options?: { ttlMs?: number; skipCache?: boolean }
+) {
+  const ttl = options?.ttlMs ?? DEFAULT_TTL_MS;
+  const skipCache = options?.skipCache ?? false;
+
+  const [state, setState] = useState<ApiState<T>>(() => {
+    if (!skipCache && typeof window !== "undefined") {
+      const cached = memoryCache.get(path) as CacheEntry<T> | undefined;
+      if (cached && Date.now() - cached.timestamp < ttl) {
+        return { data: cached.data, loading: false, error: null };
+      }
+    }
+    return { data: null, loading: true, error: null };
   });
+
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
     let alive = true;
-    setState((s) => ({ ...s, loading: true, error: null }));
+
+    const cached = memoryCache.get(path) as CacheEntry<T> | undefined;
+    const isFresh = cached && Date.now() - cached.timestamp < ttl;
+
+    // Jika sudah ada cache valid dan bukan dipicu reload() manual (tick === 0), pakai cache langsung
+    if (!skipCache && isFresh && tick === 0) {
+      if (state.data !== cached.data) {
+        setState({ data: cached.data, loading: false, error: null });
+      }
+      return;
+    }
+
+    // Jika tidak ada data atau dipicu reload manual, tampilkan loading hanya bila data belum ada sama sekali
+    if (!cached) {
+      setState((s) => ({ ...s, loading: true, error: null }));
+    }
+
     apiFetch<T>(path)
       .then((data) => {
-        if (alive) setState({ data, loading: false, error: null });
+        if (!alive) return;
+        memoryCache.set(path, { data, timestamp: Date.now() });
+        setState({ data, loading: false, error: null });
       })
       .catch((error: ApiError) => {
-        if (alive) setState({ data: null, loading: false, error });
+        if (!alive) return;
+        setState((s) => ({ ...s, loading: false, error }));
       });
+
     return () => {
       alive = false;
     };
-  }, [path, tick]);
+  }, [path, tick, ttl, skipCache]);
 
-  const reload = useCallback(() => setTick((t) => t + 1), []);
+  const reload = useCallback(() => {
+    memoryCache.delete(path);
+    setTick((t) => t + 1);
+  }, [path]);
+
   return { ...state, reload };
 }
 
