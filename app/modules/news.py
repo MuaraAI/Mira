@@ -170,9 +170,7 @@ async def get_news_detail(post_id: str = Path(..., pattern=r"^[0-9]+$")):
         cache_params={"post_id": post_id},
     )
 
-# ============================================================================
 # News Multi-Channel Auto-Notification (Discord, Telegram, Custom)
-# ============================================================================
 
 async def dispatch_webhook_notification(post: dict[str, Any], webhook_url: str) -> bool:
     """Kirim generic JSON payload ke custom webhook URL."""

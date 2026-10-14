@@ -4,20 +4,20 @@ from fastapi import HTTPException
 from app.config import Settings
 from app.deps import require_elearning_creds, require_studentv2_creds
 
-def test_tier1_vault_credentials():
+def test_tier1_session_credentials():
     scope = {"type": "http", "headers": [], "state": {}}
     req = Request(scope)
     req.state.nim = "15260767"
-    req.state.elearning_pass = "vault_el_pass"
-    req.state.studentv2_pass = "vault_sv_pass"
+    req.state.elearning_pass = "session_el_pass"
+    req.state.studentv2_pass = "session_sv_pass"
     
     el_nim, el_pwd = require_elearning_creds(req)
     assert el_nim == "15260767"
-    assert el_pwd == "vault_el_pass"
+    assert el_pwd == "session_el_pass"
     
     sv_nim, sv_pwd = require_studentv2_creds(req)
     assert sv_nim == "15260767"
-    assert sv_pwd == "vault_sv_pass"
+    assert sv_pwd == "session_sv_pass"
 
 def test_tier2_header_override():
     scope = {

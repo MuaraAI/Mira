@@ -17,12 +17,6 @@ class SessionPool:
         self._factory = factory
         self._ttl = ttl_seconds
         self._sessions: dict[str, tuple[Any, float]] = {}
-        self._locks: dict[str, asyncio.Lock] = {}
-
-    def _lock_for(self, nim: str) -> asyncio.Lock:
-        if nim not in self._locks:
-            self._locks[nim] = asyncio.Lock()
-        return self._locks[nim]
 
     def get(self, nim: str) -> Any:
         entry = self._sessions.get(nim)

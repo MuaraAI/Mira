@@ -1,6 +1,6 @@
-# UBSI API — Web Landing Page
+# UBSI API: Web Landing Page & Dashboard
 
-Official landing page for UBSI API (`ubsi-api.muaraai.com`), built with Next.js 15, React 19, Tailwind CSS, shadcn/ui primitives, and Anime.js.
+Official landing page and student dashboard for UBSI API (`ubsi-api.muaraai.com`), built with Next.js 15, React 19, and Tailwind CSS.
 
 ## What It Is
 
@@ -8,7 +8,7 @@ A standalone frontend client in the `/landing-page` subdirectory of the monorepo
 
 - **Theme**: Muara AI Deep Water design tokens (navy `#0A1220`, surface `#111C2E`, teal accent `#2DD4BF`).
 - **Typography**: Self-hosted Space Grotesk, Inter, and JetBrains Mono (`.woff2`) loaded via `next/font/local`. Zero external font CDN requests.
-- **Motion**: Anime.js staggered reveal on the Hero section respecting `prefers-reduced-motion`.
+- **Motion**: 3D CSS Pyramid Loader on the Hero section respecting `prefers-reduced-motion`.
 - **Integrations**: Real-time GitHub stars & contributor commit counters, client-side health probe, dynamic Edge OpenGraph image generation (`@vercel/og`), and Schema.org JSON-LD structured data.
 
 ## Quick Start
@@ -63,5 +63,5 @@ Design tokens, color contrast proofs, spacing scales, and accessibility rules ar
 ## Related Links
 
 - [Backend API Repository](https://github.com/MuaraAI/UBSI-API)
-- [API Documentation](https://ubsi-api.curzy.dev/docs)
+- [API Documentation](https://ubsi-api.muaraai.com/docs)
 - [License (MIT)](../LICENSE)

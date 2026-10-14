@@ -1,4 +1,3 @@
-import React from "react";
 import { CAMPUS_MODULES } from "@/data/modules";
 
 export function ModulesGrid() {

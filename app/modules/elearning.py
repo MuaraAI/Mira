@@ -18,9 +18,7 @@ from app.router_helper import cached_endpoint
 
 router = APIRouter(prefix="/v1/elearning", tags=["elearning"])
 
-# ============================================================================
 # Pure Parsers (Unit-tested against snapshot fixtures)
-# ============================================================================
 
 def solve_captcha(question_text: str) -> Any:
     # 1. New SVG text captcha (<text ...>X</text>)
@@ -276,9 +274,7 @@ def parse_quiz(html: str) -> list[dict[str, Any]]:
             })
     return quizzes
 
-# ============================================================================
 # Rekap Nilai (Per Pertemuan)
-# ============================================================================
 
 def _pertemuan_sort_key(pertemuan: str) -> int:
     digits = [int(n) for n in re.findall(r"\d+", str(pertemuan))]
@@ -349,9 +345,7 @@ def summarize_grades(
         ],
     }
 
-# ============================================================================
 # Authenticated Scrapling Client
-# ============================================================================
 
 class ElearningClient:
     BASE_URL = "https://elearning.bsi.ac.id"
@@ -481,9 +475,7 @@ class PooledElearningClient:
 
 pooled_elearning_client = PooledElearningClient()
 
-# ============================================================================
 # API Routes
-# ============================================================================
 
 @router.get("/courses")
 async def get_courses(creds: tuple[str, str] = Depends(require_elearning_creds)):
@@ -611,9 +603,7 @@ async def get_quiz(creds: tuple[str, str] = Depends(require_elearning_creds)):
         cache_params={"nim": nim},
     )
 
-# ============================================================================
 # Rekap Nilai Tugas & Kuis (Per Pertemuan)
-# ============================================================================
 
 async def _build_grades(
     nim: str,

@@ -1,5 +1,3 @@
-import React from "react";
-
 export function Monogram({ className = "w-7 h-7" }: { className?: string }) {
   return (
     <svg

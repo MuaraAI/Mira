@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 const DEFAULT_BACKEND = "http://127.0.0.1:8300";
 
 function parseRootEnv(): Record<string, string> {
-  // web/ berada satu level di bawah root repo; .env backend ada di root.
+  // landing-page/ berada satu level di bawah root repo; .env backend ada di root.
   try {
     const content = readFileSync(resolve(process.cwd(), "..", ".env"), "utf-8");
     const vars: Record<string, string> = {};

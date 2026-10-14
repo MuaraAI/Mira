@@ -63,7 +63,7 @@ export function Hero() {
               <span className="text-[11px] font-mono text-secondary uppercase tracking-wide">Caching Latency</span>
             </div>
             <div className="border-l-[3px] border-[#92EEFF] pl-4">
-              <span className="block font-display text-2xl font-bold text-foreground mb-1">89</span>
+              <span className="block font-display text-2xl font-bold text-foreground mb-1">118</span>
               <span className="text-[11px] font-mono text-secondary uppercase tracking-wide">Tests 100% Passed</span>
             </div>
           </div>

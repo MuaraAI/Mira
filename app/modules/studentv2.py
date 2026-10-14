@@ -18,9 +18,7 @@ from app.router_helper import cached_endpoint
 
 router = APIRouter(prefix="/v1/studentv2", tags=["studentv2"])
 
-# ============================================================================
 # Pure Parsers (Unit-tested against snapshot fixtures)
-# ============================================================================
 
 def parse_schedule(html: str) -> list[dict[str, Any]]:
     page = Adaptor(html)
@@ -113,9 +111,7 @@ def parse_announcements(html: str) -> list[dict[str, Any]]:
             })
     return results
 
-# ============================================================================
 # Authenticated Client Session
-# ============================================================================
 
 class StudentV2Client:
     BASE_URL = "https://students.bsi.ac.id"
@@ -239,9 +235,7 @@ class PooledStudentV2Client:
 
 studentv2_client = PooledStudentV2Client()
 
-# ============================================================================
 # API Routes
-# ============================================================================
 
 @router.get("/schedule")
 async def get_schedule(creds: tuple[str, str] = Depends(require_studentv2_creds)):

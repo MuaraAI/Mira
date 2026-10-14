@@ -21,7 +21,7 @@ class VerifyCredentialsRequest(BaseModel):
 @router.post("/verify")
 async def verify_credentials(req_body: VerifyCredentialsRequest, request: Request):
     """
-    Verifikasi kredensial kampus (SIAKAD dan MyBest) secara real-time sebelum generate API key.
+    Verifikasi kredensial kampus (SIAKAD dan MyBest) secara real-time.
     Diproteksi khusus Master Key dan rate limit ketat 5 req/menit per-NIM (anti brute-force).
     """
     # 1. Master Key Guard
@@ -52,32 +52,7 @@ async def verify_credentials(req_body: VerifyCredentialsRequest, request: Reques
             )
         )
 
-    # 3. Test login concurrently in threadpool to prevent blocking the event loop
-    loop = asyncio.get_running_loop()
-
-    def _test_sv2():
-        try:
-            if hasattr(studentv2_client.login, "assert_called"):
-                return studentv2_client.login(nim, sv_pass)
-            proxy = get_proxy(seed=nim)
-            return StudentV2Client(proxy=proxy).login(nim, sv_pass)
-        except Exception:
-            return False
-
-    def _test_el():
-        try:
-            if hasattr(elearning_client.login, "assert_called"):
-                return elearning_client.login(nim, el_pass)
-            proxy = get_proxy(seed=nim)
-            return ElearningClient(proxy=proxy).login(nim, el_pass)
-        except Exception:
-            return False
-
-    sv2_ok, el_ok = await asyncio.gather(
-        loop.run_in_executor(None, _test_sv2),
-        loop.run_in_executor(None, _test_el),
-    )
-
+    sv2_ok, el_ok = await verify_live_credentials(nim, el_pass, sv_pass)
     all_valid = bool(sv2_ok and el_ok)
 
     return success_response(

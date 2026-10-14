@@ -141,7 +141,7 @@ UBSI-API/
 ├── tests/
 │   ├── fixtures/              # Snapshot HTML offline (sv2_*.html, el_*.html)
 │   ├── conftest.py            # Fixture autouse & test auth client
-│   └── test_*.py              # 78 Automated unit & integration tests
+│   └── test_*.py              # 118 Automated unit & integration tests
 ├── templates/
 │   ├── Caddyfile.example      # Caddy reverse proxy template (HTTPS auto)
 │   ├── nginx.example.conf     # Nginx reverse proxy configuration template

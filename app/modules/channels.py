@@ -1,4 +1,3 @@
-import json
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 

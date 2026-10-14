@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/python-3.12%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python" />
   <img src="https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI" />
   <img src="https://img.shields.io/badge/Redis-cache-DC382D?style=flat-square&logo=redis&logoColor=white" alt="Redis" />
-  <img src="https://img.shields.io/badge/tests-126%20lulus-2EA043?style=flat-square" alt="Tests" />
+  <img src="https://img.shields.io/badge/tests-118%20lulus-2EA043?style=flat-square" alt="Tests" />
 
 </div>
 
@@ -139,6 +139,19 @@ UBSI API merapikan semuanya menjadi satu backend JSON yang cepat, berjalan lokal
 
 ## Endpoint
 
+### Autentikasi & Session
+- `POST /v1/auth/verify` — Verifikasi kredensial live kampus (Master Key only).
+- `POST /v1/auth/login` — Login BSI mandiri via NIM + password SIAKAD & MyBest (session Redis sliding 7 hari).
+- `POST /v1/auth/logout` — Mengakhiri sesi perangkat saat ini.
+- `POST /v1/auth/logout_all` — Mengakhiri seluruh sesi aktif untuk NIM terkait.
+- `GET /v1/auth/me` — Cek status sesi login aktif.
+
+### Webhook Channels (Notifikasi Mandiri)
+- `GET /v1/channels` — Daftar channel webhook pribadi milik mahasiswa.
+- `POST /v1/channels` — Pendaftaran channel webhook baru (Discord, Telegram, Custom; maks 5/NIM).
+- `DELETE /v1/channels/{id}` — Menghapus channel webhook.
+- `POST /v1/channels/{id}/test` — Uji kirim notifikasi dan aktivasi channel.
+
 ### Sistem
 - `GET /health` — Status kesehatan aplikasi dan koneksi Redis (`up`/`down`).
 - `GET /metrics` — Metrik operasional layanan (jumlah sesi aktif dan status Redis).
@@ -153,6 +166,8 @@ UBSI API merapikan semuanya menjadi satu backend JSON yang cepat, berjalan lokal
 ### Elearning (MyBest LMS)
 - `GET /v1/elearning/courses` — Daftar kartu mata kuliah aktif beserta token terenkripsi.
 - `GET /v1/elearning/assignments` — Daftar tugas aktif dan riwayat submission (nilai + komentar dosen).
+- `GET /v1/elearning/grades` — Rekapitulasi nilai tugas & kuis per pertemuan.
+- `GET /v1/elearning/courses/{course_id}/grades` — Rekap nilai tugas untuk satu mata kuliah spesifik.
 - `GET /v1/elearning/presence` — Rekap status presensi perkuliahan per pertemuan.
 - `GET /v1/elearning/materials` — Berkas silabus dan modul pembelajaran (ZIP/PDF).
 - `GET /v1/elearning/quiz` — Jadwal kuis latihan dan ujian online aktif.
@@ -177,7 +192,7 @@ UBSI API merapikan semuanya menjadi satu backend JSON yang cepat, berjalan lokal
 - **Frontend Landing Page** — Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS, shadcn/ui, Anime.js.
 - **HTTP client & parsing** — Scrapling (FetcherSession), `curl_cffi`, lxml.
 - **Caching & Limiter** — Redis DB 2 (asyncio), single-flight mutex, sliding-window limiter.
-- **Testing & Quality** — Pytest (126 lulus), Pytest-Asyncio, HTTPX (ASGITransport).
+- **Testing & Quality** — Pytest (118 lulus), Pytest-Asyncio, HTTPX (ASGITransport).
 - **Deployment & Hosting** — Vercel (`ubsi-api.muaraai.com`), Tencent Cloud VPS + PM2 + Caddy HTTPS.
 
 ---
@@ -303,7 +318,7 @@ curl -s -X POST -H "X-API-Key: ubsi_s...xxx" "http://127.0.0.1:8300/v1/news/webh
 Semua parser diuji terhadap snapshot HTML offline, tanpa request live ke server kampus:
 
 ```bash
-# Menjalankan seluruh test suite (126 tests)
+# Menjalankan seluruh test suite (118 tests)
 .venv/bin/pytest -v
 
 # Live smoke test terhadap server lokal
@@ -353,7 +368,7 @@ Panduan kontribusi tersedia di [CONTRIBUTING.md](CONTRIBUTING.md).
 - [x] **Rate limiting real client IP** — ekstraksi IP asli via `CF-Connecting-IP` / `X-Forwarded-For` agar kuota tidak bertabrakan di belakang proxy.
 - [x] **Dukungan CORS** — `CORSMiddleware` terintegrasi untuk integrasi dashboard web frontend.
 - [x] **Multi-channel news broadcaster (v1.1.5)** — auto-dispatch berita baru paralel ke Discord (Rich Embed), Telegram (HTML photo message), dan custom webhook; migrasi upstream SIAKAD ke `students.bsi.ac.id`.
-- [x] **Dual-Mode Auth, Vault AES-256 & API Gateway (v1.1.7)** — Master Key lokal unmetered vs Cloud Member Key terikat ke Vault Supabase terenkripsi AES-256-GCM, sub-path gateway `api.muaraai.com/v1/ubsi-api/*`, pre-validasi kredensial `POST /v1/auth/verify`, proteksi anti-SSRF, dan proxy pool rotation.
+- [x] **Self-Auth BSI & Multi-Channel Webhook Portal (v1.2.0)** — Login mandiri NIM + password kampus, session token Redis sliding 7 hari, SQLite WAL webhook manager (Discord, Telegram, Custom), dan fan-out berita kampus per-user.
 
 ### v1.2 — Feeds & Produktivitas (Dikerjakan)
 - [ ] **Ekspor kalender iCal (`.ics`)** — endpoint `GET /v1/studentv2/schedule.ics` untuk sinkronisasi jadwal kuliah ke Google Calendar (Android) dan Apple Calendar (iOS).

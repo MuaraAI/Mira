@@ -36,7 +36,7 @@ def require_studentv2_creds(
         status_code=status.HTTP_400_BAD_REQUEST,
         detail=error_response(
             code="CONFIG_MISSING",
-            message="Kredensial SIAKAD belum diatur (daftarkan API key atau atur STUDENTV2_NIM dan STUDENTV2_PASS di .env)",
+            message="Kredensial SIAKAD belum diatur (login via dashboard/auth atau atur STUDENTV2_NIM dan STUDENTV2_PASS di .env)",
             module="studentv2"
         )
     )
@@ -74,7 +74,7 @@ def require_elearning_creds(
         status_code=status.HTTP_400_BAD_REQUEST,
         detail=error_response(
             code="CONFIG_MISSING",
-            message="Kredensial Elearning belum diatur (daftarkan API key atau atur ELEARNING_NIM dan ELEARNING_PASS di .env)",
+            message="Kredensial Elearning belum diatur (login via dashboard/auth atau atur ELEARNING_NIM dan ELEARNING_PASS di .env)",
             module="elearning"
         )
     )

@@ -4,11 +4,11 @@ export const CODE_EXAMPLES: Record<string, CodeExample> = {
   curl: {
     language: "curl",
     title: "cURL",
-    snippet: `curl -X GET "https://ubsi-api.muaraai.com/v1/elearning/courses" \\
-  -H "X-API-Key: ubsi_secret_key_anda" \\
+    snippet: `curl -X GET "https://api.muaraai.com/v1/ubsi-api/v1/elearning/courses" \\
+  -H "Authorization: Bearer <session_token>" \\
   -H "Accept: application/json"`,
     response: `{
-  "ok": true,
+  "success": true,
   "data": [
     {
       "code": "101",
@@ -35,9 +35,7 @@ export const CODE_EXAMPLES: Record<string, CodeExample> = {
       "assignments_pending": 0
     }
   ],
-  "source": "cache",
-  "fetched_at": "2026-09-27T10:15:30Z",
-  "latency_ms": 238
+  "cached": true
 }`,
     latencyMs: 238,
   },
@@ -47,17 +45,17 @@ export const CODE_EXAMPLES: Record<string, CodeExample> = {
     snippet: `import requests
 
 headers = {
-    "X-API-Key": "ubsi_secret_key_anda"
+    "Authorization": "Bearer session_token_anda"
 }
 
 response = requests.get(
-    "https://ubsi-api.muaraai.com/v1/elearning/courses", 
+    "https://api.muaraai.com/v1/ubsi-api/v1/elearning/courses", 
     headers=headers
 )
 data = response.json()
 print(f"Total Kursus Aktif: {len(data['data'])}")`,
     response: `{
-  "ok": true,
+  "success": true,
   "data": [
     {
       "code": "101",
@@ -74,17 +72,16 @@ print(f"Total Kursus Aktif: {len(data['data'])}")`,
       "schedule": "Selasa, 10:30 - 13:00 WIB"
     }
   ],
-  "source": "cache",
-  "latency_ms": 242
+  "cached": true
 }`,
     latencyMs: 242,
   },
   typescript: {
     language: "typescript",
     title: "TypeScript (fetch)",
-    snippet: `const res = await fetch("https://ubsi-api.muaraai.com/v1/elearning/courses", {
+    snippet: `const res = await fetch("https://api.muaraai.com/v1/ubsi-api/v1/elearning/courses", {
   headers: {
-    "X-API-Key": process.env.UBSI_API_KEY!
+    "Authorization": \`Bearer \${process.env.UBSI_SESSION_TOKEN}\`
   },
   next: { revalidate: 60 }
 });
@@ -92,7 +89,7 @@ print(f"Total Kursus Aktif: {len(data['data'])}")`,
 const { data } = await res.json();
 console.log(data);`,
     response: `{
-  "ok": true,
+  "success": true,
   "data": [
     {
       "code": "101",
@@ -102,8 +99,7 @@ console.log(data);`,
       "schedule": "Senin, 08:00 - 10:30 WIB"
     }
   ],
-  "source": "cache",
-  "latency_ms": 229
+  "cached": true
 }`,
     latencyMs: 229,
   },

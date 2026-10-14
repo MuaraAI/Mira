@@ -15,9 +15,7 @@ from app.proxy import get_proxy
 
 router = APIRouter(prefix="/v1/elibrary", tags=["elibrary"])
 
-# ============================================================================
 # Pure Parsers (Unit-tested against snapshot fixtures)
-# ============================================================================
 
 def parse_opac_search(html: str) -> dict[str, Any]:
     page = Adaptor(html)
@@ -100,9 +98,7 @@ def parse_book_detail(html: str) -> dict[str, Any]:
 
     return data
 
-# ============================================================================
 # Client with Slow-Server Exponential Retry (Timeout 60s)
-# ============================================================================
 
 class ElibraryClient:
     BASE_URL = "https://elibrary.bsi.ac.id"
@@ -158,9 +154,7 @@ class ElibraryClient:
 
 elibrary_client = ElibraryClient()
 
-# ============================================================================
 # API Routes
-# ============================================================================
 
 @router.get("/search")
 async def search_books(

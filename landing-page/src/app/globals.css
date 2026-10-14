@@ -240,12 +240,6 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-@keyframes uwScaleUp {
-  0% { transform: scale(1); }
-  50% { transform: scale(0.97); }
-  100% { transform: scale(1); }
-}
-
 /* 3D Glass Pyramid Loader by andrew-demchenk0 (orange-monkey-2) adapted to Ocean Cyan (#92EEFF) */
 .pyramid-loader {
   position: relative;
