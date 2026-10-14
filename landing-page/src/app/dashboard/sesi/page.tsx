@@ -28,6 +28,9 @@ export default function SesiPage() {
     setBusy(path === "/v1/auth/logout" ? "logout" : "logout_all");
     try {
       await apiFetch(path, { method: "POST" });
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("ubsi_session_token");
+      }
       router.replace("/login");
     } catch (err) {
       setActionError(

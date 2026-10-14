@@ -72,13 +72,16 @@ export default function LoginPage() {
     setSubmitting(true);
     setError(null);
     try {
-      await apiFetch("/v1/auth/login", {
+      const res = await apiFetch<{ nim: string; token?: string }>("/v1/auth/login", {
         json: {
           nim: nim.trim(),
           studentv2_pass: siakadPass,
           elearning_pass: mybestPass,
         },
       });
+      if (res?.token && typeof window !== "undefined") {
+        localStorage.setItem("ubsi_session_token", res.token);
+      }
       router.replace("/dashboard");
     } catch (err) {
       setError(err instanceof ApiError ? err : new ApiError("ERROR", "Login gagal. Coba lagi.", 0));

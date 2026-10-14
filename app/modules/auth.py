@@ -183,6 +183,7 @@ async def login(req_body: LoginRequest, request: Request):
         content=success_response(
             data={
                 "nim": nim,
+                "token": token,
                 "message": "Login berhasil. Session aktif 7 hari (sliding).",
             }
         ),

@@ -3,8 +3,26 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-export const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8300";
+export function getApiBase(): string {
+  const envUrl =
+    process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL;
+  if (envUrl) {
+    return envUrl.replace(/\/+$/, "");
+  }
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    if (
+      host.includes("muaraai.com") ||
+      host.includes("vercel.app") ||
+      host.includes("curzy.dev")
+    ) {
+      return "https://api.muaraai.com/v1/ubsi-api";
+    }
+  }
+  return "http://127.0.0.1:8300";
+}
+
+export const API_BASE = getApiBase();
 
 export class ApiError extends Error {
   code: string;
@@ -27,11 +45,16 @@ export async function apiFetch<T>(
   path: string,
   init?: Omit<RequestInit, "body"> & { json?: unknown }
 ): Promise<T> {
+  const base = getApiBase();
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("ubsi_session_token")
+      : null;
   const { json, ...rest } = init ?? {};
   const method = rest.method ?? (json !== undefined ? "POST" : "GET");
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}${path}`, {
+    res = await fetch(`${base}${path}`, {
       ...rest,
       method,
       credentials: "include",
@@ -39,6 +62,7 @@ export async function apiFetch<T>(
       headers: {
         ...(json !== undefined ? { "Content-Type": "application/json" } : {}),
         ...(method !== "GET" ? { "X-Requested-With": "dashboard" } : {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...rest.headers,
       },
       body: json !== undefined ? JSON.stringify(json) : undefined,
@@ -47,7 +71,7 @@ export async function apiFetch<T>(
     throw new ApiError(
       "NETWORK_ERROR",
       "Tidak dapat menghubungi server API. Pastikan backend berjalan di " +
-        API_BASE,
+        base,
       0
     );
   }
