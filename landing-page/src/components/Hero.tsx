@@ -73,7 +73,7 @@ export function Hero() {
         <div className="lg:col-span-5 flex flex-col items-center justify-center relative min-h-[380px]">
           <div className="absolute w-80 h-80 rounded-full bg-[#0369A1]/10 filter blur-3xl pointer-events-none -z-10 animate-pulse" />
           
-          <div className="w-full max-w-[390px] rounded-[24px] bg-[#131B26]/90 backdrop-blur-2xl border border-white/10 shadow-[0_24px_60px_-12px_rgba(7,32,51,0.18),inset_0_1px_1px_rgba(255,255,255,0.15)] p-6 sm:p-7 flex flex-col items-center justify-center relative overflow-hidden group">
+          <div className="w-full max-w-[390px] rounded-[24px] bg-white border border-[#D9E5ED] shadow-[0_24px_60px_-12px_rgba(7,32,51,0.18)] p-6 sm:p-7 flex flex-col items-center justify-center relative overflow-hidden group">
             <div className="pyramid-loader">
               <div className="pyramid-wrapper">
                 <span className="pyramid-side pyramid-side1" />
@@ -84,19 +84,19 @@ export function Hero() {
               </div>
             </div>
 
-            <div className="mt-4 pt-4 border-t border-white/10 w-full text-left">
+            <div className="mt-4 pt-4 border-t border-[#D9E5ED] w-full text-left">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-[#7DD3FC] shadow-[0_0_8px_rgba(125,211,252,0.5)] animate-pulse" />
-                  <span className="text-xs font-mono font-bold tracking-wider text-[#7DD3FC] uppercase">
+                  <span className="w-2 h-2 rounded-full bg-[#0369A1] animate-pulse" />
+                  <span className="text-xs font-mono font-bold tracking-wider text-[#0369A1] uppercase">
                     Tentang UBSI API
                   </span>
                 </div>
-                <span className="text-[10px] font-mono text-code-text/80">
+                <span className="text-[10px] font-mono text-[#3B5A70]">
                   Open Core / MIT
                 </span>
               </div>
-              <p className="text-xs text-code-text/80 leading-relaxed font-sans">
+              <p className="text-xs text-[#3B5A70] leading-relaxed font-sans">
                 REST API aggregator open-source untuk otomasi dan integrasi 6 layanan portal kampus UBSI. Mengonversi data web portal mahasiswa menjadi JSON terstruktur tanpa menyimpan kredensial (stateless) dengan performa sub-250ms Redis cache.
               </p>
             </div>

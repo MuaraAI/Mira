@@ -46,7 +46,7 @@ export function ModulesGrid() {
                 {mod.endpoints.slice(0, 2).map((ep) => (
                   <code
                     key={ep}
-                    className="text-[11px] font-mono bg-[#131B26] text-[#7DD3FC] px-2.5 py-1 rounded-md border border-[#0369A1]/20 group-hover:border-[#0369A1]/50 transition-colors"
+                    className="text-[11px] font-mono bg-[#F0F7FB] text-[#0369A1] px-2.5 py-1 rounded-md border border-[#D9E5ED] group-hover:border-[#0369A1]/40 transition-colors"
                   >
                     {ep}
                   </code>

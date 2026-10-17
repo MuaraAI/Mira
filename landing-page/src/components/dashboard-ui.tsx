@@ -6,7 +6,7 @@ export const inputClass =
   "w-full rounded-sm border border-stroke bg-white/70 px-4 py-2.5 text-sm text-foreground placeholder:text-secondary/60 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/40";
 
 export const primaryButtonClass =
-  "inline-flex items-center justify-center gap-2 rounded-pill bg-[#072033] border border-[#0369A1]/30 px-5 py-2.5 text-sm font-bold text-white transition-all duration-200 ease-glass hover:bg-[#131b26] disabled:opacity-50 disabled:cursor-not-allowed";
+  "inline-flex items-center justify-center gap-2 rounded-pill bg-[#0369A1] border border-[#075985] px-5 py-2.5 text-sm font-bold text-white transition-all duration-200 ease-glass hover:bg-[#075985] disabled:opacity-50 disabled:cursor-not-allowed";
 
 export const ghostButtonClass =
   "inline-flex items-center justify-center gap-2 rounded-pill border border-stroke bg-white/60 px-4 py-2 text-sm font-semibold text-foreground transition-all duration-200 ease-glass hover:border-accent/50 hover:bg-white/80 disabled:opacity-50 disabled:cursor-not-allowed";
@@ -91,7 +91,7 @@ export function ChannelActiveBadge({ active }: { active: boolean }) {
     <span
       className={`inline-flex items-center rounded-pill px-3 py-1 text-xs font-bold ${
         active
-          ? "bg-[#072033] text-white border border-white/25"
+          ? "bg-[#F0F7FB] text-[#0F766E] border border-[#0F766E]/25"
           : "bg-white/60 text-secondary border border-stroke"
       }`}
     >

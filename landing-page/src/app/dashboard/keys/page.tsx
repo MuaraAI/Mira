@@ -133,9 +133,9 @@ export default function ApiKeysPage() {
         />
 
         <div className="flex items-center gap-3">
-          <div className="px-3.5 py-1.5 rounded-pill bg-[#072033] border border-[#0369A1]/30 text-xs font-mono">
+          <div className="px-3.5 py-1.5 rounded-pill bg-[#F0F7FB] border border-[#D9E5ED] text-xs font-mono">
             <span className="text-secondary">Slot: </span>
-            <span className={atLimit ? "text-amber-400 font-bold" : "text-[#0369A1] font-bold"}>
+            <span className={atLimit ? "text-amber-800 font-bold" : "text-[#0369A1] font-bold"}>
               {keys.length} / {MAX_KEYS}
             </span>
           </div>

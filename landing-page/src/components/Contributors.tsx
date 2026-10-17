@@ -49,7 +49,7 @@ export function Contributors({
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={`Profil GitHub ${c.name}`}
-                className="group flex items-center gap-4 rounded-[14px] border-[1.5px] border-[#072033] bg-white p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[5px_5px_0_0_#072033] focus-visible:outline-[#072033]"
+                className="group flex items-center gap-4 rounded-card border border-[#D9E5ED] bg-white p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#0369A1]/40 hover:shadow-[0_12px_32px_-8px_rgba(7,32,51,0.10)] focus-visible:outline-[#0369A1]"
               >
                 <Image
                   src={c.avatarUrl}
@@ -57,7 +57,7 @@ export function Contributors({
                   width={48}
                   height={48}
                   sizes="48px"
-                  className="h-12 w-12 shrink-0 rounded-full border-[1.5px] border-[#072033] object-cover"
+                  className="h-12 w-12 shrink-0 rounded-full border border-[#D9E5ED] object-cover"
                 />
 
                 <div className="min-w-0 flex-1">
@@ -71,7 +71,7 @@ export function Contributors({
                         @{c.username}
                       </p>
                     </div>
-                    <span className="shrink-0 whitespace-nowrap rounded-full border-[1.5px] border-[#072033] bg-[#FFD84D] px-2.5 py-[3px] font-mono text-[11px] font-bold text-[#072033]">
+                    <span className="shrink-0 whitespace-nowrap rounded-full border border-[#D9E5ED] bg-[#F0F7FB] px-2.5 py-[3px] font-mono text-[11px] font-bold text-[#0369A1]">
                       {liveCommits} commits
                     </span>
                   </div>

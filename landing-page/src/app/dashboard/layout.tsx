@@ -53,7 +53,7 @@ export default function DashboardLayout({
                       aria-current={active ? "page" : undefined}
                       className={`flex items-center gap-1.5 whitespace-nowrap rounded-pill px-3 py-1.5 text-xs sm:text-sm font-semibold transition-all duration-200 ease-glass ${
                         active
-                          ? "bg-[#072033] text-white border border-white/25"
+                          ? "bg-[#0369A1] text-white border border-[#075985]"
                           : "text-secondary hover:text-foreground border border-transparent"
                       }`}
                     >
