@@ -4,6 +4,10 @@ from app.modules.studentv2 import (
     parse_grades,
     parse_news,
     parse_announcements,
+    parse_profile,
+    parse_khs,
+    parse_krs,
+    parse_uts,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -51,3 +55,53 @@ def test_parse_announcements():
     assert first["title"] != ""
     assert first["pdf_url"].startswith("http")
     assert first["id"] != ""
+
+def test_parse_profile():
+    html = (FIXTURES / "sv2_data_pribadi.html").read_text(encoding="utf-8")
+    profile = parse_profile(html)
+    assert profile["nim"] == "15260767"
+    assert profile["nama"] == "YUKEN VELINO"
+    assert profile["tempat_lahir"] == "SUNGAI BELIDAK"
+    assert profile["desa_kelurahan"] == "Kalimas"
+    assert profile["rt_rw"] == "09/03"
+    assert "Informatika" in profile["program_studi"]
+    assert profile["semester_aktif"] == "1"
+    assert profile["status_aktif"] == "Aktif"
+
+def test_parse_khs():
+    html = (FIXTURES / "sv2_khs.html").read_text(encoding="utf-8")
+    khs = parse_khs(html)
+    assert "items" in khs
+    assert "ipk" in khs
+    assert "total_sks" in khs
+    assert "total_mutu" in khs
+    assert khs["ipk"] == 0.0
+
+    # Test populated KHS
+    import re
+    html_populated = re.sub(
+        r"0\s*<br>\s*0\s*<br>\s*0\.00",
+        "72.0 <br>\n 18 <br>\n 3.85",
+        html
+    )
+    khs_pop = parse_khs(html_populated)
+    assert khs_pop["total_mutu"] == 72.0
+    assert khs_pop["total_sks"] == 18
+    assert khs_pop["ipk"] == 3.85
+
+def test_parse_krs():
+    html = (FIXTURES / "sv2_krs.html").read_text(encoding="utf-8")
+    krs = parse_krs(html)
+    assert len(krs["items"]) == 6
+    assert krs["total_sks"] == 18
+    assert krs["semester"] == 1
+    assert krs["kelompok_ujian"] == "15.1C.30.A"
+    assert krs["items"][0]["kode"] == "101"
+
+def test_parse_uts():
+    html = (FIXTURES / "sv2_uts.html").read_text(encoding="utf-8")
+    uts = parse_uts(html)
+    assert uts["jadwal_online_url"] is not None
+    assert "uts-jadwal" in uts["jadwal_online_url"]
+    assert uts["soal_offline_url"] is not None
+    assert "drive.google.com" in uts["soal_offline_url"]

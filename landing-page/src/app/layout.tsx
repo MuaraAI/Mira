@@ -3,30 +3,25 @@ import localFont from "next/font/local";
 import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 
-const gordita = localFont({
+const spaceGrotesk = localFont({
   src: [
     {
-      path: "../../public/fonts/Gordita-Regular.otf",
+      path: "../../public/fonts/SpaceGrotesk-Regular.woff2",
       weight: "400",
       style: "normal",
     },
     {
-      path: "../../public/fonts/Gordita-Medium.otf",
+      path: "../../public/fonts/SpaceGrotesk-Medium.woff2",
       weight: "500",
       style: "normal",
     },
     {
-      path: "../../public/fonts/Gordita-Bold.otf",
+      path: "../../public/fonts/SpaceGrotesk-Bold.woff2",
       weight: "700",
       style: "normal",
     },
-    {
-      path: "../../public/fonts/Gordita-Black.otf",
-      weight: "900",
-      style: "normal",
-    },
   ],
-  variable: "--font-gordita",
+  variable: "--font-space-grotesk",
   display: "swap",
 });
 
@@ -79,17 +74,6 @@ const jetbrainsMono = localFont({
   display: "swap",
 });
 
-const anton = localFont({
-  src: [
-    {
-      path: "../../public/fonts/Anton-Regular.woff2",
-      weight: "400",
-      style: "normal",
-    },
-  ],
-  variable: "--font-anton",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "UBSI API: Unofficial REST API Aggregator 6 Layanan Kampus UBSI | Muara AI",
@@ -164,7 +148,7 @@ export default function RootLayout({
   return (
     <html
       lang="id"
-      className={`${gordita.variable} ${inter.variable} ${jetbrainsMono.variable} ${anton.variable}`}
+      className={`${spaceGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable}`}
     >
       <head>
         <script
@@ -175,7 +159,7 @@ export default function RootLayout({
       <body className="bg-background text-foreground antialiased min-h-screen font-sans">
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-accent focus:text-accent-dark focus:font-semibold focus:rounded-md focus:shadow-float focus:outline-none focus:ring-2 focus:ring-accent"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-accent focus:text-white focus:font-semibold focus:rounded-md focus:shadow-float focus:outline-none focus:ring-2 focus:ring-accent"
         >
           Langsung ke konten utama
         </a>

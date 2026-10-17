@@ -20,10 +20,10 @@ export default async function Image() {
           flexDirection: "column",
           alignItems: "flex-start",
           justifyContent: "space-between",
-          backgroundColor: "#0A1220",
+          backgroundColor: "#F7FAFC",
           padding: "64px 80px",
           fontFamily: "sans-serif",
-          border: "8px solid #111C2E",
+          border: "8px solid #D9E5ED",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
@@ -31,13 +31,13 @@ export default async function Image() {
             style={{
               width: "48px",
               height: "48px",
-              backgroundColor: "#111C2E",
+              backgroundColor: "#0369A1",
               borderRadius: "10px",
-              border: "2px solid #92EEFF",
+              border: "2px solid #075985",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: "#92EEFF",
+              color: "#FFFFFF",
               fontSize: "24px",
               fontWeight: "bold",
             }}
@@ -45,11 +45,11 @@ export default async function Image() {
             M
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
-            <span style={{ color: "#E6EDF3", fontSize: "28px", fontWeight: "bold" }}>
+            <span style={{ color: "#072033", fontSize: "28px", fontWeight: "bold" }}>
               UBSI API
             </span>
-            <span style={{ color: "#92EEFF", fontSize: "14px", letterSpacing: "2px" }}>
-              MUARA AI / DEEP WATER
+            <span style={{ color: "#0369A1", fontSize: "14px", letterSpacing: "2px" }}>
+              MUARA AI / FLUID CURRENTS
             </span>
           </div>
         </div>
@@ -57,7 +57,7 @@ export default async function Image() {
         <div style={{ display: "flex", flexDirection: "column", maxWidth: "950px" }}>
           <span
             style={{
-              color: "#E6EDF3",
+              color: "#072033",
               fontSize: "50px",
               fontWeight: 800,
               lineHeight: 1.15,
@@ -66,7 +66,7 @@ export default async function Image() {
           >
             Satu Antarmuka REST API untuk Seluruh Layanan Kampus UBSI.
           </span>
-          <span style={{ color: "#94A7BC", fontSize: "24px", lineHeight: 1.4 }}>
+          <span style={{ color: "#3B5A70", fontSize: "24px", lineHeight: 1.4 }}>
             SIAKAD, MyBest Elearning, E-Journal (23 Jurnal), E-Library, Repository, News
           </span>
         </div>
@@ -74,36 +74,36 @@ export default async function Image() {
         <div style={{ display: "flex", gap: "20px" }}>
           <div
             style={{
-              backgroundColor: "#111C2E",
+              backgroundColor: "#F0F7FB",
               padding: "10px 20px",
               borderRadius: "8px",
-              color: "#92EEFF",
+              color: "#0369A1",
               fontSize: "18px",
-              border: "1px solid rgba(255,255,255,0.1)",
+              border: "1px solid #D9E5ED",
             }}
           >
             Sub-250ms Redis Cache
           </div>
           <div
             style={{
-              backgroundColor: "#111C2E",
+              backgroundColor: "#F0F7FB",
               padding: "10px 20px",
               borderRadius: "8px",
-              color: "#92EEFF",
+              color: "#0369A1",
               fontSize: "18px",
-              border: "1px solid rgba(255,255,255,0.1)",
+              border: "1px solid #D9E5ED",
             }}
           >
             Open Source / MIT
           </div>
           <div
             style={{
-              backgroundColor: "#111C2E",
+              backgroundColor: "#F0F7FB",
               padding: "10px 20px",
               borderRadius: "8px",
-              color: "#E6EDF3",
+              color: "#3B5A70",
               fontSize: "18px",
-              border: "1px solid rgba(255,255,255,0.1)",
+              border: "1px solid #D9E5ED",
             }}
           >
             v1.1.7 Stable

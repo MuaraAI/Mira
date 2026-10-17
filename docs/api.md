@@ -36,8 +36,7 @@ UBSI API supports two operating modes:
 
 ### 1. Standalone / Self-Host Mode (Default)
 Run locally or on your own VPS with a single master key:
-- Header: `X-API-Key: <your_configured_API_KEY>`
-- Campus credentials default to `.env` (`STUDENTV2_NIM`, `STUDENTV2_PASS`, `ELEARNING_NIM`, `ELEARNING_PASS`).
+- Header: `X-API-Key: <your_master_key>`
 - Developer overrides supported per-request via headers: `X-Studentv2-NIM`, `X-Studentv2-Pass`, `X-Elearning-NIM`, `X-Elearning-Pass`.
 - Rate limiting: Unlimited for Master Key.
 
@@ -146,7 +145,7 @@ Returns operational metrics regarding active login session pools and cache statu
 
 ## 2. StudentV2 (SIAKAD)
 
-All StudentV2 endpoints require `STUDENTV2_NIM` and `STUDENTV2_PASS` configured in `.env`.
+All StudentV2 endpoints require active student authentication (session login, personal API key `muara_ubsi_***`, or developer headers `X-Studentv2-NIM` & `X-Studentv2-Pass`).
 
 ### `GET /v1/studentv2/dashboard`
 Retrieves course schedule, raw grades, news, and circular announcements in parallel within a single request.
@@ -223,11 +222,27 @@ Archives of official student circulars and news announcements.
 Latest internal announcements and PDF notices displayed on the student portal dashboard.
 - **Cache TTL**: 15 minutes (900 seconds)
 
+### `GET /v1/studentv2/profile`
+Retrieves student personal bio, study program, active semester, and academic status from SIAKAD.
+- **Cache TTL**: 1 hour (3600 seconds)
+
+### `GET /v1/studentv2/khs`
+Retrieves semester study results (KHS) including course letter grades, total credit points (mutu), total SKS, and cumulative GPA (IPK).
+- **Cache TTL**: 30 minutes (1800 seconds)
+
+### `GET /v1/studentv2/krs`
+Retrieves active study plan card (KRS), list of enrolled courses, exam group, and total semester SKS.
+- **Cache TTL**: 2 hours (7200 seconds)
+
+### `GET /v1/studentv2/uts`
+Retrieves midterm exam room info, online exam schedule link, and offline question download URLs.
+- **Cache TTL**: 2 hours (7200 seconds)
+
 ---
 
 ## 3. Elearning (MyBest LMS)
 
-All Elearning endpoints require `ELEARNING_NIM` and `ELEARNING_PASS` configured in `.env`.
+All Elearning endpoints require active student authentication (session login, personal API key `muara_ubsi_***`, or developer headers `X-Elearning-NIM` & `X-Elearning-Pass`).
 
 ### `GET /v1/elearning/courses`
 Lists enrolled LMS courses with schedule metadata and encrypted action tokens.
@@ -271,28 +286,42 @@ Retrieves active assignment requirements, deadlines, and graded submission histo
 - **Query Parameter**: `token` (optional; when omitted, aggregates all active assignments across all courses)
 - **Cache TTL**: 10 minutes (600 seconds)
 
+### `POST /v1/elearning/assignments/upload`
+Submits/uploads student assignment submission file (PDF, DOCX, ZIP, etc.) to MyBest LMS.
+- **Payload**:
+  ```json
+  {
+    "token_tugas": "tok_upload_123",
+    "filename": "tugas_p5_15260767.zip",
+    "file_base64": "base64_encoded_file_bytes",
+    "catatan": "Keterangan tugas opsional"
+  }
+  ```
+
+### `GET /v1/elearning/assignments/download`
+Securely downloads assignment question sheet or student submission file from MyBest storage.
+- **Query Parameter**: `file_url` (required, validated against authorized BSI storage domains)
+
 ### `GET /v1/elearning/presence`
 Retrieves lecture attendance status, classroom/session header information, and meeting history.
 - **Query Parameter**: `token` (optional)
 - **Cache TTL**: 10 minutes (600 seconds)
+
+### `POST /v1/elearning/presence`
+Submits student lecture attendance check-in ("pencet absen") for the active classroom session.
+- **Query Parameter**: `token` (optional; when omitted, automatically checks in to currently active course)
 - **Response Sample**:
   ```json
   {
     "success": true,
     "data": {
-      "kode_mtk": "101",
+      "success": true,
+      "status": "Hadir",
       "matakuliah": "PENDIDIKAN PANCASILA",
-      "kelas": "KG.101.30.C",
       "dosen": "BDM",
       "ruang": "EL2-P1",
-      "hari": "Jumat",
-      "jam_masuk": "07:30",
-      "jam_keluar": "09:10",
-      "status_sesi": "Sudah Selesai",
-      "total_kehadiran": 0,
-      "riwayat": []
-    },
-    "cached": false
+      "message": "Presensi mata kuliah PENDIDIKAN PANCASILA berhasil dicatat."
+    }
   }
   ```
 
@@ -304,6 +333,21 @@ Retrieves direct download links for lecture syllabus and weekly module packages 
 ### `GET /v1/elearning/quiz`
 Retrieves active online quizzes and practice exam schedules.
 - **Cache TTL**: 10 minutes (600 seconds)
+
+### `GET /v1/elearning/quiz/questions`
+Retrieves exam questions, countdown timer, CSRF token, and multiple-choice options (A, B, C, D).
+- **Query Parameters**: `token` (optional), `quiz_url` (optional)
+
+### `POST /v1/elearning/quiz/answer`
+Submits option answer for a specific quiz question.
+- **Payload**:
+  ```json
+  {
+    "id_soal": "501",
+    "data_jawab": "501_B",
+    "csrf_token": "optional_token"
+  }
+  ```
 
 ### `GET /v1/elearning/grades`
 Recap of assignment grades (and quiz schedules) per meeting across all active
@@ -467,3 +511,13 @@ Deletes a notification channel. Students can only delete channels registered und
 ### `POST /v1/channels/{channel_id}/test`
 Dispatches a test notification to the designated channel. On delivery success, activates the channel (`is_active = true`).
 - **Access**: Session Token Required.
+
+### `POST /v1/channels/trigger-reminder`
+Manually triggers instant event reminders (category: `matkul-besok` or `quiz-tugas`) across all active student channels.
+- **Access**: Session Token Required.
+- **Payload**:
+  ```json
+  {
+    "category": "matkul-besok"
+  }
+  ```

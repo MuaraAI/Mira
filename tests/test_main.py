@@ -52,15 +52,15 @@ async def test_modular_creds_validation():
     from fastapi import HTTPException
     from app.config import Settings
 
-    empty_settings = Settings(_env_file=None, STUDENTV2_NIM="", STUDENTV2_PASS="")
+    empty_settings = Settings(_env_file=None)
     with pytest.raises(HTTPException) as exc_info:
         require_studentv2_creds(empty_settings)
-    assert exc_info.value.status_code == 400
-    assert exc_info.value.detail["error"]["code"] == "CONFIG_MISSING"
+    assert exc_info.value.status_code == 401
+    assert exc_info.value.detail["error"]["code"] == "UNAUTHORIZED"
     assert exc_info.value.detail["error"]["module"] == "studentv2"
 
     with pytest.raises(HTTPException) as exc_info:
         require_elearning_creds(empty_settings)
-    assert exc_info.value.status_code == 400
-    assert exc_info.value.detail["error"]["code"] == "CONFIG_MISSING"
+    assert exc_info.value.status_code == 401
+    assert exc_info.value.detail["error"]["code"] == "UNAUTHORIZED"
     assert exc_info.value.detail["error"]["module"] == "elearning"

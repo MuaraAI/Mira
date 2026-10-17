@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/python-3.12%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python" />
   <img src="https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI" />
   <img src="https://img.shields.io/badge/Redis-cache-DC382D?style=flat-square&logo=redis&logoColor=white" alt="Redis" />
-  <img src="https://img.shields.io/badge/tests-118%20lulus-2EA043?style=flat-square" alt="Tests" />
+  <img src="https://img.shields.io/badge/tests-142%20lulus-2EA043?style=flat-square" alt="Tests" />
 
 </div>
 
@@ -318,7 +318,7 @@ curl -s -X POST -H "X-API-Key: ubsi_s...xxx" "http://127.0.0.1:8300/v1/news/webh
 Semua parser diuji terhadap snapshot HTML offline, tanpa request live ke server kampus:
 
 ```bash
-# Menjalankan seluruh test suite (118 tests)
+# Menjalankan seluruh test suite (142 tests)
 .venv/bin/pytest -v
 
 # Live smoke test terhadap server lokal

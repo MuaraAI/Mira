@@ -2,7 +2,7 @@
 set -e
 
 VPS_HOST="curzy-vps-tencent"
-REMOTE_DIR="/home/ubuntu/ubsi-api"
+REMOTE_DIR="/opt/ubsi-api"
 REMOTE_VENV="/home/ubuntu/.venvs/ubsi-api"
 
 echo "=== 1. Checking SSH connection to ${VPS_HOST} ==="
@@ -12,7 +12,7 @@ ssh -q -o BatchMode=yes -o ConnectTimeout=5 "${VPS_HOST}" "echo 'SSH connection 
 }
 
 echo "=== 2. Preparing remote directory ==="
-ssh "${VPS_HOST}" "mkdir -p ${REMOTE_DIR}"
+ssh "${VPS_HOST}" "sudo install -d -m 755 -o ubuntu -g netdev '${REMOTE_DIR}'"
 
 echo "=== 3. Syncing project files ==="
 rsync -avz --delete \
@@ -26,6 +26,7 @@ rsync -avz --delete \
     --exclude='anti-slop/' \
     --exclude='graphify-out/' \
     --exclude='.env' \
+    --exclude='data/' \
     ./ "${VPS_HOST}:${REMOTE_DIR}/"
 
 # Sync .env if present locally and absent remotely
@@ -48,12 +49,15 @@ ssh "${VPS_HOST}" "
 echo "=== 5. Starting / Restarting service with PM2 ==="
 ssh "${VPS_HOST}" "
     cd '${REMOTE_DIR}'
-    pm2 restart ecosystem.config.cjs 2>/dev/null || pm2 start ecosystem.config.cjs
+    pm2 startOrReload ecosystem.config.cjs 2>/dev/null || pm2 start ecosystem.config.cjs
     pm2 save
 "
 
 echo "=== 6. Verifying health check on VPS ==="
 sleep 4
-ssh "${VPS_HOST}" "curl -s http://127.0.0.1:8300/health | grep -q '\"status\":\"ok\"' && echo 'Health Check: OK!' || (echo 'Health Check FAILED!'; pm2 logs ubsi-api --lines 20 --nostream; exit 1)"
+ssh "${VPS_HOST}" "
+    curl -s http://127.0.0.1:8300/health | grep -q '\"status\":\"ok\"' && echo 'API Health Check: OK!' || (echo 'API Health Check FAILED!'; pm2 logs ubsi-api --lines 20 --nostream; exit 1)
+    curl -sI http://127.0.0.1:8350/mcp | grep -q 'HTTP/1.1 405' && echo 'MCP Server Check: OK!' || (echo 'MCP Server Check FAILED!'; pm2 logs ubsi-mcp --lines 20 --nostream; exit 1)
+"
 
 echo "=== Deployment Completed Successfully! ==="

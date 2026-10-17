@@ -22,7 +22,7 @@ export function ModulesGrid() {
             <div className="absolute inset-0 rounded-[20px] bg-gradient-to-br from-white/60 via-transparent to-cyan-100/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-4">
-                <span className="text-[11px] font-mono text-[#08738a] font-medium">
+                <span className="text-[11px] font-mono text-[#0369A1] font-medium">
                   {mod.endpointsCount} endpoints
                 </span>
                 <span className="text-[11px] font-mono text-secondary font-medium">
@@ -46,7 +46,7 @@ export function ModulesGrid() {
                 {mod.endpoints.slice(0, 2).map((ep) => (
                   <code
                     key={ep}
-                    className="text-[11px] font-mono bg-[#0c1421] text-[#92EEFF] px-2.5 py-1 rounded-md border border-[#92EEFF]/20 group-hover:border-[#92EEFF]/50 transition-colors"
+                    className="text-[11px] font-mono bg-[#F0F7FB] text-[#0369A1] px-2.5 py-1 rounded-md border border-[#D9E5ED] group-hover:border-[#0369A1]/40 transition-colors"
                   >
                     {ep}
                   </code>

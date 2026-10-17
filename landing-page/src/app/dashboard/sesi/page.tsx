@@ -71,7 +71,7 @@ export default function SesiPage() {
         </dl>
 
         {actionError && (
-          <p className="mt-4 rounded-sm border border-[#fda4af]/60 bg-[#fff1f2] px-4 py-3 text-sm text-[#881337]" role="alert">
+          <p className="mt-4 rounded-sm border border-[#BE123C]/30 bg-[#F0F7FB] px-4 py-3 text-sm text-[#BE123C]" role="alert">
             {actionError}
           </p>
         )}
@@ -90,7 +90,7 @@ export default function SesiPage() {
             type="button"
             onClick={handleLogoutAll}
             disabled={busy !== null}
-            className={`${ghostButtonClass} text-[#b42318] hover:border-[#fda4af]`}
+            className={`${ghostButtonClass} text-[#BE123C] hover:border-[#BE123C]/40`}
           >
             <ShieldX className="h-4 w-4" aria-hidden="true" />
             {busy === "logout_all" ? "Mengakhiri semua session" : "Logout Semua Perangkat"}
