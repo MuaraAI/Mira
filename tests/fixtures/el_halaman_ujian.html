@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="csrf-token" content="mock_csrf_exam_token_456">
+	<title>My Best - Ujian Online</title>
+</head>
+<body>
+    <div id="waktu-akhir">2026-10-25 12:00:00</div>
+    <div id="demo">00 : 45 : 00</div>
+    <div id="maxsoal" data-max="3"></div>
+    <div id="nomerurut" data-id="1"></div>
+
+    <div class="row">
+        <!-- Navigation Spans -->
+        <div class="col-md-4">
+            <span class="no_soal soal_terpilih" id="no_soal1" data-id="501" data-no="1">1</span>
+            <span class="no_soal" id="no_soal2" data-id="502" data-no="2">2</span>
+            <span class="no_soal" id="no_soal3" data-id="503" data-no="3">3</span>
+        </div>
+
+        <!-- Question View -->
+        <div class="col-md-8">
+            <div id="wrap-soal">
+                <div class="soal">
+                    <p>Manakah perintah Git yang digunakan untuk membuat branch baru sekaligus berpindah ke branch tersebut?</p>
+                </div>
+                <div class="pilihan">
+                    <div class="jawab" data-id="501" data-jawab="501_A">
+                        <p>A. git branch -m new-branch</p>
+                    </div>
+                    <div class="jawab" data-id="501" data-jawab="501_B">
+                        <p>B. git checkout -b new-branch</p>
+                    </div>
+                    <div class="jawab" data-id="501" data-jawab="501_C">
+                        <p>C. git pull origin new-branch</p>
+                    </div>
+                    <div class="jawab" data-id="501" data-jawab="501_D">
+                        <p>D. git commit -b new-branch</p>
+                    </div>
+                </div>
+            </div>
+            <button id="next">Next</button>
+            <button class="selesai">Selesai</button>
+        </div>
+    </div>
+</body>
+</html>

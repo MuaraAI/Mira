@@ -219,3 +219,185 @@ async def test_get_presence_and_materials_and_quiz(monkeypatch):
                 res_q = await ac.get("/v1/elearning/quiz")
             assert res_q.status_code == 200
             assert res_q.json()["success"] is True
+
+@pytest.mark.asyncio
+async def test_post_presence_active_session(monkeypatch):
+    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_PASS", "secret")
+
+    mock_active_html = (FIXTURES / "el_absen_active.html").read_text(encoding="utf-8")
+    mock_post_resp = AsyncMock()
+    mock_post_resp.text = "OK"
+
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = None
+    mock_redis.incr.return_value = 1
+
+    with patch("redis.asyncio.from_url", return_value=mock_redis), \
+         patch("app.modules.elearning.pooled_elearning_client.fetch_page", return_value=mock_active_html), \
+         patch("app.modules.elearning.pooled_elearning_client.post_page", return_value=mock_post_resp):
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res = await ac.post("/v1/elearning/presence?token=tok_active_123")
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["success"] is True
+    assert body["data"]["success"] is True
+    assert body["data"]["status"] == "Hadir"
+
+@pytest.mark.asyncio
+async def test_post_presence_inactive_session(monkeypatch):
+    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_PASS", "secret")
+
+    mock_selesai_html = (FIXTURES / "el_absen_1.html").read_text(encoding="utf-8")
+
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = None
+    mock_redis.incr.return_value = 1
+
+    with patch("redis.asyncio.from_url", return_value=mock_redis), \
+         patch("app.modules.elearning.pooled_elearning_client.fetch_page", return_value=mock_selesai_html):
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res = await ac.post("/v1/elearning/presence?token=tok_selesai_123")
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["success"] is True
+    assert body["data"]["success"] is False
+    assert body["data"]["status"] == "Sudah Selesai"
+
+@pytest.mark.asyncio
+async def test_get_quiz_questions(monkeypatch):
+    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_PASS", "secret")
+
+    mock_ujian_html = (FIXTURES / "el_halaman_ujian.html").read_text(encoding="utf-8")
+
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = None
+    mock_redis.incr.return_value = 1
+
+    with patch("redis.asyncio.from_url", return_value=mock_redis), \
+         patch("app.modules.elearning.pooled_elearning_client.fetch_page", return_value=mock_ujian_html):
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res = await ac.get("/v1/elearning/quiz/questions?token=quiz_tok_123")
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["success"] is True
+    data = body["data"]
+    assert data["total_soal"] == 3
+    assert len(data["daftar_soal"]) == 3
+    assert "branch baru" in data["current_soal"]["pertanyaan"]
+
+@pytest.mark.asyncio
+async def test_get_quiz_questions_ssrf_rejected():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.get("/v1/elearning/quiz/questions?quiz_url=http://127.0.0.1:8000/admin")
+    # Must be rejected with 422 (validation error on pattern) or 400
+    assert res.status_code in (400, 422)
+
+@pytest.mark.asyncio
+async def test_post_quiz_answer(monkeypatch):
+    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_PASS", "secret")
+
+    mock_post_resp = AsyncMock()
+    mock_post_resp.text = "1"
+
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = None
+    mock_redis.incr.return_value = 1
+
+    with patch("redis.asyncio.from_url", return_value=mock_redis), \
+         patch("app.modules.elearning.pooled_elearning_client.post_page", return_value=mock_post_resp):
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res = await ac.post(
+                "/v1/elearning/quiz/answer",
+                json={"id_soal": "501", "data_jawab": "501_B", "csrf_token": "token123"},
+            )
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["success"] is True
+    assert body["data"]["success"] is True
+    assert body["data"]["id_soal"] == "501"
+    assert body["data"]["data_jawab"] == "501_B"
+
+@pytest.mark.asyncio
+async def test_post_upload_assignment(monkeypatch):
+    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_PASS", "secret")
+
+    mock_upload_resp = AsyncMock()
+    mock_upload_resp.status_code = 200
+
+    mock_form_html = """
+    <form action="/simpan-tugas" method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="_token" value="csrf123">
+        <input type="file" name="file">
+    </form>
+    """
+
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = None
+    mock_redis.incr.return_value = 1
+
+    with patch("redis.asyncio.from_url", return_value=mock_redis), \
+         patch("app.modules.elearning.pooled_elearning_client.fetch_page", return_value=mock_form_html), \
+         patch("app.modules.elearning.pooled_elearning_client.post_multipart", return_value=mock_upload_resp):
+
+        import base64
+        fake_b64 = base64.b64encode(b"%PDF-1.4 sample content").decode("utf-8")
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res = await ac.post(
+                "/v1/elearning/assignments/upload",
+                json={
+                    "token_tugas": "tok_upload_123",
+                    "filename": "tugas_p5.pdf",
+                    "file_base64": fake_b64,
+                    "catatan": "Tugas selesai",
+                },
+            )
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["success"] is True
+    assert body["data"]["success"] is True
+    assert body["data"]["filename"] == "tugas_p5.pdf"
+
+@pytest.mark.asyncio
+async def test_download_assignment_file_safe_url(monkeypatch):
+    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_PASS", "secret")
+
+    mock_resp = AsyncMock()
+    mock_resp.status_code = 200
+    mock_resp.content = b"%PDF-1.4 file content here"
+    mock_resp.headers = {"content-type": "application/pdf"}
+
+    with patch("app.modules.elearning.pooled_elearning_client.download_file", return_value=mock_resp):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res = await ac.get(
+                "/v1/elearning/assignments/download?file_url=https://elearning.bsi.ac.id/storage/soal/tugas1.pdf"
+            )
+
+    assert res.status_code == 200
+    assert res.headers["content-type"] == "application/pdf"
+    assert "tugas1.pdf" in res.headers.get("content-disposition", "")
+    assert res.content == b"%PDF-1.4 file content here"
+
+@pytest.mark.asyncio
+async def test_download_assignment_file_ssrf_rejected():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.get(
+            "/v1/elearning/assignments/download?file_url=http://127.0.0.1:8000/internal-secret"
+        )
+    assert res.status_code == 400
+    assert res.json()["error"]["code"] == "INVALID_URL"

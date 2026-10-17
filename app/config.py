@@ -18,11 +18,6 @@ class Settings(BaseSettings):
     SCRAPER_PROXY: str = ""
     SCRAPER_PROXY_POOL: str = ""
 
-    STUDENTV2_NIM: str = ""
-    STUDENTV2_PASS: str = ""
-    ELEARNING_NIM: str = ""
-    ELEARNING_PASS: str = ""
-
     TTL_DEFAULT: int = 60
     TTL_SCHEDULE: int = 7200
     TTL_GRADES: int = 1800

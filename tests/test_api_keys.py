@@ -109,6 +109,55 @@ async def test_api_key_lifecycle_direct():
 
 
 @pytest.mark.asyncio
+async def test_api_key_legacy_migration():
+    import json
+    from app.api_keys_db import (
+        _legacy_hash_key,
+        _legacy_get_fernet,
+        _mask_key,
+        _hash_key,
+        resolve_api_key,
+        _connect,
+    )
+
+    # 1. Manually insert legacy key (SHA256 hash + legacy Fernet)
+    legacy_plain = "muara_ubsi_11223344556677889900aabbccddeeff11223344"
+    legacy_hash = _legacy_hash_key(legacy_plain)
+    assert len(legacy_hash) == 64
+
+    f_leg = _legacy_get_fernet()
+    enc_creds = f_leg.encrypt(
+        json.dumps({"studentv2_pass": "leg_sv2", "elearning_pass": "leg_el"}).encode("utf-8")
+    ).decode("utf-8")
+
+    conn = _connect()
+    conn.execute(
+        """
+        INSERT INTO api_keys (nim, name, key_hash, key_prefix, encrypted_creds, is_active, created_at)
+        VALUES (?, ?, ?, ?, ?, 1, datetime('now'))
+        """,
+        ("15260999", "Legacy Bot", legacy_hash, _mask_key(legacy_plain), enc_creds),
+    )
+    conn.commit()
+    conn.close()
+
+    # 2. Resolve via resolve_api_key (auto migration happens!)
+    resolved = await resolve_api_key(legacy_plain)
+    assert resolved is not None
+    assert resolved["nim"] == "15260999"
+    assert resolved["studentv2_pass"] == "leg_sv2"
+    assert resolved["elearning_pass"] == "leg_el"
+
+    # 3. Verify in SQLite that key_hash was migrated to BLAKE2b (128 chars)
+    new_hash = _hash_key(legacy_plain)
+    assert len(new_hash) == 128
+    conn2 = _connect()
+    row = conn2.execute("SELECT key_hash FROM api_keys WHERE nim = ?", ("15260999",)).fetchone()
+    conn2.close()
+    assert row["key_hash"] == new_hash
+
+
+@pytest.mark.asyncio
 async def test_api_key_endpoints_async():
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"

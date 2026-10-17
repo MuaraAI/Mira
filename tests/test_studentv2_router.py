@@ -121,3 +121,89 @@ async def test_studentv2_lgg_fallback_on_upstream_error(monkeypatch):
         assert data["cached"] is True
         assert data["stale"] is True
         assert data["data"][0]["kode"] == "101"
+
+@pytest.mark.asyncio
+async def test_get_profile(monkeypatch):
+    monkeypatch.setenv("STUDENTV2_NIM", "15260767")
+    monkeypatch.setenv("STUDENTV2_PASS", "secret")
+
+    mock_html = (FIXTURES / "sv2_data_pribadi.html").read_text(encoding="utf-8")
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = None
+    mock_redis.incr.return_value = 1
+
+    with patch("redis.asyncio.from_url", return_value=mock_redis), \
+         patch("app.modules.studentv2.studentv2_client.fetch_page", return_value=mock_html):
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res = await ac.get("/v1/studentv2/profile")
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["success"] is True
+    assert body["data"]["nim"] == "15260767"
+    assert body["data"]["nama"] == "YUKEN VELINO"
+
+@pytest.mark.asyncio
+async def test_get_khs(monkeypatch):
+    monkeypatch.setenv("STUDENTV2_NIM", "15260767")
+    monkeypatch.setenv("STUDENTV2_PASS", "secret")
+
+    mock_html = (FIXTURES / "sv2_khs.html").read_text(encoding="utf-8")
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = None
+    mock_redis.incr.return_value = 1
+
+    with patch("redis.asyncio.from_url", return_value=mock_redis), \
+         patch("app.modules.studentv2.studentv2_client.fetch_page", return_value=mock_html):
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res = await ac.get("/v1/studentv2/khs")
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["success"] is True
+    assert "ipk" in body["data"]
+
+@pytest.mark.asyncio
+async def test_get_krs(monkeypatch):
+    monkeypatch.setenv("STUDENTV2_NIM", "15260767")
+    monkeypatch.setenv("STUDENTV2_PASS", "secret")
+
+    mock_html = (FIXTURES / "sv2_krs.html").read_text(encoding="utf-8")
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = None
+    mock_redis.incr.return_value = 1
+
+    with patch("redis.asyncio.from_url", return_value=mock_redis), \
+         patch("app.modules.studentv2.studentv2_client.fetch_page", return_value=mock_html):
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res = await ac.get("/v1/studentv2/krs")
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["success"] is True
+    assert len(body["data"]["items"]) == 6
+    assert body["data"]["total_sks"] == 18
+
+@pytest.mark.asyncio
+async def test_get_uts(monkeypatch):
+    monkeypatch.setenv("STUDENTV2_NIM", "15260767")
+    monkeypatch.setenv("STUDENTV2_PASS", "secret")
+
+    mock_html = (FIXTURES / "sv2_uts.html").read_text(encoding="utf-8")
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = None
+    mock_redis.incr.return_value = 1
+
+    with patch("redis.asyncio.from_url", return_value=mock_redis), \
+         patch("app.modules.studentv2.studentv2_client.fetch_page", return_value=mock_html):
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res = await ac.get("/v1/studentv2/uts")
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["success"] is True
+    assert body["data"]["jadwal_online_url"] is not None

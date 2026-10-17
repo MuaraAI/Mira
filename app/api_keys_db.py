@@ -40,11 +40,25 @@ CREATE INDEX IF NOT EXISTS idx_api_keys_nim ON api_keys(nim);
 """
 
 
-def _get_fernet() -> Fernet:
+def _legacy_get_fernet() -> Fernet:
     secret = settings.API_KEY
     if not secret:
         raise RuntimeError("API_KEY wajib disetel di file .env server!")
     key = base64.urlsafe_b64encode(hashlib.sha256(secret.encode("utf-8")).digest())
+    return Fernet(key)
+
+
+def _get_fernet() -> Fernet:
+    secret = settings.API_KEY
+    if not secret:
+        raise RuntimeError("API_KEY wajib disetel di file .env server!")
+    # Keyed BLAKE2b (RFC 7693) KDF dengan context 32-byte untuk kunci Fernet
+    h = hashlib.blake2b(
+        b"ubsi_fernet_credential_encryption_v1",
+        key=secret.encode("utf-8"),
+        digest_size=32,
+    )
+    key = base64.urlsafe_b64encode(h.digest())
     return Fernet(key)
 
 
@@ -80,6 +94,12 @@ def init_api_keys_db() -> None:
 
 
 def _hash_key(plain_key: str) -> str:
+    # Keyed BLAKE2b (64-byte / 512-bit digest) kebal collision & length extension
+    secret = settings.API_KEY.encode("utf-8") if settings.API_KEY else b""
+    return hashlib.blake2b(plain_key.encode("utf-8"), key=secret, digest_size=64).hexdigest()
+
+
+def _legacy_hash_key(plain_key: str) -> str:
     return hashlib.sha256(plain_key.encode("utf-8")).hexdigest()
 
 
@@ -229,7 +249,9 @@ async def revoke_api_key(nim: str, key_id: int) -> bool:
     return True
 
 
-def _sync_resolve_api_key(key_hash: str) -> Optional[dict[str, Any]]:
+def _sync_resolve_api_key(
+    key_hash: str, plain_key: Optional[str] = None
+) -> Optional[dict[str, Any]]:
     try:
         conn = _connect()
     except Exception:
@@ -237,29 +259,61 @@ def _sync_resolve_api_key(key_hash: str) -> Optional[dict[str, Any]]:
 
     try:
         row = conn.execute(
-            "SELECT nim, encrypted_creds, is_active FROM api_keys WHERE key_hash = ? AND is_active = 1",
+            "SELECT id, nim, encrypted_creds, is_active FROM api_keys WHERE key_hash = ? AND is_active = 1",
             (key_hash,),
         ).fetchone()
+
+        migrated_from_legacy = False
+        # Fallback check untuk key lama (SHA256)
+        if not row and plain_key:
+            legacy_hash = _legacy_hash_key(plain_key)
+            row = conn.execute(
+                "SELECT id, nim, encrypted_creds, is_active FROM api_keys WHERE key_hash = ? AND is_active = 1",
+                (legacy_hash,),
+            ).fetchone()
+            if row:
+                migrated_from_legacy = True
+
         if not row:
             return None
 
+        # Dekripsi dengan Fernet baru, fallback ke Fernet lama bila perlu
         f = _get_fernet()
+        data = None
         try:
             raw = f.decrypt(row["encrypted_creds"].encode("utf-8")).decode("utf-8")
             data = json.loads(raw)
         except Exception:
-            return None
+            try:
+                f_leg = _legacy_get_fernet()
+                raw = f_leg.decrypt(row["encrypted_creds"].encode("utf-8")).decode("utf-8")
+                data = json.loads(raw)
+                migrated_from_legacy = True
+            except Exception:
+                return None
 
-        # Update last_used_at
         now_iso = datetime.now(timezone.utc).isoformat()
-        try:
-            conn.execute(
-                "UPDATE api_keys SET last_used_at = ? WHERE key_hash = ?",
-                (now_iso, key_hash),
-            )
-            conn.commit()
-        except Exception:
-            pass
+
+        # Seamless migration: jika key lama terdeteksi, perbarui ke BLAKE2b hash & re-enkripsi
+        if migrated_from_legacy and plain_key:
+            try:
+                new_encrypted = f.encrypt(json.dumps(data).encode("utf-8")).decode("utf-8")
+                conn.execute(
+                    "UPDATE api_keys SET key_hash = ?, encrypted_creds = ?, last_used_at = ? WHERE id = ?",
+                    (key_hash, new_encrypted, now_iso, row["id"]),
+                )
+                conn.commit()
+            except Exception:
+                pass
+        else:
+            try:
+                conn.execute(
+                    "UPDATE api_keys SET last_used_at = ? WHERE id = ?",
+                    (now_iso, row["id"]),
+                )
+                conn.commit()
+            except Exception:
+                pass
 
         return {
             "nim": row["nim"],
@@ -288,8 +342,8 @@ async def resolve_api_key(plain_key: str) -> Optional[dict[str, Any]]:
     except Exception:
         pass
 
-    # 2. Cek SQLite & Decrypt
-    resolved = await run_in_threadpool(_sync_resolve_api_key, key_hash)
+    # 2. Cek SQLite & Decrypt (dengan auto migration jika legacy)
+    resolved = await run_in_threadpool(_sync_resolve_api_key, key_hash, plain_key)
     if not resolved:
         return None
 

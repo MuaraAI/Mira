@@ -40,44 +40,27 @@ def test_tier2_header_override():
     assert sv_nim == "15260999"
     assert sv_pwd == "header_sv_pass"
 
-def test_tier3_env_fallback():
-    scope = {"type": "http", "headers": [], "state": {}}
-    req = Request(scope)
-    
-    cfg = Settings(
-        _env_file=None,
-        ELEARNING_NIM="15260111",
-        ELEARNING_PASS="env_el_pass",
-        STUDENTV2_NIM="15260222",
-        STUDENTV2_PASS="env_sv_pass"
-    )
-    
-    el_nim, el_pwd = require_elearning_creds(req, cfg=cfg)
-    assert el_nim == "15260111"
-    assert el_pwd == "env_el_pass"
-    
-    sv_nim, sv_pwd = require_studentv2_creds(req, cfg=cfg)
-    assert sv_nim == "15260222"
-    assert sv_pwd == "env_sv_pass"
-
-def test_missing_credentials_raises_400():
+def test_missing_credentials_raises_401():
     scope = {"type": "http", "headers": [], "state": {}}
     req = Request(scope)
     empty_cfg = Settings(_env_file=None)
     
     with pytest.raises(HTTPException) as exc_el:
         require_elearning_creds(req, cfg=empty_cfg)
-    assert exc_el.value.status_code == 400
-    assert exc_el.value.detail["error"]["code"] == "CONFIG_MISSING"
+    assert exc_el.value.status_code == 401
+    assert exc_el.value.detail["error"]["code"] == "UNAUTHORIZED"
 
     with pytest.raises(HTTPException) as exc_sv:
         require_studentv2_creds(req, cfg=empty_cfg)
-    assert exc_sv.value.status_code == 400
-    assert exc_sv.value.detail["error"]["code"] == "CONFIG_MISSING"
+    assert exc_sv.value.status_code == 401
+    assert exc_sv.value.detail["error"]["code"] == "UNAUTHORIZED"
 
 def test_backward_compatible_signature_with_settings_as_first_arg():
     empty_cfg = Settings(_env_file=None)
-    with pytest.raises(HTTPException):
+    with pytest.raises(HTTPException) as exc_el:
         require_elearning_creds(empty_cfg)
-    with pytest.raises(HTTPException):
+    assert exc_el.value.status_code == 401
+
+    with pytest.raises(HTTPException) as exc_sv:
         require_studentv2_creds(empty_cfg)
+    assert exc_sv.value.status_code == 401

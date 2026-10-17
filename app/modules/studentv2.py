@@ -114,6 +114,128 @@ def parse_announcements(html: str) -> list[dict[str, Any]]:
             })
     return results
 
+def parse_profile(html: str) -> dict[str, Any]:
+    """Parse biodata dan status akademik mahasiswa dari /mahasiswa/data-pribadi."""
+    page = Adaptor(html)
+    profile: dict[str, Any] = {}
+    key_map = {
+        "nim": "nim",
+        "nama": "nama",
+        "tempat_lahir": "tempat_lahir",
+        "tanggal_lahir": "tanggal_lahir",
+        "alamat": "alamat",
+        "rt_rw": "rt_rw",
+        "desa_kelurahan": "desa_kelurahan",
+        "kecamatan": "kecamatan",
+        "kota": "kota",
+        "kode_pos": "kode_pos",
+        "telepon": "telepon",
+        "email": "email",
+        "jenis_kelamin": "jenis_kelamin",
+        "agama": "agama",
+        "program_studi": "program_studi",
+        "tahun_masuk": "tahun_masuk",
+        "pilihan_waktu": "pilihan_waktu",
+        "lokasi_cabang": "lokasi_cabang",
+        "kelas": "kelas",
+        "lokal": "lokal",
+        "semester_aktif": "semester_aktif",
+        "kondisi_aktif": "status_aktif",
+        "kondisi_biaya_kuliah": "kondisi_biaya_kuliah",
+    }
+    for row in page.css("form .row"):
+        label = row.css("label")
+        input_el = row.css("input")
+        if label and input_el:
+            raw_k = re.sub(r"[\s/]+", "_", label[0].get_all_text().strip().lower()).strip("_")
+            val = input_el[0].attrib.get("value", "").strip()
+            mapped = key_map.get(raw_k, raw_k)
+            profile[mapped] = val
+
+    return profile
+
+def parse_khs(html: str) -> dict[str, Any]:
+    """Parse Kartu Hasil Studi (KHS) dan kumulatif IPK dari /mahasiswa/khs."""
+    page = Adaptor(html)
+    khs: dict[str, Any] = {"items": [], "total_mutu": 0.0, "total_sks": 0, "ipk": 0.0}
+    tables = page.css("table")
+    if tables:
+        t = tables[0]
+        for r in t.css("tr"):
+            cols = [c.get_all_text().strip() for c in r.css("td")]
+            if len(cols) >= 6 and cols[0].isdigit():
+                khs["items"].append({
+                    "no": int(cols[0]),
+                    "kode": cols[1],
+                    "mata_kuliah": cols[2],
+                    "sks": int(cols[3]) if cols[3].isdigit() else 0,
+                    "nilai": cols[4],
+                    "mutu": float(cols[5]) if cols[5].replace(".", "").isdigit() else 0.0,
+                    "keterangan": cols[6] if len(cols) > 6 else "",
+                })
+            elif "TOTAL MUTU" in r.get_all_text():
+                tds = r.css("td")
+                for j, td in enumerate(tds):
+                    if "TOTAL MUTU" in td.get_all_text() and j + 1 < len(tds):
+                        val_text = tds[j + 1].get_all_text().strip()
+                        nums = re.findall(r"(\d+(?:\.\d+)?)", val_text)
+                        if len(nums) >= 3:
+                            khs["total_mutu"] = float(nums[0])
+                            khs["total_sks"] = int(float(nums[1]))
+                            khs["ipk"] = float(nums[2])
+                        elif len(nums) == 2:
+                            khs["total_sks"] = int(float(nums[0]))
+                            khs["ipk"] = float(nums[1])
+                        elif len(nums) == 1:
+                            khs["ipk"] = float(nums[0])
+
+    return khs
+
+def parse_krs(html: str) -> dict[str, Any]:
+    """Parse Kartu Rencana Studi (KRS) aktif dari /mahasiswa/krs."""
+    page = Adaptor(html)
+    krs: dict[str, Any] = {"items": [], "total_sks": 0, "semester": 1, "kelompok_ujian": None}
+    k_text = page.get_all_text()
+    m_sem = re.search(r"Semester\s*(\d+)", k_text)
+    if m_sem:
+        krs["semester"] = int(m_sem.group(1))
+    m_kel = re.search(r"Kelompok Ujian\s*([A-Za-z0-9\.]+)", k_text)
+    if m_kel:
+        krs["kelompok_ujian"] = m_kel.group(1)
+
+    tables = page.css("table")
+    if tables:
+        for r in tables[0].css("tr"):
+            cols = [c.get_all_text().strip() for c in r.css("td")]
+            if len(cols) >= 4 and cols[0].isdigit():
+                krs["items"].append({
+                    "no": int(cols[0]),
+                    "kode": cols[1],
+                    "mata_kuliah": cols[2],
+                    "sks": int(cols[3]) if cols[3].isdigit() else 0,
+                })
+            elif len(cols) >= 2 and "Total SKS" in cols[0]:
+                krs["total_sks"] = int(cols[1]) if cols[1].isdigit() else 0
+
+    return krs
+
+def parse_uts(html: str) -> dict[str, Any]:
+    """Parse informasi jadwal & tautan soal ruang UTS dari /mahasiswa/uts."""
+    page = Adaptor(html)
+    uts: dict[str, Any] = {
+        "title": "Ruang Ujian Tengah Semester",
+        "jadwal_online_url": None,
+        "soal_offline_url": None,
+    }
+    for a in page.css("a"):
+        h = a.attrib.get("href", "")
+        t = a.get_all_text().strip().lower()
+        if "drive.google.com" in h or ("offline" in t and "soal" in t):
+            uts["soal_offline_url"] = h
+        elif "uts-jadwal" in h or ("online" in t and ("jadwal" in t or "lihat" in t)):
+            uts["jadwal_online_url"] = h
+    return uts
+
 # Authenticated Client Session
 
 class StudentV2Client:
@@ -359,3 +481,55 @@ async def get_dashboard(creds: tuple[str, str] = Depends(require_studentv2_creds
         )
 
     return success_response(data=dashboard, cached=all_cached)
+
+@router.get("/profile")
+async def get_profile(creds: tuple[str, str] = Depends(require_studentv2_creds)):
+    """Biodata lengkap dan status akademik mahasiswa dari SIAKAD."""
+    nim, password = creds
+    return await cached_endpoint(
+        module="studentv2",
+        name="profile",
+        fetch=lambda: studentv2_client.fetch_page("/mahasiswa/data-pribadi", nim, password),
+        parse=parse_profile,
+        ttl=settings.TTL_LIBRARY,
+        cache_params={"nim": nim},
+    )
+
+@router.get("/khs")
+async def get_khs(creds: tuple[str, str] = Depends(require_studentv2_creds)):
+    """Kartu Hasil Studi (KHS) dan kumulatif IPK semester."""
+    nim, password = creds
+    return await cached_endpoint(
+        module="studentv2",
+        name="khs",
+        fetch=lambda: studentv2_client.fetch_page("/mahasiswa/khs", nim, password),
+        parse=parse_khs,
+        ttl=settings.TTL_GRADES,
+        cache_params={"nim": nim},
+    )
+
+@router.get("/krs")
+async def get_krs(creds: tuple[str, str] = Depends(require_studentv2_creds)):
+    """Kartu Rencana Studi (KRS) aktif dan kelompok ujian."""
+    nim, password = creds
+    return await cached_endpoint(
+        module="studentv2",
+        name="krs",
+        fetch=lambda: studentv2_client.fetch_page("/mahasiswa/krs", nim, password),
+        parse=parse_krs,
+        ttl=settings.TTL_SCHEDULE,
+        cache_params={"nim": nim},
+    )
+
+@router.get("/uts")
+async def get_uts(creds: tuple[str, str] = Depends(require_studentv2_creds)):
+    """Informasi jadwal ujian online dan unduhan soal ruang UTS."""
+    nim, password = creds
+    return await cached_endpoint(
+        module="studentv2",
+        name="uts",
+        fetch=lambda: studentv2_client.fetch_page("/mahasiswa/uts", nim, password),
+        parse=parse_uts,
+        ttl=settings.TTL_SCHEDULE,
+        cache_params={"nim": nim},
+    )

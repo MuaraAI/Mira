@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="csrf-token" content="mock_csrf_token_active_presence">
+	<title>My Best - Presensi Aktif</title>
+</head>
+<body>
+    <div class="col-xl-2 col-lg-2 col-md-2 col-sm-2 col-4">
+        <div class="info-tiles">
+            <div class="stats-detail">
+                <h5>101</h5>
+                <p>Kode MTK</p>
+            </div>
+        </div>
+        <div class="info-tiles">
+            <div class="stats-detail">
+                <h5>PENDIDIKAN PANCASILA</h5>
+                <p>Mata Kuliah</p>
+            </div>
+        </div>
+        <div class="info-tiles">
+            <div class="stats-detail">
+                <h5>BDM</h5>
+                <p>Dosen</p>
+            </div>
+        </div>
+        <div class="info-tiles">
+            <div class="stats-detail">
+                <h5>EL2-P1</h5>
+                <p>Ruang</p>
+            </div>
+        </div>
+        <div class="info-tiles">
+            <div class="stats-detail">
+                <h5>07:30</h5>
+                <p>Jam Masuk</p>
+            </div>
+        </div>
+        <div class="info-tiles">
+            <div class="stats-detail">
+                <h5>09:10</h5>
+                <p>Jam Keluar</p>
+            </div>
+        </div>
+        <div class="info-tiles">
+            <div class="stats-detail">
+                <h5>Jumat</h5>
+                <p>Hari</p>
+            </div>
+        </div>
+        <div class="info-tiles">
+            <div class="stats-detail">
+                <h5>KG.101.30.C</h5>
+                <p>Kelas</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12">
+        <div class="info-tiles">
+            <form method="POST" action="https://elearning.bsi.ac.id/simpan-absen">
+                <input type="hidden" name="_token" value="mock_csrf_token_active_presence">
+                <input type="hidden" name="token_kelas" value="test_token_absen_123">
+                <center><button type="submit" class="btn btn-success btn-rounded left mt-4">Absen Masuk</button></center>
+            </form>
+        </div>
+    </div>
+    <table class="table">
+        <thead><tr><th>Status Absen</th><th>Tanggal</th><th>Matakuliah</th><th>Pertemuan</th><th>Rangkuman</th><th>Berita Acara</th></tr></thead>
+        <tbody>
+            <tr><td>Hadir</td><td>2026-10-16</td><td>PENDIDIKAN PANCASILA</td><td>Pertemuan 5</td><td>Materi Pancasila</td><td>BAP OK</td></tr>
+        </tbody>
+    </table>
+</body>
+</html>
