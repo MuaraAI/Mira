@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   CheckSquare,
   Clock,
@@ -9,8 +9,9 @@ import {
   CheckCircle2,
   Calendar,
   BookOpen,
-} from "lucide-react";
-import { useApi } from "@/lib/api";
+  Upload,
+} from "lucide-react"
+import { apiFetch, useApi } from "@/lib/api";
 import {
   EmptyState,
   ErrorState,
@@ -42,6 +43,9 @@ interface SubmissionItem {
   nilai?: string | null;
   komentar?: string | null;
   file_url?: string | null;
+  pertemuan?: string;
+  komentar_dosen?: string | null;
+  created?: string | null;
 }
 
 interface AssignmentsData {
@@ -54,6 +58,35 @@ export default function TugasPage() {
     "/v1/elearning/assignments"
   );
   const [filter, setFilter] = useState<"all" | "pending" | "completed">("all");
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  async function handleUpload(task: TaskItem, file: File) {
+    if (!task.token_tugas) {
+      setActionMessage("Tugas ini belum menyediakan token upload dari MyBest.");
+      return;
+    }
+    setUploadingId(task.id);
+    setActionMessage(null);
+    try {
+      const encoded = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
+        reader.onerror = () => reject(new Error("File tidak bisa dibaca."));
+        reader.readAsDataURL(file);
+      });
+      const result = await apiFetch<{ message?: string }>("/v1/elearning/assignments/upload", {
+        json: { token_tugas: task.token_tugas, filename: file.name, file_base64: encoded },
+      });
+      setActionMessage(result.message || "Tugas berhasil dikumpulkan.");
+      reload();
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : "Upload tugas gagal.");
+    } finally {
+      setUploadingId(null);
+    }
+  }
 
   if (loading) return <LoadingState label="Memuat daftar tugas perkuliahan" />;
   if (error) return <ErrorState error={error} onRetry={reload} />;
@@ -68,16 +101,30 @@ export default function TugasPage() {
   const pendingList = tasks.filter(
     (t) => !submittedTitles.has(t.judul?.toLowerCase().trim())
   );
-  const completedList = tasks.filter((t) =>
-    submittedTitles.has(t.judul?.toLowerCase().trim())
-  );
+  const completedList = submissions.map((submission) => {
+    const matchingTask = tasks.find(
+      (task) => task.judul?.toLowerCase().trim() === submission.judul?.toLowerCase().trim()
+    );
+    return matchingTask || {
+      id: `submission-${submission.id}`,
+      kode: submission.kode,
+      mata_kuliah: submission.mata_kuliah,
+      judul: submission.judul,
+      pertemuan: submission.pertemuan,
+      selesai: submission.created || undefined,
+      deskripsi: submission.komentar_dosen || undefined,
+      file_soal_url: null,
+      upload_url: null,
+      token_tugas: null,
+    };
+  });
 
   const displayedTasks =
     filter === "pending"
       ? pendingList
       : filter === "completed"
       ? completedList
-      : tasks;
+      : [...tasks, ...completedList.filter((item) => !tasks.some((task) => task.id === item.id))];
 
   return (
     <div className="space-y-6">
@@ -123,6 +170,12 @@ export default function TugasPage() {
           </button>
         </div>
       </div>
+
+      {actionMessage && (
+        <div className="rounded-sm border border-[#0369A1]/25 bg-[#F0F7FB] px-4 py-3 text-sm text-[#0369A1]" role="status">
+          {actionMessage}
+        </div>
+      )}
 
       {displayedTasks.length === 0 ? (
         <EmptyState
@@ -224,17 +277,42 @@ export default function TugasPage() {
                       </div>
                     )}
 
-                    {task.file_soal_url && (
-                      <a
-                        href={task.file_soal_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill border border-stroke bg-white hover:bg-[#F0F7FB] text-xs font-semibold text-[#0369A1] transition-all"
-                      >
-                        <Download className="w-3.5 h-3.5" aria-hidden="true" />
-                        <span>Unduh Soal</span>
-                      </a>
-                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {task.file_soal_url && (
+                        <a
+                          href={`/v1/elearning/assignments/download?file_url=${encodeURIComponent(task.file_soal_url)}`}
+                          className="inline-flex min-h-[40px] items-center gap-1.5 px-3 py-2 rounded-pill border border-stroke bg-white hover:bg-[#F0F7FB] text-xs font-semibold text-[#0369A1] transition-all"
+                        >
+                          <Download className="w-3.5 h-3.5" aria-hidden="true" />
+                          <span>Unduh Soal</span>
+                        </a>
+                      )}
+                      {!isSubmitted && (
+                        <>
+                          <input
+                            ref={(node) => { fileInputs.current[task.id] = node; }}
+                            type="file"
+                            className="sr-only"
+                            onChange={(event) => {
+                              const file = event.target.files?.[0];
+                              if (file) void handleUpload(task, file);
+                              event.target.value = "";
+                            }}
+                            aria-label={`Pilih berkas untuk ${task.judul}`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => fileInputs.current[task.id]?.click()}
+                            disabled={uploadingId === task.id || !task.token_tugas}
+                            className="inline-flex min-h-[40px] items-center gap-1.5 px-3 py-2 rounded-pill bg-[#0369A1] hover:bg-[#075985] text-xs font-semibold text-white transition-all disabled:cursor-not-allowed disabled:opacity-40"
+                            title={!task.token_tugas ? "MyBest belum memberikan token upload untuk tugas ini" : undefined}
+                          >
+                            <Upload className="w-3.5 h-3.5" aria-hidden="true" />
+                            <span>{uploadingId === task.id ? "Mengunggah..." : "Kumpulkan Tugas"}</span>
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
