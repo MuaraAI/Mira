@@ -116,7 +116,12 @@ async def test_login_success_sets_cookie_and_stores_session(fake_redis):
         assert "SameSite=lax" in set_cookie_header
         session_keys = [k for k in fake_redis.kv if k.startswith("ubsi:session:")]
         assert len(session_keys) == 1
-        payload = json.loads(fake_redis.kv[session_keys[0]])
+        raw_val = fake_redis.kv[session_keys[0]]
+        # Nilai di Redis terenkripsi AES-256 (bukan plaintext JSON)
+        assert not raw_val.startswith("{")
+        from app.session_store import _decrypt_payload
+        payload = _decrypt_payload(raw_val, settings.API_KEY)
+        assert payload is not None
         assert payload["nim"] == "15260767"
 
 
@@ -155,9 +160,8 @@ async def test_login_rate_limited_per_nim(fake_redis, monkeypatch):
 async def test_session_token_grants_api_access(fake_redis):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        token = await _login(ac, fake_redis)
-
         with patch("app.main.settings.API_KEY", "master_secret"):
+            token = await _login(ac, fake_redis)
             res = await ac.get(
                 "/v1/news", headers={"Authorization": f"Bearer {token}"}
             )
