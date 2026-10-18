@@ -12,6 +12,8 @@ import {
   Code2,
   X,
   Clock,
+  Blocks,
+  Sparkles,
 } from "lucide-react";
 import { apiFetch, ApiError, useApi, clearApiCache } from "@/lib/api";
 import {
@@ -36,6 +38,53 @@ interface ApiKeyItem {
 
 const MAX_KEYS = 5;
 
+const MCP_URL = "https://api.muaraai.com/v1/ubsi-api/mcp";
+
+const MCP_SNIPPETS: { id: string; label: string; hint: string; code: string }[] = [
+  {
+    id: "claude-code",
+    label: "Claude Code",
+    hint: "Jalankan sekali di terminal, lalu restart sesi Claude Code.",
+    code: `claude mcp add --transport http ubsi-academic \\\n  ${MCP_URL} \\\n  --header "Authorization: Bearer muara_ubsi_YOUR_KEY"`,
+  },
+  {
+    id: "cursor",
+    label: "Cursor",
+    hint: "Simpan sebagai .cursor/mcp.json di root project Anda.",
+    code: JSON.stringify(
+      {
+        mcpServers: {
+          "ubsi-academic": {
+            url: MCP_URL,
+            headers: { Authorization: "Bearer muara_ubsi_YOUR_KEY" },
+          },
+        },
+      },
+      null,
+      2
+    ),
+  },
+  {
+    id: "codex",
+    label: "Codex CLI",
+    hint: "Tambahkan ke ~/.codex/config.toml.",
+    code: `[mcp_servers.ubsi-academic]\nurl = "${MCP_URL}"\nhttp_headers = { "Authorization" = "Bearer muara_ubsi_YOUR_KEY" }`,
+  },
+  {
+    id: "hermes",
+    label: "Hermes Agent",
+    hint: "Tambahkan ke blok mcp_servers di ~/.hermes/config.yaml.",
+    code: `mcp_servers:\n  ubsi-academic:\n    url: ${MCP_URL}\n    headers:\n      Authorization: "Bearer muara_ubsi_YOUR_KEY"`,
+  },
+];
+
+const MCP_AGENT_PROMPT = `Kamu adalah asisten akademik pribadi mahasiswa UBSI.
+Gunakan tools MCP "ubsi-*" yang tersedia (jadwal, nilai & KHS, KRS, kartu ujian,
+tugas, presensi, bahan ajar, berita kampus, perpustakaan) untuk menjawab
+pertanyaan akademik saya dengan data real-time dari akun saya sendiri.
+Contoh pemakaian: "Jadwal besok apa?", "Cek tugas yang belum dikumpul",
+"Berapa IPK gw?", "Cariin buku machine learning di perpustakaan".`;
+
 export default function ApiKeysPage() {
   const { data, loading, error, reload } = useApi<{ keys: ApiKeyItem[]; total: number }>(
     "/v1/auth/keys"
@@ -47,6 +96,8 @@ export default function ApiKeysPage() {
   const [saving, setSaving] = useState(false);
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [docsTab, setDocsTab] = useState<"rest" | "mcp">("rest");
+  const [copiedBlock, setCopiedBlock] = useState<string | null>(null);
   const [revokingId, setRevokingId] = useState<number | null>(null);
 
   // Close modal on Escape
@@ -119,6 +170,16 @@ export default function ApiKeysPage() {
       await navigator.clipboard.writeText(createdKey);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback
+    }
+  }
+
+  async function handleCopyBlock(text: string, blockId: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedBlock(blockId);
+      setTimeout(() => setCopiedBlock(null), 2000);
     } catch {
       // Fallback
     }
@@ -240,36 +301,183 @@ export default function ApiKeysPage() {
         </div>
       )}
 
-      {/* DOKUMENTASI CARA MENGGUNAKAN KEY */}
-      <div className="glass-card p-6 space-y-4">
-        <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
-          <Code2 className="h-4 w-4 text-[#0369A1]" />
-          <span>Cara Menggunakan Personal API Key</span>
-        </div>
-        <p className="text-xs text-secondary leading-relaxed font-sans">
-          Sertakan kunci di header <code className="text-[#0369A1] font-mono">Authorization: Bearer muara_ubsi_***</code> atau{" "}
-          <code className="text-[#0369A1] font-mono">X-API-Key: muara_ubsi_***</code> pada setiap pemanggilan HTTP.
-        </p>
-
-        <div className="bg-[#131B26] p-4 rounded-xl border border-white/10 font-mono text-xs text-code-text overflow-x-auto space-y-3">
-          <div>
-            <p className="text-code-text/60 text-[11px] mb-1"># 1. Ambil Jadwal Kuliah Anda lewat cURL:</p>
-            <pre className="text-[#7DD3FC]">
-              curl -H &quot;Authorization: Bearer muara_ubsi_***&quot; \\
-                https://api.muaraai.com/v1/ubsi-api/v1/studentv2/schedule
-            </pre>
+      {/* DOKUMENTASI: REST API & MCP SERVER */}
+      <div className="glass-card p-6 space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
+            <Code2 className="h-4 w-4 text-[#0369A1]" />
+            <span>Cara Menghubungkan Akun Anda</span>
           </div>
-          <div className="pt-2 border-t border-white/10">
-            <p className="text-code-text/60 text-[11px] mb-1"># 2. Skrip Python Otomasi:</p>
-            <pre className="text-code-text/90">
+
+          <div className="flex items-center gap-1.5 p-1 bg-[#F0F7FB] border border-stroke rounded-pill self-start">
+            <button
+              type="button"
+              onClick={() => setDocsTab("rest")}
+              aria-pressed={docsTab === "rest"}
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-pill transition-all inline-flex items-center gap-1.5 ${
+                docsTab === "rest"
+                  ? "bg-[#0369A1] text-white shadow-sm"
+                  : "text-secondary hover:text-foreground"
+              }`}
+            >
+              <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />
+              REST API
+            </button>
+            <button
+              type="button"
+              onClick={() => setDocsTab("mcp")}
+              aria-pressed={docsTab === "mcp"}
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-pill transition-all inline-flex items-center gap-1.5 ${
+                docsTab === "mcp"
+                  ? "bg-[#0369A1] text-white shadow-sm"
+                  : "text-secondary hover:text-foreground"
+              }`}
+            >
+              <Blocks className="h-3.5 w-3.5" aria-hidden="true" />
+              MCP Server
+            </button>
+          </div>
+        </div>
+
+        {docsTab === "rest" ? (
+          <>
+            <p className="text-xs text-secondary leading-relaxed">
+              Sertakan kunci di header{" "}
+              <code className="text-[#0369A1] font-mono">Authorization: Bearer muara_...</code> atau{" "}
+              <code className="text-[#0369A1] font-mono">X-API-Key: muara_...</code> pada setiap pemanggilan HTTP.
+            </p>
+
+            <div className="bg-[#131B26] p-4 rounded-xl border border-white/10 font-mono text-xs text-code-text overflow-x-auto space-y-3">
+              <div>
+                <p className="text-code-text/60 text-[11px] mb-1"># 1. Ambil Jadwal Kuliah Anda lewat cURL:</p>
+                <pre className="text-[#7DD3FC]">
+                  {`curl -H "Authorization: Bearer muara_ubsi_YOUR_KEY" \\
+  https://api.muaraai.com/v1/ubsi-api/v1/studentv2/schedule`}
+                </pre>
+              </div>
+              <div className="pt-2 border-t border-white/10">
+                <p className="text-code-text/60 text-[11px] mb-1"># 2. Skrip Python Otomasi:</p>
+                <pre className="text-code-text/90">
 {`import requests
 
 headers = {"Authorization": "Bearer muara_ubsi_YOUR_KEY"}
 res = requests.get("https://api.muaraai.com/v1/ubsi-api/v1/studentv2/schedule", headers=headers)
 print(res.json())`}
-            </pre>
-          </div>
-        </div>
+                </pre>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-xs text-secondary leading-relaxed">
+              Personal API Key yang sama bisa dipakai untuk menyambungkan akademik UBSI Anda ke{" "}
+              <strong className="text-foreground">AI Agent</strong> (Claude Code, Cursor, Codex, Hermes) lewat{" "}
+              <strong className="text-foreground">MCP (Model Context Protocol)</strong>. Satu koneksi, 24 tools akademik:
+              cek jadwal, nilai &amp; KHS, KRS, kartu ujian, tugas, presensi, bahan ajar, berita, dan perpustakaan
+              langsung dari chat agent Anda.
+            </p>
+
+            {/* Server URL */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <span className="text-xs font-semibold text-foreground shrink-0">Server URL (Streamable HTTP):</span>
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <code className="flex-1 min-w-0 truncate font-mono text-[11px] px-3 py-1.5 rounded-sm bg-[#131B26] text-[#7DD3FC] border border-white/10">
+                  {MCP_URL}
+                </code>
+                <button
+                  type="button"
+                  onClick={() => handleCopyBlock(MCP_URL, "mcp-url")}
+                  className={`${ghostButtonClass} text-xs py-1.5 px-2.5 shrink-0`}
+                  aria-label="Salin URL server MCP"
+                >
+                  {copiedBlock === "mcp-url" ? (
+                    <Check className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Per-agent config snippets */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {MCP_SNIPPETS.map((s) => (
+                <div key={s.id} className="rounded-xl border border-stroke overflow-hidden bg-[#131B26]">
+                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/10">
+                    <div>
+                      <p className="text-xs font-bold text-code-text font-sans flex items-center gap-1.5">
+                        <Blocks className="h-3.5 w-3.5 text-[#7DD3FC]" aria-hidden="true" />
+                        {s.label}
+                      </p>
+                      <p className="text-[10px] text-code-text/60 mt-0.5 font-sans">{s.hint}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyBlock(s.code, s.id)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-pill border border-white/20 text-[11px] font-semibold text-code-text hover:bg-white/10 transition-colors shrink-0"
+                      aria-label={`Salin konfigurasi ${s.label}`}
+                    >
+                      {copiedBlock === s.id ? (
+                        <>
+                          <Check className="h-3 w-3 text-emerald-400" aria-hidden="true" />
+                          <span>Tersalin</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3 w-3" aria-hidden="true" />
+                          <span>Salin</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <pre className="px-4 py-3 font-mono text-[11px] leading-relaxed text-[#7DD3FC] overflow-x-auto">
+                    {s.code}
+                  </pre>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-[11px] text-secondary leading-relaxed">
+              Ganti <code className="font-mono text-[#0369A1]">muara_ubsi_YOUR_KEY</code> dengan Personal API Key Anda.
+              Kunci dikirim sebagai header HTTP, tidak pernah disimpan di server MCP.
+            </p>
+
+            {/* Agent prompt */}
+            <div className="rounded-xl border border-[#0369A1]/25 bg-[#F0F7FB] p-4 space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5 text-[#0369A1]" aria-hidden="true" />
+                  Prompt Siap Pakai untuk Agent
+                </p>
+                <button
+                  type="button"
+                  onClick={() => handleCopyBlock(MCP_AGENT_PROMPT, "agent-prompt")}
+                  className={`${ghostButtonClass} text-[11px] py-1 px-2.5 shrink-0`}
+                  aria-label="Salin prompt untuk agent"
+                >
+                  {copiedBlock === "agent-prompt" ? (
+                    <>
+                      <Check className="h-3 w-3 text-emerald-600" aria-hidden="true" />
+                      <span>Tersalin</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3 w-3" aria-hidden="true" />
+                      <span>Salin Prompt</span>
+                    </>
+                  )}
+                </button>
+              </div>
+              <pre className="text-[11px] text-secondary leading-relaxed font-sans whitespace-pre-wrap">
+                {MCP_AGENT_PROMPT}
+              </pre>
+              <p className="text-[10px] text-secondary/80 font-sans">
+                Tempel prompt ini sebagai pesan pertama (atau system prompt) setelah MCP terhubung, lalu agent Anda
+                langsung paham konteks akademik UBSI.
+              </p>
+            </div>
+          </>
+        )}
       </div>
 
       {/* POPUP MODAL CREATE KEY */}
