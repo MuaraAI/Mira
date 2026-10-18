@@ -225,25 +225,37 @@ def parse_presence(html: str) -> dict[str, Any]:
                         return cols[idx]
             return cols[fallback] if fallback < len(cols) else ""
 
-        for r in target_table.css("tr")[1:]:
-            cols = [c.text.strip() for c in r.css("td")]
-            if len(cols) >= 5:
-                status = value(cols, "status absen", "status", fallback=0)
-                tanggal = value(cols, "tanggal", "date", fallback=1)
-                matakuliah = value(cols, "matakuliah", "mata kuliah", fallback=2)
-                pertemuan = value(cols, "pertemuan", fallback=3)
-                rangkuman = value(cols, "rangkuman", "materi", fallback=4)
-                berita_acara = value(cols, "berita acara", "bap", fallback=5)
-                item_id = hashlib.sha256(f"{tanggal}:{pertemuan}".encode()).hexdigest()[:12]
-                records.append({
-                    "id": item_id,
-                    "status_absen": status,
-                    "tanggal": tanggal,
-                    "matakuliah": matakuliah,
-                    "pertemuan": pertemuan,
-                    "rangkuman": rangkuman or None,
-                    "berita_acara": berita_acara or None,
-                })
+        for r in target_table.css("tr"):
+            cells = r.css("td, th")
+            cols = [" ".join(c.get_all_text().split()) for c in cells]
+            row_text = " ".join(cols).lower()
+            if not cols or "status absen" in row_text or len(cols) < 5:
+                continue
+            header_offset = 1 if len(headers) == len(cols) + 1 else 0
+            row_headers = headers[header_offset:]
+            def row_value(*names: str, fallback: int = 0) -> str:
+                for name in names:
+                    if name in row_headers:
+                        idx = row_headers.index(name)
+                        return cols[idx] if idx < len(cols) else ""
+                return cols[fallback] if fallback < len(cols) else ""
+
+            status = row_value("status absen", "status", fallback=0)
+            tanggal = row_value("tanggal", "date", fallback=1)
+            matakuliah = row_value("matakuliah", "mata kuliah", fallback=2)
+            pertemuan = row_value("pertemuan", fallback=3)
+            rangkuman = row_value("rangkuman", "materi", fallback=4)
+            berita_acara = row_value("berita acara", "bap", fallback=5)
+            item_id = hashlib.sha256(f"{tanggal}:{pertemuan}".encode()).hexdigest()[:12]
+            records.append({
+                "id": item_id,
+                "status_absen": status,
+                "tanggal": tanggal,
+                "matakuliah": matakuliah,
+                "pertemuan": pertemuan,
+                "rangkuman": rangkuman or None,
+                "berita_acara": berita_acara or None,
+            })
 
     can_submit = bool(status_sesi) and (
         "absen" in status_sesi.lower() or "masuk" in status_sesi.lower()
