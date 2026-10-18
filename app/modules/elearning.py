@@ -210,10 +210,23 @@ def parse_presence(html: str) -> dict[str, Any]:
 
     target_table = None
     for t in tables:
-        h_text = " ".join([c.text.strip() for c in t.css("th")])
-        if "Status Absen" in h_text or "Pertemuan" in h_text:
+        h_text = " ".join([c.get_all_text().strip() for c in t.css("th")])
+        rows_text = " ".join(r.get_all_text().lower() for r in t.css("tr")[1:])
+        if (
+            "status absen" in h_text.lower()
+            or "pertemuan" in h_text.lower()
+            or any(marker in rows_text for marker in ("hadir", "tidak hadir", "alpa", "izin", "sakit"))
+        ):
             target_table = t
             break
+    if target_table is None and tables:
+        candidates = [t for t in tables if len(t.css("tr")) > 1]
+        target_table = candidates[-1] if candidates else None
+
+    if target_table:
+        h_text = " ".join([c.get_all_text().strip() for c in target_table.css("th")])
+        if not h_text and len(target_table.css("tr")) <= 1:
+            target_table = None
 
     if target_table:
         headers = [" ".join(th.get_all_text().split()).lower() for th in target_table.css("th")]
