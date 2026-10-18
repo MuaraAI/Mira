@@ -100,6 +100,10 @@ interface CacheEntry<T> {
 const memoryCache = new Map<string, CacheEntry<unknown>>();
 const DEFAULT_TTL_MS = 3 * 60 * 1000; // 3 menit cache RAM di browser
 
+export function setApiCache<T>(path: string, data: T) {
+  memoryCache.set(path, { data, timestamp: Date.now() });
+}
+
 export function clearApiCache(pathPrefix?: string) {
   if (!pathPrefix) {
     memoryCache.clear();
@@ -181,12 +185,13 @@ export function useRequireSession() {
   );
 
   useEffect(() => {
-    if (error && (error.status === 401 || error.status === 403)) {
-      // Hapus cache RAM agar data user lama tidak bocor ke login berikutnya
+    // Hanya redirect ke login jika request sudah SELESAI (bukan sedang loading)
+    // dan backend secara eksplisit mengembalikan 401 Unauthorized / 403 Forbidden.
+    if (!loading && error && (error.status === 401 || error.status === 403)) {
       clearApiCache();
       router.replace("/login");
     }
-  }, [error, router]);
+  }, [loading, error, router]);
 
   return {
     nim: data?.nim ?? null,
