@@ -782,9 +782,8 @@ class PooledElearningClient:
     async def evict_idle(self) -> int:
         return await self._pool.evict_idle()
 
-    def close(self) -> None:
-        for nim in list(self._pool._sessions.keys()):
-            self._pool.invalidate(nim)
+    async def close(self) -> None:
+        await self._pool.close()
 
 
 pooled_elearning_client = PooledElearningClient()
@@ -1181,7 +1180,9 @@ def is_safe_bsi_storage_url(url_str: str) -> bool:
         hostname = (p.hostname or "").lower()
         if hostname not in ("elearning.bsi.ac.id", "students.bsi.ac.id", "news.bsi.ac.id", "repository.bsi.ac.id"):
             return False
-        return True
+        if ".." in p.path or not p.path.startswith(("/storage/soal/", "/storage/tugas/")):
+            return False
+        return not p.query and not p.fragment
     except Exception:
         return False
 
@@ -1226,8 +1227,8 @@ async def submit_assignment_file(
 class UploadAssignmentPayload(BaseModel):
     token_tugas: str = Field(..., pattern=r"^[A-Za-z0-9+/=_-]+$", description="Token tugas dari /assignments atau /courses")
     filename: str = Field(..., pattern=r"^[A-Za-z0-9_.-]+$", description="Nama file (contoh: tugas_p5_15260767.zip / .pdf)")
-    file_base64: str = Field(..., description="Isi file yang di-encode base64")
-    catatan: Optional[str] = Field(default=None, description="Keterangan atau catatan tambahan untuk dosen")
+    file_base64: str = Field(..., min_length=1, max_length=14_000_000, description="Isi file yang di-encode base64, maksimum 10 MB decoded")
+    catatan: Optional[str] = Field(default=None, max_length=1000, description="Keterangan atau catatan tambahan untuk dosen")
 
 
 @router.post("/assignments/upload")
@@ -1239,7 +1240,9 @@ async def post_upload_assignment(
     import base64
     nim, password = creds
     try:
-        file_bytes = base64.b64decode(body.file_base64)
+        file_bytes = base64.b64decode(body.file_base64, validate=True)
+        if len(file_bytes) > 10 * 1024 * 1024:
+            raise ValueError("file too large")
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

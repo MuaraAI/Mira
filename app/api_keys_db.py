@@ -333,12 +333,14 @@ async def resolve_api_key(plain_key: str) -> Optional[dict[str, Any]]:
     key_hash = _hash_key(plain_key)
     redis_key = f"ubsi:apikey:{key_hash}"
 
-    # 1. Cek Redis
+    # 1. Cek Redis. Cache payload tetap terenkripsi agar password kampus tidak plaintext.
     try:
         client = await cache.get_client()
         cached = await client.get(redis_key)
         if cached:
-            return json.loads(cached)
+            blob = cached if isinstance(cached, bytes) else cached.encode("utf-8")
+            raw = _get_fernet().decrypt(blob).decode("utf-8")
+            return json.loads(raw)
     except Exception:
         pass
 
@@ -350,7 +352,8 @@ async def resolve_api_key(plain_key: str) -> Optional[dict[str, Any]]:
     # 3. Re-populate Redis
     try:
         client = await cache.get_client()
-        await client.set(redis_key, json.dumps(resolved), ex=_REDIS_KEY_TTL)
+        encrypted = _get_fernet().encrypt(json.dumps(resolved).encode("utf-8")).decode("utf-8")
+        await client.set(redis_key, encrypted, ex=_REDIS_KEY_TTL)
     except Exception:
         pass
 

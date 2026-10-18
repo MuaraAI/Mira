@@ -1,7 +1,19 @@
 """Retry dengan exponential backoff dan jitter untuk panggilan upstream."""
 import asyncio
+import inspect
 import random
 from typing import Any, Callable
+
+import httpx
+from fastapi import HTTPException
+
+_RETRYABLE = (httpx.TimeoutException, httpx.NetworkError, ConnectionError)
+
+
+def _is_retryable(exc: Exception) -> bool:
+    if isinstance(exc, HTTPException) and 400 <= exc.status_code < 500:
+        return False
+    return isinstance(exc, _RETRYABLE) or not isinstance(exc, HTTPException)
 
 
 async def retry_async(
@@ -18,11 +30,16 @@ async def retry_async(
     last_error: Exception | None = None
     for i in range(attempts):
         try:
-            result = fn()
-            if asyncio.iscoroutine(result):
+            if inspect.iscoroutinefunction(fn):
+                result = fn()
+            else:
+                result = await asyncio.to_thread(fn)
+            if inspect.isawaitable(result):
                 return await result
             return result
-        except Exception as exc:  # noqa: BLE001 - dilempar ulang setelah batas
+        except Exception as exc:  # noqa: BLE001 - retry network failures only
+            if not _is_retryable(exc):
+                raise
             last_error = exc
             if i < attempts - 1:
                 delay = min(max_delay, base_delay * (2 ** i))

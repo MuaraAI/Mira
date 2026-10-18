@@ -244,11 +244,11 @@ export default function ApiKeysPage() {
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-white/10 bg-white/5 font-mono text-secondary">
-                  <th className="py-3 px-4">NAMA / LABEL</th>
-                  <th className="py-3 px-4">KEY PREVIEW</th>
-                  <th className="py-3 px-4">DIBUAT</th>
-                  <th className="py-3 px-4">TERAKHIR PAKAI</th>
-                  <th className="py-3 px-4 text-right">AKSI</th>
+                  <th scope="col" className="py-3 px-4">NAMA / LABEL</th>
+                  <th scope="col" className="py-3 px-4">KEY PREVIEW</th>
+                  <th scope="col" className="py-3 px-4">DIBUAT</th>
+                  <th scope="col" className="py-3 px-4">TERAKHIR PAKAI</th>
+                  <th scope="col" className="py-3 px-4 text-right">AKSI</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5 font-sans">

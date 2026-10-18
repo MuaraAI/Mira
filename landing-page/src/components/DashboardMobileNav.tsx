@@ -67,7 +67,7 @@ export function DashboardMobileNav({ nim }: { nim?: string | null }) {
           onClick={() => setIsOpen(true)}
           aria-expanded={isOpen}
           aria-label="Buka navigasi menu lengkap"
-          className="p-2 rounded-sm text-secondary hover:text-foreground hover:bg-[#F0F7FB] border border-stroke"
+          className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-sm text-secondary hover:text-foreground hover:bg-[#F0F7FB] border border-stroke"
         >
           <Menu className="w-5 h-5 text-foreground" aria-hidden="true" />
         </button>
@@ -99,7 +99,7 @@ export function DashboardMobileNav({ nim }: { nim?: string | null }) {
                 type="button"
                 onClick={() => setIsOpen(false)}
                 aria-label="Tutup menu"
-                className="p-1.5 rounded-sm text-secondary hover:text-foreground hover:bg-[#F0F7FB]"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-sm text-secondary hover:text-foreground hover:bg-[#F0F7FB]"
               >
                 <X className="w-5 h-5" aria-hidden="true" />
               </button>
@@ -125,7 +125,7 @@ export function DashboardMobileNav({ nim }: { nim?: string | null }) {
               key={href}
               href={href}
               aria-current={active ? "page" : undefined}
-              className={`flex flex-col items-center gap-1 py-1 px-3 rounded-sm text-[11px] font-medium transition-colors ${
+              className={`flex flex-col items-center justify-center gap-1 py-2 px-3 min-h-[48px] rounded-sm text-[11px] font-medium transition-colors ${
                 active
                   ? "text-[#0369A1] font-bold"
                   : "text-secondary hover:text-foreground"
@@ -144,7 +144,7 @@ export function DashboardMobileNav({ nim }: { nim?: string | null }) {
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          className="flex flex-col items-center gap-1 py-1 px-3 rounded-sm text-[11px] font-medium text-secondary hover:text-foreground"
+          className="flex flex-col items-center justify-center gap-1 py-2 px-3 min-h-[48px] rounded-sm text-[11px] font-medium text-secondary hover:text-foreground"
         >
           <Menu className="w-4 h-4 text-secondary" aria-hidden="true" />
           <span>Menu</span>

@@ -4,7 +4,8 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: "*",
-      allow: "/",
+      allow: ["/", "/privacy", "/terms"],
+      disallow: ["/dashboard/", "/login", "/api/"],
     },
     sitemap: "https://ubsi-api.muaraai.com/sitemap.xml",
   };

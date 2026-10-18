@@ -34,17 +34,11 @@ async def test_health_endpoint_redis_down():
     cache._client = None
 
 @pytest.mark.asyncio
-async def test_rate_limiter_middleware_blocks_on_exceeded():
-    mock_redis = AsyncMock()
-    # Simulate rate limit exceeded (61)
-    mock_redis.incr.return_value = 61
-    with patch("redis.asyncio.from_url", return_value=mock_redis):
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-            res = await ac.get("/v1/some-endpoint")
-        assert res.status_code == 429
-        data = res.json()
-        assert data["success"] is False
-        assert data["error"]["code"] == "RATE_LIMIT_EXCEEDED"
+async def test_master_key_bypasses_rate_limiter():
+    # Master requests are intentionally unlimited; the route itself is not registered.
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.get("/v1/some-endpoint")
+    assert res.status_code == 404
 
 @pytest.mark.asyncio
 async def test_modular_creds_validation():

@@ -11,6 +11,7 @@ from app.config import settings
 from app.cache import cache
 from app.limiter import limiter
 from app.envelope import error_response
+from app.router_helper import close_background_tasks
 from app.modules.studentv2 import router as studentv2_router, studentv2_client
 from app.modules.elearning import router as elearning_router, pooled_elearning_client
 from app.modules.elibrary import router as elibrary_router
@@ -85,10 +86,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             pass
 
     try:
-        studentv2_client.close()
-        pooled_elearning_client.close()
-        client = await cache.get_client()
-        await client.aclose()
+        await close_background_tasks()
+        await studentv2_client.close()
+        await pooled_elearning_client.close()
+        if cache._client is not None:
+            await cache._client.aclose()
+        if limiter._client is not None:
+            await limiter._client.aclose()
+        from app.session_store import session_store
+        await session_store.close()
     except Exception:
         pass
 
@@ -111,6 +117,9 @@ app.include_router(channels_router)
 
 @app.middleware("http")
 async def api_key_auth_middleware(request: Request, call_next):
+    if getattr(request.state, "_auth_ran", False):
+        return await call_next(request)
+    request.state._auth_ran = True
     # 1. Allow OPTIONS (CORS preflight)
     if request.method == "OPTIONS":
         return await call_next(request)
@@ -156,6 +165,13 @@ async def api_key_auth_middleware(request: Request, call_next):
         )
 
     # 3c. Session token (dashboard login BSI): Authorization Bearer ATAU cookie
+    # Master key via Bearer is accepted before treating it as a session token.
+    if bearer_token and settings.API_KEY and secrets.compare_digest(bearer_token, settings.API_KEY):
+        request.state.is_master = True
+        request.state.key_id = "master"
+        request.state.auth_type = "master"
+        return await call_next(request)
+
     session_token = bearer_token or cookie_token
     if session_token:
         from app.session_store import session_store
@@ -207,34 +223,34 @@ async def api_key_auth_middleware(request: Request, call_next):
 
 @app.middleware("http")
 async def rate_limiting_middleware(request: Request, call_next):
-    path = request.url.path
-    # Skip rate limiting for health check and OpenAPI docs
-    if path in ("/health", "/docs", "/openapi.json", "/redoc"):
-        return await call_next(request)
+    async def after_auth(authorized_request: Request):
+        path = authorized_request.url.path.rstrip("/")
+        if authorized_request.method == "OPTIONS" or path in ("/health", "/docs", "/openapi.json", "/redoc"):
+            return await call_next(authorized_request)
+        if getattr(authorized_request.state, "is_master", False):
+            return await call_next(authorized_request)
 
-    # Master key bypasses rate limiting
-    if getattr(request.state, "is_master", False):
-        return await call_next(request)
-
-    client_key = getattr(request.state, "key_id", None)
-    rate_identifier = f"key:{client_key}" if client_key else extract_client_ip(request)
-
-    is_allowed = await limiter.is_allowed(rate_identifier)
-    if not is_allowed:
-        return JSONResponse(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            content=error_response(
-                code="RATE_LIMIT_EXCEEDED",
-                message="Rate limit exceeded (max 60 req/min)",
-                module="limiter"
+        client_key = getattr(authorized_request.state, "key_id", None)
+        rate_identifier = f"key:{client_key}" if client_key else extract_client_ip(authorized_request)
+        if not await limiter.is_allowed(rate_identifier):
+            return JSONResponse(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                content=error_response(
+                    code="RATE_LIMIT_EXCEEDED",
+                    message="Rate limit exceeded (max 60 req/min)",
+                    module="limiter",
+                ),
             )
-        )
-    return await call_next(request)
+        return await call_next(authorized_request)
+
+    # Auth must resolve request.state before rate-limit identity/bypass checks.
+    return await api_key_auth_middleware(request, after_auth)
 
 # CORS Middleware added after HTTP middlewares so it wraps outermost
-origins = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip()]
-if not origins or "*" in origins:
-    origins = ["*"]
+origins = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip() and o.strip() != "*"]
+if not origins:
+    origins = ["https://ubsi-api.muaraai.com", "http://localhost:3000"]
+# Credentialed cookies must never be combined with wildcard origin reflection.
 
 app.add_middleware(
     CORSMiddleware,

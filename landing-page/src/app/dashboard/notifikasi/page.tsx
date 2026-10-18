@@ -425,7 +425,7 @@ export default function NotifikasiPage() {
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="p-1 rounded-lg text-secondary hover:text-foreground hover:bg-white/10 transition-colors"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-secondary hover:text-foreground hover:bg-[#F0F7FB] transition-colors"
                 aria-label="Tutup modal"
               >
                 <X className="h-5 w-5" />
@@ -434,7 +434,7 @@ export default function NotifikasiPage() {
 
             <form onSubmit={handleAdd} className="space-y-4">
               {formError && (
-                <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+                <div className="p-3 rounded-lg bg-[#F0F7FB] border border-[#BE123C]/30 text-[#BE123C] text-xs flex items-center gap-2">
                   <AlertCircle className="h-4 w-4 shrink-0" />
                   <span>{formError}</span>
                 </div>
