@@ -1,5 +1,9 @@
+import asyncio
+from typing import Literal
+
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 
 from app.channel_validation import validate_channel_payload
 from app.channels_db import (
@@ -12,6 +16,16 @@ from app.channels_db import (
 from app.envelope import error_response, success_response
 
 router = APIRouter(prefix="/v1/channels", tags=["channels"])
+
+
+class ChannelRequest(BaseModel):
+    type: Literal["discord", "telegram", "custom"]
+    categories: list[str] = Field(..., min_length=1, max_length=5)
+    config: dict[str, str] = Field(default_factory=dict)
+
+
+class ReminderRequest(BaseModel):
+    category: str = Field(default="matkul-besok", max_length=64)
 
 
 def _require_session_nim(request: Request) -> str:
@@ -37,12 +51,12 @@ async def list_my_channels(request: Request):
 
 
 @router.post("")
-async def create_channel(request: Request, body: dict):
+async def create_channel(request: Request, body: ChannelRequest):
     nim = _require_session_nim(request)
 
-    channel_type = str(body.get("type", "")).strip().lower()
-    categories = body.get("categories") or []
-    config = body.get("config") or {}
+    channel_type = body.type
+    categories = body.categories
+    config = body.config
 
     valid, error_message = validate_channel_payload(channel_type, categories, config)
     if not valid:
@@ -143,10 +157,10 @@ async def test_channel(channel_id: int, request: Request):
 
 
 @router.post("/trigger-reminder")
-async def trigger_reminder(request: Request, body: dict):
-    """Kirim manual pengingat event (matkul-besok / quiz-tugas) ke semua channel aktif milik user."""
+async def trigger_reminder(request: Request, body: ReminderRequest):
+    """Kirim manual pengingat event ke semua channel aktif milik user."""
     nim = _require_session_nim(request)
-    category = str(body.get("category", "matkul-besok")).strip()
+    category = body.category.strip()
 
     from app.channels_db import list_channels
 
@@ -187,8 +201,7 @@ async def trigger_reminder(request: Request, body: dict):
         dispatch_webhook_notification,
     )
 
-    results = []
-    for ch in active_matching:
+    async def dispatch_one(ch: dict) -> dict:
         cfg = ch["config"]
         try:
             if ch["type"] == "discord":
@@ -197,10 +210,11 @@ async def trigger_reminder(request: Request, body: dict):
                 ok = await dispatch_telegram_message(payload, cfg["bot_token"], cfg["chat_id"])
             else:
                 ok = await dispatch_webhook_notification(payload, cfg["url"])
-            results.append({"channel_id": ch["id"], "type": ch["type"], "success": ok})
+            return {"channel_id": ch["id"], "type": ch["type"], "success": ok}
         except Exception:
-            results.append({"channel_id": ch["id"], "type": ch["type"], "success": False})
+            return {"channel_id": ch["id"], "type": ch["type"], "success": False}
 
+    results = await asyncio.gather(*(dispatch_one(ch) for ch in active_matching))
     dispatched = sum(1 for r in results if r["success"])
     return success_response(
         data={

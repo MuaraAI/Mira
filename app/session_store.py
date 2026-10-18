@@ -60,13 +60,6 @@ def _decrypt_payload(blob: str | bytes, secret: str) -> Optional[dict]:
         plaintext = aesgcm.decrypt(nonce, ct, None)
         return json.loads(plaintext.decode("utf-8"))
     except Exception:
-        # Fallback kompatibilitas sesi legacy plaintext jika ada
-        text = blob.decode("utf-8", "ignore") if isinstance(blob, bytes) else blob
-        if text.startswith("{"):
-            try:
-                return json.loads(text)
-            except Exception:
-                pass
         return None
 
 
@@ -79,6 +72,11 @@ class SessionStore:
         if self._client is None:
             self._client = aioredis.from_url(self.redis_url, decode_responses=True)
         return self._client
+
+    async def close(self) -> None:
+        if self._client is not None:
+            await self._client.aclose()
+            self._client = None
 
     async def create(
         self, nim: str, studentv2_pass: str, elearning_pass: str

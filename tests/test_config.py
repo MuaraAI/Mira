@@ -33,7 +33,7 @@ def test_security_config_defaults(monkeypatch):
     monkeypatch.delenv("TRUSTED_PROXIES", raising=False)
     cfg = Settings(_env_file=None)
     assert cfg.API_KEY == ""
-    assert cfg.ALLOWED_ORIGINS == "*"
+    assert cfg.ALLOWED_ORIGINS == "https://ubsi-api.muaraai.com,http://localhost:3000"
     assert cfg.TRUSTED_PROXIES == "127.0.0.1"
 
 def test_session_and_root_path_settings(monkeypatch):

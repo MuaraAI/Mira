@@ -15,6 +15,9 @@ from fastapi import HTTPException, status
 from app.cache import cache
 from app.envelope import error_response, success_response
 
+_revalidating: set[str] = set()
+_background_tasks: set[asyncio.Task] = set()
+
 
 async def cached_endpoint(
     module: str,
@@ -79,6 +82,10 @@ def _schedule_revalidate(
     parse: Callable[[Any], Any],
     ttl: int,
 ) -> None:
+    if cache_key in _revalidating:
+        return
+    _revalidating.add(cache_key)
+
     async def _revalidate():
         try:
             html = fetch()
@@ -88,8 +95,18 @@ def _schedule_revalidate(
             await cache.set(cache_key, data, ttl=ttl)
         except Exception:
             pass  # background refresh: biarkan LGG tetap terpakai
+        finally:
+            _revalidating.discard(cache_key)
 
     try:
-        asyncio.create_task(_revalidate())
+        task = asyncio.create_task(_revalidate())
+        _background_tasks.add(task)
+        task.add_done_callback(_background_tasks.discard)
     except RuntimeError:
+        _revalidating.discard(cache_key)
         pass  # tidak ada event loop (mis. saat test sinkron) — aman diabaikan
+
+
+async def close_background_tasks() -> None:
+    if _background_tasks:
+        await asyncio.gather(*tuple(_background_tasks), return_exceptions=True)

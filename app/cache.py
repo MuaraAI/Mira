@@ -3,6 +3,7 @@ from datetime import datetime, timezone, timedelta
 import hashlib
 import json
 from typing import Any, Optional
+from collections import OrderedDict
 import redis.asyncio as aioredis
 
 WIB = timezone(timedelta(hours=7))
@@ -12,7 +13,8 @@ class CacheManager:
         self.redis_url = redis_url
         self.default_ttl = default_ttl
         self._client: Optional[aioredis.Redis] = None
-        self._locks: dict[str, asyncio.Lock] = {}
+        self._locks: OrderedDict[str, asyncio.Lock] = OrderedDict()
+        self._max_locks = 1024
 
     async def get_client(self) -> aioredis.Redis:
         if self._client is None:
@@ -55,15 +57,24 @@ class CacheManager:
                 "_saved_at": now_str
             })
             await client.set(f"{key}:fresh", body, ex=effective_ttl)
-            await client.set(f"{key}:lgg", lgg_body)
+            # LGG must expire eventually to prevent immortal Redis growth.
+            await client.set(f"{key}:lgg", lgg_body, ex=max(effective_ttl, 7 * 24 * 3600))
         except (aioredis.RedisError, ConnectionError, OSError):
             pass
 
     def get_lock(self, key: str) -> asyncio.Lock:
-        """In-process single-flight lock per key to prevent concurrent upstream hits."""
-        if key not in self._locks:
-            self._locks[key] = asyncio.Lock()
-        return self._locks[key]
+        """Bounded in-process single-flight lock per key."""
+        lock = self._locks.get(key)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._locks[key] = lock
+        self._locks.move_to_end(key)
+        if len(self._locks) > self._max_locks:
+            for old_key, old_lock in tuple(self._locks.items()):
+                if old_key != key and not old_lock.locked():
+                    del self._locks[old_key]
+                    break
+        return lock
 
     async def fresh_or_stale(self, key: str) -> Optional[tuple[Any, bool]]:
         """Ambil data fresh; kalau kosong, ambil LGG sebagai cadangan.

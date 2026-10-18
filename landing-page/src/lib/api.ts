@@ -189,6 +189,9 @@ export function useRequireSession() {
     // dan backend secara eksplisit mengembalikan 401 Unauthorized / 403 Forbidden.
     if (!loading && error && (error.status === 401 || error.status === 403)) {
       clearApiCache();
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("ubsi_session_token");
+      }
       router.replace("/login");
     }
   }, [loading, error, router]);

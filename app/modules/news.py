@@ -367,27 +367,27 @@ async def news_webhook_worker():
         await asyncio.sleep(settings.NEWS_WEBHOOK_INTERVAL)
 
 def is_safe_webhook_url(url_str: str) -> bool:
-    """Validasi skema dan larang URL loopback/private IP untuk mencegah SSRF."""
+    """Allow HTTPS public webhook targets and reject every private resolution."""
+    import ipaddress
+    import socket
+
     try:
         parsed = urllib.parse.urlparse(url_str)
-        if parsed.scheme not in ("http", "https"):
+        if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
             return False
-        hostname = (parsed.hostname or "").lower()
-        if not hostname:
+        hostname = parsed.hostname.rstrip(".").lower()
+        if hostname == "localhost" or hostname.endswith(".localhost"):
             return False
-        if hostname in ("localhost", "127.0.0.1", "0.0.0.0", "::1", "169.254.169.254"):
-            return False
-        if hostname.startswith("10.") or hostname.startswith("192.168."):
-            return False
-        if hostname.startswith("172.") and len(hostname.split(".")) > 1:
-            try:
-                second_octet = int(hostname.split(".")[1])
-                if 16 <= second_octet <= 31:
-                    return False
-            except ValueError:
-                pass
-        return True
-    except Exception:
+        addresses = {info[4][0] for info in socket.getaddrinfo(hostname, parsed.port or 443, type=socket.SOCK_STREAM)}
+        return bool(addresses) and all(
+            not (ip := ipaddress.ip_address(address)).is_private
+            and not ip.is_loopback
+            and not ip.is_link_local
+            and not ip.is_reserved
+            and not ip.is_multicast
+            for address in addresses
+        )
+    except (OSError, ValueError):
         return False
 
 @router.post("/webhook/test")

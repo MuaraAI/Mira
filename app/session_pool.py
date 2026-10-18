@@ -52,17 +52,37 @@ class SessionPool:
                 closed += 1
         return closed
 
-    def invalidate(self, nim: str) -> None:
-        """Tutup dan buang sesi satu NIM (mis. login expired)."""
-        entry = self._sessions.pop(nim, None)
-        if entry:
-            client, _ = entry
-            try:
-                close = getattr(client, "close", None)
-                if close:
-                    close()
-            except Exception:
-                pass
+    async def _close_client(self, client: Any) -> None:
+        try:
+            close = getattr(client, "close", None)
+            if close:
+                result = close()
+                if asyncio.iscoroutine(result):
+                    await result
+        except Exception:
+            pass
 
-    def __len__(self) -> int:
+    def invalidate(self, nim: str) -> None:
+        """Tutup dan buang sesi satu NIM (sync-safe, termasuk async close)."""
+        entry = self._sessions.pop(nim, None)
+        if not entry:
+            return
+        client, _ = entry
+        close = getattr(client, "close", None)
+        if not close:
+            return
+        result = close()
+        if asyncio.iscoroutine(result):
+            try:
+                asyncio.get_running_loop().create_task(result)
+            except RuntimeError:
+                result.close()
+
+    async def close(self) -> None:
+        """Close and clear all pooled clients during application shutdown."""
+        entries = tuple(self._sessions.values())
+        self._sessions.clear()
+        await asyncio.gather(*(self._close_client(client) for client, _ in entries), return_exceptions=True)
+
+    def __len__(self):
         return len(self._sessions)
