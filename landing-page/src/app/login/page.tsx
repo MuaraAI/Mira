@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, LogIn } from "lucide-react";
-import { apiFetch, ApiError, useApi } from "@/lib/api";
+import { apiFetch, ApiError, useApi, setApiCache } from "@/lib/api";
 import { inputClass, primaryButtonClass } from "@/components/dashboard-ui";
 import { Monogram } from "@/components/Monogram";
 
@@ -62,11 +62,37 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
 
-  // Sudah login: langsung ke dashboard.
-  const { data: me } = useApi<{ nim: string }>("/v1/auth/me");
+  // Sudah login: langsung ke dashboard tanpa render form login
+  const { data: me, loading: checkingSession } = useApi<{ nim: string }>("/v1/auth/me");
   useEffect(() => {
     if (me?.nim) router.replace("/dashboard");
   }, [me, router]);
+
+  if (checkingSession && !me) {
+    return (
+      <div className="flex flex-col min-h-screen bg-background text-foreground items-center justify-center p-4">
+        <div className="grid-overlay" aria-hidden="true" />
+        <div className="flex flex-col items-center gap-3 relative z-10">
+          <Monogram className="w-10 h-10 animate-pulse" />
+          <p className="text-xs font-mono text-secondary">Memeriksa sesi login...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (me?.nim) {
+    return (
+      <div className="flex flex-col min-h-screen bg-background text-foreground items-center justify-center p-4">
+        <div className="grid-overlay" aria-hidden="true" />
+        <div className="flex flex-col items-center gap-3 relative z-10">
+          <Monogram className="w-10 h-10" />
+          <p className="text-xs font-mono text-[#0369A1] font-semibold">
+            Sesi aktif ({me.nim}). Mengalihkan ke dashboard...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -92,6 +118,11 @@ export default function LoginPage() {
       });
       if (res?.token && typeof window !== "undefined") {
         localStorage.setItem("ubsi_session_token", res.token);
+      }
+      // Prime cache /v1/auth/me seketika agar saat redirect ke /dashboard,
+      // useRequireSession() langsung 0ms (authed = true) tanpa tunggu roundtrip network lagi.
+      if (res?.nim) {
+        setApiCache("/v1/auth/me", { nim: res.nim, auth_type: "session" });
       }
       router.replace("/dashboard");
     } catch (err) {
