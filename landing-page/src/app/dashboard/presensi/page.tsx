@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   UserCheck,
   Calendar,
@@ -11,7 +11,7 @@ import {
   XCircle,
   AlertCircle,
 } from "lucide-react";
-import { useApi } from "@/lib/api";
+import { apiFetch, useApi } from "@/lib/api";
 import {
   EmptyState,
   ErrorState,
@@ -51,20 +51,59 @@ interface PresenceData {
   jam_masuk?: string;
   jam_keluar?: string;
   status_sesi?: string | null;
+  can_submit?: boolean;
+  total_kehadiran?: number;
   riwayat?: PresenceRecord[];
 }
 
 export default function PresensiPage() {
   const coursesApi = useApi<CourseItem[]>("/v1/elearning/courses");
   const [selectedIdx, setSelectedIdx] = useState(0);
+  const [autoDetected, setAutoDetected] = useState(false);
 
   const courses = coursesApi.data ?? [];
+  const todayName = new Intl.DateTimeFormat("id-ID", { weekday: "long" }).format(new Date());
+  const todayIndex = useMemo(
+    () => courses.findIndex((course) => course.hari?.toLowerCase() === todayName.toLowerCase()),
+    [courses, todayName]
+  );
+
+  useEffect(() => {
+    if (todayIndex >= 0 && !autoDetected) {
+      setSelectedIdx(todayIndex);
+      setAutoDetected(true);
+    }
+  }, [todayIndex, autoDetected]);
+
   const activeCourse = courses.length > 0 ? courses[selectedIdx] : null;
   const token = activeCourse?.token_absen;
-
   const presenceApi = useApi<PresenceData>(
     token ? `/v1/elearning/presence?token=${token}` : "/v1/elearning/presence"
   );
+  const pData = presenceApi.data;
+  const [submitting, setSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  async function handleSubmitPresence() {
+    if (!token || !window.confirm(`Kirim presensi untuk ${activeCourse?.nama ?? "mata kuliah ini"} sekarang?`)) return;
+    setSubmitting(true);
+    setSubmitMessage(null);
+    setSubmitError(null);
+    try {
+      const result = await apiFetch<{ success: boolean; message?: string }>(
+        `/v1/elearning/presence?token=${token}`,
+        { method: "POST" }
+      );
+      if (!result.success) throw new Error(result.message || "Presensi tidak berhasil dikirim.");
+      setSubmitMessage(result.message || "Presensi berhasil dikirim.");
+      presenceApi.reload();
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Presensi gagal dikirim.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   if (coursesApi.loading) {
     return <LoadingState label="Memuat daftar mata kuliah presensi" />;
@@ -85,8 +124,8 @@ export default function PresensiPage() {
     );
   }
 
-  const pData = presenceApi.data;
   const records = pData?.riwayat ?? [];
+  const isActiveSession = Boolean(pData?.can_submit) || Boolean(pData?.status_sesi?.toLowerCase().includes("absen masuk"));
   const hadirCount = records.filter(
     (r) => r.status_absen.toLowerCase() === "hadir"
   ).length;
@@ -102,8 +141,15 @@ export default function PresensiPage() {
       />
 
       {/* Course Selector Tabs */}
-      <div className="overflow-x-auto pb-2 -mx-2 px-2">
-        <div className="flex items-center gap-2 w-max">
+      <div className="flex flex-col gap-2">
+        {todayIndex >= 0 && (
+          <p className="text-xs text-secondary">
+            Otomatis memilih jadwal hari ini: <strong className="text-foreground">{todayName}</strong>.
+            Anda tetap bisa memilih mata kuliah lain secara manual.
+          </p>
+        )}
+        <div className="overflow-x-auto pb-2 -mx-2 px-2">
+          <div className="flex items-center gap-2 w-max">
           {courses.map((course, idx) => {
             const active = idx === selectedIdx;
             return (
@@ -121,6 +167,7 @@ export default function PresensiPage() {
               </button>
             );
           })}
+          </div>
         </div>
       </div>
 
@@ -191,10 +238,32 @@ export default function PresensiPage() {
                     <span className="w-2 h-2 rounded-full bg-current" aria-hidden="true" />
                     {pData?.status_sesi || "Sesi Ditutup"}
                   </span>
+                  <button
+                    type="button"
+                    onClick={handleSubmitPresence}
+                    disabled={!isActiveSession || submitting || !token}
+                    className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-pill bg-[#0369A1] px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-[#075985] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <UserCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                    {submitting ? "Mengirim presensi..." : "Absen Sekarang"}
+                  </button>
                 </div>
               </div>
             </div>
           </div>
+
+          {(submitMessage || submitError) && (
+            <div
+              className={`rounded-sm border px-4 py-3 text-sm ${
+                submitError
+                  ? "border-[#BE123C]/30 bg-[#F0F7FB] text-[#BE123C]"
+                  : "border-[#0F766E]/30 bg-[#F0F7FB] text-[#0F766E]"
+              }`}
+              role="status"
+            >
+              {submitError || submitMessage}
+            </div>
+          )}
 
           {/* Riwayat Pertemuan Table */}
           <div className="glass-card overflow-hidden">

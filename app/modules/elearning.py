@@ -214,23 +214,44 @@ def parse_presence(html: str) -> dict[str, Any]:
             break
 
     if target_table:
+        headers = [" ".join(th.get_all_text().split()).lower() for th in target_table.css("th")]
+        def value(cols: list[str], *names: str, fallback: int = 0) -> str:
+            for name in names:
+                if name in headers:
+                    idx = headers.index(name)
+                    if idx < len(cols):
+                        return cols[idx]
+            return cols[fallback] if fallback < len(cols) else ""
+
         for r in target_table.css("tr")[1:]:
             cols = [c.text.strip() for c in r.css("td")]
-            if len(cols) >= 6:
-                item_id = hashlib.sha256(f"{cols[2]}:{cols[4]}".encode()).hexdigest()[:12]
+            if len(cols) >= 5:
+                status = value(cols, "status absen", "status", fallback=0)
+                tanggal = value(cols, "tanggal", "date", fallback=1)
+                matakuliah = value(cols, "matakuliah", "mata kuliah", fallback=2)
+                pertemuan = value(cols, "pertemuan", fallback=3)
+                rangkuman = value(cols, "rangkuman", "materi", fallback=4)
+                berita_acara = value(cols, "berita acara", "bap", fallback=5)
+                item_id = hashlib.sha256(f"{tanggal}:{pertemuan}".encode()).hexdigest()[:12]
                 records.append({
                     "id": item_id,
-                    "status_absen": cols[1],
-                    "tanggal": cols[2],
-                    "matakuliah": cols[3],
-                    "pertemuan": cols[4],
-                    "rangkuman": cols[5] if cols[5] else None,
-                    "berita_acara": cols[6] if len(cols) > 6 and cols[6] else None,
+                    "status_absen": status,
+                    "tanggal": tanggal,
+                    "matakuliah": matakuliah,
+                    "pertemuan": pertemuan,
+                    "rangkuman": rangkuman or None,
+                    "berita_acara": berita_acara or None,
                 })
+
+    can_submit = bool(status_sesi) and (
+        "absen" in status_sesi.lower() or "masuk" in status_sesi.lower()
+    ) and not any(
+        marker in status_sesi.lower() for marker in ("selesai", "belum", "tutup")
+    )
 
     return {
         "kode_mtk": info.get("kode mtk"),
-        "matakuliah": info.get("matakuliah"),
+        "matakuliah": info.get("matakuliah") or info.get("mata kuliah"),
         "kelas": info.get("kelas"),
         "dosen": info.get("dosen"),
         "ruang": info.get("ruang"),
@@ -238,6 +259,7 @@ def parse_presence(html: str) -> dict[str, Any]:
         "jam_masuk": info.get("jam masuk"),
         "jam_keluar": info.get("jam keluar"),
         "status_sesi": status_sesi,
+        "can_submit": can_submit,
         "total_kehadiran": len(records),
         "riwayat": records,
     }

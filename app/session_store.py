@@ -13,6 +13,7 @@ import secrets
 from datetime import datetime, timezone
 from typing import Optional
 
+from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 import redis.asyncio as aioredis
 
@@ -46,6 +47,22 @@ def _encrypt_payload(data: dict, secret: str) -> str:
     return base64.b64encode(nonce + ct).decode("utf-8")
 
 
+def _migrate_legacy_payload(blob: str | bytes, secret: str) -> Optional[str]:
+    """Re-encrypt a known legacy JSON session exactly once during migration."""
+    text = blob.decode("utf-8", "ignore") if isinstance(blob, bytes) else blob
+    if not text.startswith("{"):
+        return None
+    try:
+        data = json.loads(text)
+        if not isinstance(data, dict) or not all(
+            data.get(field) for field in ("nim", "studentv2_pass", "elearning_pass")
+        ):
+            return None
+        return _encrypt_payload(data, secret)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return None
+
+
 def _decrypt_payload(blob: str | bytes, secret: str) -> Optional[dict]:
     if not blob or not secret:
         return None
@@ -59,7 +76,7 @@ def _decrypt_payload(blob: str | bytes, secret: str) -> Optional[dict]:
         aesgcm = AESGCM(key)
         plaintext = aesgcm.decrypt(nonce, ct, None)
         return json.loads(plaintext.decode("utf-8"))
-    except Exception:
+    except (InvalidTag, ValueError, TypeError, json.JSONDecodeError):
         return None
 
 
@@ -108,6 +125,11 @@ class SessionStore:
             return None
         await client.expire(key, SESSION_TTL_SECONDS)
         data = _decrypt_payload(raw, settings.API_KEY)
+        if not data:
+            migrated = _migrate_legacy_payload(raw, settings.API_KEY)
+            if migrated:
+                await client.set(key, migrated, ex=SESSION_TTL_SECONDS)
+                data = _decrypt_payload(migrated, settings.API_KEY)
         if not data:
             return None
         nim = data.get("nim")
