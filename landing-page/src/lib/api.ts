@@ -182,6 +182,8 @@ export function useRequireSession() {
 
   useEffect(() => {
     if (error && (error.status === 401 || error.status === 403)) {
+      // Hapus cache RAM agar data user lama tidak bocor ke login berikutnya
+      clearApiCache();
       router.replace("/login");
     }
   }, [error, router]);
