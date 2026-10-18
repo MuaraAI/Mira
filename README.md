@@ -87,7 +87,6 @@ Proyek ini dirintis, dibangun, dan dirawat secara independen oleh tiga mahasiswa
   <a href="#struktur-proyek">Struktur</a> ·
   <a href="#memulai">Memulai</a> ·
   <a href="#dokumentasi">Dokumentasi</a> ·
-  <a href="#roadmap">Roadmap</a> ·
   <a href="#lisensi">Lisensi</a>
 </p>
 
@@ -348,37 +347,6 @@ Konfigurasi produksi menggunakan PM2 (`ecosystem.config.cjs`) di target folder `
 - [Agent Skill](skills/SKILL.md) — Panduan AI coding agent untuk konsumsi dan pengembangan otomatisasi UBSI API.
 
 Panduan kontribusi tersedia di [CONTRIBUTING.md](CONTRIBUTING.md).
-
----
-
-## Roadmap
-
-### v1.0 — Stabil (Rilis)
-- [x] Agregasi read-only untuk 6 modul (`studentv2`, `elearning`, `elibrary`, `news`, `repository`, `ejournal`).
-- [x] Cache dua tingkat (Redis DB 2) dengan fallback offline Last-Known-Good (`stale: true`).
-- [x] Manajemen sesi dan resiliensi request (session reuse, single-flight mutex, jeda adaptif).
-- [x] Batas keamanan localhost (`127.0.0.1:8300`).
-- [x] Session pool per-NIM dan endpoint dashboard paralel (`/v1/studentv2/dashboard`).
-- [x] Metrik operasional layanan real-time (`/metrics`).
-- [x] Helper generik `cached_endpoint` (PR #4) dan 58 pengujian otomatis lulus.
-
-### v1.1 — Keamanan, Remote Ingress & Multi-Channel Webhook (Rilis)
-- [x] **Autentikasi API key wajib** — middleware `X-API-Key` dengan constant-time comparison (`secrets.compare_digest`), whitelist `GET /health` untuk health probe, dan fail-fast startup jika `API_KEY` kosong.
-- [x] **Dual-path remote access** — reverse proxy (Caddy/Nginx) dengan HTTPS otomatis, atau Cloudflare Tunnel (`cloudflared`) untuk homelab tanpa IP publik.
-- [x] **Rate limiting real client IP** — ekstraksi IP asli via `CF-Connecting-IP` / `X-Forwarded-For` agar kuota tidak bertabrakan di belakang proxy.
-- [x] **Dukungan CORS** — `CORSMiddleware` terintegrasi untuk integrasi dashboard web frontend.
-- [x] **Multi-channel news broadcaster (v1.1.5)** — auto-dispatch berita baru paralel ke Discord (Rich Embed), Telegram (HTML photo message), dan custom webhook; migrasi upstream SIAKAD ke `students.bsi.ac.id`.
-- [x] **Self-Auth BSI & Multi-Channel Webhook Portal (v1.2.0)** — Login mandiri NIM + password kampus, session token Redis sliding 7 hari, SQLite WAL webhook manager (Discord, Telegram, Custom), dan fan-out berita kampus per-user.
-
-### v1.2 — Feeds & Produktivitas (Dikerjakan)
-- [ ] **Ekspor kalender iCal (`.ics`)** — endpoint `GET /v1/studentv2/schedule.ics` untuk sinkronisasi jadwal kuliah ke Google Calendar (Android) dan Apple Calendar (iOS).
-- [x] **Rekap nilai tugas & kuis elearning per pertemuan** — endpoint `GET /v1/elearning/grades` dan `GET /v1/elearning/courses/{id}/grades` untuk melacak status dan rekapitulasi nilai tugas, kuis, dan evaluasi 6 mata kuliah aktif.
-- [ ] **Bulk downloader modul & silabus** — endpoint `GET /v1/elearning/materials/download-all` untuk mengunduh seluruh materi 6 matkul sekaligus.
-- [ ] **Kalkulator & simulator IPK** — estimasi IPK/IPS real-time berdasarkan riwayat nilai murni.
-
-### v2.0 — Interaktif Penuh & Institusional (Direncanakan)
-- [ ] **Assignment submission & interaksi** — pengunggahan berkas tugas (`POST /v1/elearning/assignments/{id}/submit`) dan forum diskusi kelas.
-- [ ] **Dosen & staff portal mode (NIP)** — dukungan kredensial dosen/staf (`NIP_STUDENTV2` & `NIP_ELEARNING`), jadwal mengajar, daftar peserta kelas, dan rekap BAP (Berita Acara Perkuliahan).
 
 ---
 
