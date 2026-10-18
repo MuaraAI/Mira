@@ -1,18 +1,20 @@
 <h1 align="center">UBSI API</h1>
 
 <p align="center">
-  <strong>REST API tidak resmi untuk enam layanan digital Universitas Bina Sarana Informatika</strong><br />
-  StudentV2 (SIAKAD) · MyBest LMS · Elibrary · EJournal · Repository · News Portal — disatukan dalam satu antarmuka JSON.
+  <strong>REST API Aggregator &amp; Model Context Protocol (MCP) Server untuk Enam Layanan Digital Universitas Bina Sarana Informatika</strong><br />
+  SIAKAD (students.bsi.ac.id) · MyBest LMS · Perpustakaan OPAC · Berita Resmi · Repository EPrints · E-Journal OJS
 </p>
 
 <div align="center">
 
-  <a href="https://ubsi-api.muaraai.com"><img src="https://img.shields.io/badge/website-ubsi--api.muaraai.com-2DD4BF?style=flat-square" alt="Website" /></a>
+  <a href="https://ubsi-api.muaraai.com"><img src="https://img.shields.io/badge/website-ubsi--api.muaraai.com-0369A1?style=flat-square" alt="Website" /></a>
   <a href="https://github.com/MuaraAI/UBSI-API/blob/main/LICENSE"><img src="https://img.shields.io/github/license/MuaraAI/UBSI-API?style=flat-square&color=374151" alt="License" /></a>
   <img src="https://img.shields.io/badge/python-3.12%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python" />
   <img src="https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI" />
-  <img src="https://img.shields.io/badge/Redis-cache-DC382D?style=flat-square&logo=redis&logoColor=white" alt="Redis" />
-  <img src="https://img.shields.io/badge/tests-142%20lulus-2EA043?style=flat-square" alt="Tests" />
+  <img src="https://img.shields.io/badge/Next.js-15%20App%20Router-000000?style=flat-square&logo=nextdotjs&logoColor=white" alt="Next.js" />
+  <img src="https://img.shields.io/badge/Redis-AES--256--GCM-DC382D?style=flat-square&logo=redis&logoColor=white" alt="Redis" />
+  <img src="https://img.shields.io/badge/tests-155%20lulus-0F766E?style=flat-square" alt="Tests" />
+  <a href="https://github.com/MuaraAI/UBSI-API/releases"><img src="https://img.shields.io/badge/release-v1.3.0%20stable-0369A1?style=flat-square" alt="Release" /></a>
 
 </div>
 
@@ -81,12 +83,12 @@ Proyek ini dirintis, dibangun, dan dirawat secara independen oleh tiga mahasiswa
 <p align="center">
   <a href="#disclaimer">Disclaimer</a> ·
   <a href="#latar-belakang">Latar Belakang</a> ·
+  <a href="#arsitektur--keamanan">Arsitektur</a> ·
   <a href="#fitur">Fitur</a> ·
-  <a href="#endpoint">Endpoint</a> ·
-  <a href="#teknologi">Teknologi</a> ·
-  <a href="#struktur-proyek">Struktur</a> ·
+  <a href="#endpoint-api">Endpoint API</a> ·
+  <a href="#mcp-server-untuk-ai-agent">MCP Server</a> ·
   <a href="#memulai">Memulai</a> ·
-  <a href="#dokumentasi">Dokumentasi</a> ·
+  <a href="#dokumentasi--legal">Dokumentasi</a> ·
   <a href="#lisensi">Lisensi</a>
 </p>
 
@@ -100,99 +102,159 @@ Proyek ini dirintis, dibangun, dan dirawat secara independen oleh tiga mahasiswa
 > 2. Pengembang **tidak bertanggung jawab** atas segala bentuk penyalahgunaan atau konsekuensi yang timbul dari penggunaan perangkat lunak ini. Seluruh risiko penggunaan berada pada pengguna masing-masing.
 > 3. Seluruh merek dagang, nama sistem, materi silabus, dan data akademik adalah hak cipta dan hak milik sah dari **Universitas Bina Sarana Informatika** serta pemilik hak ciptanya masing-masing.
 >
-> **Permohonan Penghapusan / Pengarsipan (Takedown Notice)** — Jika pihak otoritas universitas atau pengelola sistem IT UBSI berkeberatan atas repositori ini, silakan hubungi pengelola langsung via GitHub ([@Curzyori](https://github.com/Curzyori)). Repositori ini akan dengan senang hati **diarsipkan atau dihapus permanen secara kooperatif**.
+> **Permohonan Penghapusan / Pengarsipan (Takedown Notice)**: Jika pihak otoritas universitas atau pengelola sistem IT UBSI berkeberatan atas repositori ini, silakan hubungi pengelola langsung via GitHub ([@Curzyori](https://github.com/Curzyori)) atau email `admin@muaraai.com`. Repositori ini akan dengan senang hati **diarsipkan atau dihapus permanen secara kooperatif**.
 
 ---
 
 ## Latar Belakang
 
-Layanan akademik UBSI tersebar di enam subdomain terpisah — `studentv2`, `elearning`, `elibrary`, `ejournal`, `repository`, dan `news` — masing-masing dengan antarmuka web konvensional. Sekadar melihat jadwal kuliah atau memeriksa tugas baru berarti membuka browser, masuk log, lalu menelusuri halaman yang sama berulang kali.
+Layanan akademik UBSI tersebar di berbagai subdomain terpisah: `students.bsi.ac.id` (SIAKAD), `elearning.bsi.ac.id` (MyBest), `elibrary.bsi.ac.id` (OPAC), `ejournal.bsi.ac.id` (OJS), `repository.bsi.ac.id` (EPrints), dan `news.bsi.ac.id`. Mahasiswa harus masuk log dan membuka halaman yang berbeda-beda setiap hari sekadar memeriksa jam kuliah, batas waktu tugas, atau riwayat absensi.
 
-UBSI API merapikan semuanya menjadi satu backend JSON yang cepat, berjalan lokal di `127.0.0.1:8300`, dan dilindungi lapisan-lapisan berikut:
+UBSI API menyatukan seluruh layanan tersebut ke dalam satu antarmuka REST API dan antarmuka AI Agent (MCP Server) yang cepat, aman, dan berpusat pada kenyamanan mahasiswa.
 
-| Lapisan | Penjelasan |
+---
+
+## Arsitektur & Keamanan
+
+| Komponen | Penjelasan Teknis |
 |---|---|
-| **Cache dua tingkat (Redis DB 2)** | TTL berjenjang — jadwal 2 jam, nilai 30 menit, tugas 10 menit — plus fallback Last-Known-Good saat kampus offline |
-| **Manajemen sesi yang efisien** | Sesi login di-*reuse* in-memory, request duplikat digabung lewat *single-flight mutex*, dan ada jeda adaptif antar-request agar server kampus tidak terbebani |
-| **Klien HTTP modern** | Berbasis `curl_cffi` dan lxml untuk kompatibilitas penuh dengan layanan kampus |
-| **JSON ternormalisasi** | Sanitasi HTML otomatis; SKS sebagai integer, nilai sebagai float, tanggal dalam format ISO-8601 |
-| **Batas keamanan localhost** | Server hanya mengikat `127.0.0.1:8300`; nol port ingress terbuka ke internet |
-| **WordPress REST API native** | Berita kampus diambil langsung dari endpoint JSON resmi, tanpa parsing HTML |
+| **Enkripsi Sesi AES-256-GCM** | Kredensial login mahasiswa disimpan di Redis dalam bentuk ciphertext terotentikasi **AES-256-GCM** (kunci 256-bit diturunkan via Keyed BLAKE2b KDF). Zero plaintext password di RAM maupun disk. |
+| **Personal API Key Engine** | Mahasiswa dapat menerbitkan API Key mandiri berformat `muara_ubsi_<hex>` (terenkripsi di SQLite WAL, di-cache di Redis) untuk bot Discord, Telegram, atau skrip tanpa perlu memasukkan password kampus. |
+| **Two-Tier Redis Cache & SWR** | Caching berjenjang (jadwal 2 jam, nilai 30 menit, tugas 10 menit) dengan fallback offline Last-Known-Good (LGG) dan single-flight mutex anti-stampede. |
+| **Multi-Tenant SessionPool** | Setiap NIM memiliki pool koneksi HTTP terisolasi dengan auto-eviction idle (15 menit) dan proteksi sticky proxy per-NIM. |
+| **Universal MCP Server** | Terhubung ke AI Agent (Hermes, Claude Code, Cursor, Codex) via transport Streamable HTTP (`/v1/ubsi-api/mcp`) dengan 24 tools akademik siap pakai. |
+| **Pertahanan Anti-SSRF** | Validasi IP Scheme dan resolusi DNS ketat untuk webhook custom dan pengunduhan berkas storage resmi kampus. |
+| **Frontend Fluid Currents Light** | Dashboard App Shell Next.js 15: kanvas mist water `#F7FAFC`, teks riverbed `#072033`, aksen `#0369A1` (WCAG AAA), font woff2 lokal, responsif 360px+, dan cache SWR 0ms. |
 
 ---
 
 ## Fitur
 
-| Modul | Sumber | Kemampuan Utama |
-|:---|:---|:---|
-| **StudentV2** | `students.bsi.ac.id` | Jadwal kuliah semester aktif, nilai murni, pengumuman PDF, arsip berita |
-| **Elearning** | `elearning.bsi.ac.id` (MyBest) | Kartu matkul, presensi perkuliahan, tugas & submission, materi ZIP, kuis |
-| **Elibrary** | `elibrary.bsi.ac.id` | Pencarian katalog OPAC, detail buku, stok fisik, timeout 60 detik & retry |
-| **News Portal** | `news.bsi.ac.id` | Berita kampus resmi via native WP REST API (`/wp-json/wp/v2/posts`) |
-| **News Webhook** | Internal Engine | Auto-dispatch webhook real-time setiap ada artikel baru via background worker |
-| **Repository** | `repository.bsi.ac.id` | Publikasi ilmiah terbaru & pencarian riset EPrints |
-| **EJournal** | `ejournal.bsi.ac.id` | Katalog 23 jurnal ilmiah resmi UBSI via jalur OAI |
-| **Rate Limiter** | Internal Engine | *Sliding-window* limiter 60 request/menit via Redis |
+| Modul | Sumber Kampus | Kemampuan Utama |
+|---|---|---|
+| **StudentV2 (SIAKAD)** | `students.bsi.ac.id` | Biodata profil, jadwal kuliah mingguan, rekap Nilai Murni, KHS semester, Kartu KRS, dan Kartu Ujian (UTS/UAS). |
+| **MyBest Elearning** | `elearning.bsi.ac.id` | Daftar matkul, tugas & deadline tracker, riwayat presensi (DataTables AJAX), unduh 5 kategori berkas zip materi (Slide, Modul, Silabus, RPS, RTM), kuis aktif, dan aksi submit presensi terkonfirmasi. |
+| **Perpustakaan OPAC** | `elibrary.bsi.ac.id` | Pencarian buku teks, skripsi, TA, e-book, beserta informasi ketersediaan stok fisik dan nomor rak cabang. |
+| **Portal Berita** | `news.bsi.ac.id` | Berita kampus resmi real-time melalui integrasi native WordPress REST API JSON. |
+| **Multi-Channel Webhook** | Internal Engine | Broadcast otomatis artikel berita kampus dan pengingat kuliah H-1 ke Discord, Telegram, dan custom HTTP. |
+| **Repository EPrints** | `repository.bsi.ac.id` | Publikasi ilmiah terbaru mahasiswa & dosen serta pencarian riset kampus. |
+| **E-Journal OJS** | `ejournal.bsi.ac.id` | Direktori lengkap 23 jurnal ilmiah resmi UBSI melalui jalur bypass OAI. |
+| **Public Stats API** | Internal Engine | Statistik penggunaan anonim (mahasiswa aktif 24h/7d/30d, total request, dan agregat cabang UBSI). |
 
 ---
 
-## Endpoint
+## Endpoint API
 
-### Autentikasi & Session
+Semua endpoint bisnis menggunakan prefix `/v1/`:
+
+### 1. Autentikasi & Sesi
+- `POST /v1/auth/login` — Login mandiri NIM + password SIAKAD & MyBest (menghasilkan cookie HttpOnly dan token Redis AES-256-GCM sliding 7 hari).
+- `GET /v1/auth/me` — Cek status sesi login aktif mahasiswa (baca langsung dari Redis RAM <1ms).
+- `POST /v1/auth/logout` — Mengakhiri sesi perangkat saat ini dan membersihkan cache browser.
+- `POST /v1/auth/logout_all` — Mengakhiri seluruh sesi aktif untuk NIM terkait di semua perangkat.
 - `POST /v1/auth/verify` — Verifikasi kredensial live kampus (Master Key only).
-- `POST /v1/auth/login` — Login BSI mandiri via NIM + password SIAKAD & MyBest (session Redis sliding 7 hari).
-- `POST /v1/auth/logout` — Mengakhiri sesi perangkat saat ini.
-- `POST /v1/auth/logout_all` — Mengakhiri seluruh sesi aktif untuk NIM terkait.
-- `GET /v1/auth/me` — Cek status sesi login aktif.
 
-### Webhook Channels (Notifikasi Mandiri)
-- `GET /v1/channels` — Daftar channel webhook pribadi milik mahasiswa.
-- `POST /v1/channels` — Pendaftaran channel webhook baru (Discord, Telegram, Custom; maks 5/NIM).
-- `DELETE /v1/channels/{id}` — Menghapus channel webhook.
-- `POST /v1/channels/{id}/test` — Uji kirim notifikasi dan aktivasi channel.
+### 2. Personal API Keys
+- `GET /v1/auth/keys` — Daftar Personal API Key milik mahasiswa (maks 5 key).
+- `POST /v1/auth/keys` — Terbitkan Personal API Key baru (`muara_ubsi_***`).
+- `DELETE /v1/auth/keys/{id}` — Cabut (revoke) API Key.
 
-### Sistem
-- `GET /health` — Status kesehatan aplikasi dan koneksi Redis (`up`/`down`).
-- `GET /metrics` — Metrik operasional layanan (jumlah sesi aktif dan status Redis).
+### 3. StudentV2 (SIAKAD)
+- `GET /v1/studentv2/profile` — Profil lengkap mahasiswa (Nama, Kelas, Prodi, Kampus, Dosen PA, Status).
+- `GET /v1/studentv2/schedule` — Jadwal kuliah semester berjalan (Hari, Jam, Ruang, Dosen).
+- `GET /v1/studentv2/khs` — Kartu Hasil Studi per semester, IPK kumulatif, total SKS lulus.
+- `GET /v1/studentv2/grades` — Rincian bobot Nilai Murni (Kehadiran 20%, Tugas 25%, UTS 25%, UAS 30%).
+- `GET /v1/studentv2/krs` — Kartu Rencana Studi aktif dan kelompok ujian.
+- `GET /v1/studentv2/uts` — Ruang ujian UTS/UAS, tautan ujian online, dan unduh berkas soal.
+- `GET /v1/studentv2/dashboard` — Agregasi paralel jadwal, nilai, berita, dan pengumuman.
+- `GET /v1/studentv2/news` & `GET /v1/studentv2/announcements` — Arsip berita & pengumuman internal.
 
-### StudentV2 (SIAKAD)
-- `GET /v1/studentv2/dashboard` — Jadwal, nilai, berita, dan pengumuman sekaligus secara paralel.
-- `GET /v1/studentv2/schedule` — Jadwal kuliah semester aktif.
-- `GET /v1/studentv2/grades` — Rekap nilai murni lengkap per mata kuliah.
-- `GET /v1/studentv2/news` — Arsip pengumuman berita akademik.
-- `GET /v1/studentv2/announcements` — Pengumuman edaran internal terbaru dari beranda.
-
-### Elearning (MyBest LMS)
-- `GET /v1/elearning/courses` — Daftar kartu mata kuliah aktif beserta token terenkripsi.
-- `GET /v1/elearning/assignments` — Daftar tugas aktif dan riwayat submission (nilai + komentar dosen).
+### 4. MyBest Elearning
+- `GET /v1/elearning/courses` — Daftar mata kuliah aktif dan token pembelajaran.
+- `GET /v1/elearning/assignments` — Agregasi tugas aktif & riwayat submission tugas.
+- `POST /v1/elearning/assignments/upload` — Unggah submission berkas tugas (PDF/ZIP/DOCX max 10MB).
+- `GET /v1/elearning/assignments/download?file_url=` — Unduh berkas soal tugas secara aman (anti-SSRF).
+- `GET /v1/elearning/presence?token=` — Rekap riwayat presensi (DataTables AJAX) dan status sesi pertemuan.
+- `POST /v1/elearning/presence?token=` — Aksi presensi perkuliahan pada kelas aktif.
+- `GET /v1/elearning/materials?token=` — Daftar materi pertemuan dosen dan tautan berkas resmi.
 - `GET /v1/elearning/grades` — Rekapitulasi nilai tugas & kuis per pertemuan.
-- `GET /v1/elearning/courses/{course_id}/grades` — Rekap nilai tugas untuk satu mata kuliah spesifik.
-- `GET /v1/elearning/presence` — Rekap status presensi perkuliahan per pertemuan.
-- `GET /v1/elearning/materials` — Berkas silabus dan modul pembelajaran (ZIP/PDF).
-- `GET /v1/elearning/quiz` — Jadwal kuis latihan dan ujian online aktif.
+- `GET /v1/elearning/quiz` & `GET /v1/elearning/quiz/questions` — Jadwal & soal kuis aktif.
+- `POST /v1/elearning/quiz/answer` — Kirim jawaban kuis (A/B/C/D).
 
-### Perpustakaan (Elibrary)
-- `GET /v1/elibrary/search?q=&opsi=buku&page=1` — Pencarian katalog OPAC perpustakaan.
-- `GET /v1/elibrary/book/{book_id}` — Detail metadata buku lengkap beserta stok fisik.
-
-### Publikasi Ilmiah & Berita
-- `GET /v1/news?search=&page=&per_page=` — Berita kampus resmi (dengan author dan featured image).
+### 5. Perpustakaan & Publikasi Kampus
+- `GET /v1/elibrary/search?q=&opsi=buku&page=1` — Pencarian katalog OPAC perpustakaan UBSI.
+- `GET /v1/elibrary/book/{book_id}` — Rincian buku, edisi, nomor rak, dan ketersediaan stok fisik cabang.
+- `GET /v1/news?search=&page=&per_page=` — Berita resmi UBSI via native WP REST API JSON.
 - `GET /v1/news/{post_id}` — Detail artikel berita lengkap.
-- `POST /v1/news/webhook/test?target_url=` — Uji kirim payload event berita ke URL webhook target.
-- `GET /v1/repository/recent` — Publikasi karya ilmiah dan tugas akhir terbaru di EPrints.
-- `GET /v1/repository/search?q=` — Pencarian repositori karya ilmiah.
-- `GET /v1/ejournal/journals` — Katalog lengkap 23 jurnal ilmiah resmi UBSI.
+- `GET /v1/repository/recent` & `GET /v1/repository/search?q=` — Riset & skripsi EPrints UBSI.
+- `GET /v1/ejournal/journals` — Direktori 23 jurnal ilmiah resmi UBSI via OAI.
+
+### 6. Webhook Channels & Public Stats
+- `GET /v1/channels`, `POST /v1/channels`, `DELETE /v1/channels/{id}`, `POST /v1/channels/{id}/test` — Manajemen webhook notifikasi (Discord/Telegram/Custom).
+- `POST /v1/channels/trigger-reminder` — Pengiriman pengingat manual (`matkul-besok` / `quiz-tugas`).
+- `GET /v1/stats` — Statistik penggunaan anonim (mahasiswa aktif, total request, dan agregat cabang UBSI).
+- `GET /health` — Health check endpoint (publik, tanpa auth).
+- `GET /metrics` — Metrik internal sesi aktif dan koneksi Redis (wajib auth).
+
+---
+
+## MCP Server untuk AI Agent
+
+UBSI API menyediakan endpoint **Model Context Protocol (MCP)** siap pakai di:
+```text
+https://api.muaraai.com/v1/ubsi-api/mcp
+```
+
+### Konfigurasi Klien Agent
+
+#### 1. Claude Code
+```bash
+claude mcp add --transport http ubsi-academic \
+  https://api.muaraai.com/v1/ubsi-api/mcp \
+  --header "Authorization: Bearer muara_ubsi_YOUR_KEY"
+```
+
+#### 2. Cursor (`.cursor/mcp.json`)
+```json
+{
+  "mcpServers": {
+    "ubsi-academic": {
+      "url": "https://api.muaraai.com/v1/ubsi-api/mcp",
+      "headers": {
+        "Authorization": "Bearer muara_ubsi_YOUR_KEY"
+      }
+    }
+  }
+}
+```
+
+#### 3. Hermes Agent (`~/.hermes/config.yaml`)
+```yaml
+mcp_servers:
+  ubsi-academic:
+    url: https://api.muaraai.com/v1/ubsi-api/mcp
+    headers:
+      Authorization: "Bearer muara_ubsi_YOUR_KEY"
+```
+
+#### 4. Codex CLI (`~/.codex/config.toml`)
+```toml
+[mcp_servers.ubsi-academic]
+url = "https://api.muaraai.com/v1/ubsi-api/mcp"
+http_headers = { "Authorization" = "Bearer muara_ubsi_YOUR_KEY" }
+```
 
 ---
 
 ## Teknologi
 
 - **Backend API** — Python 3.12+, FastAPI, Uvicorn (uvloop).
-- **Frontend Landing Page** — Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS.
-- **HTTP client & parsing** — Scrapling (FetcherSession), `curl_cffi`, lxml.
-- **Caching & Limiter** — Redis DB 2 (asyncio), single-flight mutex, sliding-window limiter.
-- **Testing & Quality** — Pytest (118 lulus), Pytest-Asyncio, HTTPX (ASGITransport).
-- **Deployment & Hosting** — Vercel (`ubsi-api.muaraai.com`), Tencent Cloud VPS + PM2 + Caddy HTTPS.
+- **Frontend Dashboard & Web** — Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS (Fluid Currents Light).
+- **Security & Enkripsi** — AES-256-GCM (Redis Session), Fernet (SQLite WAL Personal Keys), Keyed BLAKE2b KDF.
+- **HTTP Client & Parsing** — Scrapling (FetcherSession), HTTPX (AsyncClient/Client), lxml.
+- **Caching & Limiter** — Redis DB 2 (asyncio), single-flight mutex, sliding-window rate limiter.
+- **Testing & Quality** — Pytest (155 pengujian 100% offline), Pytest-Asyncio, HTTPX ASGITransport.
+- **Deployment & Hosting** — Vercel (`ubsi-api.muaraai.com`), Tencent Cloud VPS + PM2 (`/opt/ubsi-api`) + Caddy HTTPS.
 
 ---
 
@@ -200,164 +262,147 @@ UBSI API merapikan semuanya menjadi satu backend JSON yang cepat, berjalan lokal
 
 ```
 UBSI-API/
-├── app/                       # Backend FastAPI service (127.0.0.1:8300)
+├── app/                       # [BACKEND] Core FastAPI Application (127.0.0.1:8300)
 │   ├── modules/
-│   │   ├── studentv2.py       # SIAKAD: Jadwal, Nilai, Berita, Pengumuman
-│   │   ├── elearning.py       # MyBest: Captcha solver, Courses, Absensi, Tugas, Materi, Kuis
-│   │   ├── elibrary.py        # Perpus: OPAC search, Book detail, retry 60s
-│   │   ├── news.py            # Portal: Native WP REST API (/wp-json/wp/v2/posts)
+│   │   ├── studentv2.py       # SIAKAD: Profil, Jadwal, Nilai, KHS, KRS, UTS, Berita
+│   │   ├── elearning.py       # MyBest: Matkul, Tugas, Presensi, Modul, Kuis
+│   │   ├── elibrary.py        # Perpustakaan: OPAC search, Book detail, stok cabang
+│   │   ├── news.py            # Portal Berita: Native WP REST API (/wp-json/wp/v2/posts)
 │   │   ├── repository.py      # EPrints: Recent publications & search (/repo/{id}/)
-│   │   └── ejournal.py        # OJS: Katalog 23 jurnal aktif dengan judul asli
+│   │   ├── ejournal.py        # OJS: Direktori 23 jurnal aktif via OAI
+│   │   ├── auth.py            # Autentikasi: Login BSI, Sesi, Personal Keys
+│   │   ├── channels.py        # Webhook: CRUD Discord, Telegram, Custom HTTP
+│   │   └── stats.py           # Public Stats: Agregasi anonim mahasiswa & request
 │   ├── cache.py               # Redis 2-tier cache (fresh + LGG) & single-flight mutex
-│   ├── config.py              # Pydantic Settings & tiered TTLs
-│   ├── deps.py                # Validasi kredensial modular (Option B)
-│   ├── envelope.py            # Envelope JSON minimalis
-│   ├── limiter.py             # Sliding-window rate limiter (60 req/menit)
+│   ├── config.py              # Pydantic Settings, environment, tiered TTLs
+│   ├── deps.py                # Credential dependency injection (Session > Header > .env)
+│   ├── envelope.py            # Standard clean JSON envelope format
+│   ├── limiter.py             # Sliding-window rate limiter (60 req/menit per client IP)
 │   ├── retry.py               # Exponential backoff retry dengan jeda adaptif
 │   ├── router_helper.py       # Helper generik cache, lock, & SWR
 │   ├── session_pool.py        # Pool sesi per-NIM dengan idle TTL (15 menit)
-│   └── main.py                # Base FastAPI app & global middleware
-├── landing-page/              # Frontend Landing Page (ubsi-api.muaraai.com)
-│   ├── public/fonts/          # Self-hosted woff2 (Space Grotesk, Inter, JetBrains Mono)
+│   ├── session_store.py       # Enkripsi sesi Redis AES-256-GCM (sliding 7 hari)
+│   ├── api_keys_db.py         # Personal API Keys engine (SQLite WAL + Fernet)
+│   ├── channels_db.py         # Webhook channels storage (SQLite WAL)
+│   ├── mcp_server.py          # Universal MCP Server (Streamable HTTP, 24 tools)
+│   ├── stats.py               # Usage counter & privacy-preserving analytics
+│   └── main.py                # Server entrypoint, middleware auth & proxy, health, metrics
+├── landing-page/              # [FRONTEND] Landing Page & Dashboard (Next.js 15)
+│   ├── public/                # Logo resmi, favicon, self-hosted fonts
 │   ├── src/
-│   │   ├── app/               # App Router, Layout, dynamic OG image, sitemap, robots
-│   │   ├── components/        # Hero, CodeShowcase, ModulesGrid, Architecture, Quickstart
-│   │   ├── data/              # Dataset statis, contoh kode, roadmap
-│   │   └── lib/               # Realtime GitHub stats & Health probe client
-│   ├── tailwind.config.ts     # Deep Water design tokens (#0A1220, #2DD4BF)
+│   │   ├── app/               # App Router: /dashboard/* (8 modul), /login, /privacy, /terms
+│   │   ├── components/        # App Shell, Sidebar, MobileNav, Command Center, UI widgets
+│   │   └── lib/               # Client SWR RAM cache (0ms tab transitions), API fetcher
 │   └── package.json
-├── tests/
-│   ├── fixtures/              # Snapshot HTML offline
-│   ├── conftest.py            # Fixture autouse & test auth client
-│   └── test_*.py              # 126 pengujian unit & integrasi otomatis
-├── templates/
-│   ├── Caddyfile.example      # Template reverse proxy Caddy (HTTPS otomatis)
-│   ├── nginx.example.conf     # Template konfigurasi reverse proxy Nginx
-│   └── cloudflared.example.yml# Template ingress Cloudflare Tunnel
+├── tests/                     # [TEST SUITE] Pytest 100% Offline (155 Passing Tests)
+│   ├── fixtures/              # Snapshot HTML statis kampus
+│   └── test_*.py              # Unit & integration tests
+├── templates/                 # Template Caddy, Nginx, & Cloudflare Tunnel
 ├── scripts/
-│   ├── deploy.sh              # Deploy satu perintah ke VPS Tencent via rsync & PM2
-│   └── smoke.py               # CLI verifikasi live (8 pemeriksaan, auth-aware)
-├── skills/
-│   └── SKILL.md               # Definisi agent skill untuk asisten AI
-├── docs/
-│   ├── api.md                 # Kamus lengkap endpoint & format payload JSON
-│   ├── architecture.md        # Siklus request & alur cache
-│   ├── anti-ban.md            # Panduan penggunaan bertanggung jawab
-│   ├── deploy.md              # Operasi produksi VPS via PM2
-│   └── remote-access.md       # Panduan Caddy, Nginx, & Cloudflare Tunnel
-├── ecosystem.config.cjs       # Konfigurasi produksi PM2 untuk VPS
-├── CONTRIBUTING.md            # Panduan kontribusi & layout tests
-├── CODE_OF_CONDUCT.md         # Norma komunitas & etika rekayasa perangkat lunak
-├── SECURITY.md                # Kebijakan etika & privasi akademik
+│   ├── deploy.sh              # Deploy otomatis ke /opt/ubsi-api via rsync & PM2
+│   └── smoke.py               # CLI verifikasi live
+├── docs/                      # Dokumentasi teknis & arsitektur
+├── PRIVACY.md                 # Kebijakan privasi & penanganan data mahasiswa
+├── SECURITY.md                # Kebijakan etika & pelaporan kerentanan
+├── CODE_OF_CONDUCT.md         # Norma komunitas & etika rekayasa
 ├── DMCA.md                    # Kebijakan hak cipta & takedown notice
 ├── LICENSE                    # MIT License (c) 2026 Yuken Velino
-└── requirements.txt           # Dependensi proyek
+└── requirements.txt           # Dependensi Python
 ```
 
 ---
 
 ## Memulai
 
-### 1. Kloning dan Persiapan
+### 1. Kloning dan Instalasi
 
 ```bash
 git clone https://github.com/MuaraAI/UBSI-API.git
 cd UBSI-API
 
-# Buat virtual environment dan install dependensi
+# Menyiapkan virtual environment Python 3.12 via uv
 uv venv .venv --python 3.12
 source .venv/bin/activate
 uv pip install -r requirements.txt
 ```
 
-### 2. Konfigurasi Environment
+### 2. Konfigurasi Environment Backend
 
 ```bash
 cp .env.example .env
 ```
 
-Isi `.env` dengan:
+Sesuaikan nilai di `.env`:
+- `API_KEY`: Master API key server.
+- `ALLOWED_ORIGINS`: Origin web frontend yang diizinkan (misal `https://ubsi-api.muaraai.com,http://localhost:3000`).
+- `REDIS_URL`: URL Redis database (default `redis://127.0.0.1:6379/2`).
 
-1. **`API_KEY`** — Kunci rahasia untuk autentikasi endpoint terlindungi (header `X-API-Key`). Generate dengan:
-   ```bash
-   python3 -c "import secrets; print('ubsi_sec_' + secrets.token_hex(24))"
-   ```
-2. **`STUDENTV2_NIM` & `STUDENTV2_PASS`** — Akun mahasiswa untuk modul SIAKAD (`students.bsi.ac.id`).
-3. **`ELEARNING_NIM` & `ELEARNING_PASS`** — Akun mahasiswa untuk modul MyBest LMS (`elearning.bsi.ac.id`).
-4. **Multi-channel webhook (opsional)**:
-   - `DISCORD_WEBHOOK_URL` — Webhook channel Discord untuk Rich Embed berita kampus.
-   - `TELEGRAM_BOT_TOKEN` & `TELEGRAM_CHAT_ID` — Notifikasi berita via Telegram.
-   - `NEWS_WEBHOOK_URL` — Endpoint HTTP POST kustom untuk bot WhatsApp Ciel / backend lain.
-
-### 3. Menjalankan Server
+### 3. Menjalankan Backend FastAPI (Port 8300)
 
 ```bash
 .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8300 --reload
 ```
+Swagger UI interaktif tersedia di: `http://127.0.0.1:8300/docs`.
 
-Dokumentasi interaktif OpenAPI/Swagger tersedia di `http://127.0.0.1:8300/docs`.
-
-Contoh pemanggilan API dengan header autentikasi:
+### 4. Menjalankan Frontend Next.js 15 (Port 3000)
 
 ```bash
-# Health check (tanpa auth)
-curl -s http://127.0.0.1:8300/health
-
-# Mengambil jadwal kuliah (wajib X-API-Key)
-curl -s -H "X-API-Key: ubsi_s...xxx" http://127.0.0.1:8300/v1/studentv2/schedule
-
-# Menguji broadcast berita ke Discord / Telegram / webhook kustom
-curl -s -X POST -H "X-API-Key: ubsi_s...xxx" "http://127.0.0.1:8300/v1/news/webhook/test?channel=all"
+cd landing-page
+npm install
+npm run dev
 ```
+
+Buka antarmuka di peramban: `http://localhost:3000`.
 
 ---
 
 ## Pengujian
 
-Semua parser diuji terhadap snapshot HTML offline, tanpa request live ke server kampus:
+Seluruh pengujian unit dan integrasi bersifat **100% offline** terhadap snapshot HTML kampus tanpa melakukan live request ke server universitas:
 
 ```bash
-# Menjalankan seluruh test suite (142 tests)
-.venv/bin/pytest -v
+# Menjalankan seluruh test suite pytest (155 tests passing)
+.venv/bin/pytest -q
 
-# Live smoke test terhadap server lokal
-.venv/bin/python scripts/smoke.py --base-url http://127.0.0.1:8300
+# Menjalankan type-check dan production build frontend Next.js
+cd landing-page && npm run build
 ```
 
 ---
 
-## Deployment
+## Deployment Produksi
 
-Konfigurasi produksi menggunakan PM2 (`ecosystem.config.cjs`) di target folder `/home/ubuntu/ubsi-api`:
+Deployment backend berjalan otomatis ke server VPS Tencent menggunakan direktori terisolasi `/opt/ubsi-api` yang dikelola oleh PM2 (`ubsi-api` dan `ubsi-mcp`):
 
 ```bash
-# Deploy otomatis satu perintah via rsync & PM2 ke curzy-vps-tencent
 ./scripts/deploy.sh
 ```
 
+Frontend di-deploy secara otomatis melalui Vercel di domain resmi [ubsi-api.muaraai.com](https://ubsi-api.muaraai.com).
+
 ---
 
-## Dokumentasi
+## Dokumentasi & Legal
 
 - [API Reference](docs/api.md) — Kamus lengkap seluruh endpoint beserta format request dan response JSON.
 - [System Architecture](docs/architecture.md) — Siklus request, two-tier cache, dan single-flight mutex.
 - [Access & Account Safety](docs/anti-ban.md) — Kebijakan penggunaan bertanggung jawab: manajemen sesi, jeda adaptif, dan batas laju request.
 - [Production Deployment](docs/deploy.md) — Panduan operasi dan pemeliharaan server VPS via PM2.
 - [Remote Access & Domain](docs/remote-access.md) — Setup Caddy, Nginx, Cloudflare Tunnel, dan otentikasi `X-API-Key`.
-- [Agent Skill](skills/SKILL.md) — Panduan AI coding agent untuk konsumsi dan pengembangan otomatisasi UBSI API.
-
-Panduan kontribusi tersedia di [CONTRIBUTING.md](CONTRIBUTING.md).
+- [Kebijakan Privasi](PRIVACY.md) — Detail penanganan data, enkripsi AES-256-GCM, dan hak kontrol pengguna.
+- [Syarat & Ketentuan](https://ubsi-api.muaraai.com/terms) — Ketentuan layanan dan larangan otomasi terlarang.
+- [Kode Etik (Code of Conduct)](CODE_OF_CONDUCT.md) — Norma komunitas & etika rekayasa perangkat lunak.
+- [Kebijakan Keamanan](SECURITY.md) — Laporan kerentanan dan standar pelaporan rahasia.
+- [DMCA & Hak Cipta](DMCA.md) — Kebijakan hak cipta & prosedur takedown notice.
+- [Panduan Kontribusi](CONTRIBUTING.md) — Pedoman kontribusi dan struktur PR.
 
 ---
 
 ## Lisensi
 
-- **Lisensi** — MIT License, lihat [LICENSE](LICENSE).
-- **Kode etik & norma komunitas** — [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
-- **Kebijakan keamanan** — [SECURITY.md](SECURITY.md).
-- **Hak cipta & DMCA** — [DMCA.md](DMCA.md).
-- **Panduan kontribusi** — [CONTRIBUTING.md](CONTRIBUTING.md).
+Didistribusikan di bawah lisensi **MIT License**. Lihat [LICENSE](LICENSE) untuk informasi lebih lanjut.
 
 <p align="center">
-  <sub>Dikembangkan oleh <b>Yuken Velino</b> (<a href="https://github.com/Curzyori">@Curzyori</a>) — NIM 15260767 · Kelas 15.1C.30 · Informatika · Fakultas Teknik &amp; Informatika, UBSI Kampus Kota Pontianak</sub>
+  <sub>Dikembangkan oleh <b>Yuken Velino</b> (<a href="https://github.com/Curzyori">@Curzyori</a>), <b>Verzio</b> (<a href="https://github.com/MyKineID">@MyKineID</a>), dan <b>Muhammad Raffli Aldiansyah</b> (<a href="https://github.com/Seeyaa77">@Seeyaa77</a>)<br />
+  Fakultas Teknik &amp; Informatika · Universitas Bina Sarana Informatika Kampus Kota Pontianak</sub>
 </p>
