@@ -2,19 +2,44 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, LayoutDashboard, Newspaper, BellRing, UserRound, KeyRound } from "lucide-react";
+import { ShieldCheck, LogOut } from "lucide-react";
 import { useRequireSession } from "@/lib/api";
 import { ErrorState, LoadingState } from "@/components/dashboard-ui";
-import { Monogram } from "@/components/Monogram";
+import { DashboardSidebar } from "@/components/DashboardSidebar";
+import { DashboardMobileNav } from "@/components/DashboardMobileNav";
 
-const NAV_ITEMS = [
-  { href: "/dashboard", label: "Ringkasan", icon: LayoutDashboard, exact: true },
-  { href: "/dashboard/jadwal", label: "Jadwal", icon: CalendarDays, exact: false },
-  { href: "/dashboard/berita", label: "Berita", icon: Newspaper, exact: false },
-  { href: "/dashboard/notifikasi", label: "Notifikasi", icon: BellRing, exact: false },
-  { href: "/dashboard/keys", label: "API Keys", icon: KeyRound, exact: false },
-  { href: "/dashboard/sesi", label: "Sesi", icon: UserRound, exact: false },
-];
+function getPageTitle(pathname: string): string {
+  switch (pathname) {
+    case "/dashboard":
+      return "Ringkasan";
+    case "/dashboard/jadwal":
+      return "Jadwal Kuliah";
+    case "/dashboard/tugas":
+      return "Tugas & Deadline";
+    case "/dashboard/presensi":
+      return "Presensi Kehadiran";
+    case "/dashboard/materi":
+      return "Bahan Ajar & Modul";
+    case "/dashboard/nilai":
+      return "Nilai & KHS";
+    case "/dashboard/krs":
+      return "Kartu Rencana Studi (KRS)";
+    case "/dashboard/ujian":
+      return "Kartu Ujian UTS & UAS";
+    case "/dashboard/berita":
+      return "Berita Kampus";
+    case "/dashboard/perpustakaan":
+      return "Perpustakaan OPAC";
+    case "/dashboard/keys":
+      return "Personal API Keys";
+    case "/dashboard/notifikasi":
+      return "Notifikasi Webhook";
+    case "/dashboard/sesi":
+      return "Sesi & Keamanan";
+    default:
+      return "Dashboard";
+  }
+}
 
 export default function DashboardLayout({
   children,
@@ -22,67 +47,70 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { authed, checking, error, reload } = useRequireSession();
+  const { authed, checking, error, reload, nim } = useRequireSession();
+  const title = getPageTitle(pathname);
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground selection:bg-accent/25">
+    <div className="min-h-screen bg-background text-foreground flex">
       <div className="grid-overlay" aria-hidden="true" />
 
-      <header className="sticky top-0 z-50 w-full py-3 px-4 sm:px-6">
-        <div className="max-w-5xl mx-auto glass-pill px-4 sm:px-5 py-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <Link href="/dashboard" className="flex items-center gap-3">
-            <Monogram className="w-7 h-7" />
-            <div className="flex flex-col">
-              <span className="font-display font-bold text-sm sm:text-base tracking-tight text-foreground">
-                UBSI API
-              </span>
-              <span className="text-[10px] font-mono tracking-widest text-[#0369A1] font-bold uppercase -mt-0.5">
-                Dashboard Mahasiswa
-              </span>
+      {/* Desktop Sidebar (lg breakpoint >= 1024px) */}
+      <div className="hidden lg:block lg:w-64 lg:fixed lg:inset-y-0 lg:z-30">
+        <DashboardSidebar nim={nim} />
+      </div>
+
+      {/* Mobile Navigation (Topbar, Bottom bar & Drawer) */}
+      <DashboardMobileNav nim={nim} />
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 lg:pl-64">
+        {/* Desktop Sticky Subheader */}
+        <header className="hidden lg:flex sticky top-0 z-20 items-center justify-between px-8 py-3.5 bg-white/80 backdrop-blur-md border-b border-stroke">
+          <div className="flex items-center gap-2 text-xs">
+            <Link
+              href="/dashboard"
+              className="text-secondary hover:text-foreground font-medium"
+            >
+              Dashboard
+            </Link>
+            <span className="text-secondary/60">/</span>
+            <span className="font-semibold text-foreground">{title}</span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-pill bg-[#F0F7FB] border border-[#0369A1]/20 text-[11px] font-mono text-[#0369A1] font-semibold">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#0369A1]" aria-hidden="true" />
+              <span>Sesi Redis (AES-256)</span>
             </div>
-          </Link>
 
-          <nav aria-label="Navigasi dashboard" className="-mx-1 overflow-x-auto">
-            <ul className="flex items-center gap-1 px-1 w-max">
-              {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
-                const active = exact ? pathname === href : pathname.startsWith(href);
-                return (
-                  <li key={href}>
-                    <Link
-                      href={href}
-                      aria-current={active ? "page" : undefined}
-                      className={`flex items-center gap-1.5 whitespace-nowrap rounded-pill px-3 py-1.5 text-xs sm:text-sm font-semibold transition-all duration-200 ease-glass ${
-                        active
-                          ? "bg-[#0369A1] text-white border border-[#075985]"
-                          : "text-secondary hover:text-foreground border border-transparent"
-                      }`}
-                    >
-                      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-                      {label}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
-        </div>
-      </header>
+            <Link
+              href="/dashboard/sesi"
+              aria-label="Pengaturan sesi dan logout"
+              className="p-1.5 rounded-sm text-secondary hover:text-foreground hover:bg-[#F0F7FB] border border-stroke"
+            >
+              <LogOut className="w-4 h-4" aria-hidden="true" />
+            </Link>
+          </div>
+        </header>
 
-      <main id="main-content" className="flex-1 w-full max-w-5xl mx-auto px-4 sm:px-6 py-8">
-        {checking ? (
-          <LoadingState label="Memeriksa sesi login" />
-        ) : error ? (
-          <ErrorState error={error} onRetry={reload} />
-        ) : authed ? (
-          children
-        ) : null}
-      </main>
+        {/* Content View */}
+        <main
+          id="main-content"
+          className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 lg:pb-8"
+        >
+          {checking ? (
+            <LoadingState label="Memeriksa sesi mahasiswa" />
+          ) : error ? (
+            <ErrorState error={error} onRetry={reload} />
+          ) : authed ? (
+            children
+          ) : null}
+        </main>
 
-      <footer className="py-6 px-4 text-center">
-        <p className="text-xs text-secondary">
-          UBSI API Dashboard. Data bersumber dari SIAKAD, MyBest, dan portal resmi kampus.
-        </p>
-      </footer>
+        <footer className="py-4 px-6 text-center text-xs text-secondary border-t border-stroke/60 hidden lg:block">
+          UBSI API Student Command Center. Data terintegrasi dari SIAKAD, MyBest, dan portal kampus.
+        </footer>
+      </div>
     </div>
   );
 }
