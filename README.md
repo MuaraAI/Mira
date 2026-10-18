@@ -312,9 +312,32 @@ UBSI-API/
 
 ---
 
-## Memulai
+## Cara Menggunakan
 
-### 1. Kloning dan Instalasi
+UBSI API mendukung dua model penggunaan:
+
+### Opsi A: Mode Cloud / Hosted (Rekomendasi untuk Mahasiswa)
+
+Jika Anda adalah mahasiswa UBSI dan hanya ingin mengakses dashboard, jadwal, tugas, bahan ajar, atau menyambungkan akun ke AI Agent:
+
+1. Kunjungi platform resmi di **[ubsi-api.muaraai.com](https://ubsi-api.muaraai.com)**.
+2. Masuk melalui menu **Login Mahasiswa** menggunakan NIM dan password SIAKAD &amp; MyBest Anda sendiri.
+3. Seluruh sesi disimpan terenkripsi dengan **AES-256-GCM** di Redis server (zero plaintext password).
+4. Di dashboard, Anda dapat:
+   - Memantau jadwal, tugas kuliah, presensi, bahan ajar, KHS, KRS, dan ujian.
+   - Mengatur channel notifikasi mandiri ke Discord atau Telegram.
+   - Menerbitkan **Personal API Key** (`muara_ubsi_***`) untuk dihubungkan ke AI Agent (**Claude Code**, **Cursor**, **Hermes**, **Codex**) melalui MCP Server.
+5. **Tidak perlu instalasi atau setup server.**
+
+---
+
+### Opsi B: Mode Self-Hosted / Server Mandiri (Untuk Pengembang)
+
+Jika Anda ingin menjalankan server backend dan frontend sendiri di localhost atau VPS:
+
+> **Prinsip Keamanan Zero Credentials di Server**: Server UBSI API beroperasi secara murni multi-tenant. **DILARANG dan TIDAK PERLU** menyimpan NIM atau password kampus mahasiswa di file `.env` server! Seluruh kredensial mahasiswa dimasukkan secara dinamis melalui antarmuka Web UI `/login` atau disuplai melalui Personal API Key.
+
+#### 1. Kloning dan Instalasi
 
 ```bash
 git clone https://github.com/MuaraAI/UBSI-API.git
@@ -326,25 +349,43 @@ source .venv/bin/activate
 uv pip install -r requirements.txt
 ```
 
-### 2. Konfigurasi Environment Backend
+#### 2. Konfigurasi Environment Backend (`.env`)
 
+Salin template konfigurasi resmi:
 ```bash
 cp .env.example .env
 ```
 
-Sesuaikan nilai di `.env`:
-- `API_KEY`: Master API key server.
-- `ALLOWED_ORIGINS`: Origin web frontend yang diizinkan (misal `https://ubsi-api.muaraai.com,http://localhost:3000`).
-- `REDIS_URL`: URL Redis database (default `redis://127.0.0.1:6379/2`).
+File `.env` hanya berisi konfigurasi infrastruktur host (sesuai `.env.example`):
+```ini
+# SERVER CONFIG
+HOST=127.0.0.1
+PORT=8300
+REDIS_URL=redis://127.0.0.1:6379/2
 
-### 3. Menjalankan Backend FastAPI (Port 8300)
+# SECURITY & REMOTE ACCESS
+API_KEY=ubsi_sec_ganti_dengan_kunci_acak_panjang
+ALLOWED_ORIGINS=https://ubsi-api.muaraai.com,http://localhost:3000
+TRUSTED_PROXIES=127.0.0.1
+ROOT_PATH=
+
+# SESSION LOGIN BSI (Dashboard)
+SESSION_COOKIE_DOMAIN=
+SQLITE_DB_PATH=data/ubsi.db
+
+# SCRAPER PROXY CONFIGURATION (OPSIONAL)
+SCRAPER_PROXY=
+SCRAPER_PROXY_POOL=
+```
+
+#### 3. Menjalankan Backend FastAPI (Port 8300)
 
 ```bash
 .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8300 --reload
 ```
 Swagger UI interaktif tersedia di: `http://127.0.0.1:8300/docs`.
 
-### 4. Menjalankan Frontend Next.js 15 (Port 3000)
+#### 4. Menjalankan Frontend Next.js 15 (Port 3000)
 
 ```bash
 cd landing-page
@@ -352,7 +393,7 @@ npm install
 npm run dev
 ```
 
-Buka antarmuka di peramban: `http://localhost:3000`.
+Buka antarmuka di peramban: `http://localhost:3000`. Login menggunakan akun BSI Anda langsung di Web UI.
 
 ---
 
