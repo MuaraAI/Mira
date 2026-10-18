@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   UserCheck,
   Calendar,
@@ -39,6 +39,8 @@ interface PresenceRecord {
   pertemuan: string;
   rangkuman?: string | null;
   berita_acara?: string | null;
+  dosen?: string | null;
+  ruang?: string | null;
 }
 
 interface PresenceData {
@@ -56,31 +58,53 @@ interface PresenceData {
   riwayat?: PresenceRecord[];
 }
 
+const DAY_ORDER = ["minggu", "senin", "selasa", "rabu", "kamis", "jumat", "sabtu"];
+
 export default function PresensiPage() {
   const coursesApi = useApi<CourseItem[]>("/v1/elearning/courses");
-  const [selectedIdx, setSelectedIdx] = useState(0);
-  const [autoDetected, setAutoDetected] = useState(false);
+  const [selectedCourseKey, setSelectedCourseKey] = useState<string | null>(null);
 
-  const courses = coursesApi.data ?? [];
+  const rawCourses = coursesApi.data ?? [];
+  const todayDayIndex = new Date().getDay();
   const todayName = new Intl.DateTimeFormat("id-ID", { weekday: "long" }).format(new Date());
-  const todayIndex = useMemo(
-    () => courses.findIndex((course) => course.hari?.toLowerCase() === todayName.toLowerCase()),
-    [courses, todayName]
-  );
 
-  useEffect(() => {
-    if (todayIndex >= 0 && !autoDetected) {
-      setSelectedIdx(todayIndex);
-      setAutoDetected(true);
+  // Urutkan mata kuliah:
+  // 1. Hari ini (distance 0) paling depan di posisi pertama
+  // 2. Jika hari ini tidak ada jadwal (libur), prioritaskan hari berikutnya (besok, lusa, dst)
+  const courses = useMemo(() => {
+    function getDistance(courseDay?: string): number {
+      if (!courseDay) return 99;
+      const clean = courseDay.toLowerCase().trim();
+      const idx = DAY_ORDER.indexOf(clean);
+      if (idx === -1) return 99;
+      return (idx - todayDayIndex + 7) % 7;
     }
-  }, [todayIndex, autoDetected]);
 
-  const activeCourse = courses.length > 0 ? courses[selectedIdx] : null;
+    return [...rawCourses].sort((a, b) => {
+      const distA = getDistance(a.hari);
+      const distB = getDistance(b.hari);
+      if (distA !== distB) return distA - distB;
+      return (a.jam || "").localeCompare(b.jam || "");
+    });
+  }, [rawCourses, todayDayIndex]);
+
+  const activeCourse = useMemo(() => {
+    if (selectedCourseKey) {
+      return (
+        courses.find((c) => (c.id || c.kode || c.nama) === selectedCourseKey) ||
+        courses[0] ||
+        null
+      );
+    }
+    return courses[0] || null;
+  }, [courses, selectedCourseKey]);
+
   const token = activeCourse?.token_absen;
   const presenceApi = useApi<PresenceData>(
     token ? `/v1/elearning/presence?token=${token}` : "/v1/elearning/presence"
   );
   const pData = presenceApi.data;
+
   const [submitting, setSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -125,7 +149,9 @@ export default function PresensiPage() {
   }
 
   const records = pData?.riwayat ?? [];
-  const isActiveSession = Boolean(pData?.can_submit) || Boolean(pData?.status_sesi?.toLowerCase().includes("absen masuk"));
+  const isActiveSession =
+    Boolean(pData?.can_submit) ||
+    Boolean(pData?.status_sesi?.toLowerCase().includes("absen masuk"));
   const hadirCount = records.filter(
     (r) => r.status_absen.toLowerCase() === "hadir"
   ).length;
@@ -142,31 +168,51 @@ export default function PresensiPage() {
 
       {/* Course Selector Tabs */}
       <div className="flex flex-col gap-2">
-        {todayIndex >= 0 && (
-          <p className="text-xs text-secondary">
-            Otomatis memilih jadwal hari ini: <strong className="text-foreground">{todayName}</strong>.
-            Anda tetap bisa memilih mata kuliah lain secara manual.
-          </p>
-        )}
+        <div className="flex items-center justify-between text-xs text-secondary px-1">
+          <span>
+            Hari ini: <strong className="text-foreground">{todayName}</strong>. Diurutkan berdasarkan jadwal terdekat:
+          </span>
+          {activeCourse?.hari && (
+            <span className="font-mono text-[#0369A1] font-semibold">
+              Jadwal: {activeCourse.hari} ({activeCourse.jam || "-"})
+            </span>
+          )}
+        </div>
+
         <div className="overflow-x-auto pb-2 -mx-2 px-2">
           <div className="flex items-center gap-2 w-max">
-          {courses.map((course, idx) => {
-            const active = idx === selectedIdx;
-            return (
-              <button
-                key={course.id || idx}
-                type="button"
-                onClick={() => setSelectedIdx(idx)}
-                className={`px-3.5 py-2 rounded-sm text-xs font-semibold whitespace-nowrap transition-all border ${
-                  active
-                    ? "bg-[#0369A1] text-white border-[#075985] shadow-sm"
-                    : "bg-white text-secondary hover:text-foreground border-stroke hover:bg-[#F0F7FB]"
-                }`}
-              >
-                {course.nama}
-              </button>
-            );
-          })}
+            {courses.map((course) => {
+              const courseKey = course.id || course.kode || course.nama;
+              const active = courseKey === (activeCourse?.id || activeCourse?.kode || activeCourse?.nama);
+              const isToday = course.hari?.toLowerCase().trim() === todayName.toLowerCase();
+              return (
+                <button
+                  key={courseKey}
+                  type="button"
+                  onClick={() => setSelectedCourseKey(courseKey)}
+                  className={`flex items-center gap-2 px-3.5 py-2 rounded-sm text-xs font-semibold whitespace-nowrap transition-all border ${
+                    active
+                      ? "bg-[#0369A1] text-white border-[#075985] shadow-sm"
+                      : "bg-white text-secondary hover:text-foreground border-stroke hover:bg-[#F0F7FB]"
+                  }`}
+                >
+                  <span>{course.nama}</span>
+                  {course.hari && (
+                    <span
+                      className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
+                        active
+                          ? "bg-white/20 text-white"
+                          : isToday
+                          ? "bg-[#0F766E]/15 text-[#0F766E] font-bold"
+                          : "bg-slate-100 text-secondary"
+                      }`}
+                    >
+                      {isToday ? "Hari Ini" : course.hari}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -229,8 +275,7 @@ export default function PresensiPage() {
                   </span>
                   <span
                     className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-pill text-xs font-bold ${
-                      pData?.status_sesi &&
-                      pData.status_sesi.toLowerCase().includes("buka")
+                      isActiveSession
                         ? "bg-[#0F766E]/10 border border-[#0F766E]/30 text-[#0F766E]"
                         : "bg-[#F0F7FB] border border-stroke text-secondary"
                     }`}
@@ -242,10 +287,10 @@ export default function PresensiPage() {
                     type="button"
                     onClick={handleSubmitPresence}
                     disabled={!isActiveSession || submitting || !token}
-                    className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-pill bg-[#0369A1] px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-[#075985] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-pill bg-[#0369A1] px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-[#075985] disabled:cursor-not-allowed disabled:opacity-40 shadow-sm"
                   >
                     <UserCheck className="h-3.5 w-3.5" aria-hidden="true" />
-                    {submitting ? "Mengirim presensi..." : "Absen Sekarang"}
+                    <span>{submitting ? "Mengirim presensi..." : "Absen Sekarang"}</span>
                   </button>
                 </div>
               </div>
@@ -272,7 +317,7 @@ export default function PresensiPage() {
                 Riwayat Pertemuan & Presensi
               </h3>
               <span className="text-xs text-secondary font-mono">
-                Total {records.length} Pertemuan
+                Total {records.length} Pertemuan Tercatat
               </span>
             </div>
 
