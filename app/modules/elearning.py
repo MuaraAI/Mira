@@ -40,6 +40,8 @@ def solve_captcha(question_text: str) -> Any:
 def parse_courses(html: str) -> list[dict[str, Any]]:
     page = Adaptor(html)
     plans = page.css("div.pricing-plan")
+    if not plans:
+        raise ValueError("HTML_STRUCTURE_CHANGED: elearning course cards not found")
     courses = []
 
     for pl in plans:
