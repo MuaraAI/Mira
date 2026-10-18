@@ -20,6 +20,8 @@ from app.modules.repository import router as repository_router
 from app.modules.ejournal import router as ejournal_router
 from app.modules.auth import router as auth_router
 from app.modules.channels import router as channels_router
+from app.modules.stats import router as stats_router
+from app.stats import record_request, record_profile
 
 def extract_client_ip(request: Request) -> str:
     """Ekstraksi IP klien dengan prioritas Cloudflare -> Forwarded Proxy -> socket host.
@@ -114,6 +116,7 @@ app.include_router(repository_router)
 app.include_router(ejournal_router)
 app.include_router(auth_router)
 app.include_router(channels_router)
+app.include_router(stats_router)
 
 @app.middleware("http")
 async def api_key_auth_middleware(request: Request, call_next):
@@ -125,7 +128,7 @@ async def api_key_auth_middleware(request: Request, call_next):
         return await call_next(request)
 
     # 2. Allow /health + /v1/auth/login without auth (resilient to trailing slash)
-    public_paths = {"/health", "/v1/auth/login"}
+    public_paths = {"/health", "/v1/auth/login", "/v1/stats"}
     if request.url.path.rstrip("/") in public_paths:
         return await call_next(request)
 
@@ -232,6 +235,8 @@ async def rate_limiting_middleware(request: Request, call_next):
 
         client_key = getattr(authorized_request.state, "key_id", None)
         rate_identifier = f"key:{client_key}" if client_key else extract_client_ip(authorized_request)
+        module = authorized_request.url.path.split("/")[2] if authorized_request.url.path.startswith("/v1/") else "other"
+        await record_request(module, getattr(authorized_request.state, "nim", None))
         if not await limiter.is_allowed(rate_identifier):
             return JSONResponse(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,

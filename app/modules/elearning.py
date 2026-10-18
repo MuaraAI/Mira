@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import json
 import logging
 import re
 import statistics
@@ -290,6 +291,36 @@ def parse_presence(html: str) -> dict[str, Any]:
         "total_kehadiran": len(records),
         "riwayat": records,
     }
+
+
+def parse_presence_rekap(raw_json: str | bytes) -> list[dict[str, Any]]:
+    """Parse DataTables server-side JSON dari /rekap-side/{token}."""
+    text = raw_json.decode("utf-8", "ignore") if isinstance(raw_json, bytes) else str(raw_json)
+    try:
+        obj = json.loads(text)
+    except Exception:
+        return []
+
+    items = obj.get("data") or []
+    records = []
+    for it in items:
+        raw_sts = it.get("status_hadir") or ""
+        clean_sts = re.sub(r"<[^>]+>", "", str(raw_sts)).strip() or "Hadir"
+        tgl = str(it.get("tgl_ajar_masuk") or "")
+        pertemuan = str(it.get("pertemuan") or "")
+        item_id = str(it.get("id") or hashlib.sha256(f"{tgl}:{pertemuan}".encode()).hexdigest()[:12])
+        records.append({
+            "id": item_id,
+            "status_absen": clean_sts,
+            "tanggal": tgl,
+            "matakuliah": str(it.get("nm_mtk") or ""),
+            "pertemuan": pertemuan,
+            "rangkuman": it.get("rangkuman"),
+            "berita_acara": it.get("berita_acara"),
+            "dosen": it.get("kd_dosen"),
+            "ruang": it.get("no_ruang"),
+        })
+    return records
 
 def parse_materials(html: str) -> list[dict[str, Any]]:
     page = Adaptor(html)
@@ -921,11 +952,28 @@ async def get_presence(
             return success_response(data={}, cached=False)
         token = courses[0]["token_absen"]
 
+    async def _fetch_presence():
+        html = await pooled_elearning_client.fetch_page(f"/absen-mhs/{token}", nim, password)
+        presence = parse_presence(html)
+
+        # Ambil riwayat presensi lengkap via DataTables AJAX (/rekap-side/{token})
+        m = re.findall(r"rekap-side/[^\"'\s]+", html)
+        ajax_path = f"/{m[0]}" if m else f"/rekap-side/{token}"
+        try:
+            rekap_raw = await pooled_elearning_client.fetch_page(ajax_path, nim, password)
+            records = parse_presence_rekap(rekap_raw)
+            if records:
+                presence["riwayat"] = records
+                presence["total_kehadiran"] = len(records)
+        except Exception as err:
+            logger.warning("Gagal fetch rekap-side presence: %s", err)
+        return presence
+
     return await cached_endpoint(
         module="elearning",
         name="presence",
-        fetch=lambda: pooled_elearning_client.fetch_page(f"/absen-mhs/{token}", nim, password),
-        parse=parse_presence,
+        fetch=_fetch_presence,
+        parse=lambda data: data,
         ttl=settings.TTL_ASSIGNMENTS,
         cache_params={"token": token},
     )
