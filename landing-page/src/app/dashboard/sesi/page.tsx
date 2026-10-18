@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut, ShieldCheck, ShieldX, KeyRound, UserCheck, School, MapPin } from "lucide-react";
-import { apiFetch, ApiError, useApi } from "@/lib/api";
+import { apiFetch, ApiError, useApi, clearApiCache } from "@/lib/api";
 import {
   ErrorState,
   LoadingState,
@@ -50,6 +50,8 @@ export default function SesiPage() {
       if (typeof window !== "undefined") {
         localStorage.removeItem("ubsi_session_token");
       }
+      // Bersihkan semua cache RAM: data user ini tidak boleh tampil ke login berikutnya
+      clearApiCache();
       router.replace("/login");
     } catch (err) {
       setActionError(
