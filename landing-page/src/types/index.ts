@@ -28,14 +28,6 @@ export interface Contributor {
   fallbackCommits: number;
 }
 
-export interface RoadmapItem {
-  version: string;
-  title: string;
-  description: string;
-  status: "tersedia" | "upcoming" | "in-progress" | "planned";
-  href?: string;
-}
-
 export interface GitHubStats {
   stars: number;
   contributors: { [username: string]: number };

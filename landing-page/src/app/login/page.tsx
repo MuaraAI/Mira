@@ -58,6 +58,7 @@ export default function LoginPage() {
   const [nim, setNim] = useState("");
   const [siakadPass, setSiakadPass] = useState("");
   const [mybestPass, setMybestPass] = useState("");
+  const [agree, setAgree] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
 
@@ -69,6 +70,16 @@ export default function LoginPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!agree) {
+      setError(
+        new ApiError(
+          "AGREEMENT_REQUIRED",
+          "Centang persetujuan Kebijakan Privasi dan Syarat Layanan sebelum masuk.",
+          0
+        )
+      );
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -159,7 +170,43 @@ export default function LoginPage() {
                 autoComplete="current-password"
               />
 
-              <button type="submit" disabled={submitting} className={`${primaryButtonClass} w-full mt-2`}>
+              <div className="flex items-start gap-2.5 pt-1">
+                <input
+                  id="agree"
+                  type="checkbox"
+                  required
+                  checked={agree}
+                  onChange={(e) => setAgree(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded-sm border-stroke text-[#0369A1] focus:ring-2 focus:ring-[#0369A1]/40 cursor-pointer"
+                />
+                <label htmlFor="agree" className="text-xs text-secondary leading-relaxed cursor-pointer">
+                  Saya sudah membaca dan menyetujui{" "}
+                  <a
+                    href="/privacy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold text-[#0369A1] underline underline-offset-2"
+                  >
+                    Kebijakan Privasi
+                  </a>{" "}
+                  dan{" "}
+                  <a
+                    href="/terms"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold text-[#0369A1] underline underline-offset-2"
+                  >
+                    Syarat dan Ketentuan Layanan
+                  </a>
+                  , termasuk larangan otomasi akademik terlarang.
+                </label>
+              </div>
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className={`${primaryButtonClass} w-full mt-2`}
+              >
                 <LogIn className="h-4 w-4" aria-hidden="true" />
                 {submitting ? "Memeriksa kredensial kampus" : "Masuk"}
               </button>

@@ -78,12 +78,14 @@ const MCP_SNIPPETS: { id: string; label: string; hint: string; code: string }[] 
   },
 ];
 
-const MCP_AGENT_PROMPT = `Kamu adalah asisten akademik pribadi mahasiswa UBSI.
-Gunakan tools MCP "ubsi-*" yang tersedia (jadwal, nilai & KHS, KRS, kartu ujian,
-tugas, presensi, bahan ajar, berita kampus, perpustakaan) untuk menjawab
-pertanyaan akademik saya dengan data real-time dari akun saya sendiri.
-Contoh pemakaian: "Jadwal besok apa?", "Cek tugas yang belum dikumpul",
-"Berapa IPK gw?", "Cariin buku machine learning di perpustakaan".`;
+const MCP_AGENT_PROMPT = `Server MCP UBSI: https://api.muaraai.com/v1/ubsi-api/mcp
+API Base URL: https://api.muaraai.com/v1/ubsi-api
+
+Kamu adalah asisten akademik pribadi mahasiswa UBSI yang terhubung ke server MCP di atas.
+Gunakan tools MCP "ubsi-*" yang tersedia (jadwal kuliah, nilai & KHS, KRS, kartu ujian,
+tugas perkuliahan, presensi kehadiran, bahan ajar 5 kategori berkas, berita resmi, perpustakaan OPAC)
+untuk menjawab kebutuhan akademik saya dengan data real-time langsung dari akun saya sendiri.
+Contoh: "Jadwal besok apa?", "Cek tugas yang belum dikumpul", "Berapa IPK gw?", "Cari buku algoritma".`;
 
 export default function ApiKeysPage() {
   const { data, loading, error, reload } = useApi<{ keys: ApiKeyItem[]; total: number }>(
@@ -377,8 +379,44 @@ print(res.json())`}
               langsung dari chat agent Anda.
             </p>
 
+            {/* Prompt Siap Pakai di ATAS agar terlihat langsung (hero spot) */}
+            <div className="rounded-xl border border-[#0369A1]/30 bg-gradient-to-br from-[#F0F7FB] to-white p-5 space-y-3 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-[#0369A1]/15 pb-2.5">
+                <div>
+                  <p className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                    <Sparkles className="h-4 w-4 text-[#0369A1]" aria-hidden="true" />
+                    Prompt Siap Pakai untuk Agent
+                  </p>
+                  <p className="text-[11px] text-secondary mt-0.5">
+                    Tempel prompt ini sebagai pesan pertama agar agent langsung paham base URL dan tools akademik Anda.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCopyBlock(MCP_AGENT_PROMPT, "agent-prompt")}
+                  className={`${primaryButtonClass} text-xs py-1.5 px-3 shrink-0 self-start sm:self-auto`}
+                  aria-label="Salin prompt untuk agent"
+                >
+                  {copiedBlock === "agent-prompt" ? (
+                    <>
+                      <Check className="h-3.5 w-3.5 text-white" aria-hidden="true" />
+                      <span>Tersalin!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>Salin Prompt</span>
+                    </>
+                  )}
+                </button>
+              </div>
+              <div className="bg-[#131B26] p-3.5 rounded-lg border border-white/10 font-mono text-[11px] leading-relaxed text-[#7DD3FC] overflow-x-auto whitespace-pre-wrap">
+                {MCP_AGENT_PROMPT}
+              </div>
+            </div>
+
             {/* Server URL */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1">
               <span className="text-xs font-semibold text-foreground shrink-0">Server URL (Streamable HTTP):</span>
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 <code className="flex-1 min-w-0 truncate font-mono text-[11px] px-3 py-1.5 rounded-sm bg-[#131B26] text-[#7DD3FC] border border-white/10">
@@ -400,82 +438,50 @@ print(res.json())`}
             </div>
 
             {/* Per-agent config snippets */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {MCP_SNIPPETS.map((s) => (
-                <div key={s.id} className="rounded-xl border border-stroke overflow-hidden bg-[#131B26]">
-                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/10">
-                    <div>
-                      <p className="text-xs font-bold text-code-text font-sans flex items-center gap-1.5">
-                        <Blocks className="h-3.5 w-3.5 text-[#7DD3FC]" aria-hidden="true" />
-                        {s.label}
-                      </p>
-                      <p className="text-[10px] text-code-text/60 mt-0.5 font-sans">{s.hint}</p>
+            <div className="space-y-2">
+              <p className="text-xs font-bold text-foreground">Konfigurasi Per Agent Client</p>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {MCP_SNIPPETS.map((s) => (
+                  <div key={s.id} className="rounded-xl border border-stroke overflow-hidden bg-[#131B26]">
+                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/10">
+                      <div>
+                        <p className="text-xs font-bold text-code-text font-sans flex items-center gap-1.5">
+                          <Blocks className="h-3.5 w-3.5 text-[#7DD3FC]" aria-hidden="true" />
+                          {s.label}
+                        </p>
+                        <p className="text-[10px] text-code-text/60 mt-0.5 font-sans">{s.hint}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyBlock(s.code, s.id)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-pill border border-white/20 text-[11px] font-semibold text-code-text hover:bg-white/10 transition-colors shrink-0"
+                        aria-label={`Salin konfigurasi ${s.label}`}
+                      >
+                        {copiedBlock === s.id ? (
+                          <>
+                            <Check className="h-3 w-3 text-emerald-400" aria-hidden="true" />
+                            <span>Tersalin</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3 w-3" aria-hidden="true" />
+                            <span>Salin</span>
+                          </>
+                        )}
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleCopyBlock(s.code, s.id)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-pill border border-white/20 text-[11px] font-semibold text-code-text hover:bg-white/10 transition-colors shrink-0"
-                      aria-label={`Salin konfigurasi ${s.label}`}
-                    >
-                      {copiedBlock === s.id ? (
-                        <>
-                          <Check className="h-3 w-3 text-emerald-400" aria-hidden="true" />
-                          <span>Tersalin</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="h-3 w-3" aria-hidden="true" />
-                          <span>Salin</span>
-                        </>
-                      )}
-                    </button>
+                    <pre className="px-4 py-3 font-mono text-[11px] leading-relaxed text-[#7DD3FC] overflow-x-auto">
+                      {s.code}
+                    </pre>
                   </div>
-                  <pre className="px-4 py-3 font-mono text-[11px] leading-relaxed text-[#7DD3FC] overflow-x-auto">
-                    {s.code}
-                  </pre>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
 
             <p className="text-[11px] text-secondary leading-relaxed">
-              Ganti <code className="font-mono text-[#0369A1]">muara_ubsi_YOUR_KEY</code> dengan Personal API Key Anda.
-              Kunci dikirim sebagai header HTTP, tidak pernah disimpan di server MCP.
+              Ganti <code className="font-mono text-[#0369A1]">muara_ubsi_YOUR_KEY</code> dengan Personal API Key Anda di atas.
+              Kunci dikirim sebagai header HTTP saat agent memanggil tools, aman dan tidak disimpan server.
             </p>
-
-            {/* Agent prompt */}
-            <div className="rounded-xl border border-[#0369A1]/25 bg-[#F0F7FB] p-4 space-y-2.5">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                  <Sparkles className="h-3.5 w-3.5 text-[#0369A1]" aria-hidden="true" />
-                  Prompt Siap Pakai untuk Agent
-                </p>
-                <button
-                  type="button"
-                  onClick={() => handleCopyBlock(MCP_AGENT_PROMPT, "agent-prompt")}
-                  className={`${ghostButtonClass} text-[11px] py-1 px-2.5 shrink-0`}
-                  aria-label="Salin prompt untuk agent"
-                >
-                  {copiedBlock === "agent-prompt" ? (
-                    <>
-                      <Check className="h-3 w-3 text-emerald-600" aria-hidden="true" />
-                      <span>Tersalin</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="h-3 w-3" aria-hidden="true" />
-                      <span>Salin Prompt</span>
-                    </>
-                  )}
-                </button>
-              </div>
-              <pre className="text-[11px] text-secondary leading-relaxed font-sans whitespace-pre-wrap">
-                {MCP_AGENT_PROMPT}
-              </pre>
-              <p className="text-[10px] text-secondary/80 font-sans">
-                Tempel prompt ini sebagai pesan pertama (atau system prompt) setelah MCP terhubung, lalu agent Anda
-                langsung paham konteks akademik UBSI.
-              </p>
-            </div>
           </>
         )}
       </div>

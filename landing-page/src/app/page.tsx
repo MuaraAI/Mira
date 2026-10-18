@@ -5,7 +5,6 @@ import { ModulesGrid } from "@/components/ModulesGrid";
 import { Architecture } from "@/components/Architecture";
 import { Quickstart } from "@/components/Quickstart";
 import { Contributors } from "@/components/Contributors";
-import { RoadmapTeaser } from "@/components/RoadmapTeaser";
 import { CurrentDivider } from "@/components/CurrentDivider";
 import { Footer } from "@/components/Footer";
 import { getGitHubStats } from "@/lib/github";
@@ -28,7 +27,6 @@ export default async function Home() {
         <ModulesGrid />
         <Architecture />
         <Quickstart />
-        <RoadmapTeaser />
         <CurrentDivider />
         <Contributors contributions={stats.contributors} />
       </main>
