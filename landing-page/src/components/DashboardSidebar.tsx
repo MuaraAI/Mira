@@ -17,6 +17,7 @@ import {
   BellRing,
   ShieldCheck,
   HelpCircle,
+  MessageSquare,
 } from "lucide-react";
 import { Monogram } from "@/components/Monogram";
 
@@ -46,6 +47,7 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard/presensi", label: "Presensi Kehadiran", icon: UserCheck },
       { href: "/dashboard/materi", label: "Bahan Ajar", icon: BookOpen },
       { href: "/dashboard/kuis", label: "Kuis Perkuliahan", icon: HelpCircle },
+      { href: "/dashboard/diskusi", label: "Forum Diskusi", icon: MessageSquare },
     ],
   },
   {

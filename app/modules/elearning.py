@@ -389,6 +389,93 @@ def parse_materials(html: str) -> list[dict[str, Any]]:
 
     return materials
 
+def parse_discussions(html: str) -> dict[str, Any]:
+    """Ekstraksi daftar topik forum diskusi perkuliahan MyBest."""
+    page = Adaptor(html)
+    threads = []
+
+    # Meta form create new task
+    form_create = page.css("form[action*='tambah-diskusimhs']")
+    meta = {}
+    if form_create:
+        for inp in form_create[0].css("input"):
+            name = inp.attrib.get("name")
+            val = inp.attrib.get("value", "")
+            if name in ("kd_lokal", "kd_mtk"):
+                meta[name] = val
+
+    for block in page.css("div.task-block"):
+        name_el = block.css("div.task-name")
+        judul = name_el[0].get_all_text().strip() if name_el else ""
+
+        desc_el = block.css("div.task-desc")
+        isi = desc_el[0].get_all_text().strip() if desc_el else ""
+
+        author_badge = block.css("span.badge-info")
+        penulis = author_badge[0].get_all_text().strip() if author_badge else ""
+
+        date_badge = block.css("span.badge-primary")
+        tanggal = date_badge[0].get_all_text().strip() if date_badge else ""
+
+        del_inp = block.css("input[name='id_chat']")
+        id_chat = del_inp[0].attrib.get("value") if del_inp else None
+
+        kom_link_el = block.css("a[href*='/form-komentarmhs/']")
+        kom_href = kom_link_el[0].attrib.get("href") if kom_link_el else None
+        token_komentar = None
+        if kom_href:
+            m_kom = re.search(r"/form-komentarmhs/([^/?#]+)", kom_href)
+            token_komentar = m_kom.group(1) if m_kom else kom_href.rstrip("/").split("/")[-1]
+
+        count_badge = block.css("a[href*='/form-komentarmhs/'] span.badge")
+        count_raw = count_badge[0].get_all_text().strip() if count_badge else "0"
+        total_komentar = int(count_raw) if count_raw.isdigit() else 0
+
+        threads.append({
+            "id_chat": id_chat,
+            "judul": judul,
+            "isi": isi,
+            "penulis": penulis,
+            "tanggal": tanggal,
+            "token_komentar": token_komentar,
+            "total_komentar": total_komentar,
+        })
+
+    return {
+        "meta": meta,
+        "threads": threads,
+    }
+
+def parse_discussion_comments(html: str) -> list[dict[str, Any]]:
+    """Ekstraksi thread komentar pada topik forum diskusi perkuliahan MyBest."""
+    page = Adaptor(html)
+    comments = []
+
+    for li in page.css("li.chat-left, li.chat-right"):
+        is_me = "chat-right" in li.attrib.get("class", "")
+
+        avatar_name = li.css(".chat-avatar .chat-name")
+        nim_user = avatar_name[0].get_all_text().strip() if avatar_name else None
+
+        text_name = li.css(".chat-text .chat-name")
+        nama = text_name[0].get_all_text().strip() if text_name else None
+
+        p_el = li.css(".chat-text p")
+        komentar = p_el[0].get_all_text().strip() if p_el else ""
+
+        time_el = li.css(".chat-hour")
+        tanggal = time_el[0].get_all_text().strip() if time_el else ""
+
+        comments.append({
+            "nim": nim_user,
+            "nama": nama,
+            "komentar": komentar,
+            "tanggal": tanggal,
+            "is_self": is_me,
+        })
+
+    return comments
+
 def parse_quiz(html: str) -> list[dict[str, Any]]:
     page = Adaptor(html)
     quizzes = []
@@ -912,6 +999,100 @@ class ElearningClient:
             "link_tugas": link_tugas.strip(),
         }
 
+    def post_discussion_comment(self, token_komentar: str, id_chat: str, komentar: str, nim: str, password: str) -> dict[str, Any]:
+        client = self.get_client()
+        if not self._logged_in:
+            ok = self.login(nim, password)
+            if not ok:
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail=error_response(code="AUTH_FAILED", message="Gagal login ke elearning.bsi.ac.id", module="elearning"),
+                )
+
+        kom_path = f"/form-komentarmhs/{token_komentar}"
+        res_page = client.get(f"{self.BASE_URL}{kom_path}")
+        if res_page.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=error_response(code="FETCH_FAILED", message="Gagal membuka thread komentar diskusi", module="elearning"),
+            )
+
+        tree = lxml_html.fromstring(res_page.text)
+        forms = tree.xpath(".//form[contains(@action, 'send-komentarmhs')]")
+        if not forms:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_response(code="FORM_NOT_FOUND", message="Form pengiriman komentar tidak ditemukan", module="elearning"),
+            )
+
+        f = forms[0]
+        csrf_token = f.xpath(".//input[@name='_token']/@value")
+        id_val = f.xpath(".//input[@name='id']/@value")
+
+        payload = {
+            "_token": csrf_token[0] if csrf_token else "",
+            "komentar": komentar.strip(),
+            "id_chat": id_chat,
+            "id": id_val[0] if id_val else token_komentar,
+        }
+
+        submit_res = client.post(f"{self.BASE_URL}/send-komentarmhs", data=payload)
+        if submit_res.status_code not in (200, 302):
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=error_response(code="SEND_FAILED", message=f"Gagal mengirim komentar (status {submit_res.status_code})", module="elearning"),
+            )
+
+        return {"status": "success", "message": "Komentar berhasil dikirimkan ke forum MyBest"}
+
+    def post_new_discussion(self, token_course: str, judul: str, chat: str, nim: str, password: str) -> dict[str, Any]:
+        client = self.get_client()
+        if not self._logged_in:
+            ok = self.login(nim, password)
+            if not ok:
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail=error_response(code="AUTH_FAILED", message="Gagal login ke elearning.bsi.ac.id", module="elearning"),
+                )
+
+        disc_path = f"/form-diskusimhs/{token_course}"
+        res_page = client.get(f"{self.BASE_URL}{disc_path}")
+        if res_page.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=error_response(code="FETCH_FAILED", message="Gagal membuka form forum diskusi", module="elearning"),
+            )
+
+        tree = lxml_html.fromstring(res_page.text)
+        forms = tree.xpath(".//form[contains(@action, 'tambah-diskusimhs')]")
+        if not forms:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_response(code="FORM_NOT_FOUND", message="Form pembuatan diskusi tidak ditemukan", module="elearning"),
+            )
+
+        f = forms[0]
+        csrf_token = f.xpath(".//input[@name='_token']/@value")
+        kd_lokal = f.xpath(".//input[@name='kd_lokal']/@value")
+        kd_mtk = f.xpath(".//input[@name='kd_mtk']/@value")
+
+        payload = {
+            "_token": csrf_token[0] if csrf_token else "",
+            "judul": judul.strip(),
+            "chat": chat.strip(),
+            "kd_lokal": kd_lokal[0] if kd_lokal else "",
+            "kd_mtk": kd_mtk[0] if kd_mtk else "",
+        }
+
+        submit_res = client.post(f"{self.BASE_URL}/tambah-diskusimhs", data=payload)
+        if submit_res.status_code not in (200, 302):
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=error_response(code="CREATE_FAILED", message=f"Gagal membuat topik diskusi (status {submit_res.status_code})", module="elearning"),
+            )
+
+        return {"status": "success", "message": "Topik diskusi berhasil dibuat di forum MyBest"}
+
 elearning_client = ElearningClient()
 
 
@@ -1000,6 +1181,22 @@ class PooledElearningClient:
             return client.submit_assignment_link(token_send, link_tugas, nim, password)
 
         return await retry_async(_submit_once, attempts=3, base_delay=1.0)
+
+    async def post_discussion_comment(self, token_komentar: str, id_chat: str, komentar: str, nim: str, password: str) -> dict[str, Any]:
+        client = self._pool.get(nim)
+
+        def _post_once() -> dict[str, Any]:
+            return client.post_discussion_comment(token_komentar, id_chat, komentar, nim, password)
+
+        return await retry_async(_post_once, attempts=3, base_delay=1.0)
+
+    async def post_new_discussion(self, token_course: str, judul: str, chat: str, nim: str, password: str) -> dict[str, Any]:
+        client = self._pool.get(nim)
+
+        def _post_once() -> dict[str, Any]:
+            return client.post_new_discussion(token_course, judul, chat, nim, password)
+
+        return await retry_async(_post_once, attempts=3, base_delay=1.0)
 
     async def evict_idle(self) -> int:
         return await self._pool.evict_idle()
@@ -1654,3 +1851,117 @@ async def download_assignment_file(
                 module="elearning",
             ),
         )
+
+
+# Forum Diskusi Perkuliahan
+
+class PostDiscussionCommentPayload(BaseModel):
+    token_komentar: str = Field(..., description="Token komentar dari thread diskusi (/form-komentarmhs/...)")
+    id_chat: str = Field(..., description="ID chat topik diskusi")
+    komentar: str = Field(..., min_length=1, max_length=5000, description="Isi pesan balasan komentar forum")
+
+
+class CreateDiscussionPayload(BaseModel):
+    token_course: str = Field(..., description="Token diskusi mata kuliah dari /courses (/form-diskusimhs/...)")
+    judul: str = Field(..., min_length=1, max_length=255, description="Judul topik diskusi baru")
+    chat: str = Field(..., min_length=1, max_length=5000, description="Isi penjelasan atau pertanyaan forum diskusi")
+
+
+@router.get("/discussions")
+async def get_discussions(
+    token: str = Query(..., description="Token diskusi mata kuliah dari /courses (token_diskusi)"),
+    creds: tuple[str, str] = Depends(require_elearning_creds),
+):
+    """Ambil daftar topik forum diskusi perkuliahan MyBest per mata kuliah."""
+    nim, password = creds
+    clean_token = token.replace("https://elearning.bsi.ac.id/form-diskusimhs/", "").strip("/")
+    path = f"/form-diskusimhs/{clean_token}"
+
+    return await cached_endpoint(
+        module="elearning",
+        name="discussions",
+        fetch=lambda: pooled_elearning_client.fetch_page(path, nim, password),
+        parse=parse_discussions,
+        ttl=settings.TTL_ASSIGNMENTS,
+        cache_params={"token": clean_token, "nim": nim},
+    )
+
+
+@router.get("/discussions/comments")
+async def get_discussion_comments(
+    token: str = Query(..., description="Token komentar thread diskusi (/form-komentarmhs/...)"),
+    creds: tuple[str, str] = Depends(require_elearning_creds),
+):
+    """Ambil thread komentar dan tanggapan pada topik forum diskusi perkuliahan MyBest."""
+    nim, password = creds
+    clean_token = token.replace("https://elearning.bsi.ac.id/form-komentarmhs/", "").strip("/")
+    path = f"/form-komentarmhs/{clean_token}"
+
+    return await cached_endpoint(
+        module="elearning",
+        name="discussion_comments",
+        fetch=lambda: pooled_elearning_client.fetch_page(path, nim, password),
+        parse=parse_discussion_comments,
+        ttl=300,  # 5 menit
+        cache_params={"token": clean_token, "nim": nim},
+    )
+
+
+@router.post("/discussions/comments")
+async def post_discussion_comment(
+    body: PostDiscussionCommentPayload,
+    creds: tuple[str, str] = Depends(require_elearning_creds),
+):
+    """Kirim komentar atau tanggapan pada thread forum diskusi perkuliahan MyBest."""
+    nim, password = creds
+    clean_token = body.token_komentar.replace("https://elearning.bsi.ac.id/form-komentarmhs/", "").strip("/")
+
+    result = await pooled_elearning_client.post_discussion_comment(
+        token_komentar=clean_token,
+        id_chat=body.id_chat,
+        komentar=body.komentar,
+        nim=nim,
+        password=password,
+    )
+
+    # Invalidate cache comments agar balasan langsung terlihat
+    try:
+        from app.cache import cache
+        redis_client = await cache.get_client()
+        keys = await redis_client.keys("ubsi:elearning:*discussion*")
+        if keys:
+            await redis_client.delete(*keys)
+    except Exception as exc:
+        logger.warning("Gagal membersihkan cache comments: %s", exc)
+
+    return success_response(data=result)
+
+
+@router.post("/discussions")
+async def post_new_discussion(
+    body: CreateDiscussionPayload,
+    creds: tuple[str, str] = Depends(require_elearning_creds),
+):
+    """Buat topik forum diskusi baru pada mata kuliah MyBest."""
+    nim, password = creds
+    clean_token = body.token_course.replace("https://elearning.bsi.ac.id/form-diskusimhs/", "").strip("/")
+
+    result = await pooled_elearning_client.post_new_discussion(
+        token_course=clean_token,
+        judul=body.judul,
+        chat=body.chat,
+        nim=nim,
+        password=password,
+    )
+
+    # Invalidate cache discussions
+    try:
+        from app.cache import cache
+        redis_client = await cache.get_client()
+        keys = await redis_client.keys("ubsi:elearning:*discussion*")
+        if keys:
+            await redis_client.delete(*keys)
+    except Exception as exc:
+        logger.warning("Gagal membersihkan cache discussions: %s", exc)
+
+    return success_response(data=result)
