@@ -500,6 +500,42 @@ async def ubsi_trigger_reminder(
     return json.dumps(res, ensure_ascii=False, indent=2)
 
 
+@server.tool(
+    name="ubsi_get_elearning_profile",
+    description="Ambil profil nama dan alamat email akun MyBest LMS mahasiswa.",
+)
+async def ubsi_get_elearning_profile(
+    session_token: Optional[str] = None,
+    api_key: Optional[str] = None,
+) -> str:
+    res = await _api_get("/v1/elearning/profile", session_token=session_token, api_key=api_key)
+    return json.dumps(res, ensure_ascii=False, indent=2)
+
+
+@server.tool(
+    name="ubsi_get_makeup_classes",
+    description="Cek jadwal kuliah pengganti (make-up classes) yang terdaftar di MyBest.",
+)
+async def ubsi_get_makeup_classes(
+    session_token: Optional[str] = None,
+    api_key: Optional[str] = None,
+) -> str:
+    res = await _api_get("/v1/elearning/makeups", session_token=session_token, api_key=api_key)
+    return json.dumps(res, ensure_ascii=False, indent=2)
+
+
+@server.tool(
+    name="ubsi_get_elearning_guides",
+    description="Daftar tautan berkas PDF buku panduan resmi perkuliahan, kuis, dan ujian online MyBest.",
+)
+async def ubsi_get_elearning_guides(
+    session_token: Optional[str] = None,
+    api_key: Optional[str] = None,
+) -> str:
+    res = await _api_get("/v1/elearning/guides", session_token=session_token, api_key=api_key)
+    return json.dumps(res, ensure_ascii=False, indent=2)
+
+
 def main():
     """Jalankan server MCP melalui transport stdio, streamable-http, atau sse."""
     import argparse

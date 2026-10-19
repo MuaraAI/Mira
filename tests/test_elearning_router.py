@@ -576,3 +576,68 @@ async def test_post_discussion_comment_success(monkeypatch):
 
     assert res.status_code == 200
     assert res.json()["success"] is True
+
+@pytest.mark.asyncio
+async def test_get_elearning_profile_success(monkeypatch):
+    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_PASS", "secret")
+
+    mock_html = """
+    <form>
+        <input name="name" value="YUKEN VELINO" />
+        <input name="email" value="yuken@test.com" />
+    </form>
+    """
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = None
+    mock_redis.incr.return_value = 1
+
+    with patch("redis.asyncio.from_url", return_value=mock_redis), \
+         patch("app.modules.elearning.pooled_elearning_client.fetch_page", return_value=mock_html):
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res = await ac.get("/v1/elearning/profile")
+
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    assert data["data"]["nama"] == "YUKEN VELINO"
+    assert data["data"]["email"] == "yuken@test.com"
+
+@pytest.mark.asyncio
+async def test_get_makeup_classes_success(monkeypatch):
+    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_PASS", "secret")
+
+    mock_html = """
+    <table>
+        <tr><th>Kode</th><th>Mata Kuliah</th><th>Jadwal</th></tr>
+        <tr><td>894</td><td>Dasar Pemrograman</td><td>Sabtu 08:00</td></tr>
+    </table>
+    """
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = None
+    mock_redis.incr.return_value = 1
+
+    with patch("redis.asyncio.from_url", return_value=mock_redis), \
+         patch("app.modules.elearning.pooled_elearning_client.fetch_page", return_value=mock_html):
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res = await ac.get("/v1/elearning/makeups")
+
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    assert len(data["data"]) == 1
+    assert data["data"][0]["kode"] == "894"
+
+@pytest.mark.asyncio
+async def test_get_guides_success():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.get("/v1/elearning/guides")
+
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    assert len(data["data"]) >= 3
+    assert data["data"][0]["format"] == "PDF"
