@@ -315,6 +315,26 @@ async def ubsi_submit_discussion_comment(
 
 
 @server.tool(
+    name="ubsi_create_discussion",
+    description="Buat topik forum diskusi baru pada mata kuliah MyBest LMS.",
+)
+async def ubsi_create_discussion(
+    token_course: str,
+    judul: str,
+    chat: str,
+    session_token: Optional[str] = None,
+    api_key: Optional[str] = None,
+) -> str:
+    body = {
+        "token_course": token_course,
+        "judul": judul,
+        "chat": chat,
+    }
+    res = await _api_post("/v1/elearning/discussions", json_data=body, session_token=session_token, api_key=api_key)
+    return json.dumps(res, ensure_ascii=False, indent=2)
+
+
+@server.tool(
     name="ubsi_get_presence",
     description="Cek riwayat kehadiran dan status sesi presensi kelas (Sudah Selesai / Absen Masuk / Belum Mulai).",
 )
