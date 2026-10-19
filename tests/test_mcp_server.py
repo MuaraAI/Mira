@@ -44,7 +44,8 @@ async def test_mcp_tool_listing():
     assert "ubsi_get_discussions" in tool_names
     assert "ubsi_get_discussion_comments" in tool_names
     assert "ubsi_submit_discussion_comment" in tool_names
-    assert len(tool_names) == 28
+    assert "ubsi_create_discussion" in tool_names
+    assert len(tool_names) == 29
 
 def test_mcp_credential_headers_isolation():
     # 1. Session token isolation
@@ -244,4 +245,22 @@ async def test_mcp_presence_and_quiz_write_tools():
         parsed_pc = json.loads(res_pc)
         assert parsed_pc["success"] is True
         assert "Komentar berhasil" in parsed_pc["data"]["message"]
+
+    mock_resp_create_disc = AsyncMock()
+    mock_resp_create_disc.status_code = 200
+    mock_resp_create_disc.json = MagicMock(return_value={
+        "success": True,
+        "data": {"status": "success", "message": "Topik diskusi berhasil dibuat"},
+    })
+    from app.mcp_server import ubsi_create_discussion
+    with patch("httpx.AsyncClient.post", return_value=mock_resp_create_disc):
+        res_cd = await ubsi_create_discussion(
+            token_course="tok_course_123",
+            judul="Topik Baru",
+            chat="Isi topik baru",
+            session_token="tok_sess",
+        )
+        parsed_cd = json.loads(res_cd)
+        assert parsed_cd["success"] is True
+        assert "Topik diskusi berhasil" in parsed_cd["data"]["message"]
 

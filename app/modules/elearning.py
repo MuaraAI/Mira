@@ -48,10 +48,10 @@ def parse_courses(html: str) -> list[dict[str, Any]]:
 
     for pl in plans:
         title_el = pl.css(".pricing-title")
-        nama = title_el[0].text.strip() if title_el else ""
+        nama = title_el[0].get_all_text().strip() if title_el else ""
 
         save_el = pl.css(".pricing-save")
-        schedule_text = save_el[0].text.strip() if save_el else ""
+        schedule_text = save_el[0].get_all_text().strip() if save_el else ""
         hari, jam = "", ""
         if " - " in schedule_text:
             parts = schedule_text.split(" - ", 1)
@@ -354,7 +354,7 @@ def parse_materials(html: str) -> list[dict[str, Any]]:
     tables = page.css("table")
     if tables:
         for r in tables[0].css("tr")[1:]:
-            cols = [c.text.strip() for c in r.css("td")]
+            cols = [c.get_all_text().strip() for c in r.css("td")]
             links = [a.attrib.get("href") for a in r.css("a") if a.attrib.get("href")]
             if len(cols) >= 5:
                 item_id = hashlib.sha256(f"{cols[1]}:{cols[3]}".encode()).hexdigest()[:12]
@@ -375,7 +375,7 @@ def parse_materials(html: str) -> list[dict[str, Any]]:
         if h and any(ext in h.lower() for ext in [".zip", ".pdf", ".rar", "silabus"]):
             if h not in seen_urls:
                 seen_urls.add(h)
-                title = a.text.strip() or ("Silabus / Modul" if "silabus" in h else "Bahan Ajar")
+                title = a.get_all_text().strip() or ("Silabus / Modul" if "silabus" in h else "Bahan Ajar")
                 item_id = hashlib.sha256(h.encode()).hexdigest()[:12]
                 materials.append({
                     "id": item_id,
@@ -481,7 +481,7 @@ def parse_quiz(html: str) -> list[dict[str, Any]]:
     quizzes = []
     rows = page.css("table tr")
     for r in rows[1:]:
-        cols = [c.text.strip() for c in r.css("td")]
+        cols = [c.get_all_text().strip() for c in r.css("td")]
         if len(cols) >= 7:
             item_id = hashlib.sha256(f"{cols[2]}:{cols[5]}".encode()).hexdigest()[:12]
             action_btn = r.css("td:last-child a, td:last-child button")
@@ -1498,6 +1498,16 @@ async def submit_presence(
     inputs = info.get("form_inputs") or {}
     try:
         await pooled_elearning_client.post_page(action_url, nim, password, data=inputs)
+        # Invalidate cache presence di Redis agar status langsung ter-update
+        try:
+            from app.cache import cache
+            redis_client = await cache.get_client()
+            keys = await redis_client.keys(f"ubsi:elearning:presence:*{nim}*")
+            if keys:
+                await redis_client.delete(*keys)
+        except Exception as c_exc:
+            logger.warning("Gagal membersihkan cache presence: %s", c_exc)
+
         return {
             "success": True,
             "status": "Hadir",
@@ -1697,6 +1707,17 @@ async def post_upload_assignment(
         file_bytes=file_bytes,
         catatan=body.catatan,
     )
+
+    # Invalidate cache assignments di Redis agar data tugas langsung up-to-date
+    try:
+        from app.cache import cache
+        redis_client = await cache.get_client()
+        keys = await redis_client.keys("ubsi:elearning:*assignment*")
+        if keys:
+            await redis_client.delete(*keys)
+    except Exception as exc:
+        logger.warning("Gagal membersihkan cache assignments: %s", exc)
+
     return success_response(data=result)
 
 
@@ -1803,14 +1824,22 @@ async def download_assignment_file(
                 nim=nim,
                 password=password,
             )
-            if resp.status_code == 200:
-                filename = p_file or "soal_tugas.pdf"
-                content_type = resp.headers.get("content-type", "application/pdf")
-                return Response(
-                    content=resp.content,
-                    media_type=content_type,
-                    headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            if resp.status_code != 200:
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail=error_response(
+                        code="DOWNLOAD_FAILED",
+                        message=f"Gagal mengunduh berkas soal dari MyBest (status {resp.status_code})",
+                        module="elearning",
+                    ),
                 )
+            filename = p_file or "soal_tugas.pdf"
+            content_type = resp.headers.get("content-type", "application/pdf")
+            return Response(
+                content=resp.content,
+                media_type=content_type,
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            )
 
     if not is_safe_bsi_storage_url(file_url):
         raise HTTPException(
@@ -1874,7 +1903,10 @@ async def get_discussions(
 ):
     """Ambil daftar topik forum diskusi perkuliahan MyBest per mata kuliah."""
     nim, password = creds
-    clean_token = token.replace("https://elearning.bsi.ac.id/form-diskusimhs/", "").strip("/")
+    clean_token = token
+    for prefix in ("https://elearning.bsi.ac.id", "http://elearning.bsi.ac.id", "/form-diskusimhs/", "form-diskusimhs/"):
+        clean_token = clean_token.replace(prefix, "")
+    clean_token = clean_token.strip("/")
     path = f"/form-diskusimhs/{clean_token}"
 
     return await cached_endpoint(
@@ -1894,7 +1926,10 @@ async def get_discussion_comments(
 ):
     """Ambil thread komentar dan tanggapan pada topik forum diskusi perkuliahan MyBest."""
     nim, password = creds
-    clean_token = token.replace("https://elearning.bsi.ac.id/form-komentarmhs/", "").strip("/")
+    clean_token = token
+    for prefix in ("https://elearning.bsi.ac.id", "http://elearning.bsi.ac.id", "/form-komentarmhs/", "form-komentarmhs/"):
+        clean_token = clean_token.replace(prefix, "")
+    clean_token = clean_token.strip("/")
     path = f"/form-komentarmhs/{clean_token}"
 
     return await cached_endpoint(
@@ -1914,7 +1949,10 @@ async def post_discussion_comment(
 ):
     """Kirim komentar atau tanggapan pada thread forum diskusi perkuliahan MyBest."""
     nim, password = creds
-    clean_token = body.token_komentar.replace("https://elearning.bsi.ac.id/form-komentarmhs/", "").strip("/")
+    clean_token = body.token_komentar
+    for prefix in ("https://elearning.bsi.ac.id", "http://elearning.bsi.ac.id", "/form-komentarmhs/", "form-komentarmhs/"):
+        clean_token = clean_token.replace(prefix, "")
+    clean_token = clean_token.strip("/")
 
     result = await pooled_elearning_client.post_discussion_comment(
         token_komentar=clean_token,
@@ -1944,7 +1982,10 @@ async def post_new_discussion(
 ):
     """Buat topik forum diskusi baru pada mata kuliah MyBest."""
     nim, password = creds
-    clean_token = body.token_course.replace("https://elearning.bsi.ac.id/form-diskusimhs/", "").strip("/")
+    clean_token = body.token_course
+    for prefix in ("https://elearning.bsi.ac.id", "http://elearning.bsi.ac.id", "/form-diskusimhs/", "form-diskusimhs/"):
+        clean_token = clean_token.replace(prefix, "")
+    clean_token = clean_token.strip("/")
 
     result = await pooled_elearning_client.post_new_discussion(
         token_course=clean_token,
