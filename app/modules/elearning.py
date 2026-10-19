@@ -9,6 +9,7 @@ from typing import Any, Optional
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field
+from lxml import html as lxml_html
 from scrapling.parser import Adaptor
 
 logger = logging.getLogger("app.elearning")
@@ -136,6 +137,7 @@ def parse_assignments(html: str) -> dict[str, list[dict[str, Any]]]:
             if len(cols) >= 8:
                 item_id = hashlib.sha256(f"{cols[1]}:{cols[3]}:{cols[5]}".encode()).hexdigest()[:12]
 
+                # 1. Direct download links
                 soal_links = [
                     a.attrib.get("href")
                     for a in r.css("a")
@@ -143,16 +145,34 @@ def parse_assignments(html: str) -> dict[str, list[dict[str, Any]]]:
                 ]
                 file_soal_url = soal_links[0] if soal_links else None
 
+                # 2. Form download (POST /download-file-tugas with id & file)
+                file_soal_id = None
+                file_soal_name = None
+                dl_forms = r.css("form[action*='download-file-tugas']")
+                if dl_forms:
+                    inp_id = dl_forms[0].css("input[name='id']")
+                    inp_file = dl_forms[0].css("input[name='file']")
+                    if inp_id and inp_id[0].attrib.get("value"):
+                        file_soal_id = inp_id[0].attrib["value"]
+                    if inp_file and inp_file[0].attrib.get("value"):
+                        file_soal_name = inp_file[0].attrib["value"]
+                    if not file_soal_url and file_soal_id and file_soal_name:
+                        file_soal_url = f"/v1/elearning/assignments/download?id={file_soal_id}&file={file_soal_name}"
+
+                # 3. Upload & send links (/assignment/send/ or /upload-tugas/)
                 action_links = [
                     a.attrib.get("href")
                     for a in r.css("a")
-                    if "upload-tugas" in a.attrib.get("href", "") or "form-tugas" in a.attrib.get("href", "")
+                    if any(k in a.attrib.get("href", "") for k in ("upload-tugas", "form-tugas", "/assignment/send/"))
                 ]
                 upload_url = action_links[0] if action_links else None
                 token_tugas = None
+                token_send = None
                 if upload_url:
-                    m = re.search(r"/(?:upload-tugas|form-tugas)/([^/?#]+)", upload_url)
-                    token_tugas = m.group(1) if m else upload_url.rstrip("/").split("/")[-1]
+                    m = re.search(r"/(?:upload-tugas|form-tugas|assignment/send)/([^/?#]+)", upload_url)
+                    extracted = m.group(1) if m else upload_url.rstrip("/").split("/")[-1]
+                    token_tugas = extracted
+                    token_send = extracted
 
                 tasks.append({
                     "id": item_id,
@@ -164,8 +184,12 @@ def parse_assignments(html: str) -> dict[str, list[dict[str, Any]]]:
                     "mulai": cols[6],
                     "selesai": cols[7],
                     "file_soal_url": file_soal_url,
+                    "file_soal_id": file_soal_id,
+                    "file_soal_name": file_soal_name,
                     "upload_url": upload_url,
+                    "send_url": upload_url,
                     "token_tugas": token_tugas,
+                    "token_send": token_send,
                 })
 
     # Table 1: Submissions
@@ -786,6 +810,108 @@ class ElearningClient:
             self.login(nim, password)
         return client.get(url)
 
+    def download_assignment_post(self, token_id: str, filename: str, nim: str, password: str) -> httpx.Response:
+        client = self.get_client()
+        if not self._logged_in:
+            ok = self.login(nim, password)
+            if not ok:
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail=error_response(code="AUTH_FAILED", message="Gagal login ke elearning.bsi.ac.id", module="elearning"),
+                )
+
+        # Ambil CSRF token dari halaman /sch
+        sch_res = client.get(f"{self.BASE_URL}/sch")
+        m = re.search(r'name=["\']_token["\']\s+value=["\']([^"\']+)["\']', sch_res.text)
+        csrf_token = m.group(1) if m else ""
+
+        post_data = {
+            "_token": csrf_token,
+            "id": token_id,
+            "file": filename,
+        }
+        return client.post(f"{self.BASE_URL}/download-file-tugas", data=post_data)
+
+    def submit_assignment_link(self, token_send: str, link_tugas: str, nim: str, password: str) -> dict[str, Any]:
+        client = self.get_client()
+        if not self._logged_in:
+            ok = self.login(nim, password)
+            if not ok:
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail=error_response(code="AUTH_FAILED", message="Gagal login ke elearning.bsi.ac.id", module="elearning"),
+                )
+
+        send_path = token_send if token_send.startswith("/assignment/send/") else f"/assignment/send/{token_send}"
+        send_url = f"{self.BASE_URL}{send_path}" if not send_path.startswith("http") else send_path
+        res_page = client.get(send_url)
+        if res_page.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=error_response(
+                    code="FETCH_ASSIGNMENT_PAGE_FAILED",
+                    message=f"Gagal membuka lembar pengumpulan tugas MyBest (status {res_page.status_code})",
+                    module="elearning",
+                ),
+            )
+
+        tree = lxml_html.fromstring(res_page.text)
+        forms = tree.xpath(".//form[contains(@action, '/assignment')]")
+        if not forms:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_response(
+                    code="FORM_NOT_FOUND",
+                    message="Form pengumpulan tugas tidak ditemukan pada halaman ini. Kemungkinan batas waktu sudah berakhir.",
+                    module="elearning",
+                ),
+            )
+
+        f = forms[0]
+        fields = {inp.attrib.get("name"): inp.attrib.get("value", "") for inp in f.xpath(".//input") if inp.attrib.get("name")}
+        csrf_token = fields.get("_token")
+        kd_mtk = fields.get("kd_mtk")
+        id_tugas = fields.get("id_tugas")
+        kd_lokal = fields.get("kd_lokal")
+
+        if not csrf_token or not id_tugas:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_response(
+                    code="INVALID_FORM_DATA",
+                    message="Parameter form pengumpulan tugas tidak lengkap dari MyBest",
+                    module="elearning",
+                ),
+            )
+
+        payload = {
+            "_token": csrf_token,
+            "kd_mtk": kd_mtk,
+            "id_tugas": id_tugas,
+            "nim": nim,
+            "kd_lokal": kd_lokal,
+            "isi": link_tugas.strip(),
+        }
+
+        submit_res = client.post(f"{self.BASE_URL}/assignment", data=payload)
+        if submit_res.status_code not in (200, 302):
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=error_response(
+                    code="SUBMIT_FAILED",
+                    message=f"Gagal mengirimkan tugas ke MyBest (status {submit_res.status_code})",
+                    module="elearning",
+                ),
+            )
+
+        return {
+            "status": "success",
+            "message": "Tugas berhasil dikumpulkan ke MyBest",
+            "id_tugas": id_tugas,
+            "kd_mtk": kd_mtk,
+            "link_tugas": link_tugas.strip(),
+        }
+
 elearning_client = ElearningClient()
 
 
@@ -858,6 +984,22 @@ class PooledElearningClient:
             return client.download_file(url, nim, password)
 
         return await retry_async(_get_once, attempts=3, base_delay=1.0)
+
+    async def download_assignment_post(self, token_id: str, filename: str, nim: str, password: str) -> httpx.Response:
+        client = self._pool.get(nim)
+
+        def _post_once() -> httpx.Response:
+            return client.download_assignment_post(token_id, filename, nim, password)
+
+        return await retry_async(_post_once, attempts=3, base_delay=1.0)
+
+    async def submit_assignment_link(self, token_send: str, link_tugas: str, nim: str, password: str) -> dict[str, Any]:
+        client = self._pool.get(nim)
+
+        def _submit_once() -> dict[str, Any]:
+            return client.submit_assignment_link(token_send, link_tugas, nim, password)
+
+        return await retry_async(_submit_once, attempts=3, base_delay=1.0)
 
     async def evict_idle(self) -> int:
         return await self._pool.evict_idle()
@@ -1361,12 +1503,118 @@ async def post_upload_assignment(
     return success_response(data=result)
 
 
+class SubmitAssignmentLinkPayload(BaseModel):
+    token_send: str = Field(..., description="Token pengerjaan dari /assignment/send/{token} atau token_tugas")
+    link_tugas: str = Field(..., description="Link URL pengumpulan tugas (Google Drive, GitHub, dll.)")
+
+
+@router.post("/assignments/submit")
+async def post_submit_assignment_link(
+    body: SubmitAssignmentLinkPayload,
+    creds: tuple[str, str] = Depends(require_elearning_creds),
+):
+    """Kirim / kumpulkan tugas kuliah MyBest dengan memasukkan URL link tugas (Google Drive / GitHub)."""
+    nim, password = creds
+    link = body.link_tugas.strip()
+    if not (link.startswith("http://") or link.startswith("https://")):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_response(
+                code="INVALID_URL",
+                message="link_tugas harus merupakan URL valid yang diawali http:// atau https://",
+                module="elearning",
+            ),
+        )
+
+    result = await pooled_elearning_client.submit_assignment_link(
+        token_send=body.token_send,
+        link_tugas=link,
+        nim=nim,
+        password=password,
+    )
+
+    # Invalidate cache assignments di Redis agar data tugas langsung up-to-date
+    try:
+        from app.cache import cache
+        redis_client = await cache.get_client()
+        keys = await redis_client.keys("ubsi:elearning:*")
+        if keys:
+            await redis_client.delete(*keys)
+    except Exception as exc:
+        logger.warning("Gagal membersihkan cache assignments: %s", exc)
+
+    return success_response(data=result)
+
+
 @router.get("/assignments/download")
 async def download_assignment_file(
-    file_url: str = Query(..., description="URL file tugas dari MyBest (storage/soal/... atau storage/tugas/...)"),
+    file_url: Optional[str] = Query(default=None, description="URL file tugas dari MyBest (storage/soal/... atau storage/tugas/...)"),
+    id: Optional[str] = Query(default=None, description="ID token dari form download-file-tugas MyBest"),
+    file: Optional[str] = Query(default=None, description="Nama file dari form download-file-tugas MyBest"),
     creds: tuple[str, str] = Depends(require_elearning_creds),
 ):
     """Download berkas soal atau submission tugas dari storage MyBest secara aman."""
+    nim, password = creds
+
+    # Mode 1: Download via MyBest POST /download-file-tugas
+    if id and file:
+        resp = await pooled_elearning_client.download_assignment_post(
+            token_id=id,
+            filename=file,
+            nim=nim,
+            password=password,
+        )
+        if resp.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=error_response(
+                    code="DOWNLOAD_FAILED",
+                    message=f"Gagal mengunduh berkas soal dari MyBest (status {resp.status_code})",
+                    module="elearning",
+                ),
+            )
+        filename = file or "soal_tugas.pdf"
+        content_type = resp.headers.get("content-type", "application/pdf")
+        return Response(
+            content=resp.content,
+            media_type=content_type,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    # Mode 2: Download via direct file_url
+    if not file_url:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_response(
+                code="MISSING_PARAMS",
+                message="Wajib menyertakan parameter 'id' & 'file' atau 'file_url'",
+                module="elearning",
+            ),
+        )
+
+    # Check if file_url encodes ?id=...&file=...
+    if "id=" in file_url and "file=" in file_url:
+        import urllib.parse
+        parsed = urllib.parse.urlparse(file_url)
+        q_params = urllib.parse.parse_qs(parsed.query)
+        p_id = q_params.get("id", [None])[0]
+        p_file = q_params.get("file", [None])[0]
+        if p_id and p_file:
+            resp = await pooled_elearning_client.download_assignment_post(
+                token_id=p_id,
+                filename=p_file,
+                nim=nim,
+                password=password,
+            )
+            if resp.status_code == 200:
+                filename = p_file or "soal_tugas.pdf"
+                content_type = resp.headers.get("content-type", "application/pdf")
+                return Response(
+                    content=resp.content,
+                    media_type=content_type,
+                    headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+                )
+
     if not is_safe_bsi_storage_url(file_url):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1377,7 +1625,6 @@ async def download_assignment_file(
             ),
         )
 
-    nim, password = creds
     try:
         resp = await pooled_elearning_client.download_file(file_url, nim, password)
         if resp.status_code != 200:
