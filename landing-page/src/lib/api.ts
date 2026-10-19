@@ -124,6 +124,9 @@ export function useApi<T>(
   const skipCache = options?.skipCache ?? false;
 
   const [state, setState] = useState<ApiState<T>>(() => {
+    if (!path) {
+      return { data: null, loading: false, error: null };
+    }
     if (!skipCache && typeof window !== "undefined") {
       const cached = memoryCache.get(path) as CacheEntry<T> | undefined;
       if (cached && Date.now() - cached.timestamp < ttl) {
@@ -137,6 +140,11 @@ export function useApi<T>(
 
   useEffect(() => {
     let alive = true;
+
+    if (!path) {
+      setState({ data: null, loading: false, error: null });
+      return;
+    }
 
     const cached = memoryCache.get(path) as CacheEntry<T> | undefined;
     const isFresh = cached && Date.now() - cached.timestamp < ttl;
