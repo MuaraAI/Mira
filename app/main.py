@@ -175,7 +175,16 @@ async def api_key_auth_middleware(request: Request, call_next):
         request.state.auth_type = "master"
         return await call_next(request)
 
-    session_token = bearer_token or cookie_token
+    # Ambient cookie auth is ONLY accepted from the official dashboard frontend
+    # (prevents raw browser address bar navigation from accessing API without explicit key/token)
+    origin = request.headers.get("origin") or ""
+    is_dashboard_request = (
+        request.headers.get("x-requested-with") == "dashboard"
+        or (origin and origin in settings.ALLOWED_ORIGINS)
+    )
+    effective_cookie_token = cookie_token if is_dashboard_request else ""
+
+    session_token = bearer_token or effective_cookie_token
     if session_token:
         from app.session_store import session_store
 
