@@ -167,6 +167,21 @@ async def test_session_token_grants_api_access(fake_redis):
             )
             assert res.status_code == 200
 
+            # Raw browser cookie without Origin or X-Requested-With is strictly rejected (anti-leak)
+            res_raw_cookie = await ac.get(
+                "/v1/news", cookies={"ubsi_session": token}
+            )
+            assert res_raw_cookie.status_code == 401
+            assert res_raw_cookie.json()["error"]["code"] == "UNAUTHORIZED"
+
+            # Cookie with dashboard X-Requested-With header is accepted
+            res_dash = await ac.get(
+                "/v1/news",
+                cookies={"ubsi_session": token},
+                headers={"X-Requested-With": "dashboard"},
+            )
+            assert res_dash.status_code == 200
+
 
 @pytest.mark.asyncio
 async def test_expired_or_unknown_session_returns_session_expired(fake_redis):
