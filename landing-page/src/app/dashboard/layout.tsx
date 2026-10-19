@@ -20,6 +20,8 @@ function getPageTitle(pathname: string): string {
       return "Presensi Kehadiran";
     case "/dashboard/materi":
       return "Bahan Ajar & Modul";
+    case "/dashboard/kuis":
+      return "Kuis Perkuliahan";
     case "/dashboard/nilai":
       return "Nilai & KHS";
     case "/dashboard/krs":
