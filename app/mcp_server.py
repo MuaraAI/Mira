@@ -269,6 +269,52 @@ async def ubsi_get_course_grades(
 
 
 @server.tool(
+    name="ubsi_get_discussions",
+    description="Ambil daftar topik forum diskusi perkuliahan MyBest per mata kuliah (judul, deskripsi tugas, dosen pengampu, tanggal, dan jumlah balasan).",
+)
+async def ubsi_get_discussions(
+    token: str,
+    session_token: Optional[str] = None,
+    api_key: Optional[str] = None,
+) -> str:
+    res = await _api_get("/v1/elearning/discussions", params={"token": token}, session_token=session_token, api_key=api_key)
+    return json.dumps(res, ensure_ascii=False, indent=2)
+
+
+@server.tool(
+    name="ubsi_get_discussion_comments",
+    description="Ambil seluruh tanggapan dan thread komentar mahasiswa serta dosen pada suatu topik forum diskusi MyBest.",
+)
+async def ubsi_get_discussion_comments(
+    token: str,
+    session_token: Optional[str] = None,
+    api_key: Optional[str] = None,
+) -> str:
+    res = await _api_get("/v1/elearning/discussions/comments", params={"token": token}, session_token=session_token, api_key=api_key)
+    return json.dumps(res, ensure_ascii=False, indent=2)
+
+
+@server.tool(
+    name="ubsi_submit_discussion_comment",
+    description="Kirimkan komentar atau jawaban mahasiswa pada thread forum diskusi MyBest LMS.",
+)
+async def ubsi_submit_discussion_comment(
+    token_komentar: str,
+    id_chat: str,
+    komentar: str,
+    session_token: Optional[str] = None,
+    api_key: Optional[str] = None,
+) -> str:
+    body = {
+        "token_komentar": token_komentar,
+        "id_chat": id_chat,
+        "komentar": komentar,
+    }
+    res = await _api_post("/v1/elearning/discussions/comments", json_data=body, session_token=session_token, api_key=api_key)
+    return json.dumps(res, ensure_ascii=False, indent=2)
+
+
+@server.tool(
     name="ubsi_get_presence",
     description="Cek riwayat kehadiran dan status sesi presensi kelas (Sudah Selesai / Absen Masuk / Belum Mulai).",
 )
