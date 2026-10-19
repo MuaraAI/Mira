@@ -45,7 +45,10 @@ async def test_mcp_tool_listing():
     assert "ubsi_get_discussion_comments" in tool_names
     assert "ubsi_submit_discussion_comment" in tool_names
     assert "ubsi_create_discussion" in tool_names
-    assert len(tool_names) == 29
+    assert "ubsi_get_elearning_profile" in tool_names
+    assert "ubsi_get_makeup_classes" in tool_names
+    assert "ubsi_get_elearning_guides" in tool_names
+    assert len(tool_names) == 32
 
 def test_mcp_credential_headers_isolation():
     # 1. Session token isolation
@@ -263,4 +266,41 @@ async def test_mcp_presence_and_quiz_write_tools():
         parsed_cd = json.loads(res_cd)
         assert parsed_cd["success"] is True
         assert "Topik diskusi berhasil" in parsed_cd["data"]["message"]
+
+    # Test elearning profile tool
+    mock_resp_prof = AsyncMock()
+    mock_resp_prof.status_code = 200
+    mock_resp_prof.json = MagicMock(return_value={
+        "success": True,
+        "data": {"nama": "YUKEN VELINO", "email": "yuken@test.com"},
+    })
+    from app.mcp_server import ubsi_get_elearning_profile, ubsi_get_makeup_classes, ubsi_get_elearning_guides
+    with patch("httpx.AsyncClient.get", return_value=mock_resp_prof):
+        res_prof = await ubsi_get_elearning_profile(session_token="tok_sess")
+        parsed_prof = json.loads(res_prof)
+        assert parsed_prof["success"] is True
+        assert parsed_prof["data"]["nama"] == "YUKEN VELINO"
+
+    # Test makeup classes tool
+    mock_resp_mu = AsyncMock()
+    mock_resp_mu.status_code = 200
+    mock_resp_mu.json = MagicMock(return_value={"success": True, "data": []})
+    with patch("httpx.AsyncClient.get", return_value=mock_resp_mu):
+        res_mu = await ubsi_get_makeup_classes(session_token="tok_sess")
+        parsed_mu = json.loads(res_mu)
+        assert parsed_mu["success"] is True
+        assert isinstance(parsed_mu["data"], list)
+
+    # Test elearning guides tool
+    mock_resp_gd = AsyncMock()
+    mock_resp_gd.status_code = 200
+    mock_resp_gd.json = MagicMock(return_value={
+        "success": True,
+        "data": [{"judul": "Panduan MyBest", "format": "PDF"}],
+    })
+    with patch("httpx.AsyncClient.get", return_value=mock_resp_gd):
+        res_gd = await ubsi_get_elearning_guides(session_token="tok_sess")
+        parsed_gd = json.loads(res_gd)
+        assert parsed_gd["success"] is True
+        assert len(parsed_gd["data"]) == 1
 
