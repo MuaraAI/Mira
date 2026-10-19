@@ -401,3 +401,76 @@ async def test_download_assignment_file_ssrf_rejected():
         )
     assert res.status_code == 400
     assert res.json()["error"]["code"] == "INVALID_URL"
+
+@pytest.mark.asyncio
+async def test_download_assignment_file_with_id_and_file(monkeypatch):
+    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_PASS", "secret")
+
+    mock_resp = AsyncMock()
+    mock_resp.status_code = 200
+    mock_resp.content = b"%PDF-1.7 official assignment PDF content"
+    mock_resp.headers = {"content-type": "application/pdf"}
+
+    with patch("app.modules.elearning.pooled_elearning_client.download_assignment_post", return_value=mock_resp):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res = await ac.get(
+                "/v1/elearning/assignments/download?id=tok_id_123&file=soal_pertemuan_4.pdf"
+            )
+
+    assert res.status_code == 200
+    assert res.headers["content-type"] == "application/pdf"
+    assert "soal_pertemuan_4.pdf" in res.headers.get("content-disposition", "")
+    assert res.content == b"%PDF-1.7 official assignment PDF content"
+
+@pytest.mark.asyncio
+async def test_submit_assignment_link_success(monkeypatch):
+    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_PASS", "secret")
+
+    mock_res = {
+        "status": "success",
+        "message": "Tugas berhasil dikumpulkan ke MyBest",
+        "id_tugas": "46814",
+        "kd_mtk": "894",
+        "link_tugas": "https://drive.google.com/file/d/14wUrOkCVbx",
+    }
+
+    mock_redis = AsyncMock()
+    mock_redis.keys.return_value = ["ubsi:elearning:assignments:15260767"]
+    mock_redis.delete.return_value = 1
+
+    with patch("app.modules.elearning.pooled_elearning_client.submit_assignment_link", return_value=mock_res), \
+         patch("app.cache.cache.get_client", return_value=mock_redis):
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res = await ac.post(
+                "/v1/elearning/assignments/submit",
+                json={
+                    "token_send": "tok_send_46814",
+                    "link_tugas": "https://drive.google.com/file/d/14wUrOkCVbx",
+                },
+            )
+
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    assert data["data"]["status"] == "success"
+    assert data["data"]["link_tugas"] == "https://drive.google.com/file/d/14wUrOkCVbx"
+
+@pytest.mark.asyncio
+async def test_submit_assignment_link_invalid_url(monkeypatch):
+    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_PASS", "secret")
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.post(
+            "/v1/elearning/assignments/submit",
+            json={
+                "token_send": "tok_send_46814",
+                "link_tugas": "bukan_url_valid",
+            },
+        )
+
+    assert res.status_code == 400
+    assert res.json()["error"]["code"] == "INVALID_URL"

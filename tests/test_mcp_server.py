@@ -40,7 +40,8 @@ async def test_mcp_tool_listing():
     assert "ubsi_trigger_reminder" in tool_names
     assert "ubsi_get_course_grades" in tool_names
     assert "ubsi_upload_assignment" in tool_names
-    assert len(tool_names) == 24
+    assert "ubsi_submit_assignment" in tool_names
+    assert len(tool_names) == 25
 
 def test_mcp_credential_headers_isolation():
     # 1. Session token isolation
@@ -157,4 +158,26 @@ async def test_mcp_presence_and_quiz_write_tools():
         parsed_cg = json.loads(res_cg)
         assert parsed_cg["success"] is True
         assert parsed_cg["data"]["rata_nilai"] == 88.5
+
+    # Test submit assignment link tool
+    mock_resp_submit = AsyncMock()
+    mock_resp_submit.status_code = 200
+    mock_resp_submit.json = MagicMock(return_value={
+        "success": True,
+        "data": {
+            "status": "success",
+            "message": "Tugas berhasil dikumpulkan ke MyBest",
+            "link_tugas": "https://drive.google.com/file/d/123",
+        },
+    })
+    from app.mcp_server import ubsi_submit_assignment
+    with patch("httpx.AsyncClient.post", return_value=mock_resp_submit):
+        res_sub = await ubsi_submit_assignment(
+            token_send="tok_send_123",
+            link_tugas="https://drive.google.com/file/d/123",
+            session_token="tok_sess",
+        )
+        parsed_sub = json.loads(res_sub)
+        assert parsed_sub["success"] is True
+        assert "Tugas berhasil" in parsed_sub["data"]["message"]
 

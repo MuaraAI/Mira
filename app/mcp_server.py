@@ -238,6 +238,24 @@ async def ubsi_upload_assignment(
 
 
 @server.tool(
+    name="ubsi_submit_assignment",
+    description="Kirim atau kumpulkan tugas kuliah MyBest dengan memasukkan URL link tugas (misal Google Drive, GitHub repository, atau link dokumen tugas).",
+)
+async def ubsi_submit_assignment(
+    token_send: str,
+    link_tugas: str,
+    session_token: Optional[str] = None,
+    api_key: Optional[str] = None,
+) -> str:
+    body = {
+        "token_send": token_send,
+        "link_tugas": link_tugas,
+    }
+    res = await _api_post("/v1/elearning/assignments/submit", json_data=body, session_token=session_token, api_key=api_key)
+    return json.dumps(res, ensure_ascii=False, indent=2)
+
+
+@server.tool(
     name="ubsi_get_course_grades",
     description="Ambil rekap nilai tugas & kuis spesifik satu mata kuliah beserta rincian komentar dosen per pertemuan.",
 )
