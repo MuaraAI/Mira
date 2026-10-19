@@ -745,7 +745,13 @@ class ElearningClient:
                 "captcha_answer": str(ans),
             }
             r2 = client.post(login_url, data=payload)
-            if "dashboard" in str(r2.url) or "elearning.bsi.ac.id/user" in str(r2.url):
+            final_url = str(r2.url)
+            # Login sukses jika TIDAK lagi di halaman login dan status 200 (Laravel redirect ke intended page)
+            is_login_page = "/login" in final_url and ("captcha_answer" in r2.text or "password" in r2.text)
+            if not is_login_page and r2.status_code == 200:
+                self._logged_in = True
+                return True
+            if "dashboard" in final_url or "elearning.bsi.ac.id/user" in final_url:
                 self._logged_in = True
                 return True
             logger.warning("Elearning login rejected for %s: ended at %s (status %s)", nim, r2.url, r2.status_code)
