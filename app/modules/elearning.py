@@ -2097,6 +2097,6 @@ async def get_makeup_classes(creds: tuple[str, str] = Depends(require_elearning_
 
 
 @router.get("/guides")
-async def get_guides():
+async def get_guides(creds: tuple[str, str] = Depends(require_elearning_creds)):
     """Daftar tautan berkas buku panduan resmi perkuliahan & ujian MyBest."""
     return success_response(data=get_official_guides())
