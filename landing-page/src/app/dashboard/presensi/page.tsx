@@ -11,7 +11,7 @@ import {
   XCircle,
   AlertCircle,
 } from "lucide-react";
-import { apiFetch, useApi } from "@/lib/api";
+import { apiFetch, useApi, clearApiCache } from "@/lib/api";
 import {
   EmptyState,
   ErrorState,
@@ -120,6 +120,7 @@ export default function PresensiPage() {
         { method: "POST" }
       );
       if (!result.success) throw new Error(result.message || "Presensi tidak berhasil dikirim.");
+      clearApiCache("/v1/elearning/presence");
       setSubmitMessage(result.message || "Presensi berhasil dikirim.");
       presenceApi.reload();
     } catch (error) {
