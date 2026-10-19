@@ -40,6 +40,8 @@ def solve_captcha(question_text: str) -> Any:
     raise ValueError(f"Tidak dapat menemukan pola captcha di: {question_text[:100]}")
 
 def parse_courses(html: str) -> list[dict[str, Any]]:
+    if "jadwal tidak tersedia" in html.lower():
+        return []
     page = Adaptor(html)
     plans = page.css("div.pricing-plan")
     if not plans:
@@ -475,6 +477,58 @@ def parse_discussion_comments(html: str) -> list[dict[str, Any]]:
         })
 
     return comments
+
+def parse_elearning_profile(html: str) -> dict[str, Any]:
+    """Ekstraksi informasi profil dan kontak akun MyBest."""
+    page = Adaptor(html)
+    name_inp = page.css("input[name='name']")
+    name = name_inp[0].attrib.get("value", "").strip() if name_inp else ""
+    email_inp = page.css("input[name='email']")
+    email = email_inp[0].attrib.get("value", "").strip() if email_inp else ""
+    return {
+        "nama": name,
+        "email": email,
+    }
+
+def parse_makeup_classes(html: str) -> list[dict[str, Any]]:
+    """Ekstraksi jadwal kuliah pengganti (make-up classes) dari MyBest."""
+    page = Adaptor(html)
+    records = []
+    tables = page.css("table")
+    for t in tables:
+        for r in t.css("tr")[1:]:
+            cols = [c.get_all_text().strip() for c in r.css("td")]
+            if len(cols) >= 3:
+                records.append({
+                    "kode": cols[0] if len(cols) > 0 else "-",
+                    "mata_kuliah": cols[1] if len(cols) > 1 else "-",
+                    "jadwal": cols[2] if len(cols) > 2 else "-",
+                    "keterangan": cols[3] if len(cols) > 3 else "",
+                })
+    return records
+
+def get_official_guides() -> list[dict[str, str]]:
+    """Daftar buku panduan resmi MyBest perkuliahan mahasiswa UBSI."""
+    return [
+        {
+            "judul": "Buku Panduan MyBest Mahasiswa",
+            "kategori": "Panduan Umum",
+            "url": "https://elearning.bsi.ac.id/storage/Panduan%20MyBest%20Mahasiswa.pdf",
+            "format": "PDF",
+        },
+        {
+            "judul": "Panduan Ujian Online Mahasiswa UBSI",
+            "kategori": "Ujian Online",
+            "url": "https://elearning.bsi.ac.id/storage/PANDUAN_UJIAN_ONLINE_MHS_UBSI.pdf",
+            "format": "PDF",
+        },
+        {
+            "judul": "Panduan Kuis MyBest Mahasiswa",
+            "kategori": "Kuis Perkuliahan",
+            "url": "https://elearning.bsi.ac.id/storage/Panduan%20Kuis%20MyBest%20Mahasiswa.pdf",
+            "format": "PDF",
+        },
+    ]
 
 def parse_quiz(html: str) -> list[dict[str, Any]]:
     page = Adaptor(html)
@@ -2012,3 +2066,37 @@ async def post_new_discussion(
         logger.warning("Gagal membersihkan cache discussions: %s", exc)
 
     return success_response(data=result)
+
+
+@router.get("/profile")
+async def get_elearning_profile(creds: tuple[str, str] = Depends(require_elearning_creds)):
+    """Ambil data profil dan kontak akun MyBest LMS mahasiswa."""
+    nim, password = creds
+    return await cached_endpoint(
+        module="elearning",
+        name="profile",
+        fetch=lambda: pooled_elearning_client.fetch_page("/profil", nim, password),
+        parse=parse_elearning_profile,
+        ttl=settings.TTL_ASSIGNMENTS,
+        cache_params={"nim": nim},
+    )
+
+
+@router.get("/makeups")
+async def get_makeup_classes(creds: tuple[str, str] = Depends(require_elearning_creds)):
+    """Cek jadwal kuliah pengganti (make-up classes) yang terdaftar di MyBest."""
+    nim, password = creds
+    return await cached_endpoint(
+        module="elearning",
+        name="makeups",
+        fetch=lambda: pooled_elearning_client.fetch_page("/kuliah-pengganti", nim, password),
+        parse=parse_makeup_classes,
+        ttl=settings.TTL_ASSIGNMENTS,
+        cache_params={"nim": nim},
+    )
+
+
+@router.get("/guides")
+async def get_guides():
+    """Daftar tautan berkas buku panduan resmi perkuliahan & ujian MyBest."""
+    return success_response(data=get_official_guides())
