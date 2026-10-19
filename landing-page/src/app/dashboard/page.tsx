@@ -14,6 +14,7 @@ import {
   MapPin,
   School,
   AlertTriangle,
+  HelpCircle,
 } from "lucide-react";
 import { useApi } from "@/lib/api";
 import {
@@ -377,7 +378,7 @@ export default function DashboardOverviewPage() {
           Akses Cepat Layanan Kampus
         </h2>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           <Link
             href="/dashboard/materi"
             className="glass-card p-4 text-center hover:border-[#0369A1]/40 transition-all hover:bg-[#F0F7FB] flex flex-col items-center justify-center gap-2 group"
@@ -387,6 +388,17 @@ export default function DashboardOverviewPage() {
             </div>
             <span className="text-xs font-bold text-foreground">Bahan Ajar</span>
             <span className="text-[10px] text-secondary">Slide & Modul Lab</span>
+          </Link>
+
+          <Link
+            href="/dashboard/kuis"
+            className="glass-card p-4 text-center hover:border-[#0369A1]/40 transition-all hover:bg-[#F0F7FB] flex flex-col items-center justify-center gap-2 group"
+          >
+            <div className="p-2.5 rounded-pill bg-[#0369A1]/10 text-[#0369A1] group-hover:scale-110 transition-transform">
+              <HelpCircle className="w-5 h-5" aria-hidden="true" />
+            </div>
+            <span className="text-xs font-bold text-foreground">Kuis Online</span>
+            <span className="text-[10px] text-secondary">Jadwal & Latihan</span>
           </Link>
 
           <Link
@@ -413,7 +425,7 @@ export default function DashboardOverviewPage() {
 
           <Link
             href="/dashboard/perpustakaan"
-            className="glass-card p-4 text-center hover:border-[#0369A1]/40 transition-all hover:bg-[#F0F7FB] flex flex-col items-center justify-center gap-2 group"
+            className="glass-card p-4 text-center hover:border-[#0369A1]/40 transition-all hover:bg-[#F0F7FB] flex flex-col items-center justify-center gap-2 group col-span-2 sm:col-span-1"
           >
             <div className="p-2.5 rounded-pill bg-[#0369A1]/10 text-[#0369A1] group-hover:scale-110 transition-transform">
               <Library className="w-5 h-5" aria-hidden="true" />
