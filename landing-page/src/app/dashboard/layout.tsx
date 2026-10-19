@@ -22,6 +22,8 @@ function getPageTitle(pathname: string): string {
       return "Bahan Ajar & Modul";
     case "/dashboard/kuis":
       return "Kuis Perkuliahan";
+    case "/dashboard/diskusi":
+      return "Forum Diskusi Perkuliahan";
     case "/dashboard/nilai":
       return "Nilai & KHS";
     case "/dashboard/krs":

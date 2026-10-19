@@ -41,7 +41,10 @@ async def test_mcp_tool_listing():
     assert "ubsi_get_course_grades" in tool_names
     assert "ubsi_upload_assignment" in tool_names
     assert "ubsi_submit_assignment" in tool_names
-    assert len(tool_names) == 25
+    assert "ubsi_get_discussions" in tool_names
+    assert "ubsi_get_discussion_comments" in tool_names
+    assert "ubsi_submit_discussion_comment" in tool_names
+    assert len(tool_names) == 28
 
 def test_mcp_credential_headers_isolation():
     # 1. Session token isolation
@@ -180,4 +183,65 @@ async def test_mcp_presence_and_quiz_write_tools():
         parsed_sub = json.loads(res_sub)
         assert parsed_sub["success"] is True
         assert "Tugas berhasil" in parsed_sub["data"]["message"]
+
+    # Test discussions tools
+    mock_resp_disc = AsyncMock()
+    mock_resp_disc.status_code = 200
+    mock_resp_disc.json = MagicMock(return_value={
+        "success": True,
+        "data": {
+            "threads": [
+                {
+                    "id_chat": "24776",
+                    "judul": "TASK 4",
+                    "isi": "Make two sentences",
+                    "penulis": "Tarina Dashela",
+                    "total_komentar": 65,
+                }
+            ]
+        },
+    })
+    from app.mcp_server import ubsi_get_discussions, ubsi_get_discussion_comments, ubsi_submit_discussion_comment
+    with patch("httpx.AsyncClient.get", return_value=mock_resp_disc):
+        res_d = await ubsi_get_discussions(token="tok_disc_123", session_token="tok_sess")
+        parsed_d = json.loads(res_d)
+        assert parsed_d["success"] is True
+        assert parsed_d["data"]["threads"][0]["judul"] == "TASK 4"
+
+    mock_resp_comm = AsyncMock()
+    mock_resp_comm.status_code = 200
+    mock_resp_comm.json = MagicMock(return_value={
+        "success": True,
+        "data": [
+            {
+                "nim": "15260767",
+                "nama": "YUKEN VELINO",
+                "komentar": "Invitation text here",
+                "tanggal": "2026-10-13 09:32:46",
+                "is_self": True,
+            }
+        ],
+    })
+    with patch("httpx.AsyncClient.get", return_value=mock_resp_comm):
+        res_c = await ubsi_get_discussion_comments(token="tok_kom_123", session_token="tok_sess")
+        parsed_c = json.loads(res_c)
+        assert parsed_c["success"] is True
+        assert parsed_c["data"][0]["nama"] == "YUKEN VELINO"
+
+    mock_resp_post_comm = AsyncMock()
+    mock_resp_post_comm.status_code = 200
+    mock_resp_post_comm.json = MagicMock(return_value={
+        "success": True,
+        "data": {"status": "success", "message": "Komentar berhasil dikirim"},
+    })
+    with patch("httpx.AsyncClient.post", return_value=mock_resp_post_comm):
+        res_pc = await ubsi_submit_discussion_comment(
+            token_komentar="tok_kom_123",
+            id_chat="24776",
+            komentar="Jawaban diskusi saya",
+            session_token="tok_sess",
+        )
+        parsed_pc = json.loads(res_pc)
+        assert parsed_pc["success"] is True
+        assert "Komentar berhasil" in parsed_pc["data"]["message"]
 

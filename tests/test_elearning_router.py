@@ -474,3 +474,105 @@ async def test_submit_assignment_link_invalid_url(monkeypatch):
 
     assert res.status_code == 400
     assert res.json()["error"]["code"] == "INVALID_URL"
+
+@pytest.mark.asyncio
+async def test_get_discussions_success(monkeypatch):
+    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_PASS", "secret")
+
+    mock_html = """
+    <div class="task-block">
+        <div class="task-name">TASK 4 - English Discussion</div>
+        <div class="task-desc">Make two sentences about invitation.</div>
+        <span class="badge-info">Tarina Dashela</span>
+        <span class="badge-primary">2026-10-13 07:25:49</span>
+        <input type="hidden" name="id_chat" value="24776">
+        <a href="/form-komentarmhs/tok_kom_456"><span class="badge">65</span></a>
+    </div>
+    """
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = None
+    mock_redis.incr.return_value = 1
+
+    with patch("redis.asyncio.from_url", return_value=mock_redis), \
+         patch("app.modules.elearning.pooled_elearning_client.fetch_page", return_value=mock_html):
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res = await ac.get("/v1/elearning/discussions?token=custom_diskusi_token")
+
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    assert len(data["data"]["threads"]) == 1
+    assert data["data"]["threads"][0]["judul"] == "TASK 4 - English Discussion"
+    assert data["data"]["threads"][0]["penulis"] == "Tarina Dashela"
+    assert data["data"]["threads"][0]["total_komentar"] == 65
+
+@pytest.mark.asyncio
+async def test_get_discussion_comments_success(monkeypatch):
+    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_PASS", "secret")
+
+    mock_html = """
+    <ul>
+        <li class="chat-left">
+            <div class="chat-avatar"><div class="chat-name">15260847</div></div>
+            <div class="chat-text">
+                <div class="chat-name">RENKYNA AFTANIA NASUTION</div>
+                <p>Hello here is my response.</p>
+                <div class="chat-hour">2026-10-13 11:53:44</div>
+            </div>
+        </li>
+        <li class="chat-right">
+            <div class="chat-avatar"><div class="chat-name">15260767</div></div>
+            <div class="chat-text">
+                <div class="chat-name">YUKEN VELINO</div>
+                <p>My invitation and response.</p>
+                <div class="chat-hour">2026-10-13 12:00:00</div>
+            </div>
+        </li>
+    </ul>
+    """
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = None
+    mock_redis.incr.return_value = 1
+
+    with patch("redis.asyncio.from_url", return_value=mock_redis), \
+         patch("app.modules.elearning.pooled_elearning_client.fetch_page", return_value=mock_html):
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res = await ac.get("/v1/elearning/discussions/comments?token=tok_kom_456")
+
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    assert len(data["data"]) == 2
+    assert data["data"][0]["nim"] == "15260847"
+    assert data["data"][0]["is_self"] is False
+    assert data["data"][1]["nim"] == "15260767"
+    assert data["data"][1]["is_self"] is True
+
+@pytest.mark.asyncio
+async def test_post_discussion_comment_success(monkeypatch):
+    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_PASS", "secret")
+
+    mock_redis = AsyncMock()
+    mock_redis.keys.return_value = ["ubsi:elearning:discussions:15260767"]
+    mock_redis.delete.return_value = 1
+
+    with patch("app.modules.elearning.pooled_elearning_client.post_discussion_comment", return_value={"status": "success", "message": "OK"}), \
+         patch("app.cache.cache.get_client", return_value=mock_redis):
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res = await ac.post(
+                "/v1/elearning/discussions/comments",
+                json={
+                    "token_komentar": "tok_kom_456",
+                    "id_chat": "24776",
+                    "komentar": "Tanggapan forum saya.",
+                },
+            )
+
+    assert res.status_code == 200
+    assert res.json()["success"] is True
