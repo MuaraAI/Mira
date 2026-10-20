@@ -6,10 +6,11 @@ tidak boleh mendaftar device pribadi orang lain.
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.config import settings
 from app.envelope import error_response, success_response
+from app.modules.news import is_safe_webhook_url
 from app.pwa_push_db import (
     add_subscription,
     get_active_subscriptions_for_nim,
@@ -44,6 +45,14 @@ class SubscribeRequest(BaseModel):
     keys: dict[str, str] = Field(..., min_length=1, max_length=2)
     device_name: str = Field(default="Browser", max_length=64)
 
+    @field_validator("keys")
+    @classmethod
+    def _cap_key_lengths(cls, v: dict[str, str]) -> dict[str, str]:
+        for key, value in v.items():
+            if len(value) > 512:
+                raise ValueError(f"keys.{key} maksimal 512 karakter")
+        return v
+
 
 class CategoriesRequest(BaseModel):
     categories: list[str] = Field(..., min_length=1, max_length=16)
@@ -67,13 +76,14 @@ async def get_vapid_public_key():
 async def subscribe_device(request: Request, body: SubscribeRequest):
     nim = _require_session_nim(request)
 
-    # Endpoint harus URL absolut https (push service selalu https)
-    if not body.endpoint.startswith("https://"):
+    # Anti-SSRF: endpoint harus https dan resolve ke IP publik
+    # (blok metadata cloud 169.254.169.254, CGNAT, loopback, private)
+    if not is_safe_webhook_url(body.endpoint):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=error_response(
                 code="VALIDATION_ERROR",
-                message="Endpoint push harus URL https",
+                message="Endpoint push tidak valid (wajib https dan IP publik push service)",
                 module="pwa-push",
             ),
         )

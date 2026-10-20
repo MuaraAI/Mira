@@ -81,6 +81,15 @@ def vapid_keys(monkeypatch):
     monkeypatch.setattr("app.config.settings.VAPID_PUBLIC_KEY", pub_b64)
 
 
+@pytest.fixture(autouse=True)
+def allow_push_endpoints(monkeypatch):
+    """Offline rule: jangan resolve DNS beneran di test router; scheme check tetap jalan."""
+    monkeypatch.setattr(
+        "app.modules.pwa_push.is_safe_webhook_url",
+        lambda url: url.startswith("https://"),
+    )
+
+
 async def _login(ac: AsyncClient, nim: str = "15260767") -> str:
     res = await ac.post(
         "/v1/auth/login",
@@ -145,6 +154,13 @@ async def test_subscribe_list_delete_device_flow(fake_redis):
         })
         assert res.status_code == 400
 
+        # Oversized keys ditolak (DB bloat guard)
+        res = await ac.post("/v1/notifications/pwa/subscribe", headers=headers, json={
+            "endpoint": "https://fcm.googleapis.com/fcm/send/big",
+            "keys": {"p256dh": "k" * 513, "auth": "a"},
+        })
+        assert res.status_code in (400, 422)
+
         # NIM lain tidak bisa hapus device milik owner
         token2 = await _login(ac, nim="15260673")
         res = await ac.delete(
@@ -157,6 +173,28 @@ async def test_subscribe_list_delete_device_flow(fake_redis):
         assert res.status_code == 200
         res = await ac.get("/v1/notifications/pwa/devices", headers=headers)
         assert res.json()["data"]["total"] == 0
+
+
+@pytest.mark.asyncio
+async def test_subscribe_rejects_ssrf_private_ip(fake_redis, monkeypatch):
+    """Restore validator beneran (tanpa DNS untuk IP literal) lalu cek tolak SSRF."""
+    from app.modules.news import is_safe_webhook_url as real_validator
+
+    monkeypatch.setattr("app.modules.pwa_push.is_safe_webhook_url", real_validator)
+
+    # IP literal: getaddrinfo tanpa DNS lookup
+    assert real_validator("https://169.254.169.254/latest/meta-data") is False
+    assert real_validator("https://10.0.0.1/push") is False
+    assert real_validator("https://100.100.100.200/metadata") is False
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        token = await _login(ac)
+        res = await ac.post("/v1/notifications/pwa/subscribe", headers={"Authorization": f"Bearer {token}"}, json={
+            "endpoint": "https://169.254.169.254/latest/meta-data",
+            "keys": {"p256dh": "k", "auth": "a"},
+            "device_name": "Evil",
+        })
+        assert res.status_code == 400
 
 
 @pytest.mark.asyncio

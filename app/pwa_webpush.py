@@ -78,6 +78,9 @@ def _vapid_auth_header(endpoint: str) -> str:
 
 def _encrypt_payload(p256dh_b64: str, auth_b64: str, plaintext: bytes) -> bytes:
     """RFC 8291 aes128gcm: body = salt(16) | rs(4) | idlen(1) | eph_pub(65) | ciphertext."""
+    if len(plaintext) > 4095:  # rs=4096 dikurangi 1 byte delimiter: 1 record saja
+        raise ValueError("Payload push terlalu besar untuk satu record (maks 4095 byte)")
+
     user_pub_raw = _b64url_decode(p256dh_b64)
     auth_secret = _b64url_decode(auth_b64)
     if len(user_pub_raw) != 65:
@@ -154,13 +157,15 @@ async def dispatch_pwa_to_nim(nim: str, payload: dict[str, Any], ttl: int = 8640
         prune_subscription,
     )
 
+    if not settings.VAPID_PRIVATE_KEY or not settings.VAPID_PUBLIC_KEY:
+        return 0  # VAPID belum dikonfigurasi: no-op, jangan spam log per device
+
     delivered = 0
     for sub in await get_active_subscriptions_for_nim(nim):
         try:
             ok, http_status = await send_web_push(sub, payload, ttl=ttl)
         except ValueError:
-            # VAPID belum dikonfigurasi: jangan coba device lain sia-sia
-            return 0
+            continue  # kunci 1 device rusak: skip device itu, tetap kirim ke lainnya
         if ok:
             delivered += 1
         elif http_status in (404, 410):
@@ -174,6 +179,7 @@ async def dispatch_pwa_to_category(category: str, payload: dict[str, Any], ttl: 
 
     nims = await list_nims_with_category(category)
     total = 0
+    # ponytail: sequential per-NIM; batch via asyncio.gather + semaphore jika subscriber > ratusan
     for nim in nims:
         total += await dispatch_pwa_to_nim(nim, payload, ttl=ttl)
     return total
