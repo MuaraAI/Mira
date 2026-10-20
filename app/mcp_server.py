@@ -115,15 +115,23 @@ async def _api_get(
         async with httpx.AsyncClient(timeout=timeout) as client:
             resp = await client.get(url, params=params, headers=headers)
             try:
-                return resp.json()
+                data = resp.json()
             except Exception:
-                return {
+                data = {
                     "success": False,
                     "error": {
                         "code": f"HTTP_{resp.status_code}",
                         "message": resp.text[:300],
                     },
                 }
+            if resp.status_code >= 400 and isinstance(data, dict):
+                data.setdefault("success", False)
+                if "error" not in data:
+                    data["error"] = {
+                        "code": f"HTTP_{resp.status_code}",
+                        "message": resp.text[:300],
+                    }
+            return data
     except Exception as exc:
         return {
             "success": False,
@@ -145,15 +153,23 @@ async def _api_post(
         async with httpx.AsyncClient(timeout=timeout) as client:
             resp = await client.post(url, json=json_data, params=params, headers=headers)
             try:
-                return resp.json()
+                data = resp.json()
             except Exception:
-                return {
+                data = {
                     "success": False,
                     "error": {
                         "code": f"HTTP_{resp.status_code}",
                         "message": resp.text[:300],
                     },
                 }
+            if resp.status_code >= 400 and isinstance(data, dict):
+                data.setdefault("success", False)
+                if "error" not in data:
+                    data["error"] = {
+                        "code": f"HTTP_{resp.status_code}",
+                        "message": resp.text[:300],
+                    }
+            return data
     except Exception as exc:
         return {
             "success": False,

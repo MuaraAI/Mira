@@ -356,6 +356,9 @@ async def dispatch_webhook_notification(
     post: dict[str, Any], webhook_url: str, event: str = "news.published"
 ) -> bool:
     """Kirim generic JSON payload ke custom webhook URL."""
+    if not is_safe_webhook_url(webhook_url):
+        logger.warning("Unsafe custom webhook URL blocked at dispatch: %s", webhook_url)
+        return False
     payload = {
         "event": event,
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -565,7 +568,8 @@ def is_safe_webhook_url(url_str: str) -> bool:
             return False
         addresses = {info[4][0] for info in socket.getaddrinfo(hostname, parsed.port or 443, type=socket.SOCK_STREAM)}
         return bool(addresses) and all(
-            not (ip := ipaddress.ip_address(address)).is_private
+            (ip := ipaddress.ip_address(address)).is_global
+            and not ip.is_private
             and not ip.is_loopback
             and not ip.is_link_local
             and not ip.is_reserved
