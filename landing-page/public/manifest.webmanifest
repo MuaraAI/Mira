@@ -1,6 +1,7 @@
 {
-  "name": "UBSI API Student Command Center",
-  "short_name": "UBSI API",
+  "name": "UBSI-API Muara: Student Command Center",
+  "short_name": "UBSI-API",
+  "id": "/dashboard",
   "description": "Dashboard akademik UBSI untuk jadwal, tugas, presensi, materi, nilai, dan layanan kampus.",
   "lang": "id-ID",
   "dir": "ltr",

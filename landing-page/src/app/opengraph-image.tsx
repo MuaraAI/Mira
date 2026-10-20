@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
 
-export const alt = "UBSI API v2: Dashboard Akademik, REST API, dan MCP UBSI";
+export const alt = "UBSI-API Muara: Dashboard Akademik, REST API, dan MCP untuk UBSI";
 export const size = {
   width: 1200,
   height: 630,
@@ -46,10 +46,10 @@ export default async function Image() {
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
             <span style={{ color: "#072033", fontSize: "28px", fontWeight: "bold" }}>
-              UBSI API
+              UBSI-API Muara
             </span>
             <span style={{ color: "#0369A1", fontSize: "14px", letterSpacing: "2px" }}>
-              MUARA AI / FLUID CURRENTS
+              MUARA AI / OPEN SOURCE
             </span>
           </div>
         </div>
@@ -106,7 +106,7 @@ export default async function Image() {
               border: "1px solid #D9E5ED",
             }}
           >
-            v2.0.0
+            MIT License
           </div>
         </div>
       </div>

@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut, ShieldCheck, ShieldX, KeyRound, UserCheck, School, MapPin } from "lucide-react";
 import { apiFetch, ApiError, useApi, clearApiCache } from "@/lib/api";
+import { DosenInfo } from "@/components/DosenInfo";
+import { splitProgram } from "@/lib/profile";
 import {
   ErrorState,
   LoadingState,
@@ -38,9 +40,10 @@ export default function SesiPage() {
 
   const nim = meApi.data?.nim ?? profileApi.data?.nim ?? "-";
   const studentName = profileApi.data?.nama || `Mahasiswa (${nim})`;
-  const prodi = profileApi.data?.program_studi || "Informatika";
-  const kampus = profileApi.data?.lokasi_cabang || "UBSI";
-  const dosenPa = profileApi.data?.dosen_pa || "Dosen Pembimbing Akademik";
+  const { prodi: prodiName, kampus: kampusName } = splitProgram(profileApi.data);
+  const prodi = prodiName || "-";
+  const kampus = kampusName || "-";
+  const dosenPa = profileApi.data?.dosen_pa?.trim() || "";
 
   async function logout(path: "/v1/auth/logout" | "/v1/auth/logout_all") {
     setActionError(null);
@@ -132,14 +135,16 @@ export default function SesiPage() {
               </div>
             </div>
 
-            <div className="pt-2 border-t border-stroke/60">
-              <dt className="text-[10px] font-mono uppercase text-secondary font-bold">
-                Dosen Pembimbing Akademik (PA)
-              </dt>
-              <dd className="text-foreground font-medium">
-                {dosenPa}
-              </dd>
-            </div>
+            {dosenPa && (
+              <div className="pt-2 border-t border-stroke/60">
+                <dt className="text-[10px] font-mono uppercase text-secondary font-bold">
+                  Dosen Pembimbing Akademik (PA)
+                </dt>
+                <dd className="text-foreground font-medium">
+                  <DosenInfo kode={dosenPa} />
+                </dd>
+              </div>
+            )}
           </dl>
         </div>
 

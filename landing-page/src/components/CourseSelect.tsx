@@ -57,7 +57,13 @@ export function CourseSelect({
         </select>
       </label>
 
-      <div role="tablist" aria-label={label} className="hidden flex-wrap gap-3 p-[2px] md:flex">
+      {/* Desktop: kotak berukuran sama dalam grid, jadi rata kiri-kanan dan tidak bergeser antar baris. */}
+      <div
+        role="tablist"
+        aria-label={label}
+        className="hidden gap-3 p-[2px] md:grid md:[grid-template-columns:repeat(var(--cols-md),minmax(0,1fr))] lg:[grid-template-columns:repeat(var(--cols),minmax(0,1fr))]"
+        style={{ ["--cols" as string]: columnsFor(options.length, 4), ["--cols-md" as string]: columnsFor(options.length, 3) }}
+      >
         {options.map((o) => {
           const active = o.key === current?.key;
           return (
@@ -67,15 +73,15 @@ export function CourseSelect({
               role="tab"
               aria-selected={active}
               onClick={() => onChange(o.key)}
-              className={`inline-flex min-h-10 items-center gap-2 px-3.5 py-2 text-left text-xs font-semibold transition-[background-color,color,box-shadow,transform] duration-200 ${
+              className={`flex min-h-14 min-w-0 items-center justify-between gap-3 px-4 py-2 text-left text-xs font-semibold transition-[background-color,color,box-shadow,transform] duration-200 ${
                 active
                   ? "bg-[#0369A1] text-white shadow-[0_-2px_0_0_#0369A1,0_2px_0_0_#0369A1,-2px_0_0_0_#0369A1,2px_0_0_0_#0369A1,3px_3px_0_0_#072033]"
                   : "bg-white text-secondary shadow-[0_-2px_0_0_#D9E5ED,0_2px_0_0_#D9E5ED,-2px_0_0_0_#D9E5ED,2px_0_0_0_#D9E5ED] hover:-translate-y-0.5 hover:text-foreground hover:shadow-[0_-2px_0_0_#9CC6E0,0_2px_0_0_#9CC6E0,-2px_0_0_0_#9CC6E0,2px_0_0_0_#9CC6E0,3px_3px_0_0_#9CC6E0]"
               }`}
             >
-              <span>{o.label}</span>
+              <span className="line-clamp-2 min-w-0 break-words">{o.label}</span>
               {o.badge && (
-                <span className={`px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase ${active ? "bg-white/20 text-white" : "bg-[#0F766E]/10 text-[#0F766E]"}`}>
+                <span className={`shrink-0 px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase ${active ? "bg-white/20 text-white" : "bg-[#0F766E]/10 text-[#0F766E]"}`}>
                   {o.badge}
                 </span>
               )}
@@ -85,4 +91,11 @@ export function CourseSelect({
       </div>
     </div>
   );
+}
+
+/** Jumlah kolom supaya baris terakhir tidak jomplang: 1-4 pilihan sebaris, 6 -> 3x2, dst. */
+function columnsFor(count: number, max: number) {
+  if (count <= max) return Math.max(count, 1);
+  for (let cols = max; cols >= 2; cols--) if (count % cols === 0) return cols;
+  return max;
 }

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { BookOpen, Clock, MapPin, User, UserCheck } from "lucide-react";
 import { useApi } from "@/lib/api";
+import { DosenInfo } from "@/components/DosenInfo";
 import {
   EmptyState,
   ErrorState,
@@ -41,6 +42,12 @@ function sameDay(a?: string, b?: string) {
   return (a ?? "").trim().toLowerCase() === (b ?? "").trim().toLowerCase();
 }
 
+/** Semua jadwal milikmu yang diajar dosen yang sama. */
+function taughtBy(schedule: ScheduleItem[], s: ScheduleItem) {
+  const code = s.kode_dosen?.trim().toUpperCase();
+  return code && code !== "-" ? schedule.filter((x) => x.kode_dosen?.trim().toUpperCase() === code) : [s];
+}
+
 function presensiHref(s: ScheduleItem) {
   const params = new URLSearchParams({ kode: s.kode ?? "", mk: s.nama ?? "" });
   return `/dashboard/presensi?${params.toString()}`;
@@ -53,7 +60,7 @@ const STATUS_META: Record<ClassStatus, { label: string; className: string }> = {
   upcoming: { label: "Nanti", className: "bg-[#F0F7FB] text-[#075985]" },
 };
 
-function ClassCard({ s, status }: { s: ScheduleItem; status?: ClassStatus }) {
+function ClassCard({ s, status, taught }: { s: ScheduleItem; status?: ClassStatus; taught: ScheduleItem[] }) {
   const meta = status ? STATUS_META[status] : null;
   const highlight = status === "live" || status === "next";
   return (
@@ -86,15 +93,17 @@ function ClassCard({ s, status }: { s: ScheduleItem; status?: ClassStatus }) {
           <dt className="sr-only">Jam</dt>
           <dd className="font-mono font-semibold text-foreground">{s.jam || "-"}</dd>
         </div>
-        <div className="flex min-w-0 items-center gap-2">
+        <div className="col-span-2 flex min-w-0 items-center gap-2">
           <MapPin className="h-3.5 w-3.5 shrink-0 text-[#0369A1]" aria-hidden="true" />
           <dt className="sr-only">Ruang</dt>
-          <dd className="truncate text-secondary">{s.ruang || "-"}</dd>
+          <dd className="min-w-0 break-words text-secondary">{s.ruang || "-"}</dd>
         </div>
-        <div className="flex min-w-0 items-center gap-2">
-          <User className="h-3.5 w-3.5 shrink-0 text-[#0369A1]" aria-hidden="true" />
+        <div className="col-span-2 flex min-w-0 items-start gap-2">
+          <User className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#0369A1]" aria-hidden="true" />
           <dt className="sr-only">Dosen</dt>
-          <dd className="truncate text-secondary">{s.kode_dosen || "-"}</dd>
+          <dd className="min-w-0">
+            <DosenInfo kode={s.kode_dosen} courses={taught.map((t) => ({ nama: t.nama, hari: t.hari, jam: t.jam }))} />
+          </dd>
         </div>
       </dl>
 
@@ -235,7 +244,7 @@ export default function JadwalPage() {
           ) : (
             <div className="grid grid-cols-1 gap-5 p-[2px] md:grid-cols-2 xl:grid-cols-3">
               {todayClasses.map((s) => (
-                <ClassCard key={s.id} s={s} status={todayStatus.get(s.id)} />
+                <ClassCard key={s.id} s={s} status={todayStatus.get(s.id)} taught={taughtBy(schedule, s)} />
               ))}
             </div>
           )}
@@ -255,7 +264,7 @@ export default function JadwalPage() {
                 </h2>
                 <div className="grid grid-cols-1 gap-5 p-[2px] md:grid-cols-2 xl:grid-cols-3">
                   {items.map((s) => (
-                    <ClassCard key={s.id} s={s} status={isToday ? todayStatus.get(s.id) : undefined} />
+                    <ClassCard key={s.id} s={s} status={isToday ? todayStatus.get(s.id) : undefined} taught={taughtBy(schedule, s)} />
                   ))}
                 </div>
               </section>
