@@ -94,10 +94,10 @@ export default function DashboardOverviewPage() {
 
   const nim = me.data?.nim ?? profile.data?.nim ?? "-";
   const studentName = profile.data?.nama || `Mahasiswa (${nim})`;
-  const prodi = profile.data?.program_studi || "Informatika";
-  const kampus = profile.data?.lokasi_cabang || "UBSI";
-  const semester = profile.data?.semester_aktif || "1";
-  const kelas = profile.data?.kelas || "-";
+  const prodi = profile.data?.program_studi || "Data belum tersedia";
+  const kampus = profile.data?.lokasi_cabang || "Data belum tersedia";
+  const semester = profile.data?.semester_aktif || "Data belum tersedia";
+  const kelas = profile.data?.kelas || "Data belum tersedia";
 
   const todayIndex = new Date().getDay();
   const today = DAY_NAMES[todayIndex];
@@ -106,8 +106,8 @@ export default function DashboardOverviewPage() {
     (s) => s.hari?.toLowerCase() === today.toLowerCase()
   );
 
-  const ipkValue = khs.data?.ipk ? khs.data.ipk.toFixed(2) : "0.00";
-  const totalSks = khs.data?.total_sks ?? 0;
+  const ipkValue = khs.data?.ipk != null ? khs.data.ipk.toFixed(2) : "Data belum tersedia";
+  const totalSks = khs.data?.total_sks != null ? String(khs.data.total_sks) : "Data belum tersedia";
 
   const tasksList = assignments.data?.tasks ?? [];
   const submissionsList = assignments.data?.submissions ?? [];

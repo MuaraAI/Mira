@@ -173,7 +173,7 @@ export default function KuisPage() {
           <button
             type="button"
             onClick={() => setFilter("all")}
-            className={`px-3.5 py-1.5 text-xs font-semibold rounded-pill transition-all ${
+            className={`min-h-[44px] px-3.5 py-2 text-xs font-semibold rounded-pill transition-all ${
               filter === "all"
                 ? "bg-[#0369A1] text-white shadow-sm"
                 : "text-secondary hover:text-foreground"
@@ -184,7 +184,7 @@ export default function KuisPage() {
           <button
             type="button"
             onClick={() => setFilter("active")}
-            className={`px-3.5 py-1.5 text-xs font-semibold rounded-pill transition-all ${
+            className={`min-h-[44px] px-3.5 py-2 text-xs font-semibold rounded-pill transition-all ${
               filter === "active"
                 ? "bg-[#0369A1] text-white shadow-sm"
                 : "text-secondary hover:text-foreground"
@@ -195,7 +195,7 @@ export default function KuisPage() {
           <button
             type="button"
             onClick={() => setFilter("completed")}
-            className={`px-3.5 py-1.5 text-xs font-semibold rounded-pill transition-all ${
+            className={`min-h-[44px] px-3.5 py-2 text-xs font-semibold rounded-pill transition-all ${
               filter === "completed"
                 ? "bg-[#0369A1] text-white shadow-sm"
                 : "text-secondary hover:text-foreground"
