@@ -210,7 +210,14 @@ API_DOCS_DATA: dict[str, Any] = {
                 "method": "GET",
                 "auth": "Session / API Key",
                 "params": {"token": "Token bahan ajar mata kuliah (diawali 'eyJ...')"},
-                "description": "Unduh berkas resmi paket arsip ZIP: Silabus, RPS, RTM, Slide, dan Modul Lab.",
+                "description": "Daftar berkas materi tatap muka dosen dan paket arsip ZIP: Silabus, RPS, RTM, Slide, dan Modul Lab.",
+            },
+            {
+                "path": "/v1/elearning/materials/download",
+                "method": "GET",
+                "auth": "Session / API Key",
+                "params": {"id": "ID token form download MyBest", "file": "Nama file materi", "file_url": "Direct storage URL (fallback)"},
+                "description": "Unduh berkas materi modul atau slide tatap muka dosen dari MyBest secara aman (anti-SSRF).",
             },
             {
                 "path": "/v1/elearning/quiz",
