@@ -173,6 +173,19 @@ def _sync_set_active(nim: str, channel_id: int, active: bool) -> bool:
         conn.close()
 
 
+def _sync_update_categories(nim: str, channel_id: int, categories: list[str]) -> bool:
+    conn = _connect()
+    try:
+        cursor = conn.execute(
+            "UPDATE webhook_channels SET categories = ? WHERE nim = ? AND id = ?",
+            (json.dumps(categories), nim, channel_id),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()
+
+
 def _sync_list_active_by_category(category: str) -> list[dict[str, Any]]:
     conn = _connect()
     try:
@@ -218,6 +231,10 @@ async def delete_channel(nim: str, channel_id: int) -> bool:
 
 async def set_channel_active(nim: str, channel_id: int, active: bool) -> bool:
     return await run_in_threadpool(_sync_set_active, nim, channel_id, active)
+
+
+async def update_channel_categories(nim: str, channel_id: int, categories: list[str]) -> bool:
+    return await run_in_threadpool(_sync_update_categories, nim, channel_id, categories)
 
 
 async def list_active_by_category(category: str) -> list[dict[str, Any]]:
