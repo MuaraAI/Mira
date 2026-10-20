@@ -10,6 +10,9 @@ ALLOWED_CATEGORIES = (
     "quiz-tugas",
     "tugas-baru",
     "pengumuman-siakad",
+    "absen-kuliah",
+    "nilai-keluar",
+    "jadwal-ujian",
 )
 
 

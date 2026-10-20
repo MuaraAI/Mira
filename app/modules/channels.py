@@ -183,11 +183,29 @@ async def trigger_reminder(request: Request, body: ReminderRequest):
             "description": "Halo! Besok ada jadwal perkuliahan aktif. Siapkan perlengkapan, modul materi, dan hadir tepat waktu di ruang kelas.",
             "link": "https://ubsi-api.muaraai.com/dashboard/jadwal",
         }
-    elif category == "quiz-tugas":
+    elif category in ("quiz-tugas", "tugas-baru"):
         payload = {
             "title": "Pengingat Tugas & Kuis - MyBest Elearning",
             "description": "Periksa pertemuan aktif di portal MyBest. Pastikan tugas mingguan dan kuis telah disubmit sebelum tenggat waktu.",
-            "link": "https://elearning.bsi.ac.id",
+            "link": "https://ubsi-api.muaraai.com/dashboard/tugas",
+        }
+    elif category == "absen-kuliah":
+        payload = {
+            "title": "Sesi Presensi Perkuliahan Dibuka - MyBest",
+            "description": "Sesi absensi perkuliahan telah dibuka. Silakan lakukan presensi kehadiran sekarang di portal MyBest.",
+            "link": "https://ubsi-api.muaraai.com/dashboard/presensi",
+        }
+    elif category == "nilai-keluar":
+        payload = {
+            "title": "Pemberitahuan Nilai & KHS Semester - SIAKAD",
+            "description": "Pembaruan nilai mata kuliah dan Kartu Hasil Studi (KHS) telah dipublikasikan di SIAKAD UBSI.",
+            "link": "https://ubsi-api.muaraai.com/dashboard/nilai",
+        }
+    elif category == "jadwal-ujian":
+        payload = {
+            "title": "Pengingat Jadwal & Ruang Ujian - SIAKAD",
+            "description": "Informasi jadwal ruang ujian semester (UTS / UAS) telah dirilis. Periksa jadwal dan persiapan ujian Anda.",
+            "link": "https://ubsi-api.muaraai.com/dashboard/ujian",
         }
     else:
         payload = {

@@ -268,6 +268,57 @@ async def _produce_user_category(category: str) -> int:
                         "description": f"Tersedia {task_count} tugas dan {len(quiz_items)} kuis di MyBest. Periksa dashboard sebelum tenggat.",
                         "link": "https://ubsi-api.muaraai.com/dashboard/tugas",
                     }
+            elif category == "absen-kuliah":
+                from app.modules.elearning import parse_courses, inspect_session_status, pooled_elearning_client
+                raw_courses = await pooled_elearning_client.fetch_page("/sch", nim, elearning_password)
+                courses = parse_courses(raw_courses)
+                for course in courses:
+                    t_absen = course.get("token_absen")
+                    if not t_absen:
+                        continue
+                    html_absen = await pooled_elearning_client.fetch_page(f"/absen-mhs/{t_absen}", nim, elearning_password)
+                    status_info = inspect_session_status(html_absen)
+                    if status_info.get("can_submit"):
+                        payload = {
+                            "category": category,
+                            "title": f"Presensi Dibuka: {course.get('nama', 'Kuliah')}",
+                            "description": f"Sesi absensi pertemuan {status_info.get('pertemuan', '-')} mata kuliah {course.get('nama')} telah dibuka di MyBest. Segera lakukan presensi kehadiran.",
+                            "link": "https://ubsi-api.muaraai.com/dashboard/presensi",
+                        }
+                        break
+            elif category == "nilai-keluar":
+                from app.modules.studentv2 import parse_grades
+                raw_grades = await studentv2_client.fetch_page("/mahasiswa/nilai-murni", nim, student_password)
+                grades = parse_grades(raw_grades)
+                graded = [g for g in grades if g.get("grade")]
+                if graded:
+                    target = graded[0]
+                    payload = {
+                        "category": category,
+                        "title": f"Nilai Dirilis: {target['nama']}",
+                        "description": f"Nilai akhir mata kuliah {target['nama']} ({target['kode']}) telah dirilis di SIAKAD: Grade {target['grade']} (Total: {target.get('total')}).",
+                        "link": "https://ubsi-api.muaraai.com/dashboard/nilai",
+                    }
+            elif category == "jadwal-ujian":
+                from app.modules.studentv2 import parse_uts, parse_uas
+                raw_uts = await studentv2_client.fetch_page("/mahasiswa/uts", nim, student_password)
+                raw_uas = await studentv2_client.fetch_page("/mahasiswa/uas", nim, student_password)
+                uts = parse_uts(raw_uts)
+                uas = parse_uas(raw_uas)
+                if uts.get("jadwal_online_url") or uts.get("soal_offline_url"):
+                    payload = {
+                        "category": category,
+                        "title": "Jadwal & Ruang UTS Telah Diumumkan",
+                        "description": "Informasi jadwal ruang ujian tengah semester (UTS) telah dirilis di SIAKAD. Periksa jadwal dan persiapan ujian Anda.",
+                        "link": "https://ubsi-api.muaraai.com/dashboard/ujian",
+                    }
+                elif uas.get("jadwal_online_url") or uas.get("soal_offline_url"):
+                    payload = {
+                        "category": category,
+                        "title": "Jadwal & Ruang UAS Telah Diumumkan",
+                        "description": "Informasi jadwal ruang ujian akhir semester (UAS) telah dirilis di SIAKAD. Periksa jadwal dan persiapan ujian Anda.",
+                        "link": "https://ubsi-api.muaraai.com/dashboard/ujian",
+                    }
             if not payload:
                 continue
             from zoneinfo import ZoneInfo
@@ -288,7 +339,15 @@ async def _produce_user_category(category: str) -> int:
 async def poll_user_notifications() -> int:
     """Produce account-scoped notifications from existing authenticated data sources."""
     total = 0
-    for category in ("matkul-besok", "quiz-tugas", "tugas-baru", "pengumuman-siakad"):
+    for category in (
+        "matkul-besok",
+        "quiz-tugas",
+        "tugas-baru",
+        "pengumuman-siakad",
+        "absen-kuliah",
+        "nilai-keluar",
+        "jadwal-ujian",
+    ):
         total += await _produce_user_category(category)
     return total
 

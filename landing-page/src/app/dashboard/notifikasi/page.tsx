@@ -13,6 +13,9 @@ import {
   BookOpen,
   CalendarCheck,
   GraduationCap,
+  Clock,
+  Award,
+  FileText,
 } from "lucide-react";
 import { apiFetch, ApiError, useApi, clearApiCache } from "@/lib/api";
 import {
@@ -69,6 +72,24 @@ const AVAILABLE_CATEGORIES = [
     desc: "Pemberitahuan akademik resmi dari sistem studentv2 kampus.",
     icon: GraduationCap,
   },
+  {
+    id: "absen-kuliah",
+    label: "Presensi Kuliah Terbuka",
+    desc: "Pemberitahuan saat sesi absensi pertemuan dibuka di MyBest.",
+    icon: Clock,
+  },
+  {
+    id: "nilai-keluar",
+    label: "Rilis Nilai & KHS",
+    desc: "Notifikasi otomatis saat nilai akhir atau KHS semester dipublikasikan.",
+    icon: Award,
+  },
+  {
+    id: "jadwal-ujian",
+    label: "Jadwal & Ruang Ujian",
+    desc: "Pengingat jadwal, ruang, dan unduhan soal ruang UTS / UAS.",
+    icon: FileText,
+  },
 ] as const;
 
 const TYPE_CONFIG = {
@@ -112,7 +133,16 @@ export default function NotifikasiPage() {
   const [triggerStatus, setTriggerStatus] = useState<string | null>(null);
   const [triggering, setTriggering] = useState<string | null>(null);
 
-  async function handleSimulate(cat: "matkul-besok" | "quiz-tugas") {
+  async function handleSimulate(
+    cat:
+      | "matkul-besok"
+      | "quiz-tugas"
+      | "tugas-baru"
+      | "pengumuman-siakad"
+      | "absen-kuliah"
+      | "nilai-keluar"
+      | "jadwal-ujian"
+  ) {
     setTriggering(cat);
     setTriggerStatus(null);
     try {
@@ -401,7 +431,34 @@ export default function NotifikasiPage() {
                 className={`${ghostButtonClass} text-xs py-1.5 px-3`}
               >
                 <BookOpen className="h-3.5 w-3.5 text-[#0369A1]" />
-                {triggering === "quiz-tugas" ? "Mengirim..." : "Tes Notif Tugas & Kuis"}
+                {triggering === "quiz-tugas" ? "Mengirim..." : "Tes Tugas & Kuis"}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSimulate("absen-kuliah")}
+                disabled={Boolean(triggering)}
+                className={`${ghostButtonClass} text-xs py-1.5 px-3`}
+              >
+                <Clock className="h-3.5 w-3.5 text-[#0369A1]" />
+                {triggering === "absen-kuliah" ? "Mengirim..." : "Tes Presensi"}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSimulate("nilai-keluar")}
+                disabled={Boolean(triggering)}
+                className={`${ghostButtonClass} text-xs py-1.5 px-3`}
+              >
+                <Award className="h-3.5 w-3.5 text-[#0369A1]" />
+                {triggering === "nilai-keluar" ? "Mengirim..." : "Tes Nilai"}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSimulate("jadwal-ujian")}
+                disabled={Boolean(triggering)}
+                className={`${ghostButtonClass} text-xs py-1.5 px-3`}
+              >
+                <FileText className="h-3.5 w-3.5 text-[#0369A1]" />
+                {triggering === "jadwal-ujian" ? "Mengirim..." : "Tes Ujian"}
               </button>
             </div>
           </div>
