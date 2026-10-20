@@ -61,7 +61,7 @@ async def test_poll_news_webhook_dispatches_new_articles(monkeypatch):
     
     mock_redis = AsyncMock()
     mock_redis.exists.return_value = 1  # Already seeded
-    mock_redis.sismember.side_effect = lambda key, val: val == "102"
+    mock_redis.sadd.side_effect = lambda key, val: 0 if val == "102" else 1
     
     with patch("app.cache.cache.get_client", return_value=mock_redis), \
          patch("app.modules.news.news_client.fetch_posts", return_value=mock_posts), \
@@ -82,6 +82,7 @@ async def test_dispatch_discord_webhook():
         "id": "1",
         "title": "Judul Discord",
         "link": "https://news.bsi.ac.id/test",
+        "description": "Isi pengingat yang harus tampil",
         "excerpt": "Cuplikan singkat",
         "author": "Penulis",
         "featured_image": "https://news.bsi.ac.id/img.jpg"

@@ -138,6 +138,7 @@ async def test_channel(channel_id: int, request: Request):
             ok = await dispatch_webhook_notification(
                 {"title": "Tes Channel Muara AI", "description": "Channel notifikasi aktif.", "link": "https://ubsi-api.muaraai.com"},
                 config["url"],
+                event="channel.test",
             )
     except Exception:
         ok = False
@@ -209,7 +210,7 @@ async def trigger_reminder(request: Request, body: ReminderRequest):
             elif ch["type"] == "telegram":
                 ok = await dispatch_telegram_message(payload, cfg["bot_token"], cfg["chat_id"])
             else:
-                ok = await dispatch_webhook_notification(payload, cfg["url"])
+                ok = await dispatch_webhook_notification(payload, cfg["url"], event=f"reminder.{category}")
             return {"channel_id": ch["id"], "type": ch["type"], "success": ok}
         except Exception:
             return {"channel_id": ch["id"], "type": ch["type"], "success": False}

@@ -79,7 +79,7 @@ const TYPE_CONFIG = {
   },
   telegram: {
     label: "Telegram Bot",
-    hint: "Buat bot via @BotFather untuk token, dan kirim /start ke @userinfobot untuk Chat ID Anda.",
+    hint: "Buat bot via @BotFather, buka bot Anda lalu klik START, lalu ambil Chat ID via @userinfobot.",
   },
   custom: {
     label: "Custom HTTP Endpoint",
@@ -168,8 +168,11 @@ export default function NotifikasiPage() {
 
     setSaving(true);
     try {
-      await apiFetch("/v1/channels", { json: { type, categories, config } });
+      const created = await apiFetch<{ id: number }>("/v1/channels", { json: { type, categories, config } });
       clearApiCache("/v1/channels");
+      if (created?.id) {
+        await handleTest(created.id);
+      }
       setUrl("");
       setBotToken("");
       setChatId("");
@@ -205,7 +208,7 @@ export default function NotifikasiPage() {
     }
   }
 
-  async function handleTest(id: number) {
+  async function handleTest(id: number): Promise<boolean> {
     setBusyId(id);
     setActionStatus((s) => ({ ...s, [id]: { ok: true, message: "Mengirim sinyal tes..." } }));
     try {
@@ -215,6 +218,7 @@ export default function NotifikasiPage() {
       setActionStatus((s) => ({ ...s, [id]: { ok: true, message: res.message } }));
       clearApiCache("/v1/channels");
       reload();
+      return true;
     } catch (err) {
       setActionStatus((s) => ({
         ...s,
@@ -223,6 +227,7 @@ export default function NotifikasiPage() {
           message: err instanceof ApiError ? err.message : "Pengiriman pesan tes gagal.",
         },
       }));
+      return false;
     } finally {
       setBusyId(null);
     }

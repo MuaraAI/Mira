@@ -293,10 +293,12 @@ async def poll_user_notifications() -> int:
     return total
 
 
-async def dispatch_webhook_notification(post: dict[str, Any], webhook_url: str) -> bool:
+async def dispatch_webhook_notification(
+    post: dict[str, Any], webhook_url: str, event: str = "news.published"
+) -> bool:
     """Kirim generic JSON payload ke custom webhook URL."""
     payload = {
-        "event": "news.published",
+        "event": event,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "data": post,
     }
@@ -310,7 +312,7 @@ async def dispatch_webhook_notification(post: dict[str, Any], webhook_url: str) 
 async def dispatch_discord_webhook(post: dict[str, Any], webhook_url: str) -> bool:
     """Kirim rich embed ke Discord Webhook."""
     title = (post.get("title") or "Berita Baru UBSI")[:256]
-    description = (post.get("excerpt") or "")[:4000]
+    description = (post.get("description") or post.get("excerpt") or "")[:4000]
     author_name = (post.get("author") or "Redaksi")[:256]
 
     embed: dict[str, Any] = {
@@ -339,22 +341,23 @@ async def dispatch_discord_webhook(post: dict[str, Any], webhook_url: str) -> bo
 async def dispatch_telegram_message(post: dict[str, Any], bot_token: str, chat_id: str) -> bool:
     """Kirim pesan HTML dengan foto (jika ada) ke Telegram via Bot API."""
     raw_title = post.get("title", "Berita Kampus UBSI")
-    raw_excerpt = post.get("excerpt", "")
+    raw_excerpt = post.get("description") or post.get("excerpt", "")
     raw_author = post.get("author", "Redaksi")
     date = post.get("date", "")
     link = post.get("link", "https://news.bsi.ac.id")
     image_url = post.get("featured_image")
 
     # Escape karakter khusus HTML agar Telegram Bot API tidak melempar 400 Bad Request
-    title = html.escape(raw_title, quote=False)
-    excerpt = html.escape(raw_excerpt, quote=False)
-    author = html.escape(raw_author, quote=False)
+    safe_link = html.escape(str(link), quote=True)
+    title = html.escape(raw_title, quote=True)
+    excerpt = html.escape(raw_excerpt, quote=True)
+    author = html.escape(raw_author, quote=True)
 
     caption = (
-        f"📰 <b><a href=\"{link}\">{title}</a></b>\n\n"
+        f"📰 <b><a href=\"{safe_link}\">{title}</a></b>\n\n"
         f"{excerpt}\n\n"
         f"✍️ <i>{author}</i> • 📅 {date}\n"
-        f"🔗 <a href=\"{link}\">Baca Selengkapnya di Portal Berita</a>"
+        f"🔗 <a href=\"{safe_link}\">Baca Selengkapnya di Portal Berita</a>"
     )
 
     base_url = f"https://api.telegram.org/bot{bot_token}"
@@ -470,12 +473,13 @@ async def poll_news_webhook() -> int:
         p_id = p.get("id")
         if not p_id:
             continue
-        is_member = await redis.sismember(key_seen, p_id)
-        if not is_member:
+        claimed = await redis.sadd(key_seen, p_id)
+        if claimed:
             results = await broadcast_news_article(p)
             if any(results.values()):
-                await redis.sadd(key_seen, p_id)
                 dispatched_count += 1
+            else:
+                await redis.srem(key_seen, p_id)
 
     return dispatched_count
 

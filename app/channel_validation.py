@@ -1,6 +1,6 @@
 import re
 
-DISCORD_WEBHOOK_RE = re.compile(r"^https://discord\.com/api/webhooks/\d{5,}/[\w-]{30,}$")
+DISCORD_WEBHOOK_RE = re.compile(r"^https://(?:[a-z0-9-]+\.)?discord(?:app)?\.com/api/webhooks/\d{5,}/[\w-]{30,}$")
 TELEGRAM_BOT_TOKEN_RE = re.compile(r"^\d{5,}:[A-Za-z0-9_-]{30,}$")
 _CUSTOM_URL_RE = re.compile(r"^https://[^\s]+$")
 
