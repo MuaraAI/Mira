@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { Analytics } from "@vercel/analytics/react";
+import { PwaInstallPrompt } from "@/components/PwaInstallPrompt";
 import "./globals.css";
 
 const spaceGrotesk = localFont({
@@ -76,6 +77,18 @@ const jetbrainsMono = localFont({
 
 
 export const metadata: Metadata = {
+  manifest: "/manifest.webmanifest",
+  themeColor: "#F7FAFC",
+  appleWebApp: {
+    capable: true,
+    title: "UBSI API",
+    statusBarStyle: "default",
+  },
+  formatDetection: { telephone: false },
+  icons: {
+    icon: "/icon.png",
+    apple: "/pwa/icon-192.png",
+  },
   title: "UBSI API: Unofficial REST API Aggregator 6 Layanan Kampus UBSI | Muara AI",
   description:
     "Agregator REST API modern untuk layanan Universitas Bina Sarana Informatika (SIAKAD, Elearning MyBest, E-Journal, E-Library, Repository, Berita). Caching Redis sub-250ms, open-source & developer-first.",
@@ -164,6 +177,7 @@ export default function RootLayout({
           Langsung ke konten utama
         </a>
         {children}
+        <PwaInstallPrompt />
         <Analytics />
       </body>
     </html>

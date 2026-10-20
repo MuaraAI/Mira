@@ -100,7 +100,7 @@ export default function DashboardLayout({
         {/* Content View */}
         <main
           id="main-content"
-          className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 lg:pb-8"
+          className="dashboard-main flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 lg:pb-8"
         >
           {checking ? (
             <LoadingState label="Memeriksa sesi mahasiswa" />
