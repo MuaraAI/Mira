@@ -146,6 +146,10 @@ async def api_key_auth_middleware(request: Request, call_next):
         candidate_api_key = bearer_token
     elif api_key.startswith("muara_ubsi_"):
         candidate_api_key = api_key
+    elif request.url.path.endswith("/download"):
+        q_key = request.query_params.get("api_key") or ""
+        if q_key.startswith("muara_ubsi_"):
+            candidate_api_key = q_key
 
     if candidate_api_key:
         from app.api_keys_db import resolve_api_key
@@ -179,13 +183,32 @@ async def api_key_auth_middleware(request: Request, call_next):
     # Ambient cookie auth is ONLY accepted from the official dashboard frontend
     # (prevents raw browser address bar navigation from accessing API without explicit key/token)
     origin = request.headers.get("origin") or ""
+    referer = request.headers.get("referer") or ""
+    referer_origin = ""
+    if referer:
+        try:
+            import urllib.parse
+            parsed_ref = urllib.parse.urlparse(referer)
+            if parsed_ref.scheme and parsed_ref.netloc:
+                referer_origin = f"{parsed_ref.scheme}://{parsed_ref.netloc}"
+        except Exception:
+            pass
+
+    allowed_set = {o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip() and o.strip() != "*"}
+    allowed_set.add("https://ubsi-api.muaraai.com")
+    allowed_set.add("http://localhost:3000")
     is_dashboard_request = (
         request.headers.get("x-requested-with") == "dashboard"
-        or (origin and origin in settings.ALLOWED_ORIGINS)
+        or (origin and (origin in allowed_set or "*" in settings.ALLOWED_ORIGINS))
+        or (referer_origin and (referer_origin in allowed_set or "*" in settings.ALLOWED_ORIGINS))
     )
     effective_cookie_token = cookie_token if is_dashboard_request else ""
 
     session_token = bearer_token or effective_cookie_token
+    if not session_token and request.url.path.endswith("/download"):
+        q_token = request.query_params.get("session_token") or request.query_params.get("token") or ""
+        if q_token and not q_token.startswith("eyJ"):
+            session_token = q_token
     if session_token:
         from app.session_store import session_store
 
