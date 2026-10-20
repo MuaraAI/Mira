@@ -5,7 +5,7 @@ Operasi sinkron dijalankan lewat run_in_threadpool agar tidak memblokir
 event loop FastAPI.
 """
 import sqlite3
-from typing import Any, Optional
+from typing import Any
 
 from starlette.concurrency import run_in_threadpool
 
@@ -76,9 +76,14 @@ def _sync_add(nim: str, endpoint: str, p256dh: str, auth: str, device_name: str)
             (endpoint,),
         ).fetchone()
         if existing:
+            # Upsert: endpoint ikut pindah ke NIM terbaru (browser ganti akun dashboard)
             conn.execute(
-                "UPDATE pwa_push_subscriptions SET p256dh = ?, auth = ?, device_name = ?, is_active = 1, last_used_at = datetime('now') WHERE id = ?",
-                (p256dh, auth, device_name, existing["id"]),
+                "UPDATE pwa_push_subscriptions SET nim = ?, p256dh = ?, auth = ?, device_name = ?, is_active = 1, last_used_at = datetime('now') WHERE id = ?",
+                (nim, p256dh, auth, device_name, existing["id"]),
+            )
+            conn.executemany(
+                "INSERT OR IGNORE INTO pwa_push_categories (nim, category) VALUES (?, ?)",
+                [(nim, cat) for cat in DEFAULT_CATEGORIES],
             )
             conn.commit()
             return existing["id"]

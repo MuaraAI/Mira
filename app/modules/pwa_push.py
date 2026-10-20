@@ -3,8 +3,6 @@
 Auth: session mahasiswa saja (sama seperti channels). Master Key / API key
 tidak boleh mendaftar device pribadi orang lain.
 """
-from typing import Optional
-
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, Field, field_validator
 

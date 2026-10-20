@@ -52,6 +52,21 @@ async def test_duplicate_endpoint_upserts_instead_of_duplicate():
 
 
 @pytest.mark.asyncio
+async def test_endpoint_switches_owner_on_new_subscribe():
+    """Browser yang sama login akun lain: device pindah NIM, bukan silent stale."""
+    ep = "https://fcm.googleapis.com/fcm/send/switch"
+    await add_subscription("15260767", ep, "k1", "a1", "HP")
+    await add_subscription("15260673", ep, "k2", "a2", "HP")
+
+    # Owner lama kehilangan device, owner baru dapat
+    assert await list_subscriptions("15260767") == []
+    assert len(await list_subscriptions("15260673")) == 1
+    # Push hanya ke owner baru
+    assert await get_active_subscriptions_for_nim("15260767") == []
+    assert len(await get_active_subscriptions_for_nim("15260673")) == 1
+
+
+@pytest.mark.asyncio
 async def test_prune_and_deactivate():
     ep = "https://fcm.googleapis.com/fcm/send/gone"
     await add_subscription("15260767", ep, "k", "a", "Old Phone")
