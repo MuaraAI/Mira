@@ -205,11 +205,11 @@ async def test_download_endpoint_accepts_dashboard_referer_and_query_token(fake_
             assert res_ref.status_code == 200
             assert res_ref.headers.get("access-control-expose-headers") == "Content-Disposition"
 
-            # 2. Query parameter token is accepted on /download path
+            # 2. Query parameter session token is rejected to prevent URL credential leakage
             res_query = await ac.get(
                 f"/v1/elearning/assignments/download?file_url=https://elearning.bsi.ac.id/storage/soal/t1.pdf&token={token}"
             )
-            assert res_query.status_code == 200
+            assert res_query.status_code == 401
 
 
 
