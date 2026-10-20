@@ -255,7 +255,7 @@ async def ubsi_get_courses(session_token: Optional[str] = None, api_key: Optiona
 
 @server.tool(
     name="ubsi_get_assignments",
-    description="Ambil daftar tugas aktif (judul, tenggat, instruksi deskripsi, link soal) dan riwayat nilai submission (komentar dosen dan nilai angka).",
+    description="Ambil daftar tugas aktif dan riwayat nilai submission. Parameter 'token' (opsional) adalah token_assignment (diawali 'eyJ...') dari ubsi_get_courses.",
 )
 async def ubsi_get_assignments(
     token: Optional[str] = None, session_token: Optional[str] = None, api_key: Optional[str] = None
@@ -267,7 +267,7 @@ async def ubsi_get_assignments(
 
 @server.tool(
     name="ubsi_upload_assignment",
-    description="Upload berkas submission tugas mahasiswa (file_base64 + filename) ke portal MyBest LMS.",
+    description="Upload berkas submission tugas mahasiswa (file_base64 + filename) ke portal MyBest LMS. 'token_tugas' diawali 'eyJ...'.",
 )
 async def ubsi_upload_assignment(
     token_tugas: str,
@@ -289,7 +289,7 @@ async def ubsi_upload_assignment(
 
 @server.tool(
     name="ubsi_submit_assignment",
-    description="Kirim atau kumpulkan tugas kuliah MyBest dengan memasukkan URL link tugas (misal Google Drive, GitHub repository, atau link dokumen tugas).",
+    description="Kirim link tugas mahasiswa (Google Drive/GitHub) ke MyBest LMS. 'token_send' diawali 'eyJ...' (dari task.token_send atau /assignment/send/...).",
 )
 async def ubsi_submit_assignment(
     token_send: str,
@@ -320,7 +320,7 @@ async def ubsi_get_course_grades(
 
 @server.tool(
     name="ubsi_get_discussions",
-    description="Ambil daftar topik forum diskusi perkuliahan MyBest per mata kuliah (judul, deskripsi tugas, dosen pengampu, tanggal, dan jumlah balasan).",
+    description="Ambil daftar topik forum diskusi perkuliahan MyBest per mata kuliah. Parameter 'token' adalah token_diskusi (diawali 'eyJ...') dari ubsi_get_courses.",
 )
 async def ubsi_get_discussions(
     token: str,
@@ -333,7 +333,7 @@ async def ubsi_get_discussions(
 
 @server.tool(
     name="ubsi_get_discussion_comments",
-    description="Ambil seluruh tanggapan dan thread komentar mahasiswa serta dosen pada suatu topik forum diskusi MyBest.",
+    description="Ambil thread komentar dan tanggapan pada topik forum diskusi MyBest. Parameter 'token' adalah token_komentar (diawali 'eyJ...') dari thread diskusi.",
 )
 async def ubsi_get_discussion_comments(
     token: str,
@@ -346,7 +346,7 @@ async def ubsi_get_discussion_comments(
 
 @server.tool(
     name="ubsi_submit_discussion_comment",
-    description="Kirimkan komentar atau jawaban mahasiswa pada thread forum diskusi MyBest LMS.",
+    description="Kirimkan komentar atau jawaban mahasiswa pada thread forum diskusi MyBest LMS. 'token_komentar' diawali 'eyJ...'.",
 )
 async def ubsi_submit_discussion_comment(
     token_komentar: str,
