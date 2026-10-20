@@ -17,6 +17,7 @@ import {
   HelpCircle,
 } from "lucide-react";
 import { useApi } from "@/lib/api";
+import { findSubmission } from "@/lib/assignments";
 import {
   EmptyState,
   ErrorState,
@@ -69,7 +70,7 @@ interface AssignmentTask {
 
 interface AssignmentsData {
   tasks?: AssignmentTask[];
-  submissions?: { id?: string; judul?: string }[];
+  submissions?: { id?: string; judul: string; kode?: string; mata_kuliah?: string }[];
 }
 
 interface PresenceData {
@@ -120,10 +121,7 @@ export default function DashboardOverviewPage() {
 
   const tasksList = assignments.data?.tasks ?? [];
   const submissionsList = assignments.data?.submissions ?? [];
-  const submittedTitles = new Set(submissionsList.map((s) => s.judul?.toLowerCase().trim()));
-  const pendingTasks = tasksList.filter(
-    (t) => !submittedTitles.has(t.judul?.toLowerCase().trim())
-  );
+  const pendingTasks = tasksList.filter((t) => !findSubmission(t, submissionsList));
 
   // Sorting closest deadline
   const nextTask = pendingTasks.length > 0 ? pendingTasks[0] : null;

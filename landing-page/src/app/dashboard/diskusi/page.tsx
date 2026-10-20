@@ -3,7 +3,6 @@
 import { useState } from "react";
 import {
   MessageSquare,
-  BookOpen,
   Clock,
   User,
   Send,
@@ -11,10 +10,8 @@ import {
   X,
   MessageCircle,
   CheckCircle2,
-  AlertCircle,
   ChevronDown,
   ChevronUp,
-  Sparkles,
 } from "lucide-react";
 import { apiFetch, useApi } from "@/lib/api";
 import {
@@ -26,6 +23,7 @@ import {
   primaryButtonClass,
   ghostButtonClass,
 } from "@/components/dashboard-ui";
+import { CourseSelect } from "@/components/CourseSelect";
 
 interface CourseItem {
   id: string;
@@ -213,28 +211,16 @@ export default function DiskusiPage() {
         )}
       </div>
 
-      {/* Course Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-        {courses.map((course, idx) => (
-          <button
-            key={course.id || course.kode || idx}
-            type="button"
-            onClick={() => {
-              setSelectedCourseIdx(idx);
-              setExpandedThreadId(null);
-              setActiveTokenKomentar(null);
-            }}
-            className={`px-4 py-2 text-xs font-semibold rounded-pill transition-all shrink-0 border flex items-center gap-2 ${
-              selectedCourseIdx === idx
-                ? "bg-[#0369A1] text-white border-[#075985] shadow-sm"
-                : "bg-white/70 text-secondary border-stroke hover:bg-[#F0F7FB] hover:text-foreground"
-            }`}
-          >
-            <BookOpen className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>{course.nama}</span>
-          </button>
-        ))}
-      </div>
+      {/* Course Selector */}
+      <CourseSelect
+        options={courses.map((course, idx) => ({ key: String(idx), label: course.nama }))}
+        value={String(selectedCourseIdx)}
+        onChange={(key) => {
+          setSelectedCourseIdx(Number(key));
+          setExpandedThreadId(null);
+          setActiveTokenKomentar(null);
+        }}
+      />
 
       {/* Main Content Area */}
       {!tokenDiskusi ? (
