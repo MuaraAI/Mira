@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { DataCurrent } from "./DataCurrent";
-
-const API_DOCS_URL = "https://api.muaraai.com/v1/ubsi-api/v1/docs";
+import { API_DOCS_URL } from "@/lib/public-links";
 
 export function Hero() {
   return (

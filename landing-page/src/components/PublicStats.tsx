@@ -41,7 +41,7 @@ export function PublicStats() {
             <p className="font-semibold text-[#9F1239]">Statistik belum dapat dimuat.</p>
             <p className="mt-1 text-sm text-secondary">Data akademik tetap aman. Coba lagi atau lanjut ke dokumentasi API.</p>
           </div>
-          <button type="button" onClick={reload} className="min-h-10 rounded-lg border border-[#BE123C] px-4 py-2 text-sm font-semibold text-[#9F123C] hover:bg-white">Coba lagi</button>
+          <button type="button" onClick={reload} className="min-h-11 rounded-lg border border-[#BE123C] px-4 py-2 text-sm font-semibold text-[#9F123C] hover:bg-white">Coba lagi</button>
         </div>
       )}
 

@@ -1,9 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Github, Mail, MessageCircle, Instagram, Twitter } from "lucide-react";
+import { API_DOCS_URL, GITHUB_URL, MCP_URL } from "@/lib/public-links";
 
-const API_DOCS_URL = "https://api.muaraai.com/v1/ubsi-api/v1/docs";
-const MCP_URL = "https://api.muaraai.com/v1/ubsi-api/mcp";
 
 export function Footer() {
   return (
@@ -28,7 +27,7 @@ export function Footer() {
             <li><Link href="/login" className="text-secondary hover:text-foreground">Dashboard mahasiswa</Link></li>
             <li><a href={API_DOCS_URL} target="_blank" rel="noopener noreferrer" className="text-secondary hover:text-foreground">API Docs</a></li>
             <li><a href={MCP_URL} target="_blank" rel="noopener noreferrer" className="text-secondary hover:text-foreground">MCP Server</a></li>
-            <li><a href="https://github.com/MuaraAI/UBSI-API" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-secondary hover:text-foreground"><Github className="h-3.5 w-3.5" aria-hidden="true" /> GitHub</a></li>
+            <li><a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-secondary hover:text-foreground"><Github className="h-3.5 w-3.5" aria-hidden="true" /> GitHub</a></li>
           </ul>
         </nav>
 

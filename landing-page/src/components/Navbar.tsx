@@ -3,9 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Monogram } from "./Monogram";
+import { API_DOCS_URL, GITHUB_URL, MCP_URL } from "@/lib/public-links";
 
-const API_DOCS_URL = "https://api.muaraai.com/v1/ubsi-api/v1/docs";
-const MCP_URL = "https://api.muaraai.com/v1/ubsi-api/mcp";
 
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -31,7 +30,7 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 w-full px-4 py-3 sm:px-6">
       <div className={`mx-auto flex h-14 max-w-6xl items-center justify-between rounded-xl border border-stroke bg-white/95 px-4 shadow-sm backdrop-blur-sm transition-shadow sm:px-5 ${scrolled ? "shadow-[0_10px_26px_-18px_rgba(7,32,51,0.5)]" : ""}`}>
-        <Link href="/" className="group flex items-center gap-3 focus-visible:outline-none">
+        <Link href="/" className="group flex items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0369A1] focus-visible:ring-offset-2">
           <Monogram className="h-7 w-7 transition-transform group-hover:scale-105" />
           <span className="flex flex-col">
             <span className="font-display text-base font-bold tracking-tight text-foreground">UBSI API</span>
@@ -48,10 +47,10 @@ export function Navbar() {
 
         <div className="flex items-center gap-2">
           <a
-            href="https://github.com/MuaraAI/UBSI-API"
+            href={GITHUB_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden min-h-10 items-center gap-2 rounded-lg border border-stroke bg-white px-3 text-xs font-mono text-foreground transition-colors hover:border-[#0369A1] hover:text-[#075985] sm:inline-flex"
+            className="hidden min-h-11 items-center gap-2 rounded-lg border border-stroke bg-white px-3 text-xs font-mono text-foreground transition-colors hover:border-[#0369A1] hover:text-[#075985] sm:inline-flex"
             aria-label="Buka repository UBSI API di GitHub"
           >
             <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
@@ -59,7 +58,7 @@ export function Navbar() {
             </svg>
             GitHub
           </a>
-          <Link href="/login" className="hidden min-h-10 items-center justify-center rounded-lg bg-[#0369A1] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#075985] sm:inline-flex">
+          <Link href="/login" className="hidden min-h-11 items-center justify-center rounded-lg bg-[#0369A1] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#075985] sm:inline-flex">
             Masuk
           </Link>
           <button
@@ -68,7 +67,7 @@ export function Navbar() {
             aria-expanded={mobileMenuOpen}
             aria-controls="mobile-menu"
             aria-label={mobileMenuOpen ? "Tutup menu navigasi" : "Buka menu navigasi"}
-            className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-stroke bg-white text-foreground transition-colors hover:text-[#0369A1] md:hidden"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-stroke bg-white text-foreground transition-colors hover:text-[#0369A1] md:hidden"
           >
             <span aria-hidden="true" className="text-xl leading-none">{mobileMenuOpen ? "×" : "≡"}</span>
           </button>
@@ -83,6 +82,7 @@ export function Navbar() {
             <a href="#mcp" onClick={closeMobileMenu} className="rounded-lg px-3 py-3 hover:bg-[#F0F7FB] hover:text-foreground">MCP</a>
             <a href={API_DOCS_URL} target="_blank" rel="noopener noreferrer" onClick={closeMobileMenu} className="rounded-lg px-3 py-3 hover:bg-[#F0F7FB] hover:text-foreground">Dokumentasi publik</a>
             <a href={MCP_URL} target="_blank" rel="noopener noreferrer" onClick={closeMobileMenu} className="rounded-lg px-3 py-3 hover:bg-[#F0F7FB] hover:text-foreground">Endpoint MCP</a>
+            <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" onClick={closeMobileMenu} className="rounded-lg px-3 py-3 hover:bg-[#F0F7FB] hover:text-foreground">Repository GitHub</a>
           </div>
           <div className="mt-3 border-t border-stroke pt-3">
             <Link href="/login" onClick={closeMobileMenu} className="flex min-h-11 items-center justify-center rounded-lg bg-[#0369A1] px-4 py-3 text-sm font-semibold text-white hover:bg-[#075985]">Masuk ke Dashboard</Link>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useApi } from "@/lib/api";
+import { API_BASE_URL, API_DOCS_URL, MCP_URL } from "@/lib/public-links";
 
 interface PublicApiInfo {
   title?: string;
@@ -15,8 +16,6 @@ interface PublicApiDocs {
   info?: PublicApiInfo;
   endpoints?: Record<string, { path: string; method: string; auth?: string; description?: string }[]>;
 }
-
-const API_DOCS_URL = "https://api.muaraai.com/v1/ubsi-api/v1/docs";
 
 const categoryLabels: Record<string, string> = {
   auth: "Autentikasi",
@@ -48,10 +47,12 @@ export function PublicApiSurface() {
             Lihat kategori endpoint, kebutuhan autentikasi, dan alamat layanan dari katalog publik. Data pribadi tetap hanya tersedia setelah pengguna login.
           </p>
 
-          <div id="mcp" className="mt-8 border-l-2 border-[#0369A1] pl-5">
+          <div id="mcp" className="mt-8 scroll-mt-24 border-l-2 border-[#0369A1] pl-5">
             <p className="font-display text-lg font-semibold text-foreground">MCP untuk integrasi agent</p>
             <p className="mt-2 text-sm leading-6 text-secondary">Gunakan server MCP live untuk menghubungkan agent ke layanan UBSI dengan Personal API Key milik pengguna.</p>
-            <code className="mt-3 block break-all font-mono text-xs text-[#075985]">{info?.mcp_url ?? "https://api.muaraai.com/v1/ubsi-api/mcp"}</code>
+            <code className="mt-3 block break-all font-mono text-xs text-[#075985]">{info?.mcp_url ?? MCP_URL}</code>
+            <pre className="mt-4 overflow-x-auto rounded-lg bg-[#131B26] p-3 font-mono text-xs leading-6 text-[#CFE8F5]"><code>{`curl ${API_BASE_URL}/v1/news \\
+  -H "Authorization: Bearer YOUR_PERSONAL_API_KEY"`}</code></pre>
           </div>
         </div>
 
@@ -62,8 +63,8 @@ export function PublicApiSurface() {
               <p className="font-semibold text-[#9F1239]">Katalog API belum dapat dimuat.</p>
               <p className="mt-1 text-sm text-secondary">Buka dokumentasi publik atau coba lagi.</p>
               <div className="mt-4 flex flex-wrap gap-3">
-                <button type="button" onClick={reload} className="min-h-10 rounded-lg border border-[#BE123C] px-4 py-2 text-sm font-semibold text-[#9F1239] hover:bg-[#FFF7F7]">Coba lagi</button>
-                <a href={API_DOCS_URL} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-10 items-center rounded-lg bg-foreground px-4 py-2 text-sm font-semibold text-white hover:bg-[#3B5A70]">Buka dokumentasi</a>
+                <button type="button" onClick={reload} className="min-h-11 rounded-lg border border-[#BE123C] px-4 py-2 text-sm font-semibold text-[#9F1239] hover:bg-[#FFF7F7]">Coba lagi</button>
+                <a href={API_DOCS_URL} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center rounded-lg bg-foreground px-4 py-2 text-sm font-semibold text-white hover:bg-[#3B5A70]">Buka dokumentasi</a>
               </div>
             </div>
           )}
