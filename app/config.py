@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     # Session Login BSI (Redis-backed, sliding 7 hari)
     SESSION_COOKIE_DOMAIN: str = ""
     SQLITE_DB_PATH: str = "data/ubsi.db"
+    # PWA Web Push (VAPID / RFC 8291-8292) — generate via scripts/generate_vapid_keys.py
+    VAPID_PUBLIC_KEY: str = ""
+    VAPID_PRIVATE_KEY: str = ""
+    VAPID_CLAIM_EMAIL: str = "admin@muaraai.com"
     # Sesi SIAKAD/MyBest kedaluwarsa ~15 menit; diperbarui otomatis sebelum batas itu (detik)
     UPSTREAM_SESSION_MAX_AGE: int = 780
 
