@@ -17,7 +17,7 @@ import {
   HelpCircle,
 } from "lucide-react";
 import { useApi } from "@/lib/api";
-import { findSubmission } from "@/lib/assignments";
+import { findSubmission, formatShortDate, parseDeadline } from "@/lib/assignments";
 import {
   EmptyState,
   ErrorState,
@@ -123,8 +123,13 @@ export default function DashboardOverviewPage() {
   const submissionsList = assignments.data?.submissions ?? [];
   const pendingTasks = tasksList.filter((t) => !findSubmission(t, submissionsList));
 
-  // Sorting closest deadline
-  const nextTask = pendingTasks.length > 0 ? pendingTasks[0] : null;
+  // Pengingat: tugas belum dikumpul dengan batas waktu terdekat yang belum lewat.
+  const nowMs = Date.now();
+  const nextTask =
+    pendingTasks
+      .map((t) => ({ t, at: parseDeadline(t.selesai)?.getTime() ?? Infinity }))
+      .filter(({ at }) => at >= nowMs)
+      .sort((a, b) => a.at - b.at)[0]?.t ?? null;
 
   return (
     <div className="space-y-8">
@@ -205,17 +210,17 @@ export default function DashboardOverviewPage() {
       </div>
 
       {/* 2. Top 4 Quick-Metrics Bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Metric 1: IPK & SKS */}
         <Link
           href="/dashboard/nilai"
-          className="glass-card p-5 group hover:border-[#0369A1]/40 transition-all hover:translate-y-[-2px]"
+          className="glass-card min-w-0 p-4 sm:p-5 group hover:border-[#0369A1]/40 transition-all hover:translate-y-[-2px]"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-secondary">
+            <span className="min-w-0 text-[10px] sm:text-xs font-mono font-bold uppercase tracking-wider text-secondary">
               Prestasi Akademik
             </span>
-            <div className="w-8 h-8 rounded-sm bg-[#0369A1]/10 flex items-center justify-center text-[#0369A1] group-hover:bg-[#0369A1] group-hover:text-white transition-colors">
+            <div className="hidden sm:flex w-8 h-8 shrink-0 rounded-sm bg-[#0369A1]/10 flex items-center justify-center text-[#0369A1] group-hover:bg-[#0369A1] group-hover:text-white transition-colors">
               <GraduationCap className="w-4 h-4" aria-hidden="true" />
             </div>
           </div>
@@ -233,7 +238,7 @@ export default function DashboardOverviewPage() {
           </div>
           <p className="mt-1 text-xs text-secondary flex items-center justify-between">
             {khsPending ? <Skeleton className="h-3.5 w-20" /> : <span>{totalSks} SKS Lulus</span>}
-            <span className="text-[#0369A1] font-semibold group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
+            <span className="text-[#0369A1] font-semibold group-hover:translate-x-0.5 transition-transform hidden sm:flex items-center gap-0.5">
               KHS <ArrowRight className="w-3 h-3" />
             </span>
           </p>
@@ -242,13 +247,13 @@ export default function DashboardOverviewPage() {
         {/* Metric 2: Kelas Hari Ini */}
         <Link
           href="/dashboard/jadwal"
-          className="glass-card p-5 group hover:border-[#0369A1]/40 transition-all hover:translate-y-[-2px]"
+          className="glass-card min-w-0 p-4 sm:p-5 group hover:border-[#0369A1]/40 transition-all hover:translate-y-[-2px]"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-secondary">
+            <span className="min-w-0 text-[10px] sm:text-xs font-mono font-bold uppercase tracking-wider text-secondary">
               Kelas Hari {today}
             </span>
-            <div className="w-8 h-8 rounded-sm bg-[#0369A1]/10 flex items-center justify-center text-[#0369A1] group-hover:bg-[#0369A1] group-hover:text-white transition-colors">
+            <div className="hidden sm:flex w-8 h-8 shrink-0 rounded-sm bg-[#0369A1]/10 flex items-center justify-center text-[#0369A1] group-hover:bg-[#0369A1] group-hover:text-white transition-colors">
               <CalendarDays className="w-4 h-4" aria-hidden="true" />
             </div>
           </div>
@@ -270,7 +275,7 @@ export default function DashboardOverviewPage() {
             ) : (
               <span>{todayClasses.length > 0 ? "Ada perkuliahan" : "Hari bebas kuliah"}</span>
             )}
-            <span className="text-[#0369A1] font-semibold group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
+            <span className="text-[#0369A1] font-semibold group-hover:translate-x-0.5 transition-transform hidden sm:flex items-center gap-0.5">
               Jadwal <ArrowRight className="w-3 h-3" />
             </span>
           </p>
@@ -279,13 +284,13 @@ export default function DashboardOverviewPage() {
         {/* Metric 3: Tugas Pending */}
         <Link
           href="/dashboard/tugas"
-          className="glass-card p-5 group hover:border-[#0369A1]/40 transition-all hover:translate-y-[-2px]"
+          className="glass-card min-w-0 p-4 sm:p-5 group hover:border-[#0369A1]/40 transition-all hover:translate-y-[-2px]"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-secondary">
+            <span className="min-w-0 text-[10px] sm:text-xs font-mono font-bold uppercase tracking-wider text-secondary">
               Tugas Belum Selesai
             </span>
-            <div className="w-8 h-8 rounded-sm bg-[#9A3412]/10 flex items-center justify-center text-[#9A3412] group-hover:bg-[#9A3412] group-hover:text-white transition-colors">
+            <div className="hidden sm:flex w-8 h-8 shrink-0 rounded-sm bg-[#9A3412]/10 flex items-center justify-center text-[#9A3412] group-hover:bg-[#9A3412] group-hover:text-white transition-colors">
               <CheckSquare className="w-4 h-4" aria-hidden="true" />
             </div>
           </div>
@@ -307,7 +312,7 @@ export default function DashboardOverviewPage() {
             ) : (
               <span>{pendingTasks.length > 0 ? "Perlu dikumpulkan" : "Semua tugas beres"}</span>
             )}
-            <span className="text-[#0369A1] font-semibold group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
+            <span className="text-[#0369A1] font-semibold group-hover:translate-x-0.5 transition-transform hidden sm:flex items-center gap-0.5">
               Tugas <ArrowRight className="w-3 h-3" />
             </span>
           </p>
@@ -316,13 +321,13 @@ export default function DashboardOverviewPage() {
         {/* Metric 4: Status Sesi Presensi */}
         <Link
           href="/dashboard/presensi"
-          className="glass-card p-5 group hover:border-[#0369A1]/40 transition-all hover:translate-y-[-2px]"
+          className="glass-card min-w-0 p-4 sm:p-5 group hover:border-[#0369A1]/40 transition-all hover:translate-y-[-2px]"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-secondary">
+            <span className="min-w-0 text-[10px] sm:text-xs font-mono font-bold uppercase tracking-wider text-secondary">
               Sesi MyBest
             </span>
-            <div className="w-8 h-8 rounded-sm bg-[#0F766E]/10 flex items-center justify-center text-[#0F766E] group-hover:bg-[#0F766E] group-hover:text-white transition-colors">
+            <div className="hidden sm:flex w-8 h-8 shrink-0 rounded-sm bg-[#0F766E]/10 flex items-center justify-center text-[#0F766E] group-hover:bg-[#0F766E] group-hover:text-white transition-colors">
               <UserCheck className="w-4 h-4" aria-hidden="true" />
             </div>
           </div>
@@ -337,7 +342,7 @@ export default function DashboardOverviewPage() {
           </div>
           <p className="mt-1 text-xs text-secondary flex items-center justify-between">
             <span>Presensi perkuliahan</span>
-            <span className="text-[#0369A1] font-semibold group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
+            <span className="text-[#0369A1] font-semibold group-hover:translate-x-0.5 transition-transform hidden sm:flex items-center gap-0.5">
               Presensi <ArrowRight className="w-3 h-3" />
             </span>
           </p>
@@ -392,7 +397,7 @@ export default function DashboardOverviewPage() {
                   </span>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-stroke/60 grid grid-cols-2 gap-2 text-xs text-secondary">
+                <div className="mt-4 pt-3 border-t-2 border-dashed border-px-soft grid grid-cols-2 gap-2 text-xs text-secondary">
                   <div>
                     <span className="block text-[10px] font-mono uppercase text-secondary/70">Waktu:</span>
                     <span className="font-semibold text-foreground">{s.jam}</span>
@@ -404,6 +409,13 @@ export default function DashboardOverviewPage() {
                     </span>
                   </div>
                 </div>
+                <Link
+                  href={`/dashboard/presensi?${new URLSearchParams({ kode: s.kode ?? "", mk: s.nama ?? "" }).toString()}`}
+                  className="px-btn-ghost mt-4 inline-flex min-h-10 w-full items-center justify-center gap-1.5 px-3 text-xs font-bold"
+                >
+                  <UserCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                  Absen
+                </Link>
               </div>
             ))}
           </div>
@@ -427,7 +439,7 @@ export default function DashboardOverviewPage() {
                 </h3>
                 <p className="text-xs text-secondary mt-1">
                   Mata Kuliah: {nextTask.mata_kuliah || nextTask.kode || "-"}
-                  {nextTask.selesai ? ` | Batas Waktu: ${nextTask.selesai}` : ""}
+                  {nextTask.selesai ? ` | Batas Waktu: ${formatShortDate(parseDeadline(nextTask.selesai), nextTask.selesai)}` : ""}
                 </p>
               </div>
             </div>

@@ -105,21 +105,21 @@ export default function NilaiPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col">
         <PageHeader
           title="Nilai & Kartu Hasil Studi (KHS)"
           description="Transkrip nilai resmi dari sistem SIAKAD UBSI. Pantau IPK, mutu, dan rincian komponen nilai."
         />
 
-        <div className="w-full sm:w-auto sm:max-w-full sm:overflow-x-auto sm:self-auto">
-          <div className="grid w-full grid-flow-col auto-cols-fr items-center gap-1.5 p-1 bg-[#F0F7FB] border border-stroke rounded-pill sm:flex sm:w-max">
+        <div className="w-full">
+          <div className="px-seg">
           <button
             type="button"
             onClick={() => setActiveTab("khs")}
-            className={`px-3.5 py-1.5 text-xs font-semibold rounded-pill transition-all ${
+            className={`px-seg-btn ${
               activeTab === "khs"
-                ? "bg-[#0369A1] text-white shadow-sm"
-                : "text-secondary hover:text-foreground"
+                ? "px-seg-on"
+                : ""
             }`}
           >
             Kartu KHS
@@ -127,10 +127,10 @@ export default function NilaiPage() {
           <button
             type="button"
             onClick={() => setActiveTab("murni")}
-            className={`px-3.5 py-1.5 text-xs font-semibold rounded-pill transition-all ${
+            className={`px-seg-btn ${
               activeTab === "murni"
-                ? "bg-[#0369A1] text-white shadow-sm"
-                : "text-secondary hover:text-foreground"
+                ? "px-seg-on"
+                : ""
             }`}
           >
             Rincian Nilai Murni
@@ -138,10 +138,10 @@ export default function NilaiPage() {
           <button
             type="button"
             onClick={() => setActiveTab("elearning")}
-            className={`px-3.5 py-1.5 text-xs font-semibold rounded-pill transition-all ${
+            className={`px-seg-btn ${
               activeTab === "elearning"
-                ? "bg-[#0369A1] text-white shadow-sm"
-                : "text-secondary hover:text-foreground"
+                ? "px-seg-on"
+                : ""
             }`}
           >
             Nilai Tugas MyBest

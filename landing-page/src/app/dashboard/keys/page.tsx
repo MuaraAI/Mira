@@ -189,14 +189,14 @@ export default function ApiKeysPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col">
         <PageHeader
           title="Personal API Key"
           description="Gunakan API Key pribadi (muara_ubsi_***) untuk mengotomasi bot Discord, Telegram, atau skrip tanpa menyimpan password kampus."
         />
 
         <div className="flex items-center gap-3">
-          <div className="px-3.5 py-1.5 rounded-pill bg-[#F0F7FB] border border-[#D9E5ED] text-xs font-mono">
+          <div className="px-chip whitespace-nowrap px-3 py-2 bg-[#F0F7FB] text-xs font-mono [--px-line:#CFE2EE]">
             <span className="text-secondary">Slot: </span>
             <span className={atLimit ? "text-amber-800 font-bold" : "text-[#0369A1] font-bold"}>
               {keys.length} / {MAX_KEYS}
@@ -316,10 +316,10 @@ export default function ApiKeysPage() {
               type="button"
               onClick={() => setDocsTab("rest")}
               aria-pressed={docsTab === "rest"}
-              className={`px-3.5 py-1.5 text-xs font-semibold rounded-pill transition-all inline-flex items-center gap-1.5 ${
+              className={`px-seg-btn inline-flex items-center gap-1.5 ${
                 docsTab === "rest"
-                  ? "bg-[#0369A1] text-white shadow-sm"
-                  : "text-secondary hover:text-foreground"
+                  ? "px-seg-on"
+                  : ""
               }`}
             >
               <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />
@@ -329,10 +329,10 @@ export default function ApiKeysPage() {
               type="button"
               onClick={() => setDocsTab("mcp")}
               aria-pressed={docsTab === "mcp"}
-              className={`px-3.5 py-1.5 text-xs font-semibold rounded-pill transition-all inline-flex items-center gap-1.5 ${
+              className={`px-seg-btn inline-flex items-center gap-1.5 ${
                 docsTab === "mcp"
-                  ? "bg-[#0369A1] text-white shadow-sm"
-                  : "text-secondary hover:text-foreground"
+                  ? "px-seg-on"
+                  : ""
               }`}
             >
               <Blocks className="h-3.5 w-3.5" aria-hidden="true" />
