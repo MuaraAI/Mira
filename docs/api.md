@@ -414,9 +414,15 @@ Submits student lecture attendance check-in ("pencet absen") for the active clas
   ```
 
 ### `GET /v1/elearning/materials`
-Retrieves direct download links for lecture syllabus and weekly module packages (ZIP/PDF).
-- **Query Parameter**: `token` (optional)
+Retrieves direct download links for lecture syllabus and weekly module packages (ZIP/PDF), plus lecturer uploaded materials.
+- **Query Parameter**: `token` (optional, the `token_learning` from `/courses`)
 - **Cache TTL**: 10 minutes (600 seconds)
+
+### `GET /v1/elearning/materials/download`
+Securely downloads lecturer uploaded lecture module or slides from MyBest storage.
+- **Query Parameters**:
+  - `id` & `file` (recommended): Parameters extracted from MyBest `/download-file-materi` form.
+  - `file_url` (optional): Direct storage URL validated against authorized BSI storage domains.
 
 ### `GET /v1/elearning/quiz`
 Retrieves active online quizzes and practice exam schedules.
