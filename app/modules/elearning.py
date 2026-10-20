@@ -1464,14 +1464,15 @@ async def get_grades(
 ):
     """Rekap nilai tugas & kuis seluruh mata kuliah aktif, per pertemuan."""
     nim, password = creds
+    clean_token = token if isinstance(token, str) else None
 
     return await cached_endpoint(
         module="elearning",
         name="grades",
-        fetch=lambda: _build_grades(nim, password, token),
+        fetch=lambda: _build_grades(nim, password, clean_token),
         parse=lambda data: data,
         ttl=settings.TTL_GRADES,
-        cache_params={"nim": nim, "token": token or "all"},
+        cache_params={"nim": nim, "token": clean_token or "all"},
     )
 
 
