@@ -10,6 +10,7 @@ import hashlib
 import json
 import secrets
 import sqlite3
+import re
 from datetime import datetime, timezone
 from typing import Any, Optional
 
@@ -352,7 +353,7 @@ def _sync_resolve_api_key(
 
 
 async def resolve_api_key(plain_key: str) -> Optional[dict[str, Any]]:
-    if not plain_key or not plain_key.startswith(_KEY_PREFIX):
+    if not plain_key or not re.fullmatch(r"muara_ubsi_[0-9a-f]{40}", plain_key):
         return None
 
     key_hash = _hash_key(plain_key)

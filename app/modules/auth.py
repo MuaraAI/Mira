@@ -259,6 +259,10 @@ class CreateApiKeyRequest(BaseModel):
 
 @router.get("/keys")
 async def get_my_api_keys(request: Request):
+    if getattr(request.state, "auth_type", "") != "session":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=error_response(
+            code="SESSION_REQUIRED", message="Kelola API Key harus melalui sesi dashboard", module="auth"
+        ))
     nim = getattr(request.state, "nim", None)
     if not nim:
         raise HTTPException(
@@ -275,6 +279,10 @@ async def get_my_api_keys(request: Request):
 
 @router.post("/keys")
 async def create_my_api_key(request: Request, body: CreateApiKeyRequest):
+    if getattr(request.state, "auth_type", "") != "session":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=error_response(
+            code="SESSION_REQUIRED", message="Pembuatan API Key harus melalui sesi dashboard", module="auth"
+        ))
     nim = getattr(request.state, "nim", None)
     sv2_pass = getattr(request.state, "studentv2_pass", None)
     el_pass = getattr(request.state, "elearning_pass", None)
@@ -308,6 +316,10 @@ async def create_my_api_key(request: Request, body: CreateApiKeyRequest):
 
 @router.delete("/keys/{key_id}")
 async def revoke_my_api_key(request: Request, key_id: int):
+    if getattr(request.state, "auth_type", "") != "session":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=error_response(
+            code="SESSION_REQUIRED", message="Pencabutan API Key harus melalui sesi dashboard", module="auth"
+        ))
     nim = getattr(request.state, "nim", None)
     if not nim:
         raise HTTPException(

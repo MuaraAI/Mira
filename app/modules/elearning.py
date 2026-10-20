@@ -1275,7 +1275,7 @@ class PooledElearningClient:
             return client.post_page(path, nim, password, data=data, json_body=json_body, headers=headers)
 
         try:
-            return await retry_async(_post_once, attempts=3, base_delay=1.0)
+            return await retry_async(_post_once, attempts=1, base_delay=1.0)
         except HTTPException as exc:
             detail = getattr(exc, "detail", None)
             if isinstance(detail, dict) and detail.get("code") == "AUTH_EXPIRED":
@@ -1296,7 +1296,7 @@ class PooledElearningClient:
         def _post_once() -> httpx.Response:
             return client.post_multipart(path, nim, password, data=data, files=files, headers=headers)
 
-        return await retry_async(_post_once, attempts=3, base_delay=1.0)
+        return await retry_async(_post_once, attempts=1, base_delay=1.0)
 
     async def download_file(self, url: str, nim: str, password: str) -> httpx.Response:
         client = self._pool.get(nim)
@@ -1312,7 +1312,7 @@ class PooledElearningClient:
         def _post_once() -> httpx.Response:
             return client.download_assignment_post(token_id, filename, nim, password)
 
-        return await retry_async(_post_once, attempts=3, base_delay=1.0)
+        return await retry_async(_post_once, attempts=1, base_delay=1.0)
 
     async def download_material_post(self, token_id: str, filename: str, nim: str, password: str) -> httpx.Response:
         client = self._pool.get(nim)
@@ -1320,7 +1320,7 @@ class PooledElearningClient:
         def _post_once() -> httpx.Response:
             return client.download_material_post(token_id, filename, nim, password)
 
-        return await retry_async(_post_once, attempts=3, base_delay=1.0)
+        return await retry_async(_post_once, attempts=1, base_delay=1.0)
 
     async def submit_assignment_link(self, token_send: str, link_tugas: str, nim: str, password: str) -> dict[str, Any]:
         client = self._pool.get(nim)
@@ -1328,7 +1328,7 @@ class PooledElearningClient:
         def _submit_once() -> dict[str, Any]:
             return client.submit_assignment_link(token_send, link_tugas, nim, password)
 
-        return await retry_async(_submit_once, attempts=3, base_delay=1.0)
+        return await retry_async(_submit_once, attempts=1, base_delay=1.0)
 
     async def post_discussion_comment(self, token_komentar: str, id_chat: str, komentar: str, nim: str, password: str) -> dict[str, Any]:
         client = self._pool.get(nim)
@@ -1336,7 +1336,7 @@ class PooledElearningClient:
         def _post_once() -> dict[str, Any]:
             return client.post_discussion_comment(token_komentar, id_chat, komentar, nim, password)
 
-        return await retry_async(_post_once, attempts=3, base_delay=1.0)
+        return await retry_async(_post_once, attempts=1, base_delay=1.0)
 
     async def post_new_discussion(self, token_course: str, judul: str, chat: str, nim: str, password: str) -> dict[str, Any]:
         client = self._pool.get(nim)
@@ -1344,7 +1344,7 @@ class PooledElearningClient:
         def _post_once() -> dict[str, Any]:
             return client.post_new_discussion(token_course, judul, chat, nim, password)
 
-        return await retry_async(_post_once, attempts=3, base_delay=1.0)
+        return await retry_async(_post_once, attempts=1, base_delay=1.0)
 
     async def evict_idle(self) -> int:
         return await self._pool.evict_idle()
