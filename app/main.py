@@ -52,9 +52,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         from app.channels_db import init_db
         from app.api_keys_db import init_api_keys_db
+        from app.pwa_push_db import init_pwa_db
 
         init_db()
         init_api_keys_db()
+        init_pwa_db()
     except Exception:
         pass
 

@@ -88,3 +88,23 @@ async def test_remove_other_nims_device_is_idor_safe():
     # NIM lain tidak bisa hapus device milik 15260767
     assert await remove_subscription("15260673", sub_id) is False
     assert len(await list_subscriptions("15260767")) == 1
+
+
+@pytest.mark.asyncio
+async def test_app_lifespan_creates_pwa_table(tmp_path, monkeypatch):
+    """Regression: produksi crash 500 karena tabel PWA tidak dibuat saat startup."""
+    import sqlite3
+
+    fresh_db = str(tmp_path / "fresh.db")
+    monkeypatch.setattr("app.config.settings.SQLITE_DB_PATH", fresh_db)
+
+    from app.main import app, lifespan
+
+    async with lifespan(app):
+        pass
+
+    conn = sqlite3.connect(fresh_db)
+    tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    conn.close()
+    assert "pwa_push_subscriptions" in tables
+    assert "pwa_push_categories" in tables
