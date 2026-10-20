@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from app.mcp_server import (
     server,
     _build_headers,
+    _resolve_credentials,
     ubsi_whoami,
     ubsi_get_schedule,
     ubsi_get_grades,
@@ -55,6 +56,12 @@ async def test_mcp_tool_listing():
     assert "ubsi_get_lecturers" in tool_names
     assert "ubsi_get_api_docs" in tool_names
     assert len(tool_names) == 38
+
+def test_mcp_context_credentials_override_empty_tool_args():
+    ctx = MagicMock()
+    ctx.headers = {"authorization": "Bearer session_from_mcp"}
+    assert _resolve_credentials(ctx, None, None) == (None, "session_from_mcp")
+
 
 def test_mcp_credential_headers_isolation():
     # 1. Session token isolation

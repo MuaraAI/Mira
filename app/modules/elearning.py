@@ -1966,8 +1966,9 @@ async def download_assignment_file(
 
     # Mode 1: Download via MyBest POST /download-file-tugas
     if id and file:
+        clean_id = extract_clean_token(id) or id.strip("/")
         resp = await pooled_elearning_client.download_assignment_post(
-            token_id=id,
+            token_id=clean_id,
             filename=file,
             nim=nim,
             password=password,
@@ -1986,7 +1987,10 @@ async def download_assignment_file(
         return Response(
             content=resp.content,
             media_type=content_type,
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Access-Control-Expose-Headers": "Content-Disposition",
+            },
         )
 
     # Mode 2: Download via direct file_url
@@ -2008,8 +2012,9 @@ async def download_assignment_file(
         p_id = q_params.get("id", [None])[0]
         p_file = q_params.get("file", [None])[0]
         if p_id and p_file:
+            clean_pid = extract_clean_token(p_id) or p_id.strip("/")
             resp = await pooled_elearning_client.download_assignment_post(
-                token_id=p_id,
+                token_id=clean_pid,
                 filename=p_file,
                 nim=nim,
                 password=password,
@@ -2028,7 +2033,10 @@ async def download_assignment_file(
             return Response(
                 content=resp.content,
                 media_type=content_type,
-                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename}"',
+                    "Access-Control-Expose-Headers": "Content-Disposition",
+                },
             )
 
     if not is_safe_bsi_storage_url(file_url):
@@ -2057,7 +2065,10 @@ async def download_assignment_file(
         return Response(
             content=resp.content,
             media_type=content_type,
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Access-Control-Expose-Headers": "Content-Disposition",
+            },
         )
     except HTTPException:
         raise
@@ -2105,7 +2116,10 @@ async def download_material_file(
         return Response(
             content=resp.content,
             media_type=content_type,
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Access-Control-Expose-Headers": "Content-Disposition",
+            },
         )
 
     # Mode 2: Download via direct file_url
@@ -2140,7 +2154,10 @@ async def download_material_file(
                 return Response(
                     content=resp.content,
                     media_type=content_type,
-                    headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+                    headers={
+                        "Content-Disposition": f'attachment; filename="{filename}"',
+                        "Access-Control-Expose-Headers": "Content-Disposition",
+                    },
                 )
 
     if not is_safe_bsi_storage_url(file_url):
@@ -2169,7 +2186,10 @@ async def download_material_file(
         return Response(
             content=resp.content,
             media_type=content_type,
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Access-Control-Expose-Headers": "Content-Disposition",
+            },
         )
     except HTTPException:
         raise

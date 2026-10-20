@@ -86,6 +86,66 @@ export async function apiFetch<T>(
   return payload?.data as T;
 }
 
+export async function apiDownload(
+  path: string,
+  defaultFilename = "berkas.pdf"
+): Promise<void> {
+  const base = getApiBase();
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("ubsi_session_token")
+      : null;
+  const fullUrl = path.startsWith("http") ? path : `${base}${path}`;
+
+  let res: Response;
+  try {
+    res = await fetch(fullUrl, {
+      method: "GET",
+      credentials: "include",
+      headers: {
+        "X-Requested-With": "dashboard",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+  } catch {
+    throw new ApiError(
+      "NETWORK_ERROR",
+      "Tidak dapat menghubungi server API. Pastikan backend berjalan di " +
+        base,
+      0
+    );
+  }
+
+  if (!res.ok) {
+    let errMsg = `Gagal mengunduh berkas (HTTP ${res.status})`;
+    try {
+      const errPayload = await res.json();
+      const err = errPayload?.detail?.error ?? errPayload?.error;
+      if (err?.message) errMsg = err.message;
+    } catch {}
+    throw new ApiError(`HTTP_${res.status}`, errMsg, res.status);
+  }
+
+  let filename = defaultFilename;
+  const disposition = res.headers.get("content-disposition");
+  if (disposition && disposition.includes("filename=")) {
+    const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+    if (match && match[1]) {
+      filename = match[1].replace(/['"]/g, "").trim();
+    }
+  }
+
+  const blob = await res.blob();
+  const blobUrl = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = blobUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(blobUrl);
+}
+
 interface ApiState<T> {
   data: T | null;
   loading: boolean;

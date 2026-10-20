@@ -10,7 +10,7 @@ import {
   FileCheck2,
   ExternalLink,
 } from "lucide-react";
-import { useApi } from "@/lib/api";
+import { apiDownload, ApiError, useApi } from "@/lib/api";
 import {
   EmptyState,
   ErrorState,
@@ -43,6 +43,23 @@ interface MaterialItem {
 export default function MateriPage() {
   const coursesApi = useApi<CourseItem[]>("/v1/elearning/courses");
   const [selectedIdx, setSelectedIdx] = useState(0);
+  const [downloadingUrl, setDownloadingUrl] = useState<string | null>(null);
+
+  async function handleDownloadMaterial(url: string, title: string) {
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      window.open(url, "_blank", "noopener,noreferrer");
+      return;
+    }
+    setDownloadingUrl(url);
+    try {
+      const filename = `${(title || "materi").replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
+      await apiDownload(url, filename);
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message : "Gagal mengunduh berkas materi.");
+    } finally {
+      setDownloadingUrl(null);
+    }
+  }
 
   const courses = coursesApi.data ?? [];
   const activeCourse = courses.length > 0 ? courses[selectedIdx] : null;
@@ -255,15 +272,36 @@ export default function MateriPage() {
                         </td>
                         <td className="px-4 py-3 text-right whitespace-nowrap">
                           {m.file_url ? (
-                            <a
-                              href={m.file_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill bg-[#0369A1] hover:bg-[#075985] text-xs font-bold text-white transition-all shadow-sm"
-                            >
-                              <Download className="w-3.5 h-3.5" aria-hidden="true" />
-                              <span>Unduh Berkas</span>
-                            </a>
+                            m.file_url.startsWith("/v1/") ? (
+                              <button
+                                type="button"
+                                onClick={() => handleDownloadMaterial(m.file_url!, m.judul)}
+                                disabled={downloadingUrl === m.file_url}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill bg-[#0369A1] hover:bg-[#075985] text-xs font-bold text-white transition-all shadow-sm disabled:opacity-50"
+                              >
+                                {downloadingUrl === m.file_url ? (
+                                  <>
+                                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                    <span>Mengunduh...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Download className="w-3.5 h-3.5" aria-hidden="true" />
+                                    <span>Unduh Berkas</span>
+                                  </>
+                                )}
+                              </button>
+                            ) : (
+                              <a
+                                href={m.file_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill bg-[#0369A1] hover:bg-[#075985] text-xs font-bold text-white transition-all shadow-sm"
+                              >
+                                <Download className="w-3.5 h-3.5" aria-hidden="true" />
+                                <span>Unduh Berkas</span>
+                              </a>
+                            )
                           ) : (
                             <span className="text-xs text-secondary">-</span>
                           )}
