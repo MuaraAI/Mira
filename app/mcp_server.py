@@ -369,7 +369,16 @@ async def ubsi_get_course_grades(
     session_token: Optional[str] = None,
     api_key: Optional[str] = None,
 ) -> str:
-    res = await _api_get(f"/v1/elearning/courses/{course_id}/grades", session_token=session_token, api_key=api_key)
+    import re
+    import urllib.parse
+    cid = course_id.strip()
+    if not re.fullmatch(r"^[A-Za-z0-9_-]+$", cid):
+        return json.dumps({
+            "success": False,
+            "error": {"code": "INVALID_ARGUMENT", "message": "course_id hanya boleh alfanumerik"},
+        }, ensure_ascii=False, indent=2)
+    clean_course_id = urllib.parse.quote(cid, safe="")
+    res = await _api_get(f"/v1/elearning/courses/{clean_course_id}/grades", session_token=session_token, api_key=api_key)
     return json.dumps(res, ensure_ascii=False, indent=2)
 
 
@@ -672,9 +681,9 @@ def main():
     if args.transport == "streamable-http":
         from mcp.server.transport_security import TransportSecuritySettings
         sec = TransportSecuritySettings(
-            enable_dns_rebinding_protection=False,
-            allowed_hosts=["*"],
-            allowed_origins=["*"],
+            enable_dns_rebinding_protection=True,
+            allowed_hosts=["127.0.0.1", "127.0.0.1:*", "localhost", "localhost:*", "api.muaraai.com", "api.muaraai.com:*"],
+            allowed_origins=["https://ubsi-api.muaraai.com", "http://localhost:3000", "http://127.0.0.1:3000"],
         )
         server.run(
             transport="streamable-http",
