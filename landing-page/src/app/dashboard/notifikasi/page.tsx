@@ -165,9 +165,12 @@ export default function NotifikasiPage() {
   // Close modal on Escape
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setIsModalOpen(false);
+      if (e.key === "Escape") {
+        setIsModalOpen(false);
+        setEditingChannelId(null);
+      }
     }
-    if (isModalOpen) {
+    if (isModalOpen || editingChannelId !== null) {
       window.addEventListener("keydown", handleKeyDown);
       return () => window.removeEventListener("keydown", handleKeyDown);
     }
@@ -417,12 +420,12 @@ export default function NotifikasiPage() {
                 )}
               </div>
 
-              <div className="mt-5 pt-3 border-t border-white/10 flex items-center justify-between gap-2">
+              <div className="mt-5 pt-3 border-t border-stroke flex flex-wrap items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => openEditCategories(ch)}
                   disabled={busyId === ch.id}
-                  className={`${ghostButtonClass} text-xs py-1.5 px-3`}
+                  className={`${ghostButtonClass} text-xs py-2.5 px-3 min-h-[44px]`}
                 >
                   <Radio className="h-3.5 w-3.5" aria-hidden="true" />
                   Edit Kategori
@@ -431,7 +434,7 @@ export default function NotifikasiPage() {
                   type="button"
                   onClick={() => handleTest(ch.id)}
                   disabled={busyId === ch.id}
-                  className={`${ghostButtonClass} text-xs py-1.5 px-3`}
+                  className={`${ghostButtonClass} text-xs py-2.5 px-3 min-h-[44px]`}
                 >
                   <Send className="h-3.5 w-3.5" aria-hidden="true" />
                   Kirim Tes
@@ -440,7 +443,7 @@ export default function NotifikasiPage() {
                   type="button"
                   onClick={() => handleDelete(ch.id)}
                   disabled={busyId === ch.id}
-                  className={`${ghostButtonClass} text-xs py-1.5 px-3 text-[#BE123C] hover:border-[#BE123C]/40 hover:bg-rose-500/10`}
+                  className={`${ghostButtonClass} text-xs py-2.5 px-3 min-h-[44px] text-[#BE123C] hover:border-[#BE123C]/40 hover:bg-rose-500/10`}
                 >
                   <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                   Hapus
@@ -468,7 +471,7 @@ export default function NotifikasiPage() {
                 type="button"
                 onClick={() => handleSimulate("matkul-besok")}
                 disabled={Boolean(triggering)}
-                className={`${ghostButtonClass} text-xs py-1.5 px-3`}
+                className={`${ghostButtonClass} text-xs py-2.5 px-3 min-h-[44px]`}
               >
                 <CalendarCheck className="h-3.5 w-3.5 text-[#0369A1]" />
                 {triggering === "matkul-besok" ? "Mengirim..." : "Tes Notif Matkul Besok"}
@@ -477,7 +480,7 @@ export default function NotifikasiPage() {
                 type="button"
                 onClick={() => handleSimulate("quiz-tugas")}
                 disabled={Boolean(triggering)}
-                className={`${ghostButtonClass} text-xs py-1.5 px-3`}
+                className={`${ghostButtonClass} text-xs py-2.5 px-3 min-h-[44px]`}
               >
                 <BookOpen className="h-3.5 w-3.5 text-[#0369A1]" />
                 {triggering === "quiz-tugas" ? "Mengirim..." : "Tes Tugas & Kuis"}
@@ -486,7 +489,7 @@ export default function NotifikasiPage() {
                 type="button"
                 onClick={() => handleSimulate("absen-kuliah")}
                 disabled={Boolean(triggering)}
-                className={`${ghostButtonClass} text-xs py-1.5 px-3`}
+                className={`${ghostButtonClass} text-xs py-2.5 px-3 min-h-[44px]`}
               >
                 <Clock className="h-3.5 w-3.5 text-[#0369A1]" />
                 {triggering === "absen-kuliah" ? "Mengirim..." : "Tes Presensi"}
@@ -495,7 +498,7 @@ export default function NotifikasiPage() {
                 type="button"
                 onClick={() => handleSimulate("nilai-keluar")}
                 disabled={Boolean(triggering)}
-                className={`${ghostButtonClass} text-xs py-1.5 px-3`}
+                className={`${ghostButtonClass} text-xs py-2.5 px-3 min-h-[44px]`}
               >
                 <Award className="h-3.5 w-3.5 text-[#0369A1]" />
                 {triggering === "nilai-keluar" ? "Mengirim..." : "Tes Nilai"}
@@ -504,7 +507,7 @@ export default function NotifikasiPage() {
                 type="button"
                 onClick={() => handleSimulate("jadwal-ujian")}
                 disabled={Boolean(triggering)}
-                className={`${ghostButtonClass} text-xs py-1.5 px-3`}
+                className={`${ghostButtonClass} text-xs py-2.5 px-3 min-h-[44px]`}
               >
                 <FileText className="h-3.5 w-3.5 text-[#0369A1]" />
                 {triggering === "jadwal-ujian" ? "Mengirim..." : "Tes Ujian"}
@@ -668,31 +671,30 @@ export default function NotifikasiPage() {
                     const active = categories.includes(cat.id);
                     const Icon = cat.icon;
                     return (
-                      <div
+                      <label
                         key={cat.id}
-                        onClick={() => toggleCategory(cat.id)}
                         className={`p-3 rounded-xl border cursor-pointer transition-all flex items-start gap-3 ${
                           active
                             ? "bg-[#0369A1]/20 border-[#0369A1]/60 text-foreground"
-                            : "bg-white/5 border-white/10 text-secondary hover:bg-white/10"
+                            : "bg-[#F7FAFC] border-stroke text-secondary hover:bg-[#F0F7FB]"
                         }`}
                       >
                         <input
                           type="checkbox"
                           checked={active}
-                          onChange={() => {}}
+                          onChange={() => toggleCategory(cat.id)}
                           className="mt-1 rounded text-[#0369A1] focus:ring-[#0369A1]"
                         />
-                        <div className="flex-1">
-                          <div className="flex items-center gap-1.5 font-semibold text-xs text-foreground">
+                        <span className="flex-1">
+                          <span className="flex items-center gap-1.5 font-semibold text-xs text-foreground">
                             <Icon className="h-3.5 w-3.5 text-[#0369A1]" />
                             <span>{cat.label}</span>
-                          </div>
-                          <p className="text-[11px] text-secondary mt-0.5 leading-relaxed">
+                          </span>
+                          <span className="block text-[11px] text-secondary mt-0.5 leading-relaxed">
                             {cat.desc}
-                          </p>
-                        </div>
-                      </div>
+                          </span>
+                        </span>
+                      </label>
                     );
                   })}
                 </div>
