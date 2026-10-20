@@ -115,6 +115,8 @@ def _sync_create_api_key(
 ) -> dict[str, Any]:
     conn = _connect()
     try:
+        # BEGIN IMMEDIATE: kunci writer sejak awal agar cek quota + insert atomik (anti race)
+        conn.execute("BEGIN IMMEDIATE")
         count = conn.execute(
             "SELECT COUNT(*) AS c FROM api_keys WHERE nim = ? AND is_active = 1",
             (nim,),
