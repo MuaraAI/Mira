@@ -39,3 +39,39 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(fetch(request).catch(() => caches.match("/offline.html")));
   }
 });
+
+// W3C Web Push: tampilkan notifikasi native saat push masuk di background
+self.addEventListener("push", (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    payload = { title: "UBSI API", body: event.data ? event.data.text() : "Notifikasi baru" };
+  }
+  const title = payload.title || "UBSI API";
+  const options = {
+    body: payload.body || "",
+    icon: "/pwa/icon-192.png",
+    badge: "/pwa/icon-192.png",
+    tag: payload.tag || "ubsi-general",
+    renotify: true,
+    data: { url: payload.url || "/dashboard" },
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = event.notification.data && event.notification.data.url ? event.notification.data.url : "/dashboard";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ("focus" in client) {
+          client.navigate(target).catch(() => {});
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow(target);
+    }),
+  );
+});

@@ -140,13 +140,16 @@ async def test_broadcast_news_article_multi_channel(monkeypatch):
     sample_post = {"id": "1", "title": "Test Multi"}
     with patch("app.modules.news.dispatch_discord_webhook", return_value=True) as mock_dc, \
          patch("app.modules.news.dispatch_telegram_message", return_value=True) as mock_tg, \
-         patch("app.modules.news.dispatch_webhook_notification", return_value=True) as mock_custom:
-        
+         patch("app.modules.news.dispatch_webhook_notification", return_value=True) as mock_custom, \
+         patch("app.pwa_webpush.dispatch_pwa_to_category", new=AsyncMock(return_value=2)) as mock_pwa:
+
         results = await broadcast_news_article(sample_post)
-        assert results == {"discord": True, "telegram": True, "custom": True}
+        assert results == {"discord": True, "telegram": True, "custom": True, "pwa-push": True}
         assert mock_dc.call_count == 1
         assert mock_tg.call_count == 1
         assert mock_custom.call_count == 1
+        mock_pwa.assert_awaited_once()
+        assert mock_pwa.await_args.args[0] == "berita-kampus"
 
 @pytest.mark.asyncio
 async def test_news_webhook_test_endpoint_channels(monkeypatch):

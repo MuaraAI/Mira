@@ -203,7 +203,13 @@ async def trigger_reminder(request: Request, body: ReminderRequest):
     active_matching = [
         ch for ch in channels if ch["is_active"] and category in ch["categories"]
     ]
-    if not active_matching:
+
+    # PWA Web Push: kategori terikat akun (bukan per-channel)
+    from app.pwa_push_db import list_categories
+    from app.pwa_webpush import dispatch_pwa_to_nim
+
+    pwa_category_ok = category in (await list_categories(nim))
+    if not active_matching and not pwa_category_ok:
         return success_response(
             data={
                 "dispatched": 0,
@@ -269,12 +275,32 @@ async def trigger_reminder(request: Request, body: ReminderRequest):
 
     results = await asyncio.gather(*(dispatch_one(ch) for ch in active_matching))
     dispatched = sum(1 for r in results if r["success"])
+
+    # Fan-out PWA: push native ke semua device aktif milik NIM ini
+    pwa_pushed = 0
+    if pwa_category_ok:
+        try:
+            pwa_pushed = await dispatch_pwa_to_nim(
+                nim,
+                {
+                    "title": payload["title"],
+                    "body": payload.get("description", "")[:200],
+                    "url": payload.get("link", "/dashboard"),
+                    "tag": category,
+                },
+            )
+        except Exception:
+            pwa_pushed = 0
+
+    total_dispatched = dispatched + pwa_pushed
     return success_response(
         data={
-            "dispatched": dispatched,
+            "dispatched": total_dispatched,
+            "webhook_dispatched": dispatched,
+            "pwa_pushed": pwa_pushed,
             "total_channels": len(active_matching),
             "results": results,
-            "message": f"Pengingat '{category}' berhasil dikirim ke {dispatched} channel aktif.",
+            "message": f"Pengingat '{category}' berhasil dikirim ke {total_dispatched} tujuan aktif.",
         }
     )
 

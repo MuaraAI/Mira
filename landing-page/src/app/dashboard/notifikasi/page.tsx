@@ -18,6 +18,7 @@ import {
   FileText,
 } from "lucide-react";
 import { apiFetch, ApiError, useApi, clearApiCache } from "@/lib/api";
+import PwaPushDeviceSection from "@/components/PwaPushDeviceSection";
 import {
   ChannelActiveBadge,
   ChannelTypeBadge,
@@ -317,6 +318,8 @@ export default function NotifikasiPage() {
 
   return (
     <div className="space-y-6">
+      <PwaPushDeviceSection />
+
       <div className="flex flex-col">
         <PageHeader
           title="Webhook Notifikasi"
