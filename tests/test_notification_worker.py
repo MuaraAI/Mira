@@ -1,7 +1,14 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
+from zoneinfo import ZoneInfo
 
 import pytest
+
+
+def _tomorrow_name() -> str:
+    """Nama hari besok (WIB) agar test tidak depend pada hari eksekusi."""
+    days = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
+    return days[(datetime.now(ZoneInfo("Asia/Jakarta")) + timedelta(days=1)).weekday()]
 
 
 @pytest.fixture(autouse=True)
@@ -53,7 +60,7 @@ async def test_poll_user_notifications_dispatches_schedule_for_active_user():
             "app.modules.news.studentv2_client.fetch_page",
             new=AsyncMock(return_value="<html>schedule</html>"),
         ),
-        patch("app.modules.news.parse_schedule", return_value=[{"nama": "Dasar Pemrograman", "hari": "Rabu", "jam": "08:00", "ruang": "A1"}]),
+        patch("app.modules.news.parse_schedule", return_value=[{"nama": "Dasar Pemrograman", "hari": _tomorrow_name(), "jam": "08:00", "ruang": "A1"}]),
         patch("app.modules.news.dispatch_webhook_notification", new=AsyncMock(return_value=True)) as dispatch,
         patch("app.modules.news.cache.get_client") as get_client,
     ):
@@ -100,8 +107,8 @@ async def test_user_notification_falls_back_to_personal_api_key_credentials():
         patch("app.modules.news.session_store.get_credentials_for_nim", new=AsyncMock(return_value=None)),
         patch("app.api_keys_db.get_credentials_for_nim", new=AsyncMock(return_value=("15260767", "student-pass", "elearning-pass"))),
         patch("app.modules.news.studentv2_client.fetch_page", new=AsyncMock(return_value="<html>schedule</html>")),
-        patch("app.modules.news.parse_schedule", return_value=[{"nama": "Dasar Pemrograman", "hari": "Rabu", "jam": "08:00", "ruang": "A1"}]),
-        patch("app.modules.news.dispatch_webhook_notification", new=AsyncMock(return_value=True)),
+        patch("app.modules.news.parse_schedule", return_value=[{"nama": "Dasar Pemrograman", "hari": _tomorrow_name(), "jam": "08:00", "ruang": "A1"}]),
+        patch("app.modules.news.dispatch_webhook_notification", new=AsyncMock(return_value=True)) as dispatch,
         patch("app.modules.news.cache.get_client") as get_client,
     ):
         redis = AsyncMock()
