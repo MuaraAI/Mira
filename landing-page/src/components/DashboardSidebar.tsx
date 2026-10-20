@@ -85,15 +85,17 @@ export function DashboardSidebar({
   const pathname = usePathname();
 
   return (
-    <aside className="flex flex-col h-full bg-white border-r border-stroke">
+    <aside className="flex flex-col h-full bg-white border-r-2 border-px-soft">
       {/* Brand Header */}
-      <div className="p-5 border-b border-stroke">
+      <div className="flex h-16 items-center px-5 border-b-2 border-px-soft">
         <Link
           href="/dashboard"
           onClick={onItemClick}
           className="flex items-center gap-3 group"
         >
-          <Monogram className="w-8 h-8 transition-transform duration-200 group-hover:scale-105" />
+          <span className="px-frame flex h-9 w-9 items-center justify-center overflow-hidden bg-white [--px-line:#CFE2EE]">
+            <Monogram className="w-7 h-7 transition-transform duration-200 group-hover:scale-110" />
+          </span>
           <div className="flex flex-col">
             <span className="font-display font-bold text-base tracking-tight text-foreground">
               UBSI API
@@ -108,11 +110,12 @@ export function DashboardSidebar({
       {/* Nav List with Custom Scrollbar */}
       <nav
         aria-label="Navigasi sidebar utama"
-        className="flex-1 overflow-y-auto px-3 py-4 space-y-6"
+        className="scroll-slim flex-1 overflow-y-auto px-3 py-4 space-y-6"
       >
         {DASHBOARD_NAV_GROUPS.map((group) => (
           <div key={group.title}>
-            <p className="px-3 mb-2 text-[10px] font-mono uppercase tracking-wider text-secondary font-bold">
+            <p className="flex items-center gap-2 px-3 mb-2 text-[10px] font-mono uppercase tracking-[0.18em] text-secondary font-bold">
+              <span className="h-1.5 w-1.5 bg-px-water" aria-hidden="true" />
               {group.title}
             </p>
             <ul className="space-y-1">
@@ -124,16 +127,16 @@ export function DashboardSidebar({
                       href={href}
                       onClick={onItemClick}
                       aria-current={active ? "page" : undefined}
-                      className={`flex items-center justify-between gap-2.5 px-3 py-2 rounded-sm text-xs sm:text-sm font-medium transition-colors duration-150 ${
+                      className={`flex min-h-10 items-center justify-between gap-2.5 px-3 py-2 font-mono text-xs font-medium transition-[background-color,color,box-shadow] duration-200 ${
                         active
-                          ? "bg-[#0369A1] text-white font-semibold shadow-sm"
-                          : "text-secondary hover:text-foreground hover:bg-[#F0F7FB]"
+                          ? "bg-px-highlight text-foreground font-semibold shadow-[inset_3px_0_0_#0369A1]"
+                          : "text-secondary hover:text-foreground hover:bg-[#F0F7FB] hover:shadow-[inset_3px_0_0_#9CC6E0]"
                       }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <Icon
                           className={`w-4 h-4 shrink-0 ${
-                            active ? "text-white" : "text-[#0369A1]"
+                            active ? "text-[#0369A1]" : "text-secondary"
                           }`}
                           aria-hidden="true"
                         />
@@ -141,11 +144,7 @@ export function DashboardSidebar({
                       </div>
                       {badge && (
                         <span
-                          className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
-                            active
-                              ? "bg-white/20 text-white"
-                              : "bg-[#0369A1]/10 text-[#0369A1]"
-                          }`}
+                          className="px-chip text-[10px] font-mono px-1.5 py-0.5 bg-white text-[#0369A1]"
                         >
                           {badge}
                         </span>
@@ -160,10 +159,12 @@ export function DashboardSidebar({
       </nav>
 
       {/* Footer Info */}
-      <div className="p-4 border-t border-stroke bg-[#F7FAFC]">
+      <div className="p-4 border-t-2 border-dashed border-px-soft">
+        <div className="px-frame bg-surface-alt p-3 [--px-line:#CFE2EE]">
         <div className="flex items-center justify-between text-xs">
           <div className="flex flex-col min-w-0">
-            <span className="text-[10px] font-mono uppercase text-secondary font-bold">
+            <span className="flex items-center gap-1.5 text-[10px] font-mono uppercase text-secondary font-bold">
+              <span className="h-1.5 w-1.5 bg-[#0F766E]" aria-hidden="true" />
               Mahasiswa
             </span>
             <span className="font-mono font-semibold text-foreground truncate">
@@ -177,6 +178,7 @@ export function DashboardSidebar({
           >
             Info Sesi
           </Link>
+        </div>
         </div>
       </div>
     </aside>
