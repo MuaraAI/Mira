@@ -184,6 +184,22 @@ async def test_session_token_grants_api_access(fake_redis):
 
 
 @pytest.mark.asyncio
+async def test_invalid_session_payload_is_deleted_not_refreshed(fake_redis, monkeypatch):
+    monkeypatch.setattr("app.config.settings.API_KEY", "master_secret")
+    from app.session_store import session_store, _KEY_PREFIX, _hash_token
+
+    # Simulasikan blob tampered/legacy-invalid di Redis
+    bad_token = "tampered_token_123"
+    bad_key = _KEY_PREFIX + _hash_token(bad_token)
+    fake_redis.kv[bad_key] = "bukan-blob-terenkripsi-valid"
+
+    result = await session_store.resolve(bad_token)
+    assert result is None
+    # Blob invalid harus dihapus, bukan di-refresh TTL-nya
+    assert bad_key not in fake_redis.kv
+
+
+@pytest.mark.asyncio
 async def test_download_endpoint_accepts_dashboard_referer_and_query_token(fake_redis):
     transport = ASGITransport(app=app)
     mock_resp = AsyncMock()
