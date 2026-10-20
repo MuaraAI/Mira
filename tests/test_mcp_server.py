@@ -53,7 +53,8 @@ async def test_mcp_tool_listing():
     assert "ubsi_get_prodi_contacts" in tool_names
     assert "ubsi_get_certificates" in tool_names
     assert "ubsi_get_lecturers" in tool_names
-    assert len(tool_names) == 37
+    assert "ubsi_get_api_docs" in tool_names
+    assert len(tool_names) == 38
 
 def test_mcp_credential_headers_isolation():
     # 1. Session token isolation
@@ -338,4 +339,18 @@ async def test_mcp_presence_and_quiz_write_tools():
 
         res_lec = await ubsi_get_lecturers(search="AAA", session_token="tok_sess")
         assert json.loads(res_lec)["success"] is True
+
+    # Test ubsi_get_api_docs tool
+    from app.mcp_server import ubsi_get_api_docs
+    res_docs = await ubsi_get_api_docs()
+    parsed_docs = json.loads(res_docs)
+    assert parsed_docs["success"] is True
+    assert "endpoints" in parsed_docs["data"]
+    assert "mcp" in parsed_docs["data"]
+    assert parsed_docs["data"]["mcp"]["total_tools"] == 38
+
+    res_docs_cat = await ubsi_get_api_docs(category="elearning")
+    parsed_docs_cat = json.loads(res_docs_cat)
+    assert parsed_docs_cat["success"] is True
+    assert "elearning" in parsed_docs_cat["data"]["endpoints"]
 

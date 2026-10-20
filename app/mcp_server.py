@@ -586,6 +586,20 @@ async def ubsi_get_elearning_guides(
     return json.dumps(res, ensure_ascii=False, indent=2)
 
 
+@server.tool(
+    name="ubsi_get_api_docs",
+    description="Ambil kamus dokumentasi lengkap seluruh endpoint REST API dan tools MCP UBSI API beserta skema parameter dan contoh pemanggilannya.",
+)
+async def ubsi_get_api_docs(
+    category: Optional[str] = None,
+    session_token: Optional[str] = None,
+    api_key: Optional[str] = None,
+) -> str:
+    from app.docs import get_api_docs
+    res = get_api_docs(category)
+    return json.dumps({"success": True, "data": res}, ensure_ascii=False, indent=2)
+
+
 def main():
     """Jalankan server MCP melalui transport stdio, streamable-http, atau sse."""
     import argparse
