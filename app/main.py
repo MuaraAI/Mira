@@ -22,6 +22,7 @@ from app.modules.repository import router as repository_router
 from app.modules.ejournal import router as ejournal_router
 from app.modules.auth import router as auth_router
 from app.modules.channels import router as channels_router
+from app.modules.pwa_push import router as pwa_push_router
 from app.modules.stats import router as stats_router
 from app.stats import record_request, record_profile
 
@@ -118,6 +119,7 @@ app.include_router(repository_router)
 app.include_router(ejournal_router)
 app.include_router(auth_router)
 app.include_router(channels_router)
+app.include_router(pwa_push_router)
 app.include_router(stats_router)
 
 @app.middleware("http")

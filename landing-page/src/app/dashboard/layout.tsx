@@ -7,6 +7,7 @@ import { useRequireSession } from "@/lib/api";
 import { ErrorState, LoadingState } from "@/components/dashboard-ui";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { DashboardMobileNav } from "@/components/DashboardMobileNav";
+import PwaPushBanner from "@/components/PwaPushBanner";
 
 function getPageTitle(pathname: string): string {
   switch (pathname) {
@@ -106,6 +107,7 @@ export default function DashboardLayout({
             <ErrorState error={error} onRetry={reload} />
           ) : authed ? (
             <div key={pathname} className="page-in">
+              <PwaPushBanner />
               {children}
             </div>
           ) : null}
