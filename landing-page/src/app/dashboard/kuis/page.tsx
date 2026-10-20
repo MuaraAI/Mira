@@ -162,21 +162,21 @@ export default function KuisPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col">
         <PageHeader
           title="Kuis & Ujian Online"
           description="Jadwal kuis latihan, ujian daring, dan evaluasi berkala MyBest Elearning UBSI."
         />
 
         {/* Filter Pills */}
-        <div className="flex items-center gap-1.5 p-1 bg-[#F0F7FB] border border-stroke rounded-pill self-start sm:self-auto">
+        <div className="px-seg">
           <button
             type="button"
             onClick={() => setFilter("all")}
-            className={`min-h-[44px] px-3.5 py-2 text-xs font-semibold rounded-pill transition-all ${
+            className={`px-seg-btn ${
               filter === "all"
-                ? "bg-[#0369A1] text-white shadow-sm"
-                : "text-secondary hover:text-foreground"
+                ? "px-seg-on"
+                : ""
             }`}
           >
             Semua ({quizzes.length})
@@ -184,10 +184,10 @@ export default function KuisPage() {
           <button
             type="button"
             onClick={() => setFilter("active")}
-            className={`min-h-[44px] px-3.5 py-2 text-xs font-semibold rounded-pill transition-all ${
+            className={`px-seg-btn ${
               filter === "active"
-                ? "bg-[#0369A1] text-white shadow-sm"
-                : "text-secondary hover:text-foreground"
+                ? "px-seg-on"
+                : ""
             }`}
           >
             Tersedia ({totalActive})
@@ -195,10 +195,10 @@ export default function KuisPage() {
           <button
             type="button"
             onClick={() => setFilter("completed")}
-            className={`min-h-[44px] px-3.5 py-2 text-xs font-semibold rounded-pill transition-all ${
+            className={`px-seg-btn ${
               filter === "completed"
-                ? "bg-[#0369A1] text-white shadow-sm"
-                : "text-secondary hover:text-foreground"
+                ? "px-seg-on"
+                : ""
             }`}
           >
             Riwayat ({totalCompleted})
@@ -206,8 +206,8 @@ export default function KuisPage() {
         </div>
       </div>
 
-      {/* Top Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* Top Stat Cards: di HP angkanya sudah ada di tab filter, jadi kartu ini hanya tampil di layar lebar */}
+      <div className="hidden sm:grid sm:grid-cols-3 gap-4">
         <div className="glass-card p-5 border-l-4 border-l-[#0369A1]">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-secondary">

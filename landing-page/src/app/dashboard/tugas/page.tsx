@@ -1,20 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  CheckSquare,
+  CheckCircle2,
+  ChevronDown,
   Clock,
   Download,
-  AlertTriangle,
-  CheckCircle2,
-  Calendar,
-  BookOpen,
-  Send,
-  ExternalLink,
   Edit3,
-  X,
+  ExternalLink,
   Info,
   Link as LinkIcon,
+  Send,
+  X,
 } from "lucide-react";
 import { apiDownload, apiFetch, ApiError, useApi } from "@/lib/api";
 import {
@@ -26,6 +23,7 @@ import {
   primaryButtonClass,
   ghostButtonClass,
 } from "@/components/dashboard-ui";
+import { describeDeadline, findSubmission, formatShortDate, parseDeadline, type DeadlineTone } from "@/lib/assignments";
 
 interface TaskItem {
   id: string;
@@ -67,24 +65,198 @@ interface AssignmentsData {
   submissions: SubmissionItem[];
 }
 
-export default function TugasPage() {
-  const { data, loading, error, reload } = useApi<AssignmentsData>(
-    "/v1/elearning/assignments"
+type Filter = "all" | "pending" | "completed";
+
+interface Row {
+  task: TaskItem;
+  submission?: SubmissionItem;
+  deadline: Date | null;
+}
+
+const TONE_CLASS: Record<DeadlineTone, string> = {
+  overdue: "bg-[#BE123C] text-white",
+  urgent: "bg-[#9A3412] text-white",
+  soon: "bg-[#FFF7ED] text-[#9A3412]",
+  later: "bg-[#F0F7FB] text-[#075985]",
+};
+
+function TaskCard({
+  row,
+  now,
+  downloading,
+  onDownload,
+  onSubmit,
+}: {
+  row: Row;
+  now: Date | null;
+  downloading: boolean;
+  onDownload: () => void;
+  onSubmit: () => void;
+}) {
+  const { task, submission, deadline } = row;
+  const done = Boolean(submission);
+  const countdown = now && !done ? describeDeadline(deadline, now) : null;
+  const hasFile = Boolean((task.file_soal_id && task.file_soal_name) || task.file_soal_url);
+  const canSubmit = Boolean(task.token_send || task.token_tugas);
+  const [open, setOpen] = useState(false);
+  const longDesc = (task.deskripsi?.length ?? 0) > 140;
+
+  return (
+    <article
+      className={`glass-card flex flex-col p-4 sm:p-5 ${
+        done ? "[--px-line:#99D5CC] [--px-drop:#CCEBE6]" : countdown?.tone === "overdue" || countdown?.tone === "urgent" ? "[--px-line:#FDBA74] [--px-drop:#FFEDD5]" : ""
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <p className="min-w-0 truncate font-mono text-[11px] font-bold uppercase tracking-wide text-[#0369A1]">
+          {task.mata_kuliah || task.kode || "Tugas Kuliah"}
+        </p>
+        {done ? (
+          <span className="inline-flex shrink-0 items-center gap-1 bg-[#0F766E] px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-white">
+            <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+            Dikumpul
+          </span>
+        ) : countdown ? (
+          <span className={`shrink-0 px-2 py-0.5 font-mono text-[10px] font-bold uppercase ${TONE_CLASS[countdown.tone]}`}>
+            {countdown.text}
+          </span>
+        ) : null}
+      </div>
+
+      <h2 className="mt-1.5 text-base font-bold leading-snug text-foreground">{task.judul}</h2>
+      <p className="mt-0.5 text-xs text-secondary">
+        {[task.pertemuan && `Pertemuan ${task.pertemuan}`, task.kelas && `Kelas ${task.kelas}`].filter(Boolean).join(" · ")}
+      </p>
+
+      {task.deskripsi && (
+        <div className="mt-3">
+          <p className={`whitespace-pre-line text-sm leading-relaxed text-secondary ${!open && longDesc ? "line-clamp-3" : ""}`}>
+            {task.deskripsi}
+          </p>
+          {longDesc && (
+            <button
+              type="button"
+              onClick={() => setOpen((v) => !v)}
+              className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-[#0369A1]"
+              aria-expanded={open}
+            >
+              {open ? "Tutup" : "Selengkapnya"}
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
+            </button>
+          )}
+        </div>
+      )}
+
+      <div className="mt-3 flex items-center gap-2 border-t-2 border-dashed border-px-soft pt-3 text-xs">
+        <Clock className={`h-3.5 w-3.5 shrink-0 ${done ? "text-secondary" : "text-[#9A3412]"}`} aria-hidden="true" />
+        <span className="text-secondary">Batas</span>
+        <span className={`font-mono font-semibold ${done ? "text-foreground" : "text-[#9A3412]"}`}>{formatShortDate(deadline, task.selesai)}</span>
+        {submission?.nilai != null && submission.nilai !== "" && (
+          <span className="ml-auto font-mono text-xs text-secondary">
+            Nilai <strong className="text-base text-[#0369A1]">{submission.nilai}</strong>
+          </span>
+        )}
+      </div>
+
+      {submission?.link_tugas && (
+        <a
+          href={submission.link_tugas}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 flex min-h-10 items-center gap-2 bg-[#F0F7FB] px-3 text-xs text-[#0369A1] transition-colors hover:bg-px-highlight"
+        >
+          <LinkIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span className="min-w-0 flex-1 truncate font-mono">{submission.link_tugas}</span>
+          <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        </a>
+      )}
+
+      <div className={`mt-4 grid gap-3 ${hasFile ? "grid-cols-2" : "grid-cols-1"}`}>
+        {hasFile && (
+          <button
+            type="button"
+            onClick={onDownload}
+            disabled={downloading}
+            className="px-btn-ghost inline-flex min-h-11 items-center justify-center gap-1.5 px-3 text-xs font-semibold"
+          >
+            <Download className="h-3.5 w-3.5" aria-hidden="true" />
+            {downloading ? "Mengunduh..." : "Soal"}
+          </button>
+        )}
+        {canSubmit && (
+          <button
+            type="button"
+            onClick={onSubmit}
+            className={`${done ? "px-btn-ghost" : "px-btn"} inline-flex min-h-11 items-center justify-center gap-1.5 px-3 text-xs font-bold`}
+          >
+            {done ? <Edit3 className="h-3.5 w-3.5" aria-hidden="true" /> : <Send className="h-3.5 w-3.5" aria-hidden="true" />}
+            {done ? "Ubah Link" : "Kumpulkan"}
+          </button>
+        )}
+      </div>
+    </article>
   );
-  const [filter, setFilter] = useState<"all" | "pending" | "completed">("all");
+}
+
+export default function TugasPage() {
+  const { data, loading, error, reload } = useApi<AssignmentsData>("/v1/elearning/assignments");
+  const [filter, setFilter] = useState<Filter>("pending");
   const [actionMessage, setActionMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [now, setNow] = useState<Date | null>(null);
+
+  // State Modal Kumpulkan Tugas
+  const [activeTaskForSubmit, setActiveTaskForSubmit] = useState<TaskItem | null>(null);
+  const [linkInput, setLinkInput] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setNow(new Date());
+    const timer = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!activeTaskForSubmit) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeSubmitModal();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [activeTaskForSubmit]);
+
+  const { pendingRows, completedRows, allRows } = useMemo(() => {
+    const tasks = data?.tasks ?? [];
+    const submissions = data?.submissions ?? [];
+    const rows: Row[] = tasks.map((task) => ({ task, submission: findSubmission(task, submissions), deadline: parseDeadline(task.selesai) }));
+    // Pengumpulan yang tidak punya pasangan di daftar tugas aktif tetap ditampilkan sebagai selesai.
+    for (const s of submissions) {
+      if (rows.some((r) => r.submission === s)) continue;
+      rows.push({
+        task: { id: `submission-${s.id}`, kode: s.kode, mata_kuliah: s.mata_kuliah, judul: s.judul, pertemuan: s.pertemuan, selesai: s.created || undefined, deskripsi: s.komentar_dosen || undefined },
+        submission: s,
+        deadline: parseDeadline(s.created),
+      });
+    }
+    const byDeadline = (a: Row, b: Row) => (a.deadline?.getTime() ?? Infinity) - (b.deadline?.getTime() ?? Infinity);
+    const pending = rows.filter((r) => !r.submission).sort(byDeadline);
+    const completed = rows.filter((r) => r.submission).sort((a, b) => byDeadline(b, a));
+    return { pendingRows: pending, completedRows: completed, allRows: [...pending, ...completed] };
+  }, [data]);
+
+  if (loading) return <LoadingState label="Memuat daftar tugas perkuliahan" />;
+  if (error) return <ErrorState error={error} onRetry={reload} />;
+
+  const rows = filter === "pending" ? pendingRows : filter === "completed" ? completedRows : allRows;
 
   async function handleDownloadTask(task: TaskItem) {
     const path =
       task.file_soal_id && task.file_soal_name
         ? `/v1/elearning/assignments/download?id=${encodeURIComponent(task.file_soal_id)}&file=${encodeURIComponent(task.file_soal_name)}`
         : task.file_soal_url
-        ? (task.file_soal_url.startsWith("/v1/")
-            ? task.file_soal_url
-            : `/v1/elearning/assignments/download?file_url=${encodeURIComponent(task.file_soal_url)}`)
+        ? task.file_soal_url.startsWith("/v1/")
+          ? task.file_soal_url
+          : `/v1/elearning/assignments/download?file_url=${encodeURIComponent(task.file_soal_url)}`
         : null;
-
     if (!path) return;
 
     setDownloadingId(task.id);
@@ -93,70 +265,15 @@ export default function TugasPage() {
       const defaultName = task.file_soal_name || `${(task.judul || "soal_tugas").replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
       await apiDownload(path, defaultName);
     } catch (err) {
-      setActionMessage({
-        type: "error",
-        text: err instanceof ApiError ? err.message : "Gagal mengunduh berkas soal.",
-      });
+      setActionMessage({ type: "error", text: err instanceof ApiError ? err.message : "Gagal mengunduh berkas soal." });
     } finally {
       setDownloadingId(null);
     }
   }
 
-  // State Modal Kumpulkan Tugas
-  const [activeTaskForSubmit, setActiveTaskForSubmit] = useState<TaskItem | null>(null);
-  const [linkInput, setLinkInput] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-
-  if (loading) return <LoadingState label="Memuat daftar tugas perkuliahan" />;
-  if (error) return <ErrorState error={error} onRetry={reload} />;
-
-  const tasks = data?.tasks ?? [];
-  const submissions = data?.submissions ?? [];
-
-  const submittedTitles = new Set(
-    submissions.map((s) => s.judul?.toLowerCase().trim())
-  );
-
-  const pendingList = tasks.filter(
-    (t) => !submittedTitles.has(t.judul?.toLowerCase().trim())
-  );
-
-  const completedList = submissions.map((submission) => {
-    const matchingTask = tasks.find(
-      (task) => task.judul?.toLowerCase().trim() === submission.judul?.toLowerCase().trim()
-    );
-    return matchingTask || {
-      id: `submission-${submission.id}`,
-      kode: submission.kode,
-      mata_kuliah: submission.mata_kuliah,
-      judul: submission.judul,
-      pertemuan: submission.pertemuan,
-      selesai: submission.created || undefined,
-      deskripsi: submission.komentar_dosen || undefined,
-      file_soal_url: null,
-      file_soal_id: null,
-      file_soal_name: null,
-      upload_url: null,
-      send_url: null,
-      token_tugas: null,
-      token_send: null,
-    };
-  });
-
-  const displayedTasks =
-    filter === "pending"
-      ? pendingList
-      : filter === "completed"
-      ? completedList
-      : [...tasks, ...completedList.filter((item) => !tasks.some((task) => task.id === item.id))];
-
-  function openSubmitModal(task: TaskItem) {
-    const submission = submissions.find(
-      (s) => s.judul?.toLowerCase().trim() === task.judul?.toLowerCase().trim()
-    );
-    setActiveTaskForSubmit(task);
-    setLinkInput(submission?.link_tugas || "");
+  function openSubmitModal(row: Row) {
+    setActiveTaskForSubmit(row.task);
+    setLinkInput(row.submission?.link_tugas || "");
     setSubmitError(null);
   }
 
@@ -181,7 +298,6 @@ export default function TugasPage() {
       setSubmitError("URL link tugas wajib diisi.");
       return;
     }
-
     if (!trimmedLink.startsWith("http://") && !trimmedLink.startsWith("https://")) {
       setSubmitError("Format link tidak valid. Masukkan URL lengkap diawali http:// atau https://");
       return;
@@ -189,100 +305,69 @@ export default function TugasPage() {
 
     setSubmitting(true);
     setSubmitError(null);
-
     try {
       const res = await apiFetch<{ status?: string; message?: string }>("/v1/elearning/assignments/submit", {
         method: "POST",
-        json: {
-          token_send: token,
-          link_tugas: trimmedLink,
-        },
+        json: { token_send: token, link_tugas: trimmedLink },
       });
-
-      setActionMessage({
-        type: "success",
-        text: res.message || "Tugas berhasil dikumpulkan ke MyBest!",
-      });
+      setActionMessage({ type: "success", text: res.message || "Tugas berhasil dikumpulkan ke MyBest!" });
       closeSubmitModal();
       reload();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Gagal mengumpulkan tugas ke MyBest.";
-      setSubmitError(msg);
+      setSubmitError(err instanceof Error ? err.message : "Gagal mengumpulkan tugas ke MyBest.");
     } finally {
       setSubmitting(false);
     }
   }
 
+  const tabs: { key: Filter; label: string; count: number; active: string }[] = [
+    { key: "pending", label: "Belum", count: pendingRows.length, active: "bg-[#9A3412]" },
+    { key: "completed", label: "Selesai", count: completedRows.length, active: "bg-[#0F766E]" },
+    { key: "all", label: "Semua", count: allRows.length, active: "bg-[#0369A1]" },
+  ];
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <PageHeader
-          title="Tugas Kuliah & Deadline"
-          description={`Terintegrasi dengan MyBest. Total ${tasks.length} tugas terdeteksi semester ini.`}
-        />
+      <PageHeader
+        title="Tugas Kuliah & Deadline"
+        description={`Terintegrasi dengan MyBest. Total ${allRows.length} tugas terdeteksi semester ini.`}
+      />
 
-        <div className="flex items-center gap-1.5 p-1 bg-[#F0F7FB] border border-stroke rounded-pill self-start sm:self-auto">
+      <div role="tablist" aria-label="Filter tugas" className="grid grid-cols-3 gap-1 bg-px-tint p-1 shadow-[0_-2px_0_0_#CFE2EE,0_2px_0_0_#CFE2EE,-2px_0_0_0_#CFE2EE,2px_0_0_0_#CFE2EE] sm:w-[26rem]">
+        {tabs.map((t) => (
           <button
+            key={t.key}
             type="button"
-            onClick={() => setFilter("all")}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-pill transition-all ${
-              filter === "all"
-                ? "bg-[#0369A1] text-white shadow-sm"
-                : "text-secondary hover:text-foreground"
+            role="tab"
+            aria-selected={filter === t.key}
+            onClick={() => setFilter(t.key)}
+            className={`min-h-10 px-2 font-mono text-xs font-bold transition-colors duration-200 ${
+              filter === t.key ? `${t.active} text-white shadow-[2px_2px_0_0_#072033]` : "text-secondary hover:bg-white hover:text-foreground"
             }`}
           >
-            Semua ({displayedTasks.length})
+            {t.label} ({t.count})
           </button>
-          <button
-            type="button"
-            onClick={() => setFilter("pending")}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-pill transition-all ${
-              filter === "pending"
-                ? "bg-[#9A3412] text-white shadow-sm"
-                : "text-secondary hover:text-foreground"
-            }`}
-          >
-            Belum Dikumpul ({pendingList.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilter("completed")}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-pill transition-all ${
-              filter === "completed"
-                ? "bg-[#0F766E] text-white shadow-sm"
-                : "text-secondary hover:text-foreground"
-            }`}
-          >
-            Selesai ({completedList.length})
-          </button>
-        </div>
+        ))}
       </div>
 
       {actionMessage && (
         <div
-          className={`rounded-md p-4 flex items-center justify-between text-xs sm:text-sm ${
-            actionMessage.type === "success"
-              ? "bg-[#F0FDF4] border border-[#22C55E]/30 text-[#15803D]"
-              : "bg-[#FFF1F2] border border-[#BE123C]/30 text-[#BE123C]"
+          className={`px-frame flex items-center justify-between gap-3 p-3 text-sm ${
+            actionMessage.type === "success" ? "bg-[#F0FDF4] text-[#0F766E] [--px-line:#99D5CC]" : "bg-[#FFF1F2] text-[#BE123C] [--px-line:#FDA4AF]"
           }`}
           role="status"
         >
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 shrink-0" aria-hidden="true" />
-            <span>{actionMessage.text}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setActionMessage(null)}
-            className="text-secondary hover:text-foreground p-1"
-            aria-label="Tutup pesan"
-          >
-            <X className="w-4 h-4" />
+          <span className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+            {actionMessage.text}
+          </span>
+          <button type="button" onClick={() => setActionMessage(null)} className="flex min-h-9 min-w-9 items-center justify-center text-secondary hover:text-foreground" aria-label="Tutup pesan">
+            <X className="h-4 w-4" />
           </button>
         </div>
       )}
 
-      {displayedTasks.length === 0 ? (
+      {rows.length === 0 ? (
         <EmptyState
           title={
             filter === "pending"
@@ -294,279 +379,90 @@ export default function TugasPage() {
           description="Periksa kembali berkala sesuai instruksi dosen pengampu mata kuliah di MyBest."
         />
       ) : (
-        <div className="grid grid-cols-1 gap-4">
-          {displayedTasks.map((task) => {
-            const isSubmitted = submittedTitles.has(
-              task.judul?.toLowerCase().trim()
-            );
-            const submission = submissions.find(
-              (s) => s.judul?.toLowerCase().trim() === task.judul?.toLowerCase().trim()
-            );
-
-            // Tentukan URL download berkas soal
-            const downloadUrl =
-              task.file_soal_id && task.file_soal_name
-                ? `/v1/elearning/assignments/download?id=${encodeURIComponent(task.file_soal_id)}&file=${encodeURIComponent(task.file_soal_name)}`
-                : task.file_soal_url
-                ? `/v1/elearning/assignments/download?file_url=${encodeURIComponent(task.file_soal_url)}`
-                : null;
-
-            return (
-              <div
-                key={task.id}
-                className={`glass-card p-5 sm:p-6 border-l-4 transition-all ${
-                  isSubmitted
-                    ? "border-l-[#0F766E]"
-                    : "border-l-[#9A3412]"
-                }`}
-              >
-                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                  <div className="space-y-2 max-w-2xl flex-1">
-                    <div className="flex flex-wrap items-center gap-2 text-xs">
-                      <span className="font-mono font-bold text-[#0369A1] px-2 py-0.5 bg-[#0369A1]/10 rounded-sm">
-                        {task.mata_kuliah || task.kode || "Tugas Kuliah"}
-                      </span>
-                      {task.pertemuan && (
-                        <span className="text-secondary font-medium">
-                          Pertemuan {task.pertemuan}
-                        </span>
-                      )}
-                      {task.kelas && (
-                        <span className="text-secondary/70">
-                          (Kelas {task.kelas})
-                        </span>
-                      )}
-                    </div>
-
-                    <h2 className="text-base sm:text-lg font-bold text-foreground">
-                      {task.judul}
-                    </h2>
-
-                    {task.deskripsi && (
-                      <p className="text-xs sm:text-sm text-secondary leading-relaxed whitespace-pre-line">
-                        {task.deskripsi}
-                      </p>
-                    )}
-
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-secondary pt-2">
-                      {task.mulai && (
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-3.5 h-3.5 text-secondary" aria-hidden="true" />
-                          Mulai: {task.mulai}
-                        </span>
-                      )}
-                      {task.selesai && (
-                        <span className="flex items-center gap-1 font-semibold text-[#9A3412]">
-                          <Clock className="w-3.5 h-3.5" aria-hidden="true" />
-                          Batas: {task.selesai}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Jika sudah dikumpulkan, tampilkan tautan link tugasnya */}
-                    {isSubmitted && submission?.link_tugas && (
-                      <div className="mt-3 p-3 bg-[#F0F7FB] border border-stroke rounded-md flex flex-wrap items-center justify-between gap-2 text-xs">
-                        <div className="flex items-center gap-2 truncate max-w-md">
-                          <LinkIcon className="w-3.5 h-3.5 text-[#0369A1] shrink-0" aria-hidden="true" />
-                          <span className="text-secondary font-medium">Link Tugas Dikumpul:</span>
-                          <a
-                            href={submission.link_tugas}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="font-mono font-semibold text-[#0369A1] hover:underline truncate"
-                          >
-                            {submission.link_tugas}
-                          </a>
-                        </div>
-                        <a
-                          href={submission.link_tugas}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[#0369A1] font-bold text-[11px] hover:underline shrink-0"
-                        >
-                          <span>Buka Link</span>
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="shrink-0 flex flex-col sm:items-end gap-3 pt-2 md:pt-0">
-                    <div className="flex items-center gap-1.5">
-                      {isSubmitted ? (
-                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-pill bg-[#0F766E]/10 border border-[#0F766E]/30 text-xs font-bold text-[#0F766E]">
-                          <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
-                          Sudah Dikumpul
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-pill bg-[#9A3412]/10 border border-[#9A3412]/30 text-xs font-bold text-[#9A3412]">
-                          <AlertTriangle className="w-3.5 h-3.5" aria-hidden="true" />
-                          Belum Dikumpul
-                        </span>
-                      )}
-                    </div>
-
-                    {submission?.nilai !== undefined && submission?.nilai !== null && (
-                      <div className="text-right">
-                        <span className="text-[10px] font-mono uppercase text-secondary block">
-                          Nilai Tugas:
-                        </span>
-                        <span className="text-lg font-display font-bold text-[#0369A1]">
-                          {submission.nilai}
-                        </span>
-                      </div>
-                    )}
-
-                    <div className="flex flex-wrap gap-2">
-                      {downloadUrl && (
-                        <button
-                          type="button"
-                          onClick={() => handleDownloadTask(task)}
-                          disabled={downloadingId === task.id}
-                          className="inline-flex min-h-[40px] items-center gap-1.5 px-3 py-2 rounded-pill border border-stroke bg-white hover:bg-[#F0F7FB] text-xs font-semibold text-[#0369A1] transition-all disabled:opacity-50"
-                        >
-                          {downloadingId === task.id ? (
-                            <>
-                              <span className="w-3.5 h-3.5 border-2 border-[#0369A1] border-t-transparent rounded-full animate-spin" />
-                              <span>Mengunduh...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Download className="w-3.5 h-3.5" aria-hidden="true" />
-                              <span>Unduh Soal</span>
-                            </>
-                          )}
-                        </button>
-                      )}
-
-                      {/* Tombol Kumpulkan / Ubah Tugas */}
-                      <button
-                        type="button"
-                        onClick={() => openSubmitModal(task)}
-                        className={`inline-flex min-h-[40px] items-center gap-1.5 px-4 py-2 rounded-pill text-xs font-bold text-white transition-all ${
-                          isSubmitted
-                            ? "bg-[#0F766E] hover:bg-[#115E59]"
-                            : "bg-[#0369A1] hover:bg-[#075985]"
-                        }`}
-                      >
-                        {isSubmitted ? (
-                          <>
-                            <Edit3 className="w-3.5 h-3.5" aria-hidden="true" />
-                            <span>Ubah Link Tugas</span>
-                          </>
-                        ) : (
-                          <>
-                            <Send className="w-3.5 h-3.5" aria-hidden="true" />
-                            <span>Kumpulkan Tugas</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+        <div className="page-in grid grid-cols-1 gap-5 p-[2px] md:grid-cols-2" key={filter}>
+          {rows.map((row) => (
+            <TaskCard
+              key={row.task.id}
+              row={row}
+              now={now}
+              downloading={downloadingId === row.task.id}
+              onDownload={() => handleDownloadTask(row.task)}
+              onSubmit={() => openSubmitModal(row)}
+            />
+          ))}
         </div>
       )}
 
-      {/* Modal Kumpulkan Tugas */}
+      {/* Modal Kumpulkan Tugas: bottom sheet di HP, dialog di tengah di desktop */}
       {activeTaskForSubmit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-[#072033]/50 backdrop-blur-sm transition-opacity"
-            onClick={closeSubmitModal}
-            aria-hidden="true"
-          />
+        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
+          <div className="modal-backdrop fixed inset-0 bg-[#072033]/50 backdrop-blur-[2px]" onClick={closeSubmitModal} aria-hidden="true" />
 
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="submit-modal-title"
-            className="relative w-full max-w-lg bg-white rounded-lg shadow-2xl z-10 flex flex-col overflow-hidden border border-stroke"
+            className="sheet-panel relative z-10 flex max-h-[90dvh] w-full max-w-lg flex-col overflow-y-auto bg-white shadow-[0_-4px_0_0_#0369A1] sm:shadow-[0_-2px_0_0_#163A55,0_2px_0_0_#163A55,-2px_0_0_0_#163A55,2px_0_0_0_#163A55,8px_8px_0_0_#0369A1]"
           >
-            {/* Modal Header */}
-            <div className="flex items-center justify-between p-4 border-b border-stroke bg-[#F7FAFC]">
-              <div>
-                <span className="text-[10px] font-mono font-bold uppercase text-[#0369A1]">
-                  Pengumpulan Tugas MyBest
-                </span>
+            <div className="flex items-start justify-between gap-3 border-b-2 border-px-soft bg-px-tint p-4">
+              <div className="min-w-0">
+                <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#0369A1]">Pengumpulan Tugas MyBest</span>
                 <h3 id="submit-modal-title" className="text-base font-display font-bold text-foreground">
                   {activeTaskForSubmit.judul}
                 </h3>
+                <p className="mt-0.5 text-xs text-secondary">
+                  {activeTaskForSubmit.mata_kuliah || activeTaskForSubmit.kode}
+                  {activeTaskForSubmit.pertemuan ? ` · Pertemuan ${activeTaskForSubmit.pertemuan}` : ""}
+                </p>
               </div>
               <button
                 type="button"
                 onClick={closeSubmitModal}
                 aria-label="Tutup jendela"
-                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-sm text-secondary hover:text-foreground hover:bg-[#F0F7FB]"
+                className="px-frame flex min-h-11 min-w-11 shrink-0 items-center justify-center bg-white text-secondary [--px-line:#CFE2EE] hover:text-foreground"
               >
-                <X className="w-5 h-5" aria-hidden="true" />
+                <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
 
-            {/* Modal Form */}
-            <form onSubmit={handleSubmitLink} className="p-6 space-y-4">
-              <div className="space-y-1">
-                <span className="text-xs text-secondary font-medium">
-                  Mata Kuliah: <strong className="text-foreground">{activeTaskForSubmit.mata_kuliah || activeTaskForSubmit.kode}</strong>
-                  {activeTaskForSubmit.pertemuan ? ` | Pertemuan ${activeTaskForSubmit.pertemuan}` : ""}
-                </span>
-              </div>
-
+            <form onSubmit={handleSubmitLink} className="space-y-4 p-4 sm:p-6">
               <div className="space-y-2">
-                <label htmlFor="input-link-tugas" className="block text-xs font-bold text-foreground uppercase tracking-wider">
+                <label htmlFor="input-link-tugas" className="block text-xs font-bold uppercase tracking-wider text-foreground">
                   Link / URL Tugas Mahasiswa <span className="text-[#BE123C]">*</span>
                 </label>
-                <div className="relative">
-                  <input
-                    id="input-link-tugas"
-                    type="url"
-                    required
-                    value={linkInput}
-                    onChange={(e) => setLinkInput(e.target.value)}
-                    placeholder="Contoh: https://drive.google.com/file/d/14wUrOkCVbx..."
-                    className={inputClass}
-                  />
-                </div>
+                <input
+                  id="input-link-tugas"
+                  type="url"
+                  required
+                  autoFocus
+                  value={linkInput}
+                  onChange={(e) => setLinkInput(e.target.value)}
+                  placeholder="https://drive.google.com/..."
+                  className={`${inputClass} min-h-12 text-base sm:text-sm`}
+                />
               </div>
 
-              {/* Petunjuk Pengumpulan */}
-              <div className="p-3 bg-[#F0F7FB] border border-[#0369A1]/20 rounded-md flex items-start gap-2.5 text-xs text-secondary">
-                <Info className="w-4 h-4 text-[#0369A1] shrink-0 mt-0.5" aria-hidden="true" />
-                <div className="space-y-1 leading-relaxed">
-                  <p>
-                    <strong>Format Resmi MyBest:</strong> Masukkan URL Google Drive, GitHub repository, atau link dokumen tugas Anda.
-                  </p>
-                  <p>
-                    Pastikan akses link Google Drive disetel ke <em>&quot;Siapa saja yang memiliki link dapat melihat&quot;</em> agar dosen pengampu dapat memeriksa tugas Anda.
-                  </p>
-                </div>
+              <div className="flex items-start gap-2.5 bg-[#F0F7FB] p-3 text-xs leading-relaxed text-secondary">
+                <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#0369A1]" aria-hidden="true" />
+                <p>
+                  Masukkan URL Google Drive, GitHub repository, atau link dokumen tugas Anda. Pastikan akses Google Drive disetel ke{" "}
+                  <em>&quot;Siapa saja yang memiliki link dapat melihat&quot;</em>.
+                </p>
               </div>
 
               {submitError && (
-                <div className="p-3 bg-[#FFF1F2] border border-[#BE123C]/20 rounded-md text-[#BE123C] text-xs">
+                <div className="bg-[#FFF1F2] p-3 text-xs text-[#BE123C]" role="alert">
                   {submitError}
                 </div>
               )}
 
-              {/* Modal Actions */}
-              <div className="pt-3 border-t border-stroke flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={closeSubmitModal}
-                  className={`${ghostButtonClass} text-xs py-2`}
-                  disabled={submitting}
-                >
+              <div className="grid grid-cols-2 gap-3 border-t-2 border-dashed border-px-soft pt-4 sm:flex sm:justify-end">
+                <button type="button" onClick={closeSubmitModal} className={ghostButtonClass} disabled={submitting}>
                   Batal
                 </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className={`${primaryButtonClass} text-xs py-2`}
-                >
-                  <Send className="w-3.5 h-3.5" aria-hidden="true" />
-                  <span>{submitting ? "Mengirimkan..." : "Kirim Tugas"}</span>
+                <button type="submit" disabled={submitting} className={primaryButtonClass}>
+                  <Send className="h-3.5 w-3.5" aria-hidden="true" />
+                  {submitting ? "Mengirim..." : "Kirim Tugas"}
                 </button>
               </div>
             </form>

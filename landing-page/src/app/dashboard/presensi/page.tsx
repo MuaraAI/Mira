@@ -3,13 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   UserCheck,
-  Calendar,
   Clock,
   MapPin,
   User,
   CheckCircle2,
   XCircle,
   AlertCircle,
+  ChevronDown,
 } from "lucide-react";
 import { apiFetch, useApi, clearApiCache } from "@/lib/api";
 import {
@@ -18,6 +18,8 @@ import {
   LoadingState,
   PageHeader,
 } from "@/components/dashboard-ui";
+import { CourseSelect } from "@/components/CourseSelect";
+import { resolveDosen } from "@/lib/courses";
 
 interface CourseItem {
   id: string;
@@ -27,6 +29,7 @@ interface CourseItem {
   hari?: string;
   jam?: string;
   ruang?: string;
+  kode_dosen?: string;
   dosen_code?: string;
   token_absen?: string | null;
 }
@@ -62,6 +65,9 @@ const DAY_ORDER = ["minggu", "senin", "selasa", "rabu", "kamis", "jumat", "sabtu
 
 export default function PresensiPage() {
   const coursesApi = useApi<CourseItem[]>("/v1/elearning/courses");
+  // Cadangan kode dosen dari jadwal SIAKAD.
+  const scheduleApi = useApi<{ kode: string; nama: string; kode_dosen?: string }[]>("/v1/studentv2/schedule");
+  const [openRecord, setOpenRecord] = useState<string | null>(null);
   const [selectedCourseKey, setSelectedCourseKey] = useState<string | null>(null);
 
   const rawCourses = coursesApi.data ?? [];
@@ -172,12 +178,15 @@ export default function PresensiPage() {
   const isActiveSession =
     Boolean(pData?.can_submit) ||
     Boolean(pData?.status_sesi?.toLowerCase().includes("absen masuk"));
-  const hadirCount = records.filter(
-    (r) => r.status_absen.toLowerCase() === "hadir"
-  ).length;
+  const hadirCount = records.filter((r) => r.status_absen.toLowerCase() === "hadir").length;
   const totalPertemuan = records.length;
-  const persentase =
-    totalPertemuan > 0 ? Math.round((hadirCount / totalPertemuan) * 100) : 0;
+  const persentase = totalPertemuan > 0 ? Math.round((hadirCount / totalPertemuan) * 100) : 0;
+  const dosen = resolveDosen(activeCourse, scheduleApi.data, pData?.dosen);
+  const jam =
+    pData?.jam_masuk && pData?.jam_keluar ? `${pData.jam_masuk} - ${pData.jam_keluar}` : activeCourse?.jam || "";
+  const segments = 16;
+  const filled = Math.round((persentase / 100) * segments);
+  const courseKey = (c: CourseItem) => c.id || c.kode || c.nama;
 
   return (
     <div className="space-y-6">
@@ -186,221 +195,184 @@ export default function PresensiPage() {
         description="Pantau riwayat kehadiran, status sesi pertemuan, dan berita acara perkuliahan MyBest."
       />
 
-      {/* Course Selector Tabs */}
-      <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-secondary px-1">
-          <span>
-            Hari ini: <strong className="text-foreground">{todayName}</strong>. Diurutkan berdasarkan jadwal terdekat:
-          </span>
-          {activeCourse?.hari && (
-            <span className="font-mono text-[#0369A1] font-semibold">
-              Jadwal: {activeCourse.hari} ({activeCourse.jam || "-"})
-            </span>
-          )}
-        </div>
-
-        <div className="overflow-x-auto pb-2 -mx-2 px-2">
-          <div className="flex items-center gap-2 w-max">
-            {courses.map((course) => {
-              const courseKey = course.id || course.kode || course.nama;
-              const active = courseKey === (activeCourse?.id || activeCourse?.kode || activeCourse?.nama);
-              const isToday = course.hari?.toLowerCase().trim() === todayName.toLowerCase();
-              return (
-                <button
-                  key={courseKey}
-                  type="button"
-                  onClick={() => setSelectedCourseKey(courseKey)}
-                  className={`flex items-center gap-2 px-3.5 py-2 rounded-sm text-xs font-semibold whitespace-nowrap transition-all border ${
-                    active
-                      ? "bg-[#0369A1] text-white border-[#075985] shadow-sm"
-                      : "bg-white text-secondary hover:text-foreground border-stroke hover:bg-[#F0F7FB]"
-                  }`}
-                >
-                  <span>{course.nama}</span>
-                  {course.hari && (
-                    <span
-                      className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
-                        active
-                          ? "bg-white/20 text-white"
-                          : isToday
-                          ? "bg-[#0F766E]/15 text-[#0F766E] font-bold"
-                          : "bg-slate-100 text-secondary"
-                      }`}
-                    >
-                      {isToday ? "Hari Ini" : course.hari}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
+      <CourseSelect
+        options={courses.map((c) => ({
+          key: courseKey(c),
+          label: c.nama,
+          sub: [c.hari, c.jam].filter(Boolean).join(" "),
+          badge: c.hari?.toLowerCase().trim() === todayName.toLowerCase() ? "Hari Ini" : undefined,
+        }))}
+        value={activeCourse ? courseKey(activeCourse) : null}
+        onChange={(key) => {
+          setSelectedCourseKey(key);
+          setOpenRecord(null);
+          setSubmitMessage(null);
+          setSubmitError(null);
+        }}
+      />
 
       {presenceApi.loading ? (
         <LoadingState label="Memuat rekap presensi..." />
       ) : presenceApi.error ? (
         <ErrorState error={presenceApi.error} onRetry={presenceApi.reload} />
       ) : (
-        <div className="space-y-6">
-          {/* Header Info & Kehadiran Card */}
-          <div className="glass-card p-6 border-l-4 border-l-[#0369A1]">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-              <div className="space-y-2">
-                <span className="font-mono text-xs font-bold text-[#0369A1] px-2 py-0.5 bg-[#0369A1]/10 rounded-sm">
-                  {pData?.kode_mtk || activeCourse?.kode_mtk || activeCourse?.kode || "MTK"}
-                </span>
-                <h2 className="text-xl font-display font-bold text-foreground">
-                  {pData?.matakuliah || activeCourse?.nama}
-                </h2>
-
-                <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-secondary pt-1">
-                  <span className="flex items-center gap-1.5">
-                    <User className="w-3.5 h-3.5 text-[#0369A1]" aria-hidden="true" />
-                    Dosen: {pData?.dosen || activeCourse?.dosen_code || "-"}
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-[#0369A1]" aria-hidden="true" />
-                    Ruang: {pData?.ruang || activeCourse?.ruang || "-"} (Kelas {pData?.kelas || "-"})
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-[#0369A1]" aria-hidden="true" />
-                    {pData?.hari || activeCourse?.hari || "-"}{" "}
-                    {pData?.jam_masuk && pData?.jam_keluar
-                      ? `(${pData.jam_masuk} - ${pData.jam_keluar})`
-                      : activeCourse?.jam
-                      ? `(${activeCourse.jam})`
-                      : ""}
-                  </span>
-                </div>
-              </div>
-
-              {/* Status Sesi & Stat Box */}
-              <div className="flex sm:items-center gap-4 shrink-0 border-t lg:border-t-0 pt-4 lg:pt-0 border-stroke">
-                <div className="p-3 bg-[#F0F7FB] border border-stroke rounded-md text-center min-w-[110px]">
-                  <span className="text-[10px] font-mono uppercase text-secondary font-bold block">
-                    Kehadiran
-                  </span>
-                  <span className="text-2xl font-display font-bold text-[#0369A1]">
-                    {persentase}%
-                  </span>
-                  <span className="text-[11px] text-secondary block mt-0.5">
-                    {hadirCount} / {totalPertemuan} Hadir
-                  </span>
-                </div>
-
-                <div className="flex flex-col justify-center">
-                  <span className="text-[10px] font-mono uppercase text-secondary font-bold mb-1">
-                    Status Sesi Hari Ini:
-                  </span>
+        <div className="page-in space-y-6" key={activeCourse ? courseKey(activeCourse) : "none"}>
+          {/* Kartu absen: status sesi + tombol utama */}
+          <section
+            className={`glass-card p-4 sm:p-6 ${isActiveSession ? "[--px-line:#0F766E] [--px-drop:#99D5CC]" : ""}`}
+            aria-labelledby="presensi-course-title"
+          >
+            <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+              <div className="min-w-0 space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  {(pData?.kode_mtk || activeCourse?.kode) && (
+                    <span className="px-chip bg-px-tint px-2 py-0.5 font-mono text-[11px] font-bold text-[#0369A1]">
+                      {pData?.kode_mtk || activeCourse?.kode}
+                    </span>
+                  )}
                   <span
-                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-pill text-xs font-bold ${
-                      isActiveSession
-                        ? "bg-[#0F766E]/10 border border-[#0F766E]/30 text-[#0F766E]"
-                        : "bg-[#F0F7FB] border border-stroke text-secondary"
+                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 font-mono text-[10px] font-bold uppercase ${
+                      isActiveSession ? "bg-[#0F766E] text-white" : "bg-[#F0F7FB] text-secondary"
                     }`}
                   >
-                    <span className="w-2 h-2 rounded-full bg-current" aria-hidden="true" />
+                    <span className={`h-1.5 w-1.5 ${isActiveSession ? "px-cursor bg-white" : "bg-secondary/60"}`} aria-hidden="true" />
                     {pData?.status_sesi || "Sesi Ditutup"}
                   </span>
-                  <button
-                    type="button"
-                    onClick={handleSubmitPresence}
-                    disabled={!isActiveSession || submitting || !token}
-                    className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-pill bg-[#0369A1] px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-[#075985] disabled:cursor-not-allowed disabled:opacity-40 shadow-sm"
-                  >
-                    <UserCheck className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span>{submitting ? "Mengirim presensi..." : "Absen Sekarang"}</span>
-                  </button>
                 </div>
+                <h2 id="presensi-course-title" className="text-lg font-display font-bold leading-snug text-foreground sm:text-xl">
+                  {pData?.matakuliah || activeCourse?.nama}
+                </h2>
+                <dl className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-secondary">
+                  <div className="flex items-center gap-1.5">
+                    <User className="h-3.5 w-3.5 text-[#0369A1]" aria-hidden="true" />
+                    <dt className="sr-only">Dosen</dt>
+                    <dd className="font-mono font-semibold text-foreground">{dosen}</dd>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5 text-[#0369A1]" aria-hidden="true" />
+                    <dt className="sr-only">Ruang</dt>
+                    <dd>
+                      {pData?.ruang || activeCourse?.ruang || "-"}
+                      {pData?.kelas ? ` · ${pData.kelas}` : ""}
+                    </dd>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5 text-[#0369A1]" aria-hidden="true" />
+                    <dt className="sr-only">Jadwal</dt>
+                    <dd>{[pData?.hari || activeCourse?.hari, jam].filter(Boolean).join(" ") || "-"}</dd>
+                  </div>
+                </dl>
               </div>
+
+              <button
+                type="button"
+                onClick={handleSubmitPresence}
+                disabled={!isActiveSession || submitting || !token}
+                className={`${isActiveSession ? "px-btn-success" : "px-btn"} inline-flex min-h-12 w-full shrink-0 items-center justify-center gap-2 px-6 text-sm font-bold md:w-auto`}
+              >
+                <UserCheck className="h-4 w-4" aria-hidden="true" />
+                {submitting ? "Mengirim presensi..." : isActiveSession ? "Absen Sekarang" : "Absen belum dibuka"}
+              </button>
             </div>
-          </div>
+
+            {/* Rekap kehadiran */}
+            <div className="mt-5 border-t-2 border-dashed border-px-soft pt-4">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-secondary">Kehadiran</span>
+                <span className="font-mono text-xs text-secondary">
+                  <strong className="font-mono text-lg text-[#0369A1]">{persentase}%</strong> · {hadirCount}/{totalPertemuan} hadir
+                </span>
+              </div>
+              <div className="mt-2 grid gap-[3px]" style={{ gridTemplateColumns: `repeat(${segments}, minmax(0, 1fr))` }} aria-hidden="true">
+                {Array.from({ length: segments }, (_, i) => (
+                  <span key={i} className={`h-2.5 ${i < filled ? (persentase >= 75 ? "bg-[#0F766E]" : "bg-[#9A3412]") : "bg-px-tint"}`} />
+                ))}
+              </div>
+              {totalPertemuan > 0 && persentase < 75 && (
+                <p className="mt-2 flex items-center gap-1.5 text-xs text-[#9A3412]">
+                  <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                  Di bawah syarat minimal 75% untuk ikut ujian.
+                </p>
+              )}
+            </div>
+          </section>
 
           {(submitMessage || submitError) && (
             <div
-              className={`rounded-sm border px-4 py-3 text-sm ${
-                submitError
-                  ? "border-[#BE123C]/30 bg-[#F0F7FB] text-[#BE123C]"
-                  : "border-[#0F766E]/30 bg-[#F0F7FB] text-[#0F766E]"
-              }`}
+              className={`px-frame p-3 text-sm ${submitError ? "bg-[#FFF1F2] text-[#BE123C] [--px-line:#FDA4AF]" : "bg-[#F0FDF4] text-[#0F766E] [--px-line:#99D5CC]"}`}
               role="status"
             >
               {submitError || submitMessage}
             </div>
           )}
 
-          {/* Riwayat Pertemuan Table */}
-          <div className="glass-card overflow-hidden">
-            <div className="p-4 border-b border-stroke flex items-center justify-between flex-wrap gap-x-4 gap-y-1">
-              <h3 className="font-display font-bold text-sm text-foreground">
-                Riwayat Pertemuan & Presensi
+          {/* Riwayat pertemuan: satu baris per pertemuan, rangkuman bisa dibuka */}
+          <section aria-labelledby="riwayat-title">
+            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+              <h3 id="riwayat-title" className="text-base font-display font-bold text-foreground">
+                Riwayat Pertemuan
               </h3>
-              <span className="text-xs text-secondary font-mono">
-                Total {records.length} Pertemuan Tercatat
-              </span>
+              <span className="font-mono text-xs text-secondary">{totalPertemuan} pertemuan tercatat</span>
             </div>
 
             {records.length === 0 ? (
-              <div className="p-8 text-center text-secondary text-sm">
-                Belum ada catatan riwayat presensi yang tersedia untuk mata kuliah ini.
-              </div>
+              <EmptyState title="Belum ada riwayat presensi." description="Riwayat muncul setelah pertemuan pertama berlangsung." />
             ) : (
-              <div className="overflow-x-auto">
-                <table className="px-table w-full md:min-w-[640px] text-sm text-left">
-                  <thead>
-                    <tr className="border-b border-stroke bg-[#F7FAFC] text-xs font-mono uppercase tracking-wider text-secondary">
-                      <th scope="col" className="px-4 py-3">Pertemuan</th>
-                      <th scope="col" className="px-4 py-3">Tanggal</th>
-                      <th scope="col" className="px-4 py-3">Status</th>
-                      <th scope="col" className="px-4 py-3">Rangkuman / Materi Dosen</th>
-                      <th scope="col" className="px-4 py-3">Berita Acara</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {records.map((r) => {
-                      const isHadir = r.status_absen.toLowerCase() === "hadir";
-                      return (
-                        <tr
-                          key={r.id}
-                          className="border-b border-stroke/60 last:border-0 hover:bg-[#F0F7FB]/50"
+              <ol className="glass-card divide-y-2 divide-dashed divide-px-soft">
+                {records.map((r) => {
+                  const isHadir = r.status_absen.toLowerCase() === "hadir";
+                  const summary = r.rangkuman?.trim() || "";
+                  const bap = r.berita_acara?.trim() || "";
+                  const hasDetail = Boolean(summary || bap);
+                  const open = openRecord === r.id;
+                  return (
+                    <li key={r.id}>
+                      <button
+                        type="button"
+                        onClick={() => hasDetail && setOpenRecord(open ? null : r.id)}
+                        aria-expanded={hasDetail ? open : undefined}
+                        className={`flex w-full items-center gap-3 px-4 py-3 text-left sm:px-5 ${hasDetail ? "transition-colors hover:bg-[#F0F7FB]" : "cursor-default"}`}
+                      >
+                        <span className="w-10 shrink-0 font-mono text-sm font-bold text-[#0369A1]">P-{r.pertemuan}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block font-mono text-xs text-secondary">{r.tanggal}</span>
+                          {summary && !open && <span className="block truncate text-sm text-foreground">{summary}</span>}
+                        </span>
+                        <span
+                          className={`inline-flex shrink-0 items-center gap-1 px-2 py-0.5 text-[11px] font-bold ${
+                            isHadir ? "bg-[#0F766E]/10 text-[#0F766E]" : "bg-[#BE123C]/10 text-[#BE123C]"
+                          }`}
                         >
-                          <td data-label="Pertemuan" className="px-4 py-3 font-mono font-bold text-[#0369A1]">
-                            P-{r.pertemuan}
-                          </td>
-                          <td data-label="Tanggal" className="px-4 py-3 text-secondary whitespace-nowrap">
-                            {r.tanggal}
-                          </td>
-                          <td data-label="Status" className="px-4 py-3 whitespace-nowrap">
-                            <span
-                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-pill text-xs font-bold ${
-                                isHadir
-                                  ? "bg-[#0F766E]/10 text-[#0F766E] border border-[#0F766E]/25"
-                                  : "bg-[#BE123C]/10 text-[#BE123C] border border-[#BE123C]/25"
-                              }`}
-                            >
-                              {isHadir ? (
-                                <CheckCircle2 className="w-3 h-3" />
-                              ) : (
-                                <XCircle className="w-3 h-3" />
-                              )}
-                              {r.status_absen}
-                            </span>
-                          </td>
-                          <td data-label="Rangkuman / Materi Dosen" data-stack="" className="px-4 py-3 text-foreground font-medium max-w-xs truncate">
-                            {r.rangkuman || "-"}
-                          </td>
-                          <td data-label="Berita Acara" data-stack="" className="px-4 py-3 text-secondary text-xs max-w-xs truncate">
-                            {r.berita_acara || "-"}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                          {isHadir ? <CheckCircle2 className="h-3 w-3" aria-hidden="true" /> : <XCircle className="h-3 w-3" aria-hidden="true" />}
+                          {r.status_absen}
+                        </span>
+                        {hasDetail && (
+                          <ChevronDown className={`h-4 w-4 shrink-0 text-secondary transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
+                        )}
+                      </button>
+                      {open && (
+                        <div className="page-in space-y-3 px-4 pb-4 text-sm sm:px-5 sm:pl-[4.75rem]">
+                          {summary && (
+                            <div>
+                              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-secondary">Rangkuman / Materi Dosen</p>
+                              <p className="mt-1 leading-relaxed text-foreground">{summary}</p>
+                            </div>
+                          )}
+                          {/* Berita acara sering sama persis dengan rangkuman; tampilkan hanya bila berbeda. */}
+                          {bap && bap !== summary && (
+                            <div>
+                              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-secondary">Berita Acara</p>
+                              <p className="mt-1 leading-relaxed text-secondary">{bap}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
             )}
-          </div>
+          </section>
         </div>
       )}
     </div>
