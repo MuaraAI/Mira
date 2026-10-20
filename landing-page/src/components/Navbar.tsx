@@ -1,10 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Monogram } from "./Monogram";
 
-export function Navbar({ starsCount = 2 }: { starsCount?: number }) {
+const API_DOCS_URL = "https://api.muaraai.com/v1/ubsi-api/v1/docs";
+const MCP_URL = "https://api.muaraai.com/v1/ubsi-api/mcp";
+
+export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -15,153 +18,76 @@ export function Navbar({ starsCount = 2 }: { starsCount?: number }) {
   }, []);
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setMobileMenuOpen(false);
-      }
+    if (!mobileMenuOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileMenuOpen(false);
     };
-
-    if (mobileMenuOpen) {
-      window.addEventListener("keydown", handleKeyDown);
-      return () => window.removeEventListener("keydown", handleKeyDown);
-    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [mobileMenuOpen]);
 
+  const closeMobileMenu = () => setMobileMenuOpen(false);
+
   return (
-    <header className="sticky top-0 z-50 w-full py-3 px-4 sm:px-6">
-      <div
-        className={`max-w-5xl mx-auto glass-pill px-5 h-14 flex items-center justify-between transition-all duration-300 ease-glass ${
-          scrolled ? "shadow-glass-lg" : ""
-        }`}
-      >
-        <Link href="/" className="flex items-center gap-3 group focus:outline-none">
-          <Monogram className="w-7 h-7 group-hover:scale-105 transition-transform" />
-          <div className="flex flex-col">
-            <span className="font-display font-bold text-base tracking-tight text-foreground">
-              UBSI API
-            </span>
-            <span className="text-[10px] font-mono tracking-widest text-[#0369A1] font-bold uppercase -mt-0.5">
-              Muara AI
-            </span>
-          </div>
+    <header className="sticky top-0 z-50 w-full px-4 py-3 sm:px-6">
+      <div className={`mx-auto flex h-14 max-w-6xl items-center justify-between rounded-xl border border-stroke bg-white/95 px-4 shadow-sm backdrop-blur-sm transition-shadow sm:px-5 ${scrolled ? "shadow-[0_10px_26px_-18px_rgba(7,32,51,0.5)]" : ""}`}>
+        <Link href="/" className="group flex items-center gap-3 focus-visible:outline-none">
+          <Monogram className="h-7 w-7 transition-transform group-hover:scale-105" />
+          <span className="flex flex-col">
+            <span className="font-display text-base font-bold tracking-tight text-foreground">UBSI API</span>
+            <span className="-mt-0.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[#0369A1]">Muara AI</span>
+          </span>
         </Link>
 
-        <div className="flex items-center gap-3 sm:gap-5">
-          <nav className="hidden md:flex items-center gap-5 text-sm text-secondary">
-            <a href="#showcase" className="hover:text-foreground transition-colors duration-200 ease-glass">
-              Showcase
-            </a>
-            <a href="#modules" className="hover:text-foreground transition-colors duration-200 ease-glass">
-              Modul
-            </a>
-            <a href="#quickstart" className="hover:text-foreground transition-colors duration-200 ease-glass">
-              Quickstart
-            </a>
-            <a href="#contributors" className="hover:text-foreground transition-colors duration-200 ease-glass">
-              Kontributor
-            </a>
-          </nav>
+        <nav aria-label="Navigasi utama" className="hidden items-center gap-6 text-sm text-secondary md:flex">
+          <a href="#layanan" className="transition-colors hover:text-foreground">Layanan</a>
+          <a href="#api" className="transition-colors hover:text-foreground">API Docs</a>
+          <a href="#mcp" className="transition-colors hover:text-foreground">MCP</a>
+          <a href={API_DOCS_URL} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-foreground">Dokumentasi</a>
+        </nav>
 
-          <Link
-            href="/login"
-            className="hidden sm:inline-flex items-center gap-1 px-3.5 py-1.5 rounded-pill bg-[#0369A1] hover:bg-[#075985] text-xs font-mono text-white font-bold transition-all shadow-sm"
-          >
-            Login BSI
-          </Link>
-
+        <div className="flex items-center gap-2">
           <a
             href="https://github.com/MuaraAI/UBSI-API"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-white hover:bg-[#F0F7FB] border border-[#D9E5ED] text-xs font-mono text-[#072033] transition-all duration-200 ease-glass shadow-sm group"
-            aria-label="GitHub Repository Stars"
+            className="hidden min-h-10 items-center gap-2 rounded-lg border border-stroke bg-white px-3 text-xs font-mono text-foreground transition-colors hover:border-[#0369A1] hover:text-[#075985] sm:inline-flex"
+            aria-label="Buka repository UBSI API di GitHub"
           >
-            {/* GitHub Octocat Icon */}
-            <svg
-              className="w-4 h-4 fill-[#072033] group-hover:fill-[#0369A1] transition-colors"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
+            <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
             </svg>
-            <span className="w-px h-3 bg-[#D9E5ED]" />
-            {/* FontAwesome Star Icon (fa-solid fa-star) */}
-            <div className="flex items-center gap-1 text-[#0369A1]">
-              <svg
-                className="w-3.5 h-3.5 fill-current"
-                viewBox="0 0 576 512"
-                aria-hidden="true"
-              >
-                <path d="M316.9 18C311.6 7 300.4 0 288.1 0s-23.4 7-28.8 18L195 150.3 51.4 171.5c-12 1.8-22 10.2-25.7 21.7s-.7 24.2 7.9 32.7L137.8 329 113.2 474.7c-2 12 3 24.2 12.9 31.3s23 8 33.8 2.3l128.3-68.5 128.3 68.5c10.8 5.7 23.9 4.9 33.8-2.3s14.9-19.3 12.9-31.3L438.5 329 542.7 225.9c8.6-8.5 11.7-21.2 7.9-32.7s-13.7-19.9-25.7-21.7L381.2 150.3 316.9 18z" />
-              </svg>
-              <span className="font-bold">{starsCount}</span>
-            </div>
+            GitHub
           </a>
-
+          <Link href="/login" className="hidden min-h-10 items-center justify-center rounded-lg bg-[#0369A1] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#075985] sm:inline-flex">
+            Masuk
+          </Link>
           <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            type="button"
+            onClick={() => setMobileMenuOpen((open) => !open)}
             aria-expanded={mobileMenuOpen}
             aria-controls="mobile-menu"
-            className="md:hidden p-2 rounded-card bg-white/40 border border-stroke text-foreground hover:text-[#0369A1] transition-colors"
-            aria-label="Toggle navigation menu"
+            aria-label={mobileMenuOpen ? "Tutup menu navigasi" : "Buka menu navigasi"}
+            className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-stroke bg-white text-foreground transition-colors hover:text-[#0369A1] md:hidden"
           >
-            {mobileMenuOpen ? (
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            ) : (
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            )}
+            <span aria-hidden="true" className="text-xl leading-none">{mobileMenuOpen ? "×" : "≡"}</span>
           </button>
         </div>
       </div>
 
       {mobileMenuOpen && (
-        <div
-          id="mobile-menu"
-          className="md:hidden mt-2 max-w-5xl mx-auto glass-card px-5 py-4 space-y-2"
-        >
-          <a
-            href="#showcase"
-            onClick={() => setMobileMenuOpen(false)}
-            className="block text-sm font-medium text-secondary hover:text-[#0369A1] py-1.5 transition-colors"
-          >
-            Showcase
-          </a>
-          <a
-            href="#modules"
-            onClick={() => setMobileMenuOpen(false)}
-            className="block text-sm font-medium text-secondary hover:text-[#0369A1] py-1.5 transition-colors"
-          >
-            Modul Layanan
-          </a>
-          <a
-            href="#quickstart"
-            onClick={() => setMobileMenuOpen(false)}
-            className="block text-sm font-medium text-secondary hover:text-[#0369A1] py-1.5 transition-colors"
-          >
-            Quickstart (Instalasi)
-          </a>
-          <a
-            href="#contributors"
-            onClick={() => setMobileMenuOpen(false)}
-            className="block text-sm font-medium text-secondary hover:text-[#0369A1] py-1.5 transition-colors"
-          >
-            Kontributor Mahasiswa
-          </a>
-
-          <div className="pt-2 border-t border-stroke">
-            <Link
-              href="/login"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-pill bg-[#0369A1] hover:bg-[#075985] text-white text-xs font-bold font-mono"
-            >
-              Login BSI
-            </Link>
+        <nav id="mobile-menu" aria-label="Navigasi mobile" className="mx-auto mt-2 max-w-6xl rounded-xl border border-stroke bg-white p-4 shadow-sm md:hidden">
+          <div className="grid gap-1 text-sm text-secondary">
+            <a href="#layanan" onClick={closeMobileMenu} className="rounded-lg px-3 py-3 hover:bg-[#F0F7FB] hover:text-foreground">Layanan</a>
+            <a href="#api" onClick={closeMobileMenu} className="rounded-lg px-3 py-3 hover:bg-[#F0F7FB] hover:text-foreground">API Docs</a>
+            <a href="#mcp" onClick={closeMobileMenu} className="rounded-lg px-3 py-3 hover:bg-[#F0F7FB] hover:text-foreground">MCP</a>
+            <a href={API_DOCS_URL} target="_blank" rel="noopener noreferrer" onClick={closeMobileMenu} className="rounded-lg px-3 py-3 hover:bg-[#F0F7FB] hover:text-foreground">Dokumentasi publik</a>
+            <a href={MCP_URL} target="_blank" rel="noopener noreferrer" onClick={closeMobileMenu} className="rounded-lg px-3 py-3 hover:bg-[#F0F7FB] hover:text-foreground">Endpoint MCP</a>
           </div>
-        </div>
+          <div className="mt-3 border-t border-stroke pt-3">
+            <Link href="/login" onClick={closeMobileMenu} className="flex min-h-11 items-center justify-center rounded-lg bg-[#0369A1] px-4 py-3 text-sm font-semibold text-white hover:bg-[#075985]">Masuk ke Dashboard</Link>
+          </div>
+        </nav>
       )}
     </header>
   );

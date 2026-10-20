@@ -1,107 +1,46 @@
 import Link from "next/link";
+import { DataCurrent } from "./DataCurrent";
+
+const API_DOCS_URL = "https://api.muaraai.com/v1/ubsi-api/v1/docs";
 
 export function Hero() {
   return (
-    <section className="relative pt-8 pb-14 sm:pt-14 sm:pb-20 md:pt-20 md:pb-24 px-4 sm:px-6 max-w-7xl mx-auto">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 items-center">
-        {/* Left column: Text content */}
-        <div className="lg:col-span-7 text-left">
-          <p className="section-kicker mb-6">Unofficial Campus Gateway</p>
-
-          <h1 className="font-display text-3xl sm:text-5xl md:text-5xl lg:text-6xl font-bold tracking-tight text-foreground leading-[1.12] mb-6">
-            Satu Antarmuka REST API untuk Seluruh Layanan Kampus UBSI.
+    <section className="mx-auto max-w-7xl px-4 pb-16 pt-12 sm:px-6 sm:pb-24 sm:pt-20" aria-labelledby="hero-title">
+      <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)] lg:gap-16">
+        <div>
+          <p className="section-kicker mb-5">Layanan akademik UBSI</p>
+          <h1 id="hero-title" className="max-w-3xl font-display text-4xl font-bold leading-[1.08] tracking-[-0.04em] text-foreground sm:text-6xl">
+            Satu jalur untuk data kuliahmu.
           </h1>
-
-          <p className="text-secondary text-base sm:text-lg md:text-xl max-w-2xl leading-relaxed mb-8 font-sans">
-            Agregator data modern berkecepatan tinggi untuk SIAKAD, MyBest Elearning, E-Library,
-            Repository, dan E-Journal dengan format JSON terstandarisasi dan Redis cache sub-250ms.
+          <p className="mt-6 max-w-2xl text-base leading-8 text-secondary sm:text-lg">
+            UBSI API menghubungkan jadwal, materi, tugas, presensi, nilai, dan layanan kampus dalam satu tempat. Mahasiswa memakai dashboard. Developer dan AI agent memakai REST API atau MCP.
           </p>
 
-          <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
+          <div className="mt-8 flex flex-wrap items-center gap-3">
             <Link
               href="/login"
-              className="inline-flex items-center justify-center px-7 py-3.5 rounded-pill bg-[#0369A1] hover:bg-[#075985] text-white font-semibold text-sm transition-all duration-200 ease-glass shadow-float"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#0369A1] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#075985]"
             >
-              Login BSI
+              Masuk ke Dashboard
             </Link>
             <a
-              href="#showcase"
-              className="inline-flex items-center justify-center px-6 py-3.5 rounded-pill bg-white/60 hover:bg-white border border-stroke text-foreground font-semibold text-sm transition-all duration-200 ease-glass shadow-sm"
-            >
-              Lihat Response
-            </a>
-            <a
-              href="https://github.com/MuaraAI/UBSI-API"
+              href={API_DOCS_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="uw-button"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-stroke bg-white px-5 py-3 text-sm font-semibold text-foreground transition-colors hover:border-[#0369A1] hover:text-[#075985]"
             >
-              <span>
-                <svg
-                  className="w-4 h-4 fill-current"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
-                </svg>
-                GitHub Repository
-              </span>
+              Buka API Docs
             </a>
           </div>
 
-          <div className="mt-12 grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-5 max-w-2xl">
-            <div className="border-l-[3px] border-[#0369A1] pl-4">
-              <span className="block font-display text-2xl font-bold text-foreground mb-1">6</span>
-              <span className="text-[11px] font-mono text-secondary uppercase tracking-wide">Layanan Terintegrasi</span>
-            </div>
-            <div className="border-l-[3px] border-[#0369A1] pl-4">
-              <span className="block font-display text-2xl font-bold text-foreground mb-1">23</span>
-              <span className="text-[11px] font-mono text-secondary uppercase tracking-wide">Jurnal Aktif Resmi</span>
-            </div>
-            <div className="border-l-[3px] border-[#0369A1] pl-4">
-              <span className="block font-display text-2xl font-bold text-foreground mb-1">250ms</span>
-              <span className="text-[11px] font-mono text-secondary uppercase tracking-wide">Caching Latency</span>
-            </div>
-            <div className="border-l-[3px] border-[#0369A1] pl-4">
-              <span className="block font-display text-2xl font-bold text-foreground mb-1">118</span>
-              <span className="text-[11px] font-mono text-secondary uppercase tracking-wide">Tests 100% Passed</span>
-            </div>
+          <div className="mt-10 flex flex-wrap gap-x-6 gap-y-2 text-sm text-secondary">
+            <span>Dashboard mahasiswa</span>
+            <span>REST API publik</span>
+            <span>MCP untuk integrasi</span>
           </div>
         </div>
 
-        {/* Right column: 3D Pyramid Glass Loader (andrew-demchenk0/orange-monkey-2) */}
-        <div className="lg:col-span-5 flex flex-col items-center justify-center relative min-h-[380px]">
-          <div className="absolute w-80 h-80 rounded-full bg-[#0369A1]/10 filter blur-3xl pointer-events-none -z-10 animate-pulse" />
-          
-          <div className="w-full max-w-[390px] rounded-[24px] bg-white border border-[#D9E5ED] shadow-[0_24px_60px_-12px_rgba(7,32,51,0.18)] p-6 sm:p-7 flex flex-col items-center justify-center relative overflow-hidden group">
-            <div className="pyramid-loader">
-              <div className="pyramid-wrapper">
-                <span className="pyramid-side pyramid-side1" />
-                <span className="pyramid-side pyramid-side2" />
-                <span className="pyramid-side pyramid-side3" />
-                <span className="pyramid-side pyramid-side4" />
-                <span className="pyramid-shadow" />
-              </div>
-            </div>
-
-            <div className="mt-4 pt-4 border-t border-[#D9E5ED] w-full text-left">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-[#0369A1] animate-pulse" />
-                  <span className="text-xs font-mono font-bold tracking-wider text-[#0369A1] uppercase">
-                    Tentang UBSI API
-                  </span>
-                </div>
-                <span className="text-[10px] font-mono text-[#3B5A70]">
-                  Open Core / MIT
-                </span>
-              </div>
-              <p className="text-xs text-[#3B5A70] leading-relaxed font-sans">
-                REST API aggregator open-source untuk otomasi dan integrasi 6 layanan portal kampus UBSI. Mengonversi data web portal mahasiswa menjadi JSON terstruktur tanpa menyimpan kredensial (stateless) dengan performa sub-250ms Redis cache.
-              </p>
-            </div>
-          </div>
-        </div>
+        <DataCurrent />
       </div>
     </section>
   );
