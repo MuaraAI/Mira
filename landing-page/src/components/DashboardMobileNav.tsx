@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { Monogram } from "@/components/Monogram";
+import { FocusDialog } from "@/components/FocusDialog";
 
 export function DashboardMobileNav({ nim }: { nim?: string | null }) {
   const pathname = usePathname();
@@ -86,10 +87,9 @@ export function DashboardMobileNav({ nim }: { nim?: string | null }) {
           />
 
           {/* Drawer Content */}
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Menu navigasi lengkap"
+          <FocusDialog
+            open={isOpen}
+            onClose={() => setIsOpen(false)}
             className="drawer-panel relative flex flex-col w-4/5 max-w-xs h-full bg-white shadow-[6px_0_0_0_#0369A1] z-10"
           >
             {/* Close Button Header */}
@@ -111,7 +111,7 @@ export function DashboardMobileNav({ nim }: { nim?: string | null }) {
             <div className="flex-1 overflow-hidden">
               <DashboardSidebar nim={nim} onItemClick={() => setIsOpen(false)} />
             </div>
-          </div>
+          </FocusDialog>
         </div>
       )}
 
