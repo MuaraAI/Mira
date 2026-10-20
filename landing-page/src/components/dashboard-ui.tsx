@@ -54,7 +54,7 @@ export function ErrorState({
 
 export function EmptyState({ title, description }: { title: string; description?: string }) {
   return (
-    <div className="glass-card p-8 text-center">
+    <div className="glass-card p-8 text-center" role="status" aria-live="polite">
       <p className="text-sm font-bold text-foreground">{title}</p>
       {description && <p className="mt-1 text-sm text-secondary">{description}</p>}
     </div>

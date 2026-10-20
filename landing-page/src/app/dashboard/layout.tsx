@@ -56,8 +56,6 @@ export default function DashboardLayout({
 
   return (
     <div className="portal-type min-h-screen bg-background text-foreground flex flex-col lg:flex-row">
-      <div className="grid-overlay" aria-hidden="true" />
-
       {/* Desktop Sidebar (lg breakpoint >= 1024px) */}
       <div className="hidden lg:block lg:w-64 lg:fixed lg:inset-y-0 lg:z-30">
         <DashboardSidebar nim={nim} />

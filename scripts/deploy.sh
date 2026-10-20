@@ -44,6 +44,7 @@ ssh "${VPS_HOST}" "
     fi
     echo 'Installing / updating requirements...'
     uv pip install --python '${REMOTE_VENV}/bin/python' -r '${REMOTE_DIR}/requirements.txt'
+    printf '%s\n' "$(git rev-parse --short HEAD 2>/dev/null || echo unknown) $(date -u +%Y-%m-%dT%H:%M:%SZ)" > '${REMOTE_DIR}/RELEASE'
 "
 
 echo "=== 5. Installing log rotation and restarting service with PM2 ==="
