@@ -103,7 +103,7 @@ function TaskCard({
 
   return (
     <article
-      className={`glass-card flex flex-col p-4 sm:p-5 ${
+      className={`glass-card flex h-full flex-col p-4 sm:p-5 ${
         done ? "[--px-line:#99D5CC] [--px-drop:#CCEBE6]" : countdown?.tone === "overdue" || countdown?.tone === "urgent" ? "[--px-line:#FDBA74] [--px-drop:#FFEDD5]" : ""
       }`}
     >
@@ -171,7 +171,7 @@ function TaskCard({
         </a>
       )}
 
-      <div className={`mt-4 grid gap-3 ${hasFile ? "grid-cols-2" : "grid-cols-1"}`}>
+      <div className={`mt-auto grid gap-3 pt-4 ${hasFile ? "grid-cols-2" : "grid-cols-1"}`}>
         {hasFile && (
           <button
             type="button"

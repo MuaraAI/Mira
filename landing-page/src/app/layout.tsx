@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { Analytics } from "@vercel/analytics/react";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL, GITHUB_URL } from "@/lib/site";
 import "./globals.css";
 
 const spaceGrotesk = localFont({
@@ -96,6 +97,8 @@ const pixelify = localFont({
   ],
   variable: "--font-pixel",
   display: "swap",
+  // Hanya huruf. Angka dan simbol memakai Space Grotesk karena di Pixelify "2" dan "Z" bentuknya sama.
+  declarations: [{ prop: "unicode-range", value: "U+0041-005A, U+0061-007A" }],
 });
 
 export const viewport: Viewport = {
@@ -105,11 +108,32 @@ export const viewport: Viewport = {
   maximumScale: 5,
 };
 
+const SEARCH_TITLE_KEYWORDS = [
+  "UBSI-API Muara",
+  "UBSI API",
+  "API UBSI",
+  "API SIAKAD UBSI",
+  "API MyBest UBSI",
+  "MCP UBSI",
+  "dashboard mahasiswa UBSI",
+  "jadwal kuliah UBSI",
+  "nilai KHS UBSI",
+  "tugas MyBest UBSI",
+  "presensi MyBest",
+  "Universitas Bina Sarana Informatika",
+  "BSI SIAKAD",
+  "Elearning MyBest UBSI",
+  "Muara AI",
+  "REST API kampus",
+  "Model Context Protocol",
+];
+
 export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
+  applicationName: SITE_NAME,
   appleWebApp: {
     capable: true,
-    title: "UBSI API",
+    title: "UBSI-API",
     statusBarStyle: "default",
   },
   formatDetection: { telephone: false },
@@ -117,37 +141,51 @@ export const metadata: Metadata = {
     icon: "/icon.png",
     apple: [{ url: "/pwa/apple-touch-icon.png", sizes: "180x180" }],
   },
-  title: "UBSI API v2: Dashboard Akademik, REST API, dan MCP UBSI | Muara AI",
-  description:
-    "Dashboard akademik dan REST API untuk jadwal, tugas, presensi, materi, nilai, layanan kampus, serta integrasi MCP UBSI.",
-  keywords: [
-    "UBSI API",
-    "SIAKAD UBSI API",
-    "Elearning MyBest UBSI",
-    "Ejournal UBSI",
-    "Muara AI",
-    "API Kampus UBSI",
-    "Yuken Velino",
-    "Verzio",
+  title: { default: SITE_TITLE, template: `%s | ${SITE_NAME}` },
+  description: SITE_DESCRIPTION,
+  keywords: SEARCH_TITLE_KEYWORDS,
+  authors: [
+    { name: "Yuken Velino", url: "https://github.com/Curzyori" },
+    { name: "Verzio", url: "https://github.com/MyKineID" },
+    { name: "Muara AI", url: "https://github.com/MuaraAI" },
   ],
-  metadataBase: new URL("https://ubsi-api.muaraai.com"),
+  creator: "Muara AI",
+  publisher: "Muara AI",
+  category: "education",
+  metadataBase: new URL(SITE_URL),
   alternates: {
-    canonical: "https://ubsi-api.muaraai.com",
+    canonical: "/",
+    types: { "text/markdown": "/llms.txt" },
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-snippet": -1,
+      "max-image-preview": "large",
+      "max-video-preview": -1,
+    },
+  },
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || undefined,
+    other: process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION
+      ? { "msvalidate.01": process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION }
+      : undefined,
   },
   openGraph: {
-    title: "UBSI API v2: Dashboard Akademik, REST API, dan MCP UBSI",
-    description:
-      "Akses layanan akademik UBSI melalui dashboard, REST API, dan MCP dengan autentikasi per pengguna.",
-    url: "https://ubsi-api.muaraai.com",
-    siteName: "UBSI API: Muara AI",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    url: SITE_URL,
+    siteName: SITE_NAME,
     locale: "id_ID",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "UBSI API v2: Dashboard Akademik, REST API, dan MCP UBSI",
-    description:
-      "Akses layanan akademik UBSI melalui dashboard, REST API, dan MCP dengan autentikasi per pengguna.",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
   },
 };
 
@@ -156,36 +194,63 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const orgId = `${SITE_URL}/#organization`;
+  const siteId = `${SITE_URL}/#website`;
+  const appId = `${SITE_URL}/#software`;
   const jsonLd = {
     "@context": "https://schema.org",
-    "@type": ["SoftwareApplication", "WebAPI"],
-    name: "UBSI API",
-    applicationCategory: "DeveloperApplication, EducationalApplication",
-    operatingSystem: "Cloud, Docker, Linux",
-    offers: {
-      "@type": "Offer",
-      price: "0",
-      priceCurrency: "IDR",
-    },
-    author: [
+    "@graph": [
       {
-        "@type": "Person",
-        name: "Yuken Velino",
-        url: "https://github.com/Curzyori",
+        "@type": "Organization",
+        "@id": orgId,
+        name: "Muara AI",
+        url: "https://muaraai.com",
+        sameAs: [
+          "https://github.com/MuaraAI",
+          "https://x.com/MuaraAI",
+          "https://www.instagram.com/muara.ai/",
+          "https://www.threads.com/@muara.ai",
+        ],
       },
       {
-        "@type": "Person",
-        name: "Verzio",
-        url: "https://github.com/MyKineID",
+        "@type": "WebSite",
+        "@id": siteId,
+        url: SITE_URL,
+        name: SITE_NAME,
+        alternateName: ["UBSI API", "UBSI-API", "UBSI API Muara"],
+        description: SITE_DESCRIPTION,
+        inLanguage: "id-ID",
+        publisher: { "@id": orgId },
+      },
+      {
+        "@type": ["SoftwareApplication", "WebAPI"],
+        "@id": appId,
+        name: SITE_NAME,
+        alternateName: ["UBSI API", "UBSI-API"],
+        url: SITE_URL,
+        description: SITE_DESCRIPTION,
+        applicationCategory: "EducationalApplication",
+        applicationSubCategory: "DeveloperApplication",
+        operatingSystem: "Web, Android, iOS (PWA)",
+        inLanguage: "id-ID",
+        isAccessibleForFree: true,
+        license: `${GITHUB_URL}/blob/main/LICENSE`,
+        codeRepository: GITHUB_URL,
+        featureList: [
+          "Dashboard akademik UBSI: jadwal, tugas, presensi, materi, kuis, nilai KHS, KRS, kartu ujian",
+          "REST API publik dengan Personal API Key",
+          "Server MCP untuk AI agent",
+          "Notifikasi push PWA",
+        ],
+        offers: { "@type": "Offer", price: "0", priceCurrency: "IDR" },
+        author: [
+          { "@type": "Person", name: "Yuken Velino", url: "https://github.com/Curzyori" },
+          { "@type": "Person", name: "Verzio", url: "https://github.com/MyKineID" },
+        ],
+        publisher: { "@id": orgId },
       },
     ],
-    publisher: {
-      "@type": "Organization",
-      name: "Muara AI",
-      url: "https://github.com/MuaraAI",
-    },
   };
-
   return (
     <html
       lang="id"
