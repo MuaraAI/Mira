@@ -1,0 +1,11 @@
+/home/ubuntu/.pm2/logs/ubsi-api-*.log /home/ubuntu/.pm2/logs/ubsi-mcp-*.log {
+    daily
+    rotate 14
+    size 25M
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    create 0640 ubuntu ubuntu
+}
