@@ -464,7 +464,7 @@ async def get_news(
         fetch=lambda: studentv2_client.fetch_page("/mahasiswa/berita", nim, password),
         parse=_parse,
         ttl=settings.TTL_NEWS,
-        cache_params={"limit": limit},
+        cache_params={"nim": nim, "limit": limit},
     )
 
 @router.get("/announcements")
@@ -476,6 +476,7 @@ async def get_announcements(creds: tuple[str, str] = Depends(require_studentv2_c
         fetch=lambda: studentv2_client.fetch_page("/mahasiswa/beranda", nim, password),
         parse=parse_announcements,
         ttl=settings.TTL_NEWS,
+        cache_params={"nim": nim},
     )
 
 
