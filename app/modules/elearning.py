@@ -1267,6 +1267,20 @@ class PooledElearningClient:
 
 pooled_elearning_client = PooledElearningClient()
 
+def extract_clean_token(raw_input: Optional[str]) -> Optional[str]:
+    """Ekstraksi token terenkripsi Laravel (selalu diawali 'eyJ...') dari token murni, URL path, atau URL absolut."""
+    if not raw_input or not isinstance(raw_input, str):
+        return None
+    s = raw_input.strip()
+    m = re.search(r"(eyJ[A-Za-z0-9+/=_-]+)", s)
+    if m:
+        return m.group(1).rstrip("/")
+    for prefix in ("https://elearning.bsi.ac.id", "http://elearning.bsi.ac.id"):
+        if s.startswith(prefix):
+            s = s[len(prefix):]
+    cleaned = s.strip("/").split("/")[-1]
+    return cleaned if cleaned else None
+
 # API Routes
 
 @router.get("/courses")
@@ -1283,12 +1297,13 @@ async def get_courses(creds: tuple[str, str] = Depends(require_elearning_creds))
 
 @router.get("/assignments")
 async def get_assignments(
-    token: Optional[str] = Query(default=None, pattern=r"^[A-Za-z0-9+/=_-]+$", description="Encrypted course token from /courses (opsional, tanpa token = agregasi seluruh matkul)"),
+    token: Optional[str] = Query(default=None, description="Token terenkripsi mata kuliah dari /courses (diawali 'eyJ...')"),
     creds: tuple[str, str] = Depends(require_elearning_creds)
 ):
     nim, password = creds
+    clean_token = extract_clean_token(token)
 
-    if not token:
+    if not clean_token:
         async def _fetch_all_assignments():
             courses_res = await get_courses(creds)
             courses = courses_res["data"]
@@ -1297,8 +1312,9 @@ async def get_assignments(
                 t = course.get("token_assignment")
                 if not t:
                     return {"tasks": [], "submissions": []}
+                clean_t = extract_clean_token(t) or t
                 try:
-                    html = await pooled_elearning_client.fetch_page(f"/assignment/{t}", nim, password)
+                    html = await pooled_elearning_client.fetch_page(f"/assignment/{clean_t}", nim, password)
                     parsed = parse_assignments(html)
                     for item in parsed.get("tasks", []):
                         item.setdefault("kode", course.get("kode") or "")
@@ -1331,33 +1347,41 @@ async def get_assignments(
     return await cached_endpoint(
         module="elearning",
         name="assignments",
-        fetch=lambda: pooled_elearning_client.fetch_page(f"/assignment/{token}", nim, password),
+        fetch=lambda: pooled_elearning_client.fetch_page(f"/assignment/{clean_token}", nim, password),
         parse=parse_assignments,
         ttl=settings.TTL_ASSIGNMENTS,
-        cache_params={"token": token},
+        cache_params={"token": clean_token, "nim": nim},
     )
 
 @router.get("/presence")
 async def get_presence(
-    token: Optional[str] = Query(default=None, pattern=r"^[A-Za-z0-9+/=_-]+$", description="Encrypted course token from /courses"),
+    token: Optional[str] = Query(default=None, description="Token terenkripsi presensi mata kuliah dari /courses (diawali 'eyJ...')"),
     creds: tuple[str, str] = Depends(require_elearning_creds)
 ):
     nim, password = creds
+    clean_token = extract_clean_token(token)
 
-    if not token:
+    if not clean_token:
         courses_res = await get_courses(creds)
         courses = courses_res["data"]
-        if not courses or not courses[0].get("token_absen"):
+        first_token = None
+        for c in courses:
+            t = extract_clean_token(c.get("token_absen"))
+            if t:
+                first_token = t
+                break
+        if not first_token:
             return success_response(data={}, cached=False)
-        token = courses[0]["token_absen"]
+        clean_token = first_token
 
     async def _fetch_presence():
-        html = await pooled_elearning_client.fetch_page(f"/absen-mhs/{token}", nim, password)
+        html = await pooled_elearning_client.fetch_page(f"/absen-mhs/{clean_token}", nim, password)
         presence = parse_presence(html)
 
         # Ambil riwayat presensi lengkap via DataTables AJAX (/rekap-side/{token})
-        m = re.findall(r"rekap-side/[^\"'\s]+", html)
-        ajax_path = f"/{m[0]}" if m else f"/rekap-side/{token}"
+        m = re.findall(r"rekap-side/([^\"'\s]+)", html)
+        rekap_tok = extract_clean_token(m[0]) if m else clean_token
+        ajax_path = f"/rekap-side/{rekap_tok}"
         try:
             rekap_raw = await pooled_elearning_client.fetch_page(ajax_path, nim, password)
             records = parse_presence_rekap(rekap_raw)
@@ -1374,30 +1398,37 @@ async def get_presence(
         fetch=_fetch_presence,
         parse=lambda data: data,
         ttl=settings.TTL_ASSIGNMENTS,
-        cache_params={"token": token},
+        cache_params={"token": clean_token, "nim": nim},
     )
 
 @router.get("/materials")
 async def get_materials(
-    token: Optional[str] = Query(default=None, pattern=r"^[A-Za-z0-9+/=_-]+$", description="Encrypted course token from /courses"),
+    token: Optional[str] = Query(default=None, description="Token terenkripsi bahan ajar mata kuliah dari /courses (diawali 'eyJ...')"),
     creds: tuple[str, str] = Depends(require_elearning_creds)
 ):
     nim, password = creds
+    clean_token = extract_clean_token(token)
 
-    if not token:
+    if not clean_token:
         courses_res = await get_courses(creds)
         courses = courses_res["data"]
-        if not courses or not courses[0].get("token_learning"):
+        first_token = None
+        for c in courses:
+            t = extract_clean_token(c.get("token_learning"))
+            if t:
+                first_token = t
+                break
+        if not first_token:
             return success_response(data=[], cached=False)
-        token = courses[0]["token_learning"]
+        clean_token = first_token
 
     return await cached_endpoint(
         module="elearning",
         name="materials",
-        fetch=lambda: pooled_elearning_client.fetch_page(f"/learning/{token}", nim, password),
+        fetch=lambda: pooled_elearning_client.fetch_page(f"/learning/{clean_token}", nim, password),
         parse=parse_materials,
         ttl=settings.TTL_ASSIGNMENTS,
-        cache_params={"token": token},
+        cache_params={"token": clean_token, "nim": nim},
     )
 
 @router.get("/quiz")
@@ -1641,23 +1672,26 @@ async def submit_quiz_answer(
 
 @router.post("/presence")
 async def post_presence(
-    token: Optional[str] = Query(default=None, pattern=r"^[A-Za-z0-9+/=_-]+$", description="Encrypted course token from /courses (opsional)"),
+    token: Optional[str] = Query(default=None, description="Token terenkripsi presensi mata kuliah dari /courses (diawali 'eyJ...')"),
     creds: tuple[str, str] = Depends(require_elearning_creds)
 ):
     """Pencet / submit presensi perkuliahan pada kelas aktif."""
     nim, password = creds
-    result = await submit_presence(nim, password, token)
+    clean_token = extract_clean_token(token)
+    result = await submit_presence(nim, password, clean_token)
     return success_response(data=result)
 
 @router.get("/quiz/questions")
 async def get_quiz_questions(
-    token: Optional[str] = Query(default=None, pattern=r"^[A-Za-z0-9+/=_-]+$", description="Token ujian / kuis"),
-    quiz_url: Optional[str] = Query(default=None, pattern=r"^/[A-Za-z0-9_/-]+$", description="Path relatif halaman ujian"),
+    token: Optional[str] = Query(default=None, description="Token ujian / kuis (diawali 'eyJ...')"),
+    quiz_url: Optional[str] = Query(default=None, description="Path relatif halaman ujian"),
     creds: tuple[str, str] = Depends(require_elearning_creds)
 ):
     """Ambil daftar pertanyaan dan opsi kuis/ujian."""
     nim, password = creds
-    result = await fetch_quiz_questions(nim, password, token=token, quiz_url=quiz_url)
+    clean_token = extract_clean_token(token)
+    clean_quiz_url = quiz_url if isinstance(quiz_url, str) else None
+    result = await fetch_quiz_questions(nim, password, token=clean_token, quiz_url=clean_quiz_url)
     return success_response(data=result)
 
 @router.post("/quiz/answer")
@@ -1746,6 +1780,7 @@ async def post_upload_assignment(
     """Upload berkas submission tugas mahasiswa ke portal MyBest."""
     import base64
     nim, password = creds
+    clean_token = extract_clean_token(body.token_tugas) or body.token_tugas.strip("/")
     try:
         file_bytes = base64.b64decode(body.file_base64, validate=True)
         if len(file_bytes) > 10 * 1024 * 1024:
@@ -1763,7 +1798,7 @@ async def post_upload_assignment(
     result = await submit_assignment_file(
         nim=nim,
         password=password,
-        token_tugas=body.token_tugas,
+        token_tugas=clean_token,
         filename=body.filename,
         file_bytes=file_bytes,
         catatan=body.catatan,
@@ -1783,7 +1818,7 @@ async def post_upload_assignment(
 
 
 class SubmitAssignmentLinkPayload(BaseModel):
-    token_send: str = Field(..., description="Token pengerjaan dari /assignment/send/{token} atau token_tugas")
+    token_send: str = Field(..., description="Token pengerjaan dari /assignment/send/{token} atau token_tugas (diawali 'eyJ...')")
     link_tugas: str = Field(..., description="Link URL pengumpulan tugas (Google Drive, GitHub, dll.)")
 
 
@@ -1794,6 +1829,7 @@ async def post_submit_assignment_link(
 ):
     """Kirim / kumpulkan tugas kuliah MyBest dengan memasukkan URL link tugas (Google Drive / GitHub)."""
     nim, password = creds
+    clean_token = extract_clean_token(body.token_send) or body.token_send.strip("/")
     link = body.link_tugas.strip()
     if not (link.startswith("http://") or link.startswith("https://")):
         raise HTTPException(
@@ -1806,7 +1842,7 @@ async def post_submit_assignment_link(
         )
 
     result = await pooled_elearning_client.submit_assignment_link(
-        token_send=body.token_send,
+        token_send=clean_token,
         link_tugas=link,
         nim=nim,
         password=password,
@@ -1959,15 +1995,12 @@ class CreateDiscussionPayload(BaseModel):
 
 @router.get("/discussions")
 async def get_discussions(
-    token: str = Query(..., description="Token diskusi mata kuliah dari /courses (token_diskusi)"),
+    token: str = Query(..., description="Token terenkripsi diskusi mata kuliah dari /courses (diawali 'eyJ...')"),
     creds: tuple[str, str] = Depends(require_elearning_creds),
 ):
     """Ambil daftar topik forum diskusi perkuliahan MyBest per mata kuliah."""
     nim, password = creds
-    clean_token = token
-    for prefix in ("https://elearning.bsi.ac.id", "http://elearning.bsi.ac.id", "/form-diskusimhs/", "form-diskusimhs/"):
-        clean_token = clean_token.replace(prefix, "")
-    clean_token = clean_token.strip("/")
+    clean_token = extract_clean_token(token) or token.strip("/")
     path = f"/form-diskusimhs/{clean_token}"
 
     return await cached_endpoint(
@@ -1982,15 +2015,12 @@ async def get_discussions(
 
 @router.get("/discussions/comments")
 async def get_discussion_comments(
-    token: str = Query(..., description="Token komentar thread diskusi (/form-komentarmhs/...)"),
+    token: str = Query(..., description="Token terenkripsi komentar thread diskusi (diawali 'eyJ...')"),
     creds: tuple[str, str] = Depends(require_elearning_creds),
 ):
     """Ambil thread komentar dan tanggapan pada topik forum diskusi perkuliahan MyBest."""
     nim, password = creds
-    clean_token = token
-    for prefix in ("https://elearning.bsi.ac.id", "http://elearning.bsi.ac.id", "/form-komentarmhs/", "form-komentarmhs/"):
-        clean_token = clean_token.replace(prefix, "")
-    clean_token = clean_token.strip("/")
+    clean_token = extract_clean_token(token) or token.strip("/")
     path = f"/form-komentarmhs/{clean_token}"
 
     return await cached_endpoint(
@@ -2010,10 +2040,7 @@ async def post_discussion_comment(
 ):
     """Kirim komentar atau tanggapan pada thread forum diskusi perkuliahan MyBest."""
     nim, password = creds
-    clean_token = body.token_komentar
-    for prefix in ("https://elearning.bsi.ac.id", "http://elearning.bsi.ac.id", "/form-komentarmhs/", "form-komentarmhs/"):
-        clean_token = clean_token.replace(prefix, "")
-    clean_token = clean_token.strip("/")
+    clean_token = extract_clean_token(body.token_komentar) or body.token_komentar.strip("/")
 
     result = await pooled_elearning_client.post_discussion_comment(
         token_komentar=clean_token,
@@ -2043,10 +2070,7 @@ async def post_new_discussion(
 ):
     """Buat topik forum diskusi baru pada mata kuliah MyBest."""
     nim, password = creds
-    clean_token = body.token_course
-    for prefix in ("https://elearning.bsi.ac.id", "http://elearning.bsi.ac.id", "/form-diskusimhs/", "form-diskusimhs/"):
-        clean_token = clean_token.replace(prefix, "")
-    clean_token = clean_token.strip("/")
+    clean_token = extract_clean_token(body.token_course) or body.token_course.strip("/")
 
     result = await pooled_elearning_client.post_new_discussion(
         token_course=clean_token,
