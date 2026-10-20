@@ -1705,14 +1705,27 @@ async def submit_presence(
         return {
             "success": False,
             "status": "ERROR",
-            "message": f"Gagal mengirim presensi ke upstream: {exc}",
+            "message": "Gagal mengirim presensi ke upstream. Silakan coba beberapa saat lagi.",
         }
 
 async def fetch_quiz_questions(
     nim: str, password: str, token: Optional[str] = None, quiz_url: Optional[str] = None
 ) -> dict[str, Any]:
     """Ambil daftar soal, sisa waktu, dan opsi jawaban kuis/ujian."""
-    target_path = quiz_url or (f"/halaman-ujian/{token}" if token else "/exercise")
+    if quiz_url:
+        # ponytail: whitelist bentuk path kampus; upgrade ke registry route jika MyBest menambah bentuk baru
+        if not re.fullmatch(r"/[A-Za-z0-9/_.=%+-]+", quiz_url) or ".." in quiz_url or quiz_url.startswith("//"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_response(
+                    code="INVALID_PATH",
+                    message="quiz_url tidak valid: hanya path relatif halaman ujian MyBest yang diizinkan",
+                    module="elearning",
+                ),
+            )
+        target_path = quiz_url
+    else:
+        target_path = f"/halaman-ujian/{token}" if token else "/exercise"
     html = await pooled_elearning_client.fetch_page(target_path, nim, password)
     return parse_quiz_questions(html)
 
@@ -1924,12 +1937,30 @@ async def post_submit_assignment_link(
     nim, password = creds
     clean_token = extract_clean_token(body.token_send) or body.token_send.strip("/")
     link = body.link_tugas.strip()
-    if not (link.startswith("http://") or link.startswith("https://")):
+    # Validasi ketat: scheme http(s), host ada, tanpa userinfo, bukan target privat/localhost
+    import ipaddress
+    import urllib.parse
+
+    parsed_link = urllib.parse.urlparse(link)
+    link_error: Optional[str] = None
+    if parsed_link.scheme not in ("http", "https") or not parsed_link.netloc:
+        link_error = "link_tugas harus URL valid dengan awalan http:// atau https://"
+    elif parsed_link.username or parsed_link.password:
+        link_error = "link_tugas tidak boleh mengandung userinfo (user:pass@host)"
+    else:
+        hostname = (parsed_link.hostname or "").lower()
+        try:
+            is_private_ip = bool(ipaddress.ip_address(hostname).is_private)
+        except ValueError:
+            is_private_ip = False
+        if not hostname or hostname == "localhost" or hostname.endswith(".local") or is_private_ip:
+            link_error = "link_tugas tidak boleh mengarah ke localhost atau alamat jaringan privat"
+    if link_error:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=error_response(
                 code="INVALID_URL",
-                message="link_tugas harus merupakan URL valid yang diawali http:// atau https://",
+                message=link_error,
                 module="elearning",
             ),
         )
@@ -2073,11 +2104,12 @@ async def download_assignment_file(
     except HTTPException:
         raise
     except Exception as exc:
+        logger.warning("Download tugas gagal: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=error_response(
                 code="DOWNLOAD_ERROR",
-                message=f"Terjadi kesalahan saat mengunduh file: {exc}",
+                message="Terjadi kesalahan saat mengunduh file. Silakan coba beberapa saat lagi.",
                 module="elearning",
             ),
         )
@@ -2194,11 +2226,12 @@ async def download_material_file(
     except HTTPException:
         raise
     except Exception as exc:
+        logger.warning("Download materi gagal: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=error_response(
                 code="DOWNLOAD_ERROR",
-                message=f"Terjadi kesalahan saat mengunduh materi: {exc}",
+                message="Terjadi kesalahan saat mengunduh materi. Silakan coba beberapa saat lagi.",
                 module="elearning",
             ),
         )

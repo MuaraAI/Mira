@@ -301,6 +301,37 @@ async def test_get_quiz_questions_ssrf_rejected():
     # Must be rejected with 422 (validation error on pattern) or 400
     assert res.status_code in (400, 422)
 
+
+@pytest.mark.asyncio
+async def test_get_quiz_questions_rejects_path_traversal_and_protocol_relative():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        for evil in (
+            "/halaman-ujian/../../admin",
+            "//evil.example.com/halaman-ujian/x",
+            "/halaman-ujian/x%00/etc",
+        ):
+            res = await ac.get(f"/v1/elearning/quiz/questions?quiz_url={evil}")
+            assert res.status_code in (400, 422), f"{evil} harus ditolak"
+
+
+@pytest.mark.asyncio
+async def test_get_quiz_questions_accepts_valid_campus_path(monkeypatch):
+    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_PASS", "secret")
+    mock_ujian_html = (FIXTURES / "el_halaman_ujian.html").read_text(encoding="utf-8")
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = None
+    mock_redis.incr.return_value = 1
+    with patch("redis.asyncio.from_url", return_value=mock_redis), \
+         patch("app.modules.elearning.pooled_elearning_client.fetch_page", return_value=mock_ujian_html) as mock_fetch:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res = await ac.get("/v1/elearning/quiz/questions?quiz_url=%2Fhalaman-ujian%2FeyJpdi0")
+    assert res.status_code == 200
+    # Path kampus sah harus diteruskan utuh ke upstream
+    called_path = mock_fetch.call_args[0][0]
+    assert called_path == "/halaman-ujian/eyJpdi0"
+
+
 @pytest.mark.asyncio
 async def test_post_quiz_answer(monkeypatch):
     monkeypatch.setenv("ELEARNING_NIM", "15260767")
@@ -495,6 +526,26 @@ async def test_submit_assignment_link_invalid_url(monkeypatch):
 
     assert res.status_code == 400
     assert res.json()["error"]["code"] == "INVALID_URL"
+
+
+@pytest.mark.asyncio
+async def test_submit_assignment_link_rejects_userinfo_and_private_targets():
+    evil_links = [
+        "https://user:pass@drive.google.com/file/d/x",
+        "http://localhost/tugas.pdf",
+        "http://127.0.0.1/tugas.pdf",
+        "http://192.168.1.10/tugas.pdf",
+        "ftp://drive.google.com/tugas.pdf",
+    ]
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        for evil in evil_links:
+            res = await ac.post(
+                "/v1/elearning/assignments/submit",
+                json={"token_send": "tok_send_46814", "link_tugas": evil},
+            )
+            assert res.status_code == 400, f"{evil} harus ditolak"
+            assert res.json()["error"]["code"] == "INVALID_URL"
+
 
 @pytest.mark.asyncio
 async def test_get_discussions_success(monkeypatch):

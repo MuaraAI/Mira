@@ -618,7 +618,7 @@ async def test_news_webhook(
         discord_url = target_url or settings.DISCORD_WEBHOOK_URL
         if discord_url:
             ok = await dispatch_discord_webhook(sample_post, discord_url)
-            results["discord"] = {"configured": True, "success": ok, "target": discord_url}
+            results["discord"] = {"configured": True, "success": ok}
         else:
             results["discord"] = {"configured": False, "message": "DISCORD_WEBHOOK_URL belum disetel"}
 
@@ -635,7 +635,7 @@ async def test_news_webhook(
         custom_url = target_url or settings.NEWS_WEBHOOK_URL
         if custom_url:
             ok = await dispatch_webhook_notification(sample_post, custom_url)
-            results["custom"] = {"configured": True, "success": ok, "target": custom_url}
+            results["custom"] = {"configured": True, "success": ok}
         else:
             results["custom"] = {"configured": False, "message": "NEWS_WEBHOOK_URL belum disetel"}
 

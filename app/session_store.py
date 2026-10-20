@@ -123,15 +123,18 @@ class SessionStore:
         raw = await client.get(key)
         if not raw:
             return None
-        await client.expire(key, SESSION_TTL_SECONDS)
+        # Validasi dulu; payload invalid dihapus, bukan diperpanjang (anti keep-alive blob tampered)
         data = _decrypt_payload(raw, settings.API_KEY)
         if not data:
             migrated = _migrate_legacy_payload(raw, settings.API_KEY)
             if migrated:
-                await client.set(key, migrated, ex=SESSION_TTL_SECONDS)
                 data = _decrypt_payload(migrated, settings.API_KEY)
-        if not data:
-            return None
+                if data:
+                    await client.set(key, migrated, ex=SESSION_TTL_SECONDS)
+            if not data:
+                await client.delete(key)
+                return None
+        await client.expire(key, SESSION_TTL_SECONDS)
         nim = data.get("nim")
         if nim:
             await client.expire(_INDEX_PREFIX + nim, SESSION_TTL_SECONDS)
