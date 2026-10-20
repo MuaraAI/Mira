@@ -126,6 +126,7 @@ def _sync_list(nim: str, active_only: bool = False) -> list[dict[str, Any]]:
             {
                 "id": r["id"],
                 "device_name": r["device_name"],
+                "endpoint": r["endpoint"],
                 "is_active": bool(r["is_active"]),
                 "created_at": r["created_at"],
             }
