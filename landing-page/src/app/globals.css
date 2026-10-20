@@ -457,3 +457,9 @@ html { scrollbar-color: var(--px-water-mid) var(--px-tint); scrollbar-width: thi
   .px-table td[data-stack] { display: block; text-align: left !important; }
   .px-table td[data-stack]::before { display: block; margin-bottom: 2px; }
 }
+
+/* Bottom sheet on phones, pop-in dialog on larger screens. */
+@keyframes sheet-up { from { transform: translateY(100%); } }
+@keyframes sheet-pop { from { opacity: 0; transform: translateY(12px) scale(.98); } }
+.sheet-panel { animation: sheet-up .32s var(--ease-px) both; padding-bottom: env(safe-area-inset-bottom); }
+@media (min-width: 640px) { .sheet-panel { animation-name: sheet-pop; } }

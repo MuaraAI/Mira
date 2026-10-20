@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   BookOpen,
   Download,
@@ -9,6 +9,7 @@ import {
   FileCode,
   FileCheck2,
   ExternalLink,
+  User,
 } from "lucide-react";
 import { apiDownload, ApiError, useApi } from "@/lib/api";
 import {
@@ -17,12 +18,15 @@ import {
   LoadingState,
   PageHeader,
 } from "@/components/dashboard-ui";
+import { CourseSelect } from "@/components/CourseSelect";
+import { resolveDosen } from "@/lib/courses";
 
 interface CourseItem {
   id: string;
   kode?: string;
   kode_mtk?: string;
   nama: string;
+  kode_dosen?: string;
   dosen_code?: string;
   token_learning?: string | null;
 }
@@ -42,7 +46,10 @@ interface MaterialItem {
 
 export default function MateriPage() {
   const coursesApi = useApi<CourseItem[]>("/v1/elearning/courses");
-  const [selectedIdx, setSelectedIdx] = useState(0);
+  // Jadwal SIAKAD dipakai sebagai cadangan kode dosen bila kartu MyBest tidak mencantumkannya.
+  const scheduleApi = useApi<{ kode: string; nama: string; kode_dosen?: string }[]>("/v1/studentv2/schedule");
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [view, setView] = useState<"dosen" | "resmi">("dosen");
   const [downloadingUrl, setDownloadingUrl] = useState<string | null>(null);
 
   async function handleDownloadMaterial(url: string, title: string) {
@@ -61,8 +68,8 @@ export default function MateriPage() {
     }
   }
 
-  const courses = coursesApi.data ?? [];
-  const activeCourse = courses.length > 0 ? courses[selectedIdx] : null;
+  const courses = useMemo(() => coursesApi.data ?? [], [coursesApi.data]);
+  const activeCourse = courses.find((c) => (c.id || c.kode || c.nama) === selectedKey) ?? courses[0] ?? null;
   const token = activeCourse?.token_learning;
 
   const materialsApi = useApi<MaterialItem[]>(
@@ -89,7 +96,9 @@ export default function MateriPage() {
   }
 
   const courseCode = activeCourse?.kode_mtk || activeCourse?.kode || "101";
+  const dosen = resolveDosen(activeCourse, scheduleApi.data);
   const materials = materialsApi.data ?? [];
+  const materiDosen = materials.filter((m) => m.kategori === "materi_dosen" || (!m.kategori && m.kode));
 
   // 5 Official Campus Standard Categories
   const standardPackages = [
@@ -130,6 +139,11 @@ export default function MateriPage() {
     },
   ];
 
+  const tabs = [
+    { key: "dosen" as const, label: `Materi Dosen${materialsApi.loading ? "" : ` (${materiDosen.length})`}` },
+    { key: "resmi" as const, label: `Paket Resmi (${standardPackages.length})` },
+  ];
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -137,184 +151,126 @@ export default function MateriPage() {
         description="Unduh paket berkas resmi kampus (Slide, Modul, Silabus, RPS, RTM) serta berkas materi dari MyBest."
       />
 
-      {/* Course Selector Tabs */}
-      <div className="overflow-x-auto pb-2 -mx-2 px-2">
-        <div className="flex items-center gap-2 w-max">
-          {courses.map((course, idx) => {
-            const active = idx === selectedIdx;
-            return (
-              <button
-                key={course.id || idx}
-                type="button"
-                onClick={() => setSelectedIdx(idx)}
-                className={`px-3.5 py-2 rounded-sm text-xs font-semibold whitespace-nowrap transition-all border ${
-                  active
-                    ? "bg-[#0369A1] text-white border-[#075985] shadow-sm"
-                    : "bg-white text-secondary hover:text-foreground border-stroke hover:bg-[#F0F7FB]"
-                }`}
-              >
-                {course.nama}
-              </button>
-            );
-          })}
-        </div>
+      <CourseSelect
+        options={courses.map((c) => ({ key: c.id || c.kode || c.nama, label: c.nama }))}
+        value={activeCourse ? activeCourse.id || activeCourse.kode || activeCourse.nama : null}
+        onChange={setSelectedKey}
+      />
+
+      {/* Ringkasan mata kuliah aktif */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-secondary">
+        <span className="px-chip bg-px-tint px-2 py-0.5 font-mono font-bold text-[#0369A1]">{courseCode}</span>
+        <span className="inline-flex items-center gap-1.5">
+          <User className="h-3.5 w-3.5 text-[#0369A1]" aria-hidden="true" />
+          Dosen Pengampu: <strong className="font-mono text-foreground">{dosen}</strong>
+        </span>
       </div>
 
-      {/* Active Course Banner */}
-      <div className="glass-card p-5 border-l-4 border-l-[#0369A1] flex items-center justify-between">
-        <div>
-          <span className="font-mono text-xs font-bold text-[#0369A1] px-2 py-0.5 bg-[#0369A1]/10 rounded-sm">
-            Kode: {courseCode}
-          </span>
-          <h2 className="mt-1 text-lg font-display font-bold text-foreground">
-            {activeCourse?.nama}
-          </h2>
-          <p className="text-xs text-secondary mt-0.5">
-            Dosen Pengampu: {activeCourse?.dosen_code || "-"}
-          </p>
-        </div>
+      <div role="tablist" aria-label="Jenis bahan ajar" className="grid grid-cols-2 gap-1 bg-px-tint p-1 shadow-[0_-2px_0_0_#CFE2EE,0_2px_0_0_#CFE2EE,-2px_0_0_0_#CFE2EE,2px_0_0_0_#CFE2EE] sm:w-96">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            role="tab"
+            aria-selected={view === t.key}
+            onClick={() => setView(t.key)}
+            className={`min-h-10 px-2 font-mono text-xs font-bold transition-colors duration-200 ${
+              view === t.key ? "bg-[#0369A1] text-white shadow-[2px_2px_0_0_#072033]" : "text-secondary hover:bg-white hover:text-foreground"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
-      {/* 5 Paket Berkas Standar */}
-      <section aria-labelledby="heading-paket-standar">
-        <h3 id="heading-paket-standar" className="text-base font-display font-bold text-foreground mb-3">
-          Paket Berkas Resmi Kampus (ZIP)
-        </h3>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {view === "resmi" ? (
+        <ul className="page-in glass-card divide-y-2 divide-dashed divide-px-soft">
           {standardPackages.map((pkg) => {
             const Icon = pkg.icon;
             return (
-              <div
-                key={pkg.category}
-                className="glass-card p-5 flex flex-col justify-between hover:border-[#0369A1]/40 transition-all hover:bg-[#F0F7FB]/40 group"
-              >
-                <div>
-                  <div className="w-9 h-9 rounded-sm bg-[#0369A1]/10 text-[#0369A1] flex items-center justify-center mb-3 group-hover:bg-[#0369A1] group-hover:text-white transition-colors">
-                    <Icon className="w-5 h-5" aria-hidden="true" />
-                  </div>
-                  <h4 className="font-bold text-sm text-foreground">
-                    {pkg.title}
-                  </h4>
-                  <p className="text-xs text-secondary mt-1 leading-relaxed">
-                    {pkg.desc}
-                  </p>
-                </div>
-
-                <div className="mt-4 pt-3 border-t border-stroke/60">
-                  <a
-                    href={pkg.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill bg-[#0369A1] hover:bg-[#075985] text-white text-xs font-bold transition-all w-full justify-center shadow-sm"
-                  >
-                    <Download className="w-3.5 h-3.5" aria-hidden="true" />
-                    <span>Unduh Paket ZIP</span>
-                  </a>
-                </div>
-              </div>
+              <li key={pkg.category}>
+                <a
+                  href={pkg.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex min-h-16 items-center gap-3 px-4 py-3 transition-colors hover:bg-[#F0F7FB] sm:px-5"
+                >
+                  <span className="px-icon h-9 w-9 shrink-0">
+                    <Icon className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-bold text-foreground">{pkg.title}</span>
+                    <span className="block truncate text-xs text-secondary">{pkg.desc}</span>
+                  </span>
+                  <span className="inline-flex shrink-0 items-center gap-1.5 font-mono text-[11px] font-bold text-[#0369A1]">
+                    <Download className="h-4 w-4 transition-transform group-hover:translate-y-0.5" aria-hidden="true" />
+                    <span className="hidden sm:inline">ZIP</span>
+                  </span>
+                </a>
+              </li>
             );
           })}
+        </ul>
+      ) : materialsApi.loading ? (
+        <LoadingState label="Memuat berkas MyBest..." />
+      ) : materiDosen.length === 0 ? (
+        <div className="space-y-3">
+          <EmptyState
+            title="Belum ada berkas materi tambahan dari dosen."
+            description="Dosen pengampu belum mengunggah berkas modul khusus di MyBest untuk mata kuliah ini."
+          />
+          <button type="button" onClick={() => setView("resmi")} className="px-btn-ghost inline-flex min-h-11 w-full items-center justify-center gap-2 px-4 text-xs font-bold sm:w-auto">
+            <Layers className="h-4 w-4" aria-hidden="true" />
+            Lihat 5 Paket Resmi Kampus
+          </button>
         </div>
-      </section>
-
-      {/* Berkas Materi Elearning MyBest */}
-      <section aria-labelledby="heading-berkas-mybest" className="pt-2">
-        <h3 id="heading-berkas-mybest" className="text-base font-display font-bold text-foreground mb-3">
-          Materi Pertemuan dari Dosen Pengampu (MyBest)
-        </h3>
-
-        {materialsApi.loading ? (
-          <LoadingState label="Memuat berkas MyBest..." />
-        ) : (() => {
-          const materiDosen = materials.filter(
-            (m) => m.kategori === "materi_dosen" || (!m.kategori && m.kode)
-          );
-
-          if (materiDosen.length === 0) {
+      ) : (
+        <ul className="page-in glass-card divide-y-2 divide-dashed divide-px-soft">
+          {materiDosen.map((m) => {
+            const busy = downloadingUrl === m.file_url;
             return (
-              <EmptyState
-                title="Belum ada berkas materi tambahan dari dosen."
-                description="Dosen pengampu belum mengunggah berkas modul khusus di MyBest untuk mata kuliah ini. Silakan unduh 5 paket berkas resmi kampus di atas."
-              />
+              <li key={m.id} className="flex items-center gap-3 px-4 py-3 sm:px-5">
+                <span className="px-icon h-9 w-9 shrink-0">
+                  <FileText className="h-4 w-4" aria-hidden="true" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-bold leading-snug text-foreground">{m.judul}</span>
+                  <span className="block truncate text-xs text-secondary">
+                    {[m.update, m.deskripsi].filter(Boolean).join(" · ") || "-"}
+                  </span>
+                </span>
+                {m.file_url ? (
+                  m.file_url.startsWith("/v1/") ? (
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadMaterial(m.file_url!, m.judul)}
+                      disabled={busy}
+                      aria-label={`Unduh ${m.judul}`}
+                      className="px-btn inline-flex min-h-10 shrink-0 items-center gap-1.5 px-3 text-xs font-bold"
+                    >
+                      <Download className="h-4 w-4" aria-hidden="true" />
+                      <span className="hidden sm:inline">{busy ? "Mengunduh..." : "Unduh"}</span>
+                    </button>
+                  ) : (
+                    <a
+                      href={m.file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Buka ${m.judul}`}
+                      className="px-btn inline-flex min-h-10 shrink-0 items-center gap-1.5 px-3 text-xs font-bold"
+                    >
+                      <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                      <span className="hidden sm:inline">Buka</span>
+                    </a>
+                  )
+                ) : (
+                  <span className="text-xs text-secondary">-</span>
+                )}
+              </li>
             );
-          }
-
-          return (
-            <div className="glass-card overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="px-table w-full md:min-w-[640px] text-sm text-left">
-                  <thead>
-                    <tr className="border-b border-stroke bg-[#F7FAFC] text-xs font-mono uppercase tracking-wider text-secondary">
-                      <th scope="col" className="px-4 py-3">Materi</th>
-                      <th scope="col" className="px-4 py-3">Deskripsi</th>
-                      <th scope="col" className="px-4 py-3">Terakhir Diperbarui</th>
-                      <th scope="col" className="px-4 py-3 text-right">Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {materiDosen.map((m) => (
-                      <tr
-                        key={m.id}
-                        className="border-b border-stroke/60 last:border-0 hover:bg-[#F0F7FB]/50"
-                      >
-                        <td data-label="Materi" data-primary="" className="px-4 py-3 font-semibold text-foreground">
-                          <div className="flex items-center gap-2">
-                            <FileText className="w-4 h-4 text-[#0369A1] shrink-0" aria-hidden="true" />
-                            <span>{m.judul}</span>
-                          </div>
-                        </td>
-                        <td data-label="Deskripsi" data-stack="" className="px-4 py-3 text-xs text-secondary max-w-xs truncate">
-                          {m.deskripsi || "-"}
-                        </td>
-                        <td data-label="Terakhir Diperbarui" className="px-4 py-3 text-xs text-secondary whitespace-nowrap">
-                          {m.update || "-"}
-                        </td>
-                        <td data-label="Aksi" className="px-4 py-3 text-right whitespace-nowrap">
-                          {m.file_url ? (
-                            m.file_url.startsWith("/v1/") ? (
-                              <button
-                                type="button"
-                                onClick={() => handleDownloadMaterial(m.file_url!, m.judul)}
-                                disabled={downloadingUrl === m.file_url}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill bg-[#0369A1] hover:bg-[#075985] text-xs font-bold text-white transition-all shadow-sm disabled:opacity-50"
-                              >
-                                {downloadingUrl === m.file_url ? (
-                                  <>
-                                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                    <span>Mengunduh...</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Download className="w-3.5 h-3.5" aria-hidden="true" />
-                                    <span>Unduh Berkas</span>
-                                  </>
-                                )}
-                              </button>
-                            ) : (
-                              <a
-                                href={m.file_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill bg-[#0369A1] hover:bg-[#075985] text-xs font-bold text-white transition-all shadow-sm"
-                              >
-                                <Download className="w-3.5 h-3.5" aria-hidden="true" />
-                                <span>Unduh Berkas</span>
-                              </a>
-                            )
-                          ) : (
-                            <span className="text-xs text-secondary">-</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          );
-        })()}
-      </section>
+          })}
+        </ul>
+      )}
     </div>
   );
 }
