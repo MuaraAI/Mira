@@ -1,6 +1,6 @@
 ---
 version: alpha
-name: UBSI API Fluid Currents Light
+name: UBSI API Semi Pixel-Art (Muara AI sync)
 description: Light estuary design system for the UBSI API landing page and dashboard. Riverbed ink on a clean mist canvas, river current blue accent, diffusion shadows, hydro-motion easing.
 
 colors:
@@ -65,15 +65,22 @@ spacing:
   xxl: 80px
 
 rounded:
-  sm: 6px
-  md: 10px
-  lg: 18px
-  xl: 28px
-  pill: 9999px
+  all: 0px
+
+pixel:
+  frame: "2px stepped frame drawn with 4 hard box-shadows"
+  line-strong: "#163A55"
+  line-soft: "#CFE2EE"
+  water: "#9CC6E0"
+  water-mid: "#5FA3CC"
+  tint: "#EAF3F9"
+  highlight: "#DCEBF5"
+  night: "#0B2D46"
+  sun: "#FCD34D"
 
 shadows:
-  diffuse: "0 12px 32px -8px rgba(7, 32, 51, 0.05), 0 2px 6px -1px rgba(7, 32, 51, 0.03)"
-  diffuse-hover: "0 12px 32px -8px rgba(7, 32, 51, 0.10), 0 2px 6px -1px rgba(7, 32, 51, 0.05)"
+  drop: "6px 6px 0 0 #CFE2EE (no blur)"
+  drop-hover: "8px 8px 0 0 #0369A1 + translate(-2px, -2px)"
 
 motion:
   easing: "cubic-bezier(0.16, 1, 0.3, 1)"
@@ -81,7 +88,18 @@ motion:
 
 ---
 
-# UBSI API — Design Specification (Fluid Currents Light)
+# UBSI API — Design Specification (Semi Pixel-Art)
+
+> Synced with the Muara AI web (muaraai.com, `src/app/globals.css`). The palette
+> below is unchanged; the shape language is pixel art: square corners, 2px stepped
+> frames (`.px-card`, `.px-frame`, `.px-chip`, `.px-icon`, `.px-btn`, `.px-btn-ghost`,
+> `.px-input`), hard offset drops instead of blurred shadows, dashed `#CFE2EE`
+> dividers, mono eyebrows with a square marker (`.section-kicker`), a stepped pixel
+> shore above the footer, a tile-sweep mobile menu takeover, pixel scrollbars, and
+> Pixelify Sans (OFL-1.1, self-hosted) for dashboard headings (`.portal-type`).
+> Tailwind `rounded-*` tokens resolve to 0, `border` is 2px, and `shadow-*` tokens are
+> hard drops, so existing pages inherit the theme. Sections below that mention radii,
+> diffusion shadows, or hairlines describe the previous Fluid Currents version.
 
 ## Identity
 

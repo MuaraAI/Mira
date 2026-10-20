@@ -1,7 +1,11 @@
 import type { Config } from "tailwindcss";
 
-// Fluid Currents Light v2 (Muara AI DESIGNV2)
+// Semi Pixel-Art theme, synced with Muara AI (muaraai.com).
 // Palette: light estuary canvas, deep riverbed ink, river current blue accent.
+// Shape: square corners, 2px stepped frames, hard offset drops (no blur).
+const PX_SOFT = "#CFE2EE";
+const PX_ACCENT = "#0369A1";
+
 const config: Config = {
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
@@ -9,6 +13,20 @@ const config: Config = {
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
+    // Pixel art has no rounded corners: every radius token resolves to a square edge.
+    borderRadius: {
+      none: "0",
+      DEFAULT: "0",
+      sm: "0",
+      md: "0",
+      lg: "0",
+      xl: "0",
+      "2xl": "0",
+      "3xl": "0",
+      card: "0",
+      pill: "0",
+      full: "0",
+    },
     extend: {
       colors: {
         background: "#F7FAFC",
@@ -24,6 +42,17 @@ const config: Config = {
           dark: "#072033",
           muted: "rgba(3, 105, 161, 0.12)",
           glow: "rgba(3, 105, 161, 0.25)",
+        },
+        px: {
+          ink: "#072033",
+          line: "#163A55",
+          soft: PX_SOFT,
+          water: "#9CC6E0",
+          "water-mid": "#5FA3CC",
+          tint: "#EAF3F9",
+          highlight: "#DCEBF5",
+          night: "#0B2D46",
+          sun: "#FCD34D",
         },
         success: "#0F766E",
         warning: "#9A3412",
@@ -41,33 +70,35 @@ const config: Config = {
           accent: "#7DD3FC",
         },
       },
+      borderWidth: {
+        // Hairlines become 2px pixel strokes.
+        DEFAULT: "2px",
+      },
       fontFamily: {
         sans: ["var(--font-inter)", "system-ui", "-apple-system", "sans-serif"],
         display: ["var(--font-space-grotesk)", "var(--font-inter)", "system-ui", "-apple-system", "sans-serif"],
+        pixel: ["var(--font-pixel)", "var(--font-space-grotesk)", "system-ui", "sans-serif"],
         mono: ["var(--font-jetbrains-mono)", "monospace"],
       },
-      backdropBlur: {
-        glass: "24px",
-        "3xl": "48px",
-      },
       boxShadow: {
-        // Diffusion shadow (water light refraction) per DESIGNV2.
-        float: "0 12px 32px -8px rgba(7, 32, 51, 0.10), 0 2px 6px -1px rgba(7, 32, 51, 0.05)",
-        glass: "0 12px 32px -8px rgba(7, 32, 51, 0.05), 0 2px 6px -1px rgba(7, 32, 51, 0.03)",
-        "glass-lg": "0 24px 48px rgba(7, 32, 51, 0.08)",
-        "glass-xl": "0 36px 64px rgba(7, 32, 51, 0.12)",
-        "glass-3d": "inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 2px 0 rgba(3, 105, 161, 0.10), 0 10px 30px -10px rgba(7, 32, 51, 0.10), 0 4px 12px -2px rgba(7, 32, 51, 0.05)",
-        "glass-3d-hover": "inset 0 2px 4px 0 rgba(255, 255, 255, 1), inset 0 0 20px 0 rgba(3, 105, 161, 0.10), 0 20px 40px -10px rgba(7, 32, 51, 0.14), 0 10px 20px -5px rgba(7, 32, 51, 0.10)",
-        "glass-edge": "inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -1px 1px rgba(255,255,255,0.35)",
-      },
-      borderRadius: {
-        sm: "6px",
-        card: "18px",
-        lg: "28px",
-        pill: "100px",
+        // Hard offset drops, no blur (pixel elevation).
+        sm: `2px 2px 0 0 ${PX_SOFT}`,
+        DEFAULT: `3px 3px 0 0 ${PX_SOFT}`,
+        md: `4px 4px 0 0 ${PX_SOFT}`,
+        lg: `6px 6px 0 0 ${PX_SOFT}`,
+        xl: `8px 8px 0 0 ${PX_SOFT}`,
+        "2xl": `10px 10px 0 0 ${PX_SOFT}`,
+        float: `6px 6px 0 0 ${PX_ACCENT}`,
+        glass: `4px 4px 0 0 ${PX_SOFT}`,
+        "glass-lg": `6px 6px 0 0 ${PX_SOFT}`,
+        "glass-xl": `8px 8px 0 0 ${PX_SOFT}`,
+        "glass-3d": `5px 5px 0 0 ${PX_SOFT}`,
+        "glass-3d-hover": `6px 6px 0 0 ${PX_ACCENT}`,
+        "glass-edge": `inset 2px 2px 0 0 #ffffff`,
       },
       transitionTimingFunction: {
         glass: "cubic-bezier(0.16, 1, 0.3, 1)",
+        px: "cubic-bezier(0.22, 1, 0.36, 1)",
       },
     },
   },
