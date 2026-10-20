@@ -13,14 +13,21 @@ class SessionPool:
     dan menutup sesi yang idle melewati TTL.
     """
 
-    def __init__(self, factory, ttl_seconds: int = 900):
+    def __init__(self, factory, ttl_seconds: int = 600, max_sessions: int = 500):
         self._factory = factory
         self._ttl = ttl_seconds
+        self._max_sessions = max_sessions
         self._sessions: dict[str, tuple[Any, float]] = {}
 
     def get(self, nim: str) -> Any:
         entry = self._sessions.get(nim)
         if entry is None:
+            if len(self._sessions) >= self._max_sessions:
+                try:
+                    oldest_nim = min(self._sessions, key=lambda k: self._sessions[k][1])
+                    self.invalidate(oldest_nim)
+                except (ValueError, KeyError):
+                    pass
             try:
                 client = self._factory(nim)
             except TypeError:
