@@ -15,6 +15,30 @@ from app.config import settings
 _ALLOWED_TYPES = ("discord", "telegram", "custom")
 _MAX_CHANNELS_PER_NIM = 5
 
+
+def _mask_secret(value: str, visible_start: int = 8, visible_end: int = 4) -> str:
+    if len(value) <= visible_start + visible_end:
+        return "***"
+    if "/" in value:
+        prefix, secret = value.rsplit("/", 1)
+        if secret:
+            if len(secret) > visible_start + visible_end:
+                return f"{prefix}/{secret[:visible_start]}...{secret[-visible_end:]}"
+            return f"{prefix}/***"
+    return f"{value[:visible_start]}...{value[-visible_end:]}"
+
+
+def mask_channel_config(channel_type: str, config: dict[str, Any]) -> dict[str, str]:
+    """Return dashboard-safe channel metadata without delivery credentials."""
+    if channel_type in ("discord", "custom"):
+        url = str(config.get("url", ""))
+        return {"url": _mask_secret(url, 32, 6) if url else ""}
+    return {
+        "bot_token": _mask_secret(str(config.get("bot_token", "")), 6, 4),
+        "chat_id": str(config.get("chat_id", "")),
+    }
+
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS webhook_channels (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -75,7 +99,7 @@ def _sync_add(nim: str, channel_type: str, categories: list[str], config: dict) 
         conn.close()
 
 
-def _sync_list(nim: str) -> list[dict[str, Any]]:
+def _sync_list(nim: str, mask: bool = True) -> list[dict[str, Any]]:
     conn = _connect()
     try:
         rows = conn.execute(
@@ -88,7 +112,11 @@ def _sync_list(nim: str) -> list[dict[str, Any]]:
                 "id": row["id"],
                 "type": row["type"],
                 "categories": json.loads(row["categories"]),
-                "config": json.loads(row["config"]),
+                "config": (
+                    mask_channel_config(row["type"], json.loads(row["config"]))
+                    if mask
+                    else json.loads(row["config"])
+                ),
                 "is_active": bool(row["is_active"]),
                 "created_at": row["created_at"],
             }
@@ -176,8 +204,8 @@ async def add_channel(
     return await run_in_threadpool(_sync_add, nim, channel_type, categories, config)
 
 
-async def list_channels(nim: str) -> list[dict[str, Any]]:
-    return await run_in_threadpool(_sync_list, nim)
+async def list_channels(nim: str, mask: bool = True) -> list[dict[str, Any]]:
+    return await run_in_threadpool(_sync_list, nim, mask)
 
 
 async def get_channel(nim: str, channel_id: int) -> Optional[dict[str, Any]]:

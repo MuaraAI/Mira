@@ -47,8 +47,14 @@ const AVAILABLE_CATEGORIES = [
   },
   {
     id: "quiz-tugas",
-    label: "Tugas Baru & Kuis MyBest",
+    label: "Tugas dan Kuis MyBest",
     desc: "Pengingat berkala kuis atau tugas kuliah yang belum dikerjakan.",
+    icon: BookOpen,
+  },
+  {
+    id: "tugas-baru",
+    label: "Tugas Baru",
+    desc: "Pemberitahuan saat tugas baru terdeteksi di MyBest.",
     icon: BookOpen,
   },
   {

@@ -1,6 +1,7 @@
 import asyncio
 import html
 import json
+import logging
 import re
 import urllib.parse
 from datetime import datetime, timezone
@@ -15,6 +16,11 @@ from app.envelope import success_response, error_response
 from app.cache import cache
 from app.router_helper import cached_endpoint
 from app.proxy import get_proxy
+from app.session_store import session_store
+from app.modules.studentv2 import parse_announcements, parse_schedule, studentv2_client
+from app.channels_db import list_active_by_category
+
+logger = logging.getLogger("app.notifications")
 
 router = APIRouter(prefix="/v1/news", tags=["news"])
 
@@ -170,7 +176,122 @@ async def get_news_detail(post_id: str = Path(..., pattern=r"^[0-9]+$")):
         cache_params={"post_id": post_id},
     )
 
-# News Multi-Channel Auto-Notification (Discord, Telegram, Custom)
+# News and user notification dispatch (Discord, Telegram, Custom)
+
+_DAY_NAMES = ("Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu")
+
+
+def build_schedule_notification(
+    courses: list[dict[str, Any]], now: Optional[datetime] = None
+) -> Optional[dict[str, Any]]:
+    """Build one H-1 payload from courses scheduled for tomorrow in WIB."""
+    from zoneinfo import ZoneInfo
+
+    current = now or datetime.now(ZoneInfo("Asia/Jakarta"))
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=ZoneInfo("Asia/Jakarta"))
+    tomorrow = _DAY_NAMES[(current.astimezone(ZoneInfo("Asia/Jakarta")).weekday() + 1) % 7]
+    matches = [course for course in courses if str(course.get("hari", "")).strip().lower() == tomorrow.lower()]
+    if not matches:
+        return None
+    lines = [
+        f"- {course.get('nama', 'Mata kuliah')} | {course.get('jam', 'Jam belum tersedia')} | Ruang {course.get('ruang', '-') }"
+        for course in matches
+    ]
+    return {
+        "category": "matkul-besok",
+        "title": f"Jadwal Kuliah Besok: {tomorrow}",
+        "description": "\n".join(lines),
+        "link": "https://ubsi-api.muaraai.com/dashboard/jadwal",
+    }
+
+
+async def _dispatch_user_channel(channel: dict[str, Any], payload: dict[str, Any]) -> bool:
+    config = channel["config"]
+    if channel["type"] == "discord":
+        return await dispatch_discord_webhook(payload, config["url"])
+    if channel["type"] == "telegram":
+        return await dispatch_telegram_message(payload, config["bot_token"], config["chat_id"])
+    return await dispatch_webhook_notification(payload, config["url"])
+
+
+async def _produce_user_category(category: str) -> int:
+    channels = await list_active_by_category(category)
+    if not channels:
+        return 0
+    redis = await cache.get_client()
+    sent = 0
+    seen_nims: set[str] = set()
+    for channel in channels:
+        nim = str(channel["nim"])
+        if nim in seen_nims:
+            continue
+        seen_nims.add(nim)
+        credentials = await session_store.get_credentials_for_nim(nim)
+        if not credentials:
+            from app.api_keys_db import get_credentials_for_nim
+            credentials = await get_credentials_for_nim(nim)
+        if not credentials:
+            continue
+        _, student_password, elearning_password = credentials
+        try:
+            payload = None
+            if category == "matkul-besok":
+                raw = await studentv2_client.fetch_page("/mahasiswa/jadwal-kuliah", nim, student_password)
+                payload = build_schedule_notification(parse_schedule(raw))
+            elif category == "pengumuman-siakad":
+                raw = await studentv2_client.fetch_page("/mahasiswa/beranda", nim, student_password)
+                announcements = parse_announcements(raw)
+                if announcements:
+                    latest = announcements[0]
+                    payload = {
+                        "category": category,
+                        "title": f"Pengumuman SIAKAD: {latest['title']}",
+                        "description": "Ada pengumuman akademik baru di SIAKAD UBSI.",
+                        "link": latest.get("pdf_url") or "https://ubsi-api.muaraai.com/dashboard/berita",
+                    }
+            elif category in ("quiz-tugas", "tugas-baru"):
+                from app.modules.elearning import parse_assignments, parse_courses, parse_quiz, pooled_elearning_client
+                raw_quiz = await pooled_elearning_client.fetch_page("/exercise", nim, elearning_password)
+                raw_assignments = await pooled_elearning_client.fetch_page("/sch", nim, elearning_password)
+                quiz_items = parse_quiz(raw_quiz)
+                task_count = 0
+                for course in parse_courses(raw_assignments):
+                    token_assignment = course.get("token_assignment")
+                    if token_assignment:
+                        task_html = await pooled_elearning_client.fetch_page(f"/assignment/{token_assignment}", nim, elearning_password)
+                        task_count += len(parse_assignments(task_html).get("tasks", []))
+                if quiz_items or task_count:
+                    payload = {
+                        "category": category,
+                        "title": "Tugas dan kuis MyBest tersedia",
+                        "description": f"Tersedia {task_count} tugas dan {len(quiz_items)} kuis di MyBest. Periksa dashboard sebelum tenggat.",
+                        "link": "https://ubsi-api.muaraai.com/dashboard/tugas",
+                    }
+            if not payload:
+                continue
+            from zoneinfo import ZoneInfo
+            date_key = datetime.now(ZoneInfo("Asia/Jakarta")).date().isoformat()
+            dedupe_key = f"ubsi:notify:sent:{nim}:{category}:{date_key}"
+            if await redis.get(dedupe_key):
+                continue
+            matching = [item for item in channels if str(item["nim"]) == nim]
+            results = await asyncio.gather(*(_dispatch_user_channel(item, payload) for item in matching), return_exceptions=True)
+            if any(result is True for result in results):
+                await redis.set(dedupe_key, "1", ex=172800)
+                sent += 1
+        except Exception:
+            logger.exception("User notification producer failed for NIM %s category %s", nim, category)
+    return sent
+
+
+async def poll_user_notifications() -> int:
+    """Produce account-scoped notifications from existing authenticated data sources."""
+    total = 0
+    for category in ("matkul-besok", "quiz-tugas", "tugas-baru", "pengumuman-siakad"):
+        total += await _produce_user_category(category)
+    return total
+
 
 async def dispatch_webhook_notification(post: dict[str, Any], webhook_url: str) -> bool:
     """Kirim generic JSON payload ke custom webhook URL."""
@@ -362,8 +483,9 @@ async def news_webhook_worker():
     while True:
         try:
             await poll_news_webhook()
+            await poll_user_notifications()
         except Exception:
-            pass
+            logger.exception("Notification worker iteration failed")
         await asyncio.sleep(settings.NEWS_WEBHOOK_INTERVAL)
 
 def is_safe_webhook_url(url_str: str) -> bool:

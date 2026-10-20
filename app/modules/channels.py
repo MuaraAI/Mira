@@ -164,7 +164,7 @@ async def trigger_reminder(request: Request, body: ReminderRequest):
 
     from app.channels_db import list_channels
 
-    channels = await list_channels(nim)
+    channels = await list_channels(nim, mask=False)
     active_matching = [
         ch for ch in channels if ch["is_active"] and category in ch["categories"]
     ]

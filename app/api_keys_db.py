@@ -220,6 +220,31 @@ async def list_api_keys(nim: str) -> list[dict[str, Any]]:
     return await run_in_threadpool(_sync_list_api_keys, nim)
 
 
+def _sync_credentials_for_nim(nim: str) -> Optional[tuple[str, str, str]]:
+    conn = _connect()
+    try:
+        rows = conn.execute(
+            "SELECT encrypted_creds FROM api_keys WHERE nim = ? AND is_active = 1 ORDER BY last_used_at DESC, id DESC",
+            (nim,),
+        ).fetchall()
+        f = _get_fernet()
+        for row in rows:
+            try:
+                data = json.loads(f.decrypt(row["encrypted_creds"].encode("utf-8")).decode("utf-8"))
+            except Exception:
+                continue
+            if data.get("studentv2_pass") and data.get("elearning_pass"):
+                return nim, str(data["studentv2_pass"]), str(data["elearning_pass"])
+        return None
+    finally:
+        conn.close()
+
+
+async def get_credentials_for_nim(nim: str) -> Optional[tuple[str, str, str]]:
+    """Resolve encrypted credentials for background jobs without exposing them to clients."""
+    return await run_in_threadpool(_sync_credentials_for_nim, nim)
+
+
 def _sync_revoke_api_key(nim: str, key_id: int) -> Optional[str]:
     conn = _connect()
     try:

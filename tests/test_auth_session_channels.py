@@ -235,6 +235,8 @@ async def test_channels_crud_flow(fake_redis, tmp_path):
         res = await ac.get("/v1/channels", headers=auth_headers)
         assert res.status_code == 200
         assert res.json()["data"]["total"] == 1
+        listed_config = res.json()["data"]["channels"][0]["config"]
+        assert "abcdefghijklmnopqrstuvwxyz123456" not in listed_config["url"]
 
         # Invalid payload rejected
         res = await ac.post(
