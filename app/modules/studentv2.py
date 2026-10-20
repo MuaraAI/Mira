@@ -28,7 +28,7 @@ def parse_schedule(html: str) -> list[dict[str, Any]]:
     rows = page.css("table tr")
     results = []
     for row in rows[1:]:
-        cols = [c.text.strip() for c in row.css("td")]
+        cols = [c.get_all_text().strip() for c in row.css("td")]
         if len(cols) >= 9:
             raw_dosen = cols[3].replace("\n", " ").strip()
             dosen_code = raw_dosen.split("/")[0].strip() if "/" in raw_dosen else (raw_dosen.split()[0] if raw_dosen.split() else "-")
@@ -51,7 +51,7 @@ def parse_grades(html: str) -> list[dict[str, Any]]:
     rows = page.css("table tr")
     results = []
     for row in rows[1:]:
-        cols = [c.text.strip() for c in row.css("td")]
+        cols = [c.get_all_text().strip() for c in row.css("td")]
         if len(cols) >= 10:
             item_id = hashlib.sha256(cols[1].encode()).hexdigest()[:12]
             
@@ -82,7 +82,7 @@ def parse_news(html: str, limit: int = 100) -> list[dict[str, Any]]:
     rows = page.css("table tr")
     results = []
     for row in rows[1:]:
-        cols = [c.text.strip() for c in row.css("td")]
+        cols = [c.get_all_text().strip() for c in row.css("td")]
         links = [a.attrib.get("href") for a in row.css("a") if a.attrib.get("href")]
         if len(cols) >= 4 and links:
             item_id = hashlib.sha256(cols[1].encode()).hexdigest()[:12]
@@ -102,7 +102,7 @@ def parse_announcements(html: str) -> list[dict[str, Any]]:
     links = page.css('a[href*="pengumuman_dalam_"]')
     seen_urls = set()
     for a in links:
-        title = " ".join(a.text.split()).strip()
+        title = " ".join(a.get_all_text().split()).strip()
         url = a.attrib.get("href", "").strip()
         if title and url and url not in seen_urls:
             seen_urls.add(url)
@@ -235,6 +235,93 @@ def parse_uts(html: str) -> dict[str, Any]:
         elif "uts-jadwal" in h or ("online" in t and ("jadwal" in t or "lihat" in t)):
             uts["jadwal_online_url"] = h
     return uts
+
+def parse_uas(html: str) -> dict[str, Any]:
+    """Parse informasi jadwal & tautan soal ruang UAS dari /mahasiswa/uas."""
+    page = Adaptor(html)
+    uas: dict[str, Any] = {
+        "title": "Ruang Ujian Akhir Semester",
+        "jadwal_online_url": None,
+        "soal_offline_url": None,
+    }
+    for a in page.css("a"):
+        h = a.attrib.get("href", "")
+        t = a.get_all_text().strip().lower()
+        if "drive.google.com" in h or ("offline" in t and "soal" in t):
+            uas["soal_offline_url"] = h
+        elif "uas-jadwal" in h or ("online" in t and ("jadwal" in t or "lihat" in t)):
+            uas["jadwal_online_url"] = h
+    return uas
+
+def parse_calendar(html: str) -> dict[str, Any]:
+    """Parse tautan berkas resmi kalender akademik dari /mahasiswa/kalender."""
+    page = Adaptor(html)
+    pdf_url = None
+    for a in page.css("a"):
+        h = a.attrib.get("href", "").strip()
+        if ".pdf" in h.lower() and ("kalender" in h.lower() or "upload_file" in h.lower()):
+            pdf_url = h
+            break
+    return {
+        "title": "Kalender Akademik Universitas Bina Sarana Informatika",
+        "pdf_url": pdf_url,
+    }
+
+def parse_prodi_contacts(html: str) -> list[dict[str, Any]]:
+    """Parse daftar kontak email resmi Dekan dan Kaprodi dari /mahasiswa/email-prodi."""
+    page = Adaptor(html)
+    contacts = []
+    tables = page.css("table")
+    if tables:
+        for r in tables[0].css("tr")[1:]:
+            cols = [c.get_all_text().strip() for c in r.css("td")]
+            if len(cols) >= 5:
+                contacts.append({
+                    "no": int(cols[0]) if cols[0].isdigit() else cols[0],
+                    "prodi": cols[1],
+                    "jenjang": cols[2],
+                    "kaprodi": cols[3],
+                    "email": cols[4],
+                })
+    return contacts
+
+def parse_certificates(html: str) -> list[dict[str, Any]]:
+    """Parse data sertifikat kegiatan mahasiswa dari /mahasiswa/dokumen-saya."""
+    page = Adaptor(html)
+    certificates = []
+    tables = page.css("table")
+    for t in tables:
+        for r in t.css("tr")[1:]:
+            cols = [c.get_all_text().strip() for c in r.css("td")]
+            links = [a.attrib.get("href") for a in r.css("a") if a.attrib.get("href")]
+            if len(cols) >= 3 and not any("belum memiliki" in c.lower() for c in cols):
+                certificates.append({
+                    "nama_kegiatan": cols[1],
+                    "tanggal": cols[2] if len(cols) > 2 else "",
+                    "file_url": links[0] if links else (cols[3] if len(cols) > 3 else None),
+                })
+    return certificates
+
+def parse_lecturers(html: str, search: Optional[str] = None) -> list[dict[str, Any]]:
+    """Parse direktori kode dan nama dosen dari /mahasiswa/jadwal-mengajar."""
+    page = Adaptor(html)
+    lecturers = []
+    tables = page.css("table")
+    if tables:
+        for r in tables[0].css("tr")[1:]:
+            cols = [c.get_all_text().strip() for c in r.css("td")]
+            if len(cols) >= 3:
+                kode = cols[1]
+                nama = cols[2]
+                if search:
+                    q = search.lower().strip()
+                    if q not in kode.lower() and q not in nama.lower():
+                        continue
+                lecturers.append({
+                    "kode": kode,
+                    "nama": nama,
+                })
+    return lecturers
 
 # Authenticated Client Session
 
@@ -531,4 +618,77 @@ async def get_uts(creds: tuple[str, str] = Depends(require_studentv2_creds)):
         parse=parse_uts,
         ttl=settings.TTL_SCHEDULE,
         cache_params={"nim": nim},
+    )
+
+
+@router.get("/uas")
+async def get_uas(creds: tuple[str, str] = Depends(require_studentv2_creds)):
+    """Informasi jadwal ujian online dan unduhan soal ruang UAS (Ujian Akhir Semester)."""
+    nim, password = creds
+    return await cached_endpoint(
+        module="studentv2",
+        name="uas",
+        fetch=lambda: studentv2_client.fetch_page("/mahasiswa/uas", nim, password),
+        parse=parse_uas,
+        ttl=settings.TTL_SCHEDULE,
+        cache_params={"nim": nim},
+    )
+
+
+@router.get("/calendar")
+async def get_calendar(creds: tuple[str, str] = Depends(require_studentv2_creds)):
+    """Unduh dan cek berkas PDF Kalender Akademik resmi BSI."""
+    nim, password = creds
+    return await cached_endpoint(
+        module="studentv2",
+        name="calendar",
+        fetch=lambda: studentv2_client.fetch_page("/mahasiswa/kalender", nim, password),
+        parse=parse_calendar,
+        ttl=settings.TTL_LIBRARY,
+        cache_params={"nim": nim},
+    )
+
+
+@router.get("/prodi-contacts")
+async def get_prodi_contacts(creds: tuple[str, str] = Depends(require_studentv2_creds)):
+    """Daftar kontak email resmi Dekanat Fakultas dan Ketua Program Studi (Kaprodi) seluruh kampus UBSI."""
+    nim, password = creds
+    return await cached_endpoint(
+        module="studentv2",
+        name="prodi_contacts",
+        fetch=lambda: studentv2_client.fetch_page("/mahasiswa/email-prodi", nim, password),
+        parse=parse_prodi_contacts,
+        ttl=settings.TTL_LIBRARY,
+        cache_params={"nim": nim},
+    )
+
+
+@router.get("/certificates")
+async def get_certificates(creds: tuple[str, str] = Depends(require_studentv2_creds)):
+    """Daftar sertifikat kegiatan, course, dan TOEFL mahasiswa yang tercatat di SIAKAD."""
+    nim, password = creds
+    return await cached_endpoint(
+        module="studentv2",
+        name="certificates",
+        fetch=lambda: studentv2_client.fetch_page("/mahasiswa/dokumen-saya", nim, password),
+        parse=parse_certificates,
+        ttl=settings.TTL_LIBRARY,
+        cache_params={"nim": nim},
+    )
+
+
+@router.get("/lecturers")
+async def get_lecturers(
+    search: Optional[str] = Query(default=None, description="Pencarian kode atau nama dosen"),
+    creds: tuple[str, str] = Depends(require_studentv2_creds),
+):
+    """Direktori seluruh dosen BSI beserta kode inisial dosen."""
+    nim, password = creds
+    return await cached_endpoint(
+        module="studentv2",
+        name="lecturers",
+        fetch=lambda: studentv2_client.fetch_page("/mahasiswa/jadwal-mengajar", nim, password),
+        parse=lambda html: parse_lecturers(html, search=search),
+        ttl=settings.TTL_LIBRARY,
+        cache_params={"search": search or ""},
     )

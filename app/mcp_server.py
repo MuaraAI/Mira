@@ -182,6 +182,56 @@ async def ubsi_get_uts(session_token: Optional[str] = None, api_key: Optional[st
 
 
 @server.tool(
+    name="ubsi_get_uas",
+    description="Ambil informasi jadwal ujian online dan tautan soal ruang UAS (Ujian Akhir Semester) dari SIAKAD.",
+)
+async def ubsi_get_uas(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
+    res = await _api_get("/v1/studentv2/uas", session_token=session_token, api_key=api_key)
+    return json.dumps(res, ensure_ascii=False, indent=2)
+
+
+@server.tool(
+    name="ubsi_get_academic_calendar",
+    description="Ambil tautan berkas PDF Kalender Akademik resmi Universitas Bina Sarana Informatika.",
+)
+async def ubsi_get_academic_calendar(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
+    res = await _api_get("/v1/studentv2/calendar", session_token=session_token, api_key=api_key)
+    return json.dumps(res, ensure_ascii=False, indent=2)
+
+
+@server.tool(
+    name="ubsi_get_prodi_contacts",
+    description="Daftar kontak email resmi Dekanat Fakultas dan Ketua Program Studi (Kaprodi) seluruh kampus UBSI.",
+)
+async def ubsi_get_prodi_contacts(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
+    res = await _api_get("/v1/studentv2/prodi-contacts", session_token=session_token, api_key=api_key)
+    return json.dumps(res, ensure_ascii=False, indent=2)
+
+
+@server.tool(
+    name="ubsi_get_certificates",
+    description="Ambil daftar sertifikat kegiatan, course, dan TOEFL mahasiswa yang tercatat resmi di SIAKAD.",
+)
+async def ubsi_get_certificates(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
+    res = await _api_get("/v1/studentv2/certificates", session_token=session_token, api_key=api_key)
+    return json.dumps(res, ensure_ascii=False, indent=2)
+
+
+@server.tool(
+    name="ubsi_get_lecturers",
+    description="Cari direktori dosen BSI berdasarkan inisial kode dosen atau nama dosen.",
+)
+async def ubsi_get_lecturers(
+    search: Optional[str] = None,
+    session_token: Optional[str] = None,
+    api_key: Optional[str] = None,
+) -> str:
+    params = {"search": search} if search else None
+    res = await _api_get("/v1/studentv2/lecturers", params=params, session_token=session_token, api_key=api_key)
+    return json.dumps(res, ensure_ascii=False, indent=2)
+
+
+@server.tool(
     name="ubsi_get_dashboard",
     description="Ambil seluruh ringkasan akademik paralel sekaligus: jadwal + nilai murni + berita + pengumuman.",
 )

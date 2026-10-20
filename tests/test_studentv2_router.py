@@ -207,3 +207,137 @@ async def test_get_uts(monkeypatch):
     body = res.json()
     assert body["success"] is True
     assert body["data"]["jadwal_online_url"] is not None
+
+@pytest.mark.asyncio
+async def test_get_uas(monkeypatch):
+    monkeypatch.setenv("STUDENTV2_NIM", "15260767")
+    monkeypatch.setenv("STUDENTV2_PASS", "secret")
+
+    mock_html = """
+    <div>
+        <a href="https://students.bsi.ac.id/mahasiswa/uas-jadwal">Jadwal UAS Online</a>
+        <a href="https://drive.google.com/uas_soal">Download Soal UAS Offline</a>
+    </div>
+    """
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = None
+    mock_redis.incr.return_value = 1
+
+    with patch("redis.asyncio.from_url", return_value=mock_redis), \
+         patch("app.modules.studentv2.studentv2_client.fetch_page", return_value=mock_html):
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res = await ac.get("/v1/studentv2/uas")
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["success"] is True
+    assert body["data"]["jadwal_online_url"] == "https://students.bsi.ac.id/mahasiswa/uas-jadwal"
+    assert "drive.google.com" in body["data"]["soal_offline_url"]
+
+@pytest.mark.asyncio
+async def test_get_calendar(monkeypatch):
+    monkeypatch.setenv("STUDENTV2_NIM", "15260767")
+    monkeypatch.setenv("STUDENTV2_PASS", "secret")
+
+    mock_html = """
+    <div>
+        <a href="https://students.bsi.ac.id/mhs_download/upload_file/3509_kalender-akademik.pdf">Download File Kalender Akademik</a>
+    </div>
+    """
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = None
+    mock_redis.incr.return_value = 1
+
+    with patch("redis.asyncio.from_url", return_value=mock_redis), \
+         patch("app.modules.studentv2.studentv2_client.fetch_page", return_value=mock_html):
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res = await ac.get("/v1/studentv2/calendar")
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["success"] is True
+    assert "kalender-akademik.pdf" in body["data"]["pdf_url"]
+
+@pytest.mark.asyncio
+async def test_get_prodi_contacts(monkeypatch):
+    monkeypatch.setenv("STUDENTV2_NIM", "15260767")
+    monkeypatch.setenv("STUDENTV2_PASS", "secret")
+
+    mock_html = """
+    <table>
+        <tr><th>#</th><th>Prodi</th><th>Jenjang</th><th>Nama Kaprodi</th><th>Email</th></tr>
+        <tr><td>1</td><td>Informatika</td><td>S1</td><td>Rahmat</td><td>dekan.fti@bsi.ac.id</td></tr>
+    </table>
+    """
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = None
+    mock_redis.incr.return_value = 1
+
+    with patch("redis.asyncio.from_url", return_value=mock_redis), \
+         patch("app.modules.studentv2.studentv2_client.fetch_page", return_value=mock_html):
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res = await ac.get("/v1/studentv2/prodi-contacts")
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["success"] is True
+    assert len(body["data"]) == 1
+    assert body["data"][0]["email"] == "dekan.fti@bsi.ac.id"
+
+@pytest.mark.asyncio
+async def test_get_certificates(monkeypatch):
+    monkeypatch.setenv("STUDENTV2_NIM", "15260767")
+    monkeypatch.setenv("STUDENTV2_PASS", "secret")
+
+    mock_html = """
+    <table>
+        <tr><th>No.</th><th>Nama Kegiatan</th><th>Tanggal Kegiatan</th><th>Dokumen</th></tr>
+        <tr><td>1</td><td>TOEFL Preparation</td><td>2026-10-01</td><td><a href="https://cert.pdf">Lihat</a></td></tr>
+    </table>
+    """
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = None
+    mock_redis.incr.return_value = 1
+
+    with patch("redis.asyncio.from_url", return_value=mock_redis), \
+         patch("app.modules.studentv2.studentv2_client.fetch_page", return_value=mock_html):
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res = await ac.get("/v1/studentv2/certificates")
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["success"] is True
+    assert len(body["data"]) == 1
+    assert body["data"][0]["nama_kegiatan"] == "TOEFL Preparation"
+
+@pytest.mark.asyncio
+async def test_get_lecturers(monkeypatch):
+    monkeypatch.setenv("STUDENTV2_NIM", "15260767")
+    monkeypatch.setenv("STUDENTV2_PASS", "secret")
+
+    mock_html = """
+    <table>
+        <tr><th>#</th><th>Kode Dosen</th><th>Nama Dosen</th><th>Aksi</th></tr>
+        <tr><td>1</td><td>AAA</td><td>Agung Putra</td><td>Lihat</td></tr>
+        <tr><td>2</td><td>TDL</td><td>Tarina Dashela</td><td>Lihat</td></tr>
+    </table>
+    """
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = None
+    mock_redis.incr.return_value = 1
+
+    with patch("redis.asyncio.from_url", return_value=mock_redis), \
+         patch("app.modules.studentv2.studentv2_client.fetch_page", return_value=mock_html):
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res = await ac.get("/v1/studentv2/lecturers?search=Tarina")
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["success"] is True
+    assert len(body["data"]) == 1
+    assert body["data"][0]["kode"] == "TDL"

@@ -48,7 +48,12 @@ async def test_mcp_tool_listing():
     assert "ubsi_get_elearning_profile" in tool_names
     assert "ubsi_get_makeup_classes" in tool_names
     assert "ubsi_get_elearning_guides" in tool_names
-    assert len(tool_names) == 32
+    assert "ubsi_get_uas" in tool_names
+    assert "ubsi_get_academic_calendar" in tool_names
+    assert "ubsi_get_prodi_contacts" in tool_names
+    assert "ubsi_get_certificates" in tool_names
+    assert "ubsi_get_lecturers" in tool_names
+    assert len(tool_names) == 37
 
 def test_mcp_credential_headers_isolation():
     # 1. Session token isolation
@@ -303,4 +308,34 @@ async def test_mcp_presence_and_quiz_write_tools():
         parsed_gd = json.loads(res_gd)
         assert parsed_gd["success"] is True
         assert len(parsed_gd["data"]) == 1
+
+    # Test SIAKAD additions: calendar, UAS, prodi-contacts, certificates, lecturers
+    from app.mcp_server import (
+        ubsi_get_uas,
+        ubsi_get_academic_calendar,
+        ubsi_get_prodi_contacts,
+        ubsi_get_certificates,
+        ubsi_get_lecturers,
+    )
+    mock_resp_siakad = AsyncMock()
+    mock_resp_siakad.status_code = 200
+    mock_resp_siakad.json = MagicMock(return_value={
+        "success": True,
+        "data": {"title": "Kalender Akademik", "pdf_url": "https://test.pdf"},
+    })
+    with patch("httpx.AsyncClient.get", return_value=mock_resp_siakad):
+        res_cal = await ubsi_get_academic_calendar(session_token="tok_sess")
+        assert json.loads(res_cal)["success"] is True
+
+        res_uas = await ubsi_get_uas(session_token="tok_sess")
+        assert json.loads(res_uas)["success"] is True
+
+        res_pc = await ubsi_get_prodi_contacts(session_token="tok_sess")
+        assert json.loads(res_pc)["success"] is True
+
+        res_cert = await ubsi_get_certificates(session_token="tok_sess")
+        assert json.loads(res_cert)["success"] is True
+
+        res_lec = await ubsi_get_lecturers(search="AAA", session_token="tok_sess")
+        assert json.loads(res_lec)["success"] is True
 

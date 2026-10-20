@@ -1,6 +1,7 @@
 "use client";
 
-import { Award, ExternalLink, Calendar, AlertCircle, FileText, CheckCircle2 } from "lucide-react";
+import { useState } from "react";
+import { Award, ExternalLink, FileText, CheckCircle2, AlertCircle } from "lucide-react";
 import { useApi } from "@/lib/api";
 import {
   EmptyState,
@@ -9,7 +10,7 @@ import {
   PageHeader,
 } from "@/components/dashboard-ui";
 
-interface UtsData {
+interface ExamData {
   title?: string;
   jadwal_online_url?: string | null;
   soal_offline_url?: string | null;
@@ -23,23 +24,53 @@ interface ScheduleItem {
 }
 
 export default function UjianPage() {
-  const utsApi = useApi<UtsData>("/v1/studentv2/uts");
+  const [activeTab, setActiveTab] = useState<"uts" | "uas">("uts");
+  const utsApi = useApi<ExamData>("/v1/studentv2/uts");
+  const uasApi = useApi<ExamData>("/v1/studentv2/uas");
   const scheduleApi = useApi<ScheduleItem[]>("/v1/studentv2/schedule");
 
-  if (utsApi.loading && scheduleApi.loading) {
+  if (utsApi.loading && scheduleApi.loading && uasApi.loading) {
     return <LoadingState label="Memuat informasi kartu ujian" />;
   }
-  if (utsApi.error) return <ErrorState error={utsApi.error} onRetry={utsApi.reload} />;
+  if (utsApi.error && uasApi.error) return <ErrorState error={utsApi.error} onRetry={utsApi.reload} />;
 
-  const uts = utsApi.data;
+  const currentExam = activeTab === "uts" ? utsApi.data : uasApi.data;
   const courses = scheduleApi.data ?? [];
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Kartu Ujian (UTS & UAS)"
-        description="Informasi ruang ujian, tautan jadwal ujian online, dan portal unduh berkas soal dari SIAKAD."
-      />
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <PageHeader
+          title="Kartu Ujian (UTS & UAS)"
+          description="Informasi ruang ujian semester, tautan jadwal ujian online, dan portal unduh berkas soal dari SIAKAD."
+        />
+
+        {/* Tab Switcher UTS vs UAS */}
+        <div className="flex items-center gap-1.5 p-1 bg-[#F0F7FB] border border-stroke rounded-pill self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={() => setActiveTab("uts")}
+            className={`px-4 py-1.5 text-xs font-semibold rounded-pill transition-all ${
+              activeTab === "uts"
+                ? "bg-[#0369A1] text-white shadow-sm"
+                : "text-secondary hover:text-foreground"
+            }`}
+          >
+            Ujian Tengah Semester (UTS)
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("uas")}
+            className={`px-4 py-1.5 text-xs font-semibold rounded-pill transition-all ${
+              activeTab === "uas"
+                ? "bg-[#0369A1] text-white shadow-sm"
+                : "text-secondary hover:text-foreground"
+            }`}
+          >
+            Ujian Akhir Semester (UAS)
+          </button>
+        </div>
+      </div>
 
       {/* Main Info Card */}
       <div className="glass-card p-6 border-l-4 border-l-[#0369A1]">
@@ -48,18 +79,18 @@ export default function UjianPage() {
             <div className="flex items-center gap-2 mb-1">
               <Award className="w-5 h-5 text-[#0369A1]" aria-hidden="true" />
               <h2 className="text-lg font-display font-bold text-foreground">
-                {uts?.title || "Ruang Ujian Semester"}
+                {currentExam?.title || (activeTab === "uts" ? "Ruang Ujian Tengah Semester (UTS)" : "Ruang Ujian Akhir Semester (UAS)")}
               </h2>
             </div>
             <p className="text-xs sm:text-sm text-secondary leading-relaxed">
-              Pastikan Anda telah memenuhi syarat presensi minimal (75%) dan melunasi kewajiban akademik sebelum mengikuti ujian.
+              Pastikan Anda telah memenuhi syarat presensi minimal perkuliahan (75%) dan menyelesaikan administrasi akademik sebelum mengikuti ujian.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 shrink-0">
-            {uts?.jadwal_online_url && (
+            {currentExam?.jadwal_online_url && (
               <a
-                href={uts.jadwal_online_url}
+                href={currentExam.jadwal_online_url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-pill bg-[#0369A1] hover:bg-[#075985] text-white text-xs font-semibold shadow-sm transition-all"
@@ -68,9 +99,9 @@ export default function UjianPage() {
                 <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
               </a>
             )}
-            {uts?.soal_offline_url && (
+            {currentExam?.soal_offline_url && (
               <a
-                href={uts.soal_offline_url}
+                href={currentExam.soal_offline_url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-pill border border-stroke bg-white hover:bg-[#F0F7FB] text-[#0369A1] text-xs font-semibold transition-all"
@@ -87,12 +118,12 @@ export default function UjianPage() {
       <div className="p-5 rounded-md bg-[#F0F7FB] border border-[#D9E5ED]">
         <h3 className="text-xs font-mono font-bold uppercase text-[#0369A1] tracking-wider mb-2 flex items-center gap-1.5">
           <AlertCircle className="w-4 h-4 text-[#0369A1]" />
-          Tata Tertib Ujian Kampus UBSI
+          Tata Tertib Pelaksanaan Ujian Kampus UBSI
         </h3>
         <ul className="text-xs text-secondary space-y-1.5 list-disc list-inside leading-relaxed">
-          <li>Wajib membawa Kartu Tanda Mahasiswa (KTM) atau Kartu Ujian fisik/digital saat ujian offline.</li>
-          <li>Ujian online MyBest wajib dikerjakan sesuai rentang waktu yang tertera pada server.</li>
-          <li>Keterlambatan pada ujian online tidak mendapatkan perpanjangan waktu pengerjaan kuis/soal.</li>
+          <li>Wajib membawa Kartu Tanda Mahasiswa (KTM) atau Kartu Ujian fisik/digital saat ujian offline di kampus.</li>
+          <li>Ujian daring MyBest wajib dikerjakan sesuai rentang jadwal dan waktu server yang ditetapkan panitia ujian.</li>
+          <li>Keterlambatan pada ujian online tidak mendapatkan kompensasi perpanjangan waktu pengerjaan.</li>
         </ul>
       </div>
 
@@ -100,7 +131,7 @@ export default function UjianPage() {
       <div className="glass-card overflow-hidden">
         <div className="p-4 border-b border-stroke flex items-center justify-between">
           <h3 className="font-display font-bold text-sm text-foreground">
-            Mata Kuliah Yang Diujikan
+            Mata Kuliah Yang Diujikan pada Semester Ini
           </h3>
           <span className="text-xs text-secondary font-mono">
             {courses.length} Mata Kuliah
