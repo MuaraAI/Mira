@@ -229,17 +229,26 @@ export default function NotifikasiPage() {
   }
 
   function toggleEditCategory(categoryId: string) {
-    setEditCategories((current) =>
-      current.includes(categoryId)
-        ? current.filter((category) => category !== categoryId)
-        : [...current, categoryId]
-    );
+    setEditCategories((current) => {
+      if (current.includes(categoryId)) {
+        return current.filter((category) => category !== categoryId);
+      }
+      if (current.length >= 5) {
+        setFormError("Maksimal 5 kategori notifikasi per channel.");
+        return current;
+      }
+      return [...current, categoryId];
+    });
   }
 
   async function handleEditCategories(e: React.FormEvent) {
     e.preventDefault();
     if (!editingChannelId || editCategories.length === 0) {
       setFormError("Minimal pilih satu kategori event notifikasi.");
+      return;
+    }
+    if (editCategories.length > 5) {
+      setFormError("Maksimal 5 kategori notifikasi per channel.");
       return;
     }
     setSaving(true);

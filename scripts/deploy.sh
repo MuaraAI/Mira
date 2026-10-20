@@ -46,8 +46,12 @@ ssh "${VPS_HOST}" "
     uv pip install --python '${REMOTE_VENV}/bin/python' -r '${REMOTE_DIR}/requirements.txt'
 "
 
-echo "=== 5. Starting / Restarting service with PM2 ==="
+echo "=== 5. Installing log rotation and restarting service with PM2 ==="
+scp -q templates/ubsi-api-logrotate "${VPS_HOST}:/tmp/ubsi-api-logrotate"
 ssh "${VPS_HOST}" "
+    sudo install -m 644 /tmp/ubsi-api-logrotate /etc/logrotate.d/ubsi-api
+    rm -f /tmp/ubsi-api-logrotate
+    sudo logrotate -d /etc/logrotate.d/ubsi-api >/dev/null
     cd '${REMOTE_DIR}'
     pm2 startOrReload ecosystem.config.cjs 2>/dev/null || pm2 start ecosystem.config.cjs
     pm2 save
