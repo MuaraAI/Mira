@@ -28,6 +28,11 @@ export function LoadingState({ label = "Memuat data" }: { label?: string }) {
   );
 }
 
+/** Placeholder pixel selama data belum datang, supaya teks tidak berganti dari fallback ke data asli. */
+export function Skeleton({ className = "h-4 w-24" }: { className?: string }) {
+  return <span className={`px-skeleton inline-block align-middle ${className}`} aria-hidden="true" />;
+}
+
 export function ErrorState({
   error,
   onRetry,

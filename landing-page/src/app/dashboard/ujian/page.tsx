@@ -46,8 +46,8 @@ export default function UjianPage() {
         />
 
         {/* Tab Switcher UTS vs UAS */}
-        <div className="max-w-full overflow-x-auto self-start sm:self-auto">
-          <div className="flex w-max items-center gap-1.5 p-1 bg-[#F0F7FB] border border-stroke rounded-pill">
+        <div className="w-full sm:w-auto sm:max-w-full sm:overflow-x-auto sm:self-auto">
+          <div className="grid w-full grid-flow-col auto-cols-fr items-center gap-1.5 p-1 bg-[#F0F7FB] border border-stroke rounded-pill sm:flex sm:w-max">
           <button
             type="button"
             onClick={() => setActiveTab("uts")}
@@ -131,7 +131,7 @@ export default function UjianPage() {
 
       {/* Course List Subject to Exams */}
       <div className="glass-card overflow-hidden">
-        <div className="p-4 border-b border-stroke flex items-center justify-between">
+        <div className="p-4 border-b border-stroke flex items-center justify-between flex-wrap gap-x-4 gap-y-1">
           <h3 className="font-display font-bold text-sm text-foreground">
             Mata Kuliah Yang Diujikan pada Semester Ini
           </h3>
@@ -146,7 +146,7 @@ export default function UjianPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[600px] text-sm text-left">
+            <table className="px-table w-full md:min-w-[600px] text-sm text-left">
               <thead>
                 <tr className="border-b border-stroke bg-[#F7FAFC] text-xs font-mono uppercase tracking-wider text-secondary">
                   <th scope="col" className="px-4 py-3">Kode</th>
@@ -161,16 +161,16 @@ export default function UjianPage() {
                     key={c.id || c.kode}
                     className="border-b border-stroke/60 last:border-0 hover:bg-[#F0F7FB]/50"
                   >
-                    <td className="px-4 py-3 font-mono font-bold text-[#0369A1] text-xs">
+                    <td data-label="Kode" className="px-4 py-3 font-mono font-bold text-[#0369A1] text-xs">
                       {c.kode}
                     </td>
-                    <td className="px-4 py-3 font-semibold text-foreground">
+                    <td data-label="Mata Kuliah" data-primary="" className="px-4 py-3 font-semibold text-foreground">
                       {c.nama}
                     </td>
-                    <td className="px-4 py-3 text-center text-secondary font-mono">
+                    <td data-label="Beban SKS" className="px-4 py-3 text-center text-secondary font-mono">
                       {c.sks} SKS
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td data-label="Bentuk Evaluasi" className="px-4 py-3 text-center">
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-pill bg-[#F0F7FB] text-secondary border border-stroke text-xs font-medium">
                         <CheckCircle2 className="w-3 h-3 text-[#0F766E]" />
                         Teori & Evaluasi

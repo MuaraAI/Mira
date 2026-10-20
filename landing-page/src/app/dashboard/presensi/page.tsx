@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   UserCheck,
   Calendar,
@@ -88,6 +88,25 @@ export default function PresensiPage() {
     });
   }, [rawCourses, todayDayIndex]);
 
+  // Dari tombol "Absen" di Jadwal: /dashboard/presensi?kode=...&mk=... langsung memilih mata kuliahnya.
+  const [requested, setRequested] = useState<{ kode: string; mk: string } | null>(null);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const kode = params.get("kode")?.trim() ?? "";
+    const mk = params.get("mk")?.trim() ?? "";
+    if (kode || mk) setRequested({ kode, mk });
+  }, []);
+  useEffect(() => {
+    if (!requested || courses.length === 0) return;
+    const norm = (v?: string) => (v ?? "").trim().toLowerCase();
+    const match =
+      courses.find((c) => requested.kode && (norm(c.kode) === norm(requested.kode) || norm(c.kode_mtk) === norm(requested.kode))) ||
+      courses.find((c) => requested.mk && norm(c.nama) === norm(requested.mk)) ||
+      courses.find((c) => requested.mk && (norm(c.nama).includes(norm(requested.mk)) || norm(requested.mk).includes(norm(c.nama))));
+    if (match) setSelectedCourseKey(match.id || match.kode || match.nama);
+    setRequested(null);
+  }, [requested, courses]);
+
   const activeCourse = useMemo(() => {
     if (selectedCourseKey) {
       return (
@@ -169,7 +188,7 @@ export default function PresensiPage() {
 
       {/* Course Selector Tabs */}
       <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between text-xs text-secondary px-1">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-secondary px-1">
           <span>
             Hari ini: <strong className="text-foreground">{todayName}</strong>. Diurutkan berdasarkan jadwal terdekat:
           </span>
@@ -313,7 +332,7 @@ export default function PresensiPage() {
 
           {/* Riwayat Pertemuan Table */}
           <div className="glass-card overflow-hidden">
-            <div className="p-4 border-b border-stroke flex items-center justify-between">
+            <div className="p-4 border-b border-stroke flex items-center justify-between flex-wrap gap-x-4 gap-y-1">
               <h3 className="font-display font-bold text-sm text-foreground">
                 Riwayat Pertemuan & Presensi
               </h3>
@@ -328,7 +347,7 @@ export default function PresensiPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[640px] text-sm text-left">
+                <table className="px-table w-full md:min-w-[640px] text-sm text-left">
                   <thead>
                     <tr className="border-b border-stroke bg-[#F7FAFC] text-xs font-mono uppercase tracking-wider text-secondary">
                       <th scope="col" className="px-4 py-3">Pertemuan</th>
@@ -346,13 +365,13 @@ export default function PresensiPage() {
                           key={r.id}
                           className="border-b border-stroke/60 last:border-0 hover:bg-[#F0F7FB]/50"
                         >
-                          <td className="px-4 py-3 font-mono font-bold text-[#0369A1]">
+                          <td data-label="Pertemuan" className="px-4 py-3 font-mono font-bold text-[#0369A1]">
                             P-{r.pertemuan}
                           </td>
-                          <td className="px-4 py-3 text-secondary whitespace-nowrap">
+                          <td data-label="Tanggal" className="px-4 py-3 text-secondary whitespace-nowrap">
                             {r.tanggal}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
+                          <td data-label="Status" className="px-4 py-3 whitespace-nowrap">
                             <span
                               className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-pill text-xs font-bold ${
                                 isHadir
@@ -368,10 +387,10 @@ export default function PresensiPage() {
                               {r.status_absen}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-foreground font-medium max-w-xs truncate">
+                          <td data-label="Rangkuman / Materi Dosen" data-stack="" className="px-4 py-3 text-foreground font-medium max-w-xs truncate">
                             {r.rangkuman || "-"}
                           </td>
-                          <td className="px-4 py-3 text-secondary text-xs max-w-xs truncate">
+                          <td data-label="Berita Acara" data-stack="" className="px-4 py-3 text-secondary text-xs max-w-xs truncate">
                             {r.berita_acara || "-"}
                           </td>
                         </tr>

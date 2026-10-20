@@ -241,7 +241,7 @@ export default function ApiKeysPage() {
       ) : (
         <div className="glass-card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="px-table w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-white/10 bg-white/5 font-mono text-secondary">
                   <th scope="col" className="py-3 px-4">NAMA / LABEL</th>
@@ -254,25 +254,25 @@ export default function ApiKeysPage() {
               <tbody className="divide-y divide-white/5 font-sans">
                 {keys.map((k) => (
                   <tr key={k.id} className="hover:bg-white/5 transition-colors">
-                    <td className="py-3 px-4 font-semibold text-foreground">
+                    <td data-label="NAMA / LABEL" data-primary="" className="py-3 px-4 font-semibold text-foreground">
                       <div className="flex items-center gap-2">
                         <KeyRound className="h-3.5 w-3.5 text-[#0369A1]" />
                         <span>{k.name}</span>
                       </div>
                     </td>
-                    <td className="py-3 px-4 font-mono text-[#0369A1]">
+                    <td data-label="KEY PREVIEW" className="py-3 px-4 font-mono text-[#0369A1]">
                       <span className="px-2 py-0.5 rounded bg-[#F0F7FB] border border-[#D9E5ED]">
                         {k.prefix}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-secondary font-mono">
+                    <td data-label="DIBUAT" className="py-3 px-4 text-secondary font-mono">
                       {new Date(k.created_at).toLocaleDateString("id-ID", {
                         day: "numeric",
                         month: "short",
                         year: "numeric",
                       })}
                     </td>
-                    <td className="py-3 px-4 text-secondary font-mono">
+                    <td data-label="TERAKHIR PAKAI" className="py-3 px-4 text-secondary font-mono">
                       {k.last_used_at ? (
                         new Date(k.last_used_at).toLocaleDateString("id-ID", {
                           day: "numeric",
@@ -284,7 +284,7 @@ export default function ApiKeysPage() {
                         <span className="text-secondary/60">Belum pernah</span>
                       )}
                     </td>
-                    <td className="py-3 px-4 text-right">
+                    <td data-label="AKSI" className="py-3 px-4 text-right">
                       <button
                         type="button"
                         onClick={() => handleRevoke(k.id)}
