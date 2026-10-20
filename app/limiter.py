@@ -19,9 +19,16 @@ class RateLimiter:
             client = await self.get_client()
             minute_bucket = datetime.now().strftime("%Y%m%d%H%M")
             key = f"ubsi:ratelimit:{client_id}:{minute_bucket}"
-            count = await client.incr(key)
-            if count == 1:
-                await client.expire(key, 65)
+            try:
+                pipe = client.pipeline(transaction=True)
+                pipe.incr(key)
+                pipe.expire(key, 65)
+                res = await pipe.execute()
+                count = res[0]
+            except (AttributeError, TypeError, IndexError):
+                count = await client.incr(key)
+                if count == 1:
+                    await client.expire(key, 65)
             return count <= max_allowed
         except (aioredis.RedisError, ConnectionError, OSError):
             return True
