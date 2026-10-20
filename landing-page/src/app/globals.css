@@ -457,3 +457,16 @@ html { scrollbar-color: var(--px-water-mid) var(--px-tint); scrollbar-width: thi
   .px-table td[data-stack] { display: block; text-align: left !important; }
   .px-table td[data-stack]::before { display: block; margin-bottom: 2px; }
 }
+
+/* Bottom sheet on phones, pop-in dialog on larger screens. */
+@keyframes sheet-up { from { transform: translateY(100%); } }
+@keyframes sheet-pop { from { opacity: 0; transform: translateY(12px) scale(.98); } }
+.sheet-panel { animation: sheet-up .32s var(--ease-px) both; padding-bottom: env(safe-area-inset-bottom); }
+@media (min-width: 640px) { .sheet-panel { animation-name: sheet-pop; } }
+
+/* Segmented tabs: equal columns on phones, compact inline control on larger screens. */
+.px-seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; padding: 4px; background: var(--px-tint); box-shadow: 0 -2px 0 0 var(--px-line-soft), 0 2px 0 0 var(--px-line-soft), -2px 0 0 0 var(--px-line-soft), 2px 0 0 0 var(--px-line-soft); }
+@media (min-width: 640px) { .px-seg { display: inline-grid; grid-auto-columns: auto; align-self: flex-start; width: max-content; max-width: 100%; } }
+.px-seg-btn { min-height: 40px; padding: 6px 12px; font-family: var(--font-jetbrains-mono), ui-monospace, monospace; font-size: 12px; font-weight: 700; line-height: 1.25; color: var(--text-muted); transition: background-color .2s ease, color .2s ease, box-shadow .2s ease; }
+.px-seg-btn:hover { background: #fff; color: var(--text); }
+.px-seg-btn.px-seg-on, .px-seg-btn.px-seg-on:hover { background: #0369A1; color: #fff; box-shadow: 2px 2px 0 0 var(--px-ink); }

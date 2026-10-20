@@ -317,14 +317,14 @@ export default function NotifikasiPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col">
         <PageHeader
           title="Webhook Notifikasi"
           description="Terima pengingat kuliah H-1, tugas baru, dan warta kampus langsung ke Discord atau Telegram pribadi."
         />
 
         <div className="flex items-center gap-3">
-          <div className="px-3.5 py-1.5 rounded-pill bg-[#F0F7FB] border border-[#D9E5ED] text-xs font-mono">
+          <div className="px-chip whitespace-nowrap px-3 py-2 bg-[#F0F7FB] text-xs font-mono [--px-line:#CFE2EE]">
             <span className="text-secondary">Slot: </span>
             <span className={atLimit ? "text-amber-800 font-bold" : "text-[#0369A1] font-bold"}>
               {channels.length} / {MAX_CHANNELS}
@@ -429,7 +429,7 @@ export default function NotifikasiPage() {
                 )}
               </div>
 
-              <div className="mt-5 pt-3 border-t border-stroke flex flex-wrap items-center justify-end gap-2">
+              <div className="mt-5 pt-4 border-t-2 border-dashed border-px-soft grid grid-cols-3 gap-3 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
                 <button
                   type="button"
                   onClick={() => openEditCategories(ch)}
@@ -475,7 +475,7 @@ export default function NotifikasiPage() {
                 Uji format tampilan pengingat matkul H-1 dan tugas kuis langsung ke channel aktif Anda.
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-center">
               <button
                 type="button"
                 onClick={() => handleSimulate("matkul-besok")}
@@ -534,7 +534,7 @@ export default function NotifikasiPage() {
       )}
 
       {editingChannelId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#072033]/50 backdrop-blur-[2px]">
           <div className="glass-card-3d w-full max-w-xl p-6 sm:p-7 relative max-h-[90vh] overflow-y-auto space-y-5 rounded-2xl shadow-2xl border border-[#0369A1]/30" role="dialog" aria-modal="true" aria-labelledby="edit-category-title">
             <div className="flex items-center justify-between border-b border-white/10 pb-4">
               <div>
@@ -563,7 +563,7 @@ export default function NotifikasiPage() {
 
       {/* POPUP MODAL TAMBAH WEBHOOK */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#072033]/50 backdrop-blur-[2px] animate-in fade-in duration-200">
           <div
             className="glass-card-3d w-full max-w-xl p-6 sm:p-7 relative max-h-[90vh] overflow-y-auto space-y-5 rounded-2xl shadow-2xl border border-[#0369A1]/30"
             role="dialog"

@@ -84,21 +84,21 @@ export default function BeritaPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col">
         <PageHeader
           title="Pusat Informasi & Berita Kampus"
           description="Kanal terpadu warta resmi, surat edaran rektorat, kalender akademik, dan direktori kontak program studi UBSI."
         />
 
         {/* Tab Switcher */}
-        <div className="flex items-center gap-1.5 p-1 bg-[#F0F7FB] border border-stroke rounded-pill self-start sm:self-auto">
+        <div className="px-seg">
           <button
             type="button"
             onClick={() => setActiveTab("news")}
-            className={`px-3.5 py-1.5 text-xs font-semibold rounded-pill transition-all ${
+            className={`px-seg-btn ${
               activeTab === "news"
-                ? "bg-[#0369A1] text-white shadow-sm"
-                : "text-secondary hover:text-foreground"
+                ? "px-seg-on"
+                : ""
             }`}
           >
             Warta Berita ({news.length})
@@ -106,10 +106,10 @@ export default function BeritaPage() {
           <button
             type="button"
             onClick={() => setActiveTab("announcements")}
-            className={`px-3.5 py-1.5 text-xs font-semibold rounded-pill transition-all ${
+            className={`px-seg-btn ${
               activeTab === "announcements"
-                ? "bg-[#0369A1] text-white shadow-sm"
-                : "text-secondary hover:text-foreground"
+                ? "px-seg-on"
+                : ""
             }`}
           >
             Edaran Rektorat ({announcements.length})
@@ -117,10 +117,10 @@ export default function BeritaPage() {
           <button
             type="button"
             onClick={() => setActiveTab("info")}
-            className={`px-3.5 py-1.5 text-xs font-semibold rounded-pill transition-all ${
+            className={`px-seg-btn ${
               activeTab === "info"
-                ? "bg-[#0369A1] text-white shadow-sm"
-                : "text-secondary hover:text-foreground"
+                ? "px-seg-on"
+                : ""
             }`}
           >
             Kalender & Kontak Prodi

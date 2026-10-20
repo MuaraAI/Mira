@@ -39,22 +39,22 @@ export default function UjianPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col">
         <PageHeader
           title="Kartu Ujian (UTS & UAS)"
           description="Informasi ruang ujian semester, tautan jadwal ujian online, dan portal unduh berkas soal dari SIAKAD."
         />
 
         {/* Tab Switcher UTS vs UAS */}
-        <div className="w-full sm:w-auto sm:max-w-full sm:overflow-x-auto sm:self-auto">
-          <div className="grid w-full grid-flow-col auto-cols-fr items-center gap-1.5 p-1 bg-[#F0F7FB] border border-stroke rounded-pill sm:flex sm:w-max">
+        <div className="w-full">
+          <div className="px-seg">
           <button
             type="button"
             onClick={() => setActiveTab("uts")}
-            className={`px-4 py-1.5 text-xs font-semibold rounded-pill transition-all ${
+            className={`px-seg-btn ${
               activeTab === "uts"
-                ? "bg-[#0369A1] text-white shadow-sm"
-                : "text-secondary hover:text-foreground"
+                ? "px-seg-on"
+                : ""
             }`}
           >
             Ujian Tengah Semester (UTS)
@@ -62,10 +62,10 @@ export default function UjianPage() {
           <button
             type="button"
             onClick={() => setActiveTab("uas")}
-            className={`px-4 py-1.5 text-xs font-semibold rounded-pill transition-all ${
+            className={`px-seg-btn ${
               activeTab === "uas"
-                ? "bg-[#0369A1] text-white shadow-sm"
-                : "text-secondary hover:text-foreground"
+                ? "px-seg-on"
+                : ""
             }`}
           >
             Ujian Akhir Semester (UAS)
