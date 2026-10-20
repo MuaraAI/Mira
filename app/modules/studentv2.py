@@ -572,7 +572,7 @@ async def get_dashboard(creds: tuple[str, str] = Depends(require_studentv2_creds
 async def get_profile(creds: tuple[str, str] = Depends(require_studentv2_creds)):
     """Biodata lengkap dan status akademik mahasiswa dari SIAKAD."""
     nim, password = creds
-    return await cached_endpoint(
+    res = await cached_endpoint(
         module="studentv2",
         name="profile",
         fetch=lambda: studentv2_client.fetch_page("/mahasiswa/data-pribadi", nim, password),
@@ -580,6 +580,18 @@ async def get_profile(creds: tuple[str, str] = Depends(require_studentv2_creds))
         ttl=settings.TTL_LIBRARY,
         cache_params={"nim": nim},
     )
+    # Record branch & program for public stats (privacy-preserving HMAC hash)
+    try:
+        from app.stats import record_profile
+        data = res.get("data") or {}
+        await record_profile(
+            nim=nim,
+            branch=data.get("lokasi_cabang"),
+            program=data.get("program_studi"),
+        )
+    except Exception:
+        pass
+    return res
 
 @router.get("/khs")
 async def get_khs(creds: tuple[str, str] = Depends(require_studentv2_creds)):
