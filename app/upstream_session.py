@@ -63,6 +63,12 @@ class UpstreamSession:
     MODULE = "upstream"
     HOST_LABEL = "server kampus"
 
+    def get_client(self) -> httpx.Client:
+        raise NotImplementedError
+
+    def login(self, nim: str, password: str) -> bool:
+        raise NotImplementedError
+
     def _init_upstream_session(self) -> None:
         self._session_lock = threading.RLock()
         self._login_at = 0.0
@@ -84,6 +90,7 @@ class UpstreamSession:
             if self._session_is_fresh() and (stale_since is None or self._login_at > stale_since):
                 return True
             self._logged_in = False
+            self.get_client().cookies.clear()
             ok = bool(self.login(nim, password))
             if ok:
                 self._mark_logged_in()
