@@ -621,22 +621,34 @@ def inspect_session_status(html: str) -> dict[str, Any]:
             if val and label:
                 info[label[0].get_all_text().strip().lower()] = val[0].get_all_text().strip()
 
-    btn = page.css("div.col-xl-3 button, button.btn-warning, button.btn-success, button.btn-info, button.btn-danger, center button")
-    status_raw = btn[0].get_all_text().strip() if btn else "Tidak Diketahui"
-    status_lower = status_raw.lower()
-    can_submit = (
-        ("absen" in status_lower or "masuk" in status_lower)
-        and "selesai" not in status_lower
-        and "belum" not in status_lower
-    )
+    # In MyBest (2026 revamp), attendance check-in works via TWO possible forms:
+    # 1. Legacy form: <form action="simpan-absen|absen"> (older MyBest layout)
+    # 2. New form:    <form action="komentar-mhs">  (feedback-based form on /absen-mhs)
+    # Both trigger presence update on upstream. Prefer komentar-mhs if present, else legacy.
+    komentar_form = page.css("form[action*='komentar-mhs']")
+    absen_form = page.css("form[action*='simpan-absen'], form[action*='absen']")
+    target_form = komentar_form[0] if komentar_form else (absen_form[0] if absen_form else None)
+    can_submit = bool(target_form)
 
-    form = page.css("form[action*='simpan-absen'], form[action*='absen'], div.col-xl-3 form")
-    form_action = form[0].attrib.get("action") if form else None
-    form_inputs = {
-        inp.attrib.get("name"): inp.attrib.get("value", "")
-        for inp in form[0].css("input")
-        if inp.attrib.get("name")
-    } if form else {}
+    btn = page.css("div.col-xl-3 button, button.btn-warning, button.btn-success, button.btn-info, button.btn-danger, center button")
+    status_raw = btn[0].get_all_text().strip() if btn else ("Absen Masuk" if can_submit else "Tidak Diketahui")
+
+    form_action = None
+    form_inputs: dict[str, str] = {}
+    if target_form is not None:
+        form_action = target_form.attrib.get("action", "/komentar-mhs")
+        if form_action and form_action.startswith("https://"):
+            # Normalize absolute action URL to relative path
+            from urllib.parse import urlparse
+            parsed = urlparse(form_action)
+            form_action = parsed.path or form_action
+        elif form_action and not form_action.startswith("/"):
+            form_action = f"/{form_action}"
+        form_inputs = {
+            inp.attrib.get("name"): inp.attrib.get("value", "")
+            for inp in target_form.css("input")
+            if inp.attrib.get("name")
+        }
 
     return {
         "status_raw": status_raw,
@@ -1663,14 +1675,18 @@ async def submit_presence(
         }
 
     action_url = info.get("form_action") or f"/absen-mhs/{target_token}"
-    inputs = info.get("form_inputs") or {}
+    inputs = dict(info.get("form_inputs") or {})
+    # Ensure required payload for /komentar-mhs form (nilai radio must be present; default 1 = Pengajaran Sesuai)
+    if inputs.get("nilai") not in ("0", "1"):
+        inputs["nilai"] = "1"
+    inputs.setdefault("komentar", "")
     try:
         await pooled_elearning_client.post_page(action_url, nim, password, data=inputs)
         # Invalidate cache presence di Redis agar status langsung ter-update
         try:
             from app.cache import cache
             redis_client = await cache.get_client()
-            keys = await redis_client.keys(f"ubsi:elearning:presence:*{nim}*")
+            keys = await redis_client.keys("ubsi:elearning:*")
             if keys:
                 await redis_client.delete(*keys)
         except Exception as c_exc:
