@@ -124,7 +124,7 @@ class ElibraryClient:
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=error_response(
                 code="UPSTREAM_TIMEOUT",
-                message=f"Layanan elibrary.bsi.ac.id gagal merespons setelah 3 percobaan: {last_error}",
+                message="Layanan perpustakaan kampus sedang mengalami gangguan atau timeout. Silakan coba beberapa saat lagi.",
                 module="elibrary"
             )
         )
@@ -147,7 +147,7 @@ class ElibraryClient:
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=error_response(
                 code="UPSTREAM_TIMEOUT",
-                message=f"Gagal mengambil detail buku {book_id}: {last_error}",
+                message=f"Gagal mengambil detail buku {book_id}. Silakan coba beberapa saat lagi.",
                 module="elibrary"
             )
         )
@@ -158,9 +158,9 @@ elibrary_client = ElibraryClient()
 
 @router.get("/search")
 async def search_books(
-    q: str = Query(..., min_length=1, description="Kata kunci pencarian"),
-    opsi: str = Query(default="buku", description="Kategori: semua, buku, ta, skripsi, jurnal, prosiding, ebook"),
-    page: int = Query(default=1, ge=1, description="Nomor halaman")
+    q: str = Query(..., min_length=1, max_length=100, description="Kata kunci pencarian"),
+    opsi: str = Query(default="buku", pattern=r"^(semua|buku|ta|skripsi|jurnal|prosiding|ebook)$", description="Kategori: semua, buku, ta, skripsi, jurnal, prosiding, ebook"),
+    page: int = Query(default=1, ge=1, le=200, description="Nomor halaman")
 ):
     loop = asyncio.get_running_loop()
     return await cached_endpoint(

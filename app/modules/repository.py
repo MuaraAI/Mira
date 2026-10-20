@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import logging
 import re
 import urllib.parse
 from typing import Any
@@ -13,6 +14,7 @@ from app.envelope import error_response
 from app.router_helper import cached_endpoint
 from app.proxy import get_proxy
 
+logger = logging.getLogger("app.repository")
 router = APIRouter(prefix="/v1/repository", tags=["repository"])
 
 def parse_repository_items(html: str) -> list[dict[str, Any]]:
@@ -75,9 +77,10 @@ class RepositoryClient:
         except Exception as e:
             if isinstance(e, HTTPException):
                 raise e
+            logger.warning("Gagal mengambil repositori terbaru: %s", e)
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=error_response(code="UPSTREAM_ERROR", message=str(e), module="repository")
+                detail=error_response(code="UPSTREAM_ERROR", message="Layanan repository kampus sedang mengalami gangguan atau timeout", module="repository")
             )
 
     def fetch_search(self, q: str) -> str:
@@ -101,9 +104,10 @@ class RepositoryClient:
         except Exception as e:
             if isinstance(e, HTTPException):
                 raise e
+            logger.warning("Gagal mencari di repositori: %s", e)
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=error_response(code="UPSTREAM_ERROR", message=str(e), module="repository")
+                detail=error_response(code="UPSTREAM_ERROR", message="Pencarian repositori kampus sedang mengalami gangguan atau timeout", module="repository")
             )
 
 repository_client = RepositoryClient()
@@ -120,7 +124,7 @@ async def get_recent_repository():
     )
 
 @router.get("/search")
-async def search_repository(q: str = Query(..., min_length=1, description="Kata kunci pencarian")):
+async def search_repository(q: str = Query(..., min_length=1, max_length=100, description="Kata kunci pencarian")):
     loop = asyncio.get_running_loop()
     return await cached_endpoint(
         module="repository",

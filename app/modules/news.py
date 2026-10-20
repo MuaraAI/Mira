@@ -115,9 +115,10 @@ class NewsClient:
         except Exception as e:
             if isinstance(e, HTTPException):
                 raise e
+            logger.warning("Gagal mengambil berita: %s", e)
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=error_response(code="UPSTREAM_ERROR", message=str(e), module="news")
+                detail=error_response(code="UPSTREAM_ERROR", message="Layanan berita kampus sedang mengalami gangguan atau timeout", module="news")
             )
 
     def fetch_post_detail(self, post_id: str) -> dict[str, Any]:
@@ -141,17 +142,18 @@ class NewsClient:
         except Exception as e:
             if isinstance(e, HTTPException):
                 raise e
+            logger.warning("Gagal mengambil detail berita %s: %s", post_id, e)
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=error_response(code="UPSTREAM_ERROR", message=str(e), module="news")
+                detail=error_response(code="UPSTREAM_ERROR", message="Gagal mengambil detail artikel berita kampus", module="news")
             )
 
 news_client = NewsClient()
 
 @router.get("")
 async def get_news(
-    search: Optional[str] = Query(default=None, description="Kata kunci pencarian berita"),
-    page: int = Query(default=1, ge=1, description="Nomor halaman"),
+    search: Optional[str] = Query(default=None, max_length=100, description="Kata kunci pencarian berita"),
+    page: int = Query(default=1, ge=1, le=200, description="Nomor halaman"),
     per_page: int = Query(default=10, ge=1, le=50, description="Jumlah item per halaman")
 ):
     loop = asyncio.get_running_loop()

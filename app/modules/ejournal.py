@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import re
 from typing import Any
 
@@ -12,6 +13,7 @@ from app.envelope import error_response
 from app.router_helper import cached_endpoint
 from app.proxy import get_proxy
 
+logger = logging.getLogger("app.ejournal")
 router = APIRouter(prefix="/v1/ejournal", tags=["ejournal"])
 
 def parse_journal_catalog(html_str: str) -> list[dict[str, Any]]:
@@ -81,9 +83,10 @@ class EJournalClient:
         except Exception as e:
             if isinstance(e, HTTPException):
                 raise e
+            logger.warning("Gagal mengambil katalog e-journal: %s", e)
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=error_response(code="UPSTREAM_ERROR", message=str(e), module="ejournal")
+                detail=error_response(code="UPSTREAM_ERROR", message="Layanan e-journal kampus sedang mengalami gangguan atau timeout", module="ejournal")
             )
 
 ejournal_client = EJournalClient()

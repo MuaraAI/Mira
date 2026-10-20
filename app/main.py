@@ -4,6 +4,7 @@ import secrets
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator, Optional
 from fastapi import FastAPI, Request, status, HTTPException
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -303,6 +304,22 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization", "X-API-Key", "X-Requested-With", "X-Studentv2-NIM", "X-Studentv2-Pass", "X-Elearning-NIM", "X-Elearning-Pass"],
 )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    errors = exc.errors()
+    first_err = errors[0] if errors else {}
+    msg = first_err.get("msg", "Data request tidak valid")
+    loc = ".".join(str(l) for l in first_err.get("loc", []) if l != "body")
+    error_msg = f"{loc}: {msg}" if loc else msg
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content=error_response(
+            code="VALIDATION_ERROR",
+            message=error_msg,
+            module="validation",
+        ),
+    )
 
 @app.exception_handler(HTTPException)
 async def custom_http_exception_handler(request: Request, exc: HTTPException):
