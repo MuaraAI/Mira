@@ -13,7 +13,34 @@ import json
 import os
 from typing import Any, Optional
 import httpx
-from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver import Context, MCPServer
+from urllib.parse import parse_qs, urlparse
+
+
+
+def _context_credentials(ctx: Context | None) -> tuple[str | None, str | None]:
+    """Read credentials from the current HTTP MCP request without logging them."""
+    if ctx is None:
+        return None, None
+    headers = ctx.headers or {}
+    authorization = headers.get("authorization", "")
+    if authorization.lower().startswith("bearer "):
+        return None, authorization[7:].strip()
+    request = getattr(ctx.request_context, "request", None)
+    url = str(getattr(request, "url", ""))
+    query = parse_qs(urlparse(url).query)
+    key = (query.get("api_key") or query.get("key") or [None])[0]
+    return key, None
+
+
+def _resolve_credentials(
+    ctx: Context | None,
+    api_key: Optional[str],
+    session_token: Optional[str],
+) -> tuple[str | None, str | None]:
+    context_key, context_session = _context_credentials(ctx)
+    return api_key or context_key, session_token or context_session
+
 
 server = MCPServer(
     name="ubsi-mcp",
@@ -258,8 +285,10 @@ async def ubsi_get_courses(session_token: Optional[str] = None, api_key: Optiona
     description="Ambil daftar tugas aktif dan riwayat nilai submission. Parameter 'token' (opsional) adalah token_assignment (diawali 'eyJ...') dari ubsi_get_courses.",
 )
 async def ubsi_get_assignments(
-    token: Optional[str] = None, session_token: Optional[str] = None, api_key: Optional[str] = None
+    token: Optional[str] = None, session_token: Optional[str] = None, api_key: Optional[str] = None,
+    ctx: Context | None = None,
 ) -> str:
+    api_key, session_token = _resolve_credentials(ctx, api_key, session_token)
     params = {"token": token} if token else None
     res = await _api_get("/v1/elearning/assignments", params=params, session_token=session_token, api_key=api_key)
     return json.dumps(res, ensure_ascii=False, indent=2)
@@ -296,7 +325,9 @@ async def ubsi_submit_assignment(
     link_tugas: str,
     session_token: Optional[str] = None,
     api_key: Optional[str] = None,
+    ctx: Context | None = None,
 ) -> str:
+    api_key, session_token = _resolve_credentials(ctx, api_key, session_token)
     body = {
         "token_send": token_send,
         "link_tugas": link_tugas,
@@ -389,8 +420,10 @@ async def ubsi_create_discussion(
     description="Cek riwayat kehadiran dan status sesi presensi kelas (Sudah Selesai / Absen Masuk / Belum Mulai).",
 )
 async def ubsi_get_presence(
-    token: Optional[str] = None, session_token: Optional[str] = None, api_key: Optional[str] = None
+    token: Optional[str] = None, session_token: Optional[str] = None, api_key: Optional[str] = None,
+    ctx: Context | None = None,
 ) -> str:
+    api_key, session_token = _resolve_credentials(ctx, api_key, session_token)
     params = {"token": token} if token else None
     res = await _api_get("/v1/elearning/presence", params=params, session_token=session_token, api_key=api_key)
     return json.dumps(res, ensure_ascii=False, indent=2)
@@ -401,8 +434,10 @@ async def ubsi_get_presence(
     description="Pencet / kirim presensi kehadiran ('Absen Masuk') pada kelas perkuliahan yang sedang berlangsung.",
 )
 async def ubsi_submit_presence(
-    token: Optional[str] = None, session_token: Optional[str] = None, api_key: Optional[str] = None
+    token: Optional[str] = None, session_token: Optional[str] = None, api_key: Optional[str] = None,
+    ctx: Context | None = None,
 ) -> str:
+    api_key, session_token = _resolve_credentials(ctx, api_key, session_token)
     params = {"token": token} if token else None
     res = await _api_post("/v1/elearning/presence", params=params, session_token=session_token, api_key=api_key)
     return json.dumps(res, ensure_ascii=False, indent=2)
