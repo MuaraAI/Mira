@@ -71,6 +71,18 @@ async def test_get_docs_endpoint_public_access():
     assert data["data"]["info"]["version"] == "2.0.0"
 
 @pytest.mark.asyncio
+async def test_validation_error_returns_standard_envelope():
+    # Mengirim body kosong ke POST /v1/auth/login yang wajib JSON
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.post("/v1/auth/login", json={})
+    assert res.status_code == 422
+    body = res.json()
+    assert body["success"] is False
+    assert body["error"]["code"] == "VALIDATION_ERROR"
+    assert body["error"]["module"] == "validation"
+
+
+@pytest.mark.asyncio
 async def test_get_docs_endpoint_with_category():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         res = await ac.get("/v1/docs?category=elearning")
