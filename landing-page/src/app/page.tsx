@@ -3,6 +3,7 @@ import { Hero } from "@/components/Hero";
 import { StudentServices } from "@/components/StudentServices";
 import { PublicApiSurface } from "@/components/PublicApiSurface";
 import { PublicStats } from "@/components/PublicStats";
+import { Faq } from "@/components/Faq";
 import { Footer } from "@/components/Footer";
 import { getRepositoryStars } from "@/lib/github";
 
@@ -17,6 +18,7 @@ export default async function Home() {
         <StudentServices />
         <PublicApiSurface />
         <PublicStats />
+        <Faq />
       </main>
       <Footer />
     </div>
