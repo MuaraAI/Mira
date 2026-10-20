@@ -3,19 +3,27 @@
 import { ApiError } from "@/lib/api";
 
 export const inputClass =
-  "w-full rounded-sm border border-stroke bg-white/70 px-4 py-2.5 text-sm text-foreground placeholder:text-secondary/60 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/40";
+  "px-input w-full px-4 py-2.5 text-sm text-foreground placeholder:text-secondary/60";
 
 export const primaryButtonClass =
-  "inline-flex items-center justify-center gap-2 rounded-pill bg-[#0369A1] border border-[#075985] px-5 py-2.5 text-sm font-bold text-white transition-all duration-200 ease-glass hover:bg-[#075985] disabled:opacity-50 disabled:cursor-not-allowed";
+  "px-btn inline-flex min-h-11 items-center justify-center gap-2 px-5 py-2.5 text-sm font-bold";
 
 export const ghostButtonClass =
-  "inline-flex items-center justify-center gap-2 rounded-pill border border-stroke bg-white/60 px-4 py-2 text-sm font-semibold text-foreground transition-all duration-200 ease-glass hover:border-accent/50 hover:bg-white/80 disabled:opacity-50 disabled:cursor-not-allowed";
+  "px-btn-ghost inline-flex min-h-11 items-center justify-center gap-2 px-4 py-2 text-sm font-semibold";
 
 export function LoadingState({ label = "Memuat data" }: { label?: string }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-6 py-16" role="status" aria-live="polite">
-      <div className="h-10 w-10 rounded-full border-4 border-[#BAE6FD] border-t-[#0369A1] animate-spin" aria-hidden="true" />
-      <p className="text-sm text-secondary font-medium">{label}</p>
+    <div className="flex flex-col items-center justify-center gap-5 py-16" role="status" aria-live="polite">
+      <div className="px-loader" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+        <span />
+      </div>
+      <p className="font-mono text-xs font-semibold text-secondary">
+        {label}
+        <span className="px-cursor" aria-hidden="true">_</span>
+      </p>
     </div>
   );
 }
@@ -61,18 +69,19 @@ export function PageHeader({
   description?: string;
 }) {
   return (
-    <div className="mb-6">
-      <h1 className="text-2xl sm:text-3xl font-display font-bold tracking-tight text-foreground">
+    <div className="mb-6 border-b-2 border-dashed border-px-soft pb-5">
+      <h1 className="flex items-center gap-3 text-2xl sm:text-3xl font-display font-bold tracking-tight text-foreground">
+        <span className="h-2.5 w-2.5 shrink-0 bg-[#0369A1] shadow-[3px_3px_0_0_#9CC6E0]" aria-hidden="true" />
         {title}
       </h1>
-      {description && <p className="mt-1 text-sm text-secondary">{description}</p>}
+      {description && <p className="mt-2 max-w-3xl text-sm leading-relaxed text-secondary">{description}</p>}
     </div>
   );
 }
 
 export function ChannelTypeBadge({ type }: { type: string }) {
   return (
-    <span className="inline-flex items-center rounded-pill bg-[#0369A1]/10 border border-[#0369A1]/30 px-2.5 py-0.5 text-[11px] font-bold font-mono text-[#0369A1] uppercase">
+    <span className="px-chip inline-flex items-center bg-px-tint px-2.5 py-0.5 text-[11px] font-bold font-mono text-[#0369A1] uppercase">
       {type}
     </span>
   );
@@ -81,12 +90,11 @@ export function ChannelTypeBadge({ type }: { type: string }) {
 export function ChannelActiveBadge({ active }: { active: boolean }) {
   return (
     <span
-      className={`inline-flex items-center rounded-pill px-3 py-1 text-xs font-bold ${
-        active
-          ? "bg-[#F0F7FB] text-[#0F766E] border border-[#0F766E]/25"
-          : "bg-white/60 text-secondary border border-stroke"
+      className={`px-chip inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold ${
+        active ? "bg-[#F0F7FB] text-[#0F766E]" : "bg-white text-secondary"
       }`}
     >
+      <span className={`h-1.5 w-1.5 ${active ? "bg-[#0F766E]" : "bg-secondary/50"}`} aria-hidden="true" />
       {active ? "Aktif" : "Belum Aktif"}
     </span>
   );

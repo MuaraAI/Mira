@@ -55,7 +55,7 @@ export default function DashboardLayout({
   const title = getPageTitle(pathname);
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex">
+    <div className="portal-type min-h-screen bg-background text-foreground flex flex-col lg:flex-row">
       {/* Desktop Sidebar (lg breakpoint >= 1024px) */}
       <div className="hidden lg:block lg:w-64 lg:fixed lg:inset-y-0 lg:z-30">
         <DashboardSidebar nim={nim} />
@@ -67,20 +67,20 @@ export default function DashboardLayout({
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 lg:pl-64">
         {/* Desktop Sticky Subheader */}
-        <header className="hidden lg:flex sticky top-0 z-20 items-center justify-between px-8 py-3.5 bg-white/80 backdrop-blur-md border-b border-stroke">
-          <div className="flex items-center gap-2 text-xs">
+        <header className="hidden lg:flex sticky top-0 z-20 h-16 items-center justify-between px-8 bg-white/85 backdrop-blur-xl border-b-2 border-px-soft">
+          <div className="flex items-center gap-2 font-mono text-xs">
             <Link
               href="/dashboard"
-              className="text-secondary hover:text-foreground font-medium"
+              className="font-semibold text-[#0369A1] transition-colors hover:text-foreground"
             >
               Dashboard
             </Link>
-            <span className="text-secondary/60">/</span>
+            <span className="text-px-water" aria-hidden="true">/</span>
             <span className="font-semibold text-foreground">{title}</span>
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-pill bg-[#F0F7FB] border border-[#0369A1]/20 text-[11px] font-mono text-[#0369A1] font-semibold">
+            <div className="px-chip flex items-center gap-1.5 px-2.5 py-1 bg-[#F0F7FB] text-[11px] font-mono text-[#0369A1] font-semibold">
               <ShieldCheck className="w-3.5 h-3.5 text-[#0369A1]" aria-hidden="true" />
               <span>Sesi Redis (AES-256)</span>
             </div>
@@ -88,7 +88,7 @@ export default function DashboardLayout({
             <Link
               href="/dashboard/sesi"
               aria-label="Pengaturan sesi dan logout"
-              className="p-1.5 rounded-sm text-secondary hover:text-foreground hover:bg-[#F0F7FB] border border-stroke"
+              className="px-frame flex h-9 w-9 items-center justify-center bg-white text-rose-700 transition-colors [--px-line:#FDA4AF] hover:bg-rose-50"
             >
               <LogOut className="w-4 h-4" aria-hidden="true" />
             </Link>
@@ -105,11 +105,13 @@ export default function DashboardLayout({
           ) : error ? (
             <ErrorState error={error} onRetry={reload} />
           ) : authed ? (
-            children
+            <div key={pathname} className="page-in">
+              {children}
+            </div>
           ) : null}
         </main>
 
-        <footer className="py-4 px-6 text-center text-xs text-secondary border-t border-stroke/60 hidden lg:block">
+        <footer className="py-4 px-6 text-center font-mono text-[11px] text-secondary border-t-2 border-dashed border-px-soft hidden lg:block">
           UBSI API Student Command Center. Data terintegrasi dari SIAKAD, MyBest, dan portal kampus.
         </footer>
       </div>

@@ -50,9 +50,11 @@ export function DashboardMobileNav({ nim }: { nim?: string | null }) {
   return (
     <>
       {/* Mobile Topbar */}
-      <header className="lg:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-white/90 backdrop-blur-md border-b border-stroke">
+      <header className="lg:hidden sticky top-0 z-40 flex h-16 items-center justify-between px-4 bg-white/90 backdrop-blur-xl border-b-2 border-px-soft">
         <Link href="/dashboard" className="flex items-center gap-2.5">
-          <Monogram className="w-7 h-7" />
+          <span className="px-frame flex h-8 w-8 items-center justify-center overflow-hidden bg-white [--px-line:#CFE2EE]">
+            <Monogram className="w-6 h-6" />
+          </span>
           <div className="flex flex-col">
             <span className="font-display font-bold text-sm tracking-tight text-foreground">
               UBSI API
@@ -68,7 +70,7 @@ export function DashboardMobileNav({ nim }: { nim?: string | null }) {
           onClick={() => setIsOpen(true)}
           aria-expanded={isOpen}
           aria-label="Buka navigasi menu lengkap"
-          className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-sm text-secondary hover:text-foreground hover:bg-[#F0F7FB] border border-stroke"
+          className="px-frame min-w-[44px] min-h-[44px] flex items-center justify-center bg-white text-secondary [--px-line:#CFE2EE] hover:text-foreground"
         >
           <Menu className="w-5 h-5 text-foreground" aria-hidden="true" />
         </button>
@@ -79,7 +81,7 @@ export function DashboardMobileNav({ nim }: { nim?: string | null }) {
         <div className="lg:hidden fixed inset-0 z-50 flex">
           {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-[#072033]/40 backdrop-blur-sm transition-opacity"
+            className="modal-backdrop fixed inset-0 bg-[#072033]/50 backdrop-blur-[2px]"
             onClick={() => setIsOpen(false)}
             aria-hidden="true"
           />
@@ -88,10 +90,10 @@ export function DashboardMobileNav({ nim }: { nim?: string | null }) {
           <FocusDialog
             open={isOpen}
             onClose={() => setIsOpen(false)}
-            className="relative flex flex-col w-4/5 max-w-xs h-full bg-white shadow-xl z-10"
+            className="drawer-panel relative flex flex-col w-4/5 max-w-xs h-full bg-white shadow-[6px_0_0_0_#0369A1] z-10"
           >
             {/* Close Button Header */}
-            <div className="flex items-center justify-between p-3 border-b border-stroke">
+            <div className="flex items-center justify-between p-3 border-b-2 border-px-soft bg-px-tint">
               <span className="font-display font-bold text-sm text-foreground">
                 Navigasi Menu
               </span>
@@ -99,7 +101,7 @@ export function DashboardMobileNav({ nim }: { nim?: string | null }) {
                 type="button"
                 onClick={() => setIsOpen(false)}
                 aria-label="Tutup menu"
-                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-sm text-secondary hover:text-foreground hover:bg-[#F0F7FB]"
+                className="px-frame min-w-[44px] min-h-[44px] flex items-center justify-center bg-white text-secondary [--px-line:#CFE2EE] hover:text-foreground"
               >
                 <X className="w-5 h-5" aria-hidden="true" />
               </button>
@@ -116,7 +118,7 @@ export function DashboardMobileNav({ nim }: { nim?: string | null }) {
       {/* Mobile Bottom Navigation Bar */}
       <nav
         aria-label="Navigasi cepat bawah"
-        className="dashboard-bottom-nav lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-stroke py-1.5 px-3 flex items-center justify-around shadow-lg"
+        className="dashboard-bottom-nav lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-xl border-t-2 border-[#163A55] py-1.5 px-2 grid grid-cols-4 gap-1 shadow-[0_-4px_0_0_#CFE2EE]"
       >
         {quickNav.map(({ href, label, icon: Icon, exact }) => {
           const active = exact ? pathname === href : pathname.startsWith(href);
@@ -125,10 +127,10 @@ export function DashboardMobileNav({ nim }: { nim?: string | null }) {
               key={href}
               href={href}
               aria-current={active ? "page" : undefined}
-              className={`flex flex-col items-center justify-center gap-1 py-2 px-3 min-h-[48px] rounded-sm text-[11px] font-medium transition-colors ${
+              className={`flex flex-col items-center justify-center gap-1 py-2 px-1 min-h-[48px] font-mono text-[11px] font-medium transition-[background-color,color,box-shadow] duration-200 ${
                 active
-                  ? "text-[#0369A1] font-bold"
-                  : "text-secondary hover:text-foreground"
+                  ? "bg-px-highlight text-[#0369A1] font-bold shadow-[inset_0_3px_0_#0369A1]"
+                  : "text-secondary hover:text-foreground hover:bg-[#F0F7FB]"
               }`}
             >
               <Icon
@@ -144,7 +146,7 @@ export function DashboardMobileNav({ nim }: { nim?: string | null }) {
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          className="flex flex-col items-center justify-center gap-1 py-2 px-3 min-h-[48px] rounded-sm text-[11px] font-medium text-secondary hover:text-foreground"
+          className="flex flex-col items-center justify-center gap-1 py-2 px-1 min-h-[48px] font-mono text-[11px] font-medium text-secondary transition-colors hover:text-foreground hover:bg-[#F0F7FB]"
         >
           <Menu className="w-4 h-4 text-secondary" aria-hidden="true" />
           <span>Menu</span>
