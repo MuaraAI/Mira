@@ -95,9 +95,9 @@ export const metadata: Metadata = {
     icon: "/icon.png",
     apple: [{ url: "/pwa/apple-touch-icon.png", sizes: "180x180" }],
   },
-  title: "UBSI API: Unofficial REST API Aggregator 6 Layanan Kampus UBSI | Muara AI",
+  title: "UBSI API v2: Dashboard Akademik, REST API, dan MCP UBSI | Muara AI",
   description:
-    "Agregator REST API modern untuk layanan Universitas Bina Sarana Informatika (SIAKAD, Elearning MyBest, E-Journal, E-Library, Repository, Berita). Caching Redis sub-250ms, open-source & developer-first.",
+    "Dashboard akademik dan REST API untuk jadwal, tugas, presensi, materi, nilai, layanan kampus, serta integrasi MCP UBSI.",
   keywords: [
     "UBSI API",
     "SIAKAD UBSI API",
@@ -113,9 +113,9 @@ export const metadata: Metadata = {
     canonical: "https://ubsi-api.muaraai.com",
   },
   openGraph: {
-    title: "UBSI API: Unofficial REST API Aggregator 6 Layanan Kampus UBSI",
+    title: "UBSI API v2: Dashboard Akademik, REST API, dan MCP UBSI",
     description:
-      "Agregator data modern berkecepatan tinggi untuk SIAKAD, Elearning, Jurnal, E-Library, dan Repository UBSI.",
+      "Akses layanan akademik UBSI melalui dashboard, REST API, dan MCP dengan autentikasi per pengguna.",
     url: "https://ubsi-api.muaraai.com",
     siteName: "UBSI API: Muara AI",
     locale: "id_ID",
@@ -123,9 +123,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "UBSI API: Unofficial REST API Aggregator 6 Layanan Kampus UBSI",
+    title: "UBSI API v2: Dashboard Akademik, REST API, dan MCP UBSI",
     description:
-      "Agregator REST API modern untuk 6 layanan Universitas Bina Sarana Informatika.",
+      "Akses layanan akademik UBSI melalui dashboard, REST API, dan MCP dengan autentikasi per pengguna.",
   },
 };
 
