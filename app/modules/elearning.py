@@ -7,7 +7,7 @@ import statistics
 from typing import Any, Optional
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response, status
 from pydantic import BaseModel, Field
 from lxml import html as lxml_html
 from scrapling.parser import Adaptor
@@ -1008,7 +1008,8 @@ class ElearningClient(UpstreamSession):
         }
 
         submit_res = client.post(f"{self.BASE_URL}/assignment", data=payload)
-        if submit_res.status_code not in (200, 302):
+        loc = submit_res.headers.get("location", "")
+        if submit_res.status_code not in (200, 302) or is_logged_out_response(submit_res) or "/login" in loc:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail=error_response(
@@ -1056,7 +1057,8 @@ class ElearningClient(UpstreamSession):
         }
 
         submit_res = client.post(f"{self.BASE_URL}/send-komentarmhs", data=payload)
-        if submit_res.status_code not in (200, 302):
+        loc = submit_res.headers.get("location", "")
+        if submit_res.status_code not in (200, 302) or is_logged_out_response(submit_res) or "/login" in loc:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail=error_response(code="SEND_FAILED", message=f"Gagal mengirim komentar (status {submit_res.status_code})", module="elearning"),
@@ -1096,7 +1098,8 @@ class ElearningClient(UpstreamSession):
         }
 
         submit_res = client.post(f"{self.BASE_URL}/tambah-diskusimhs", data=payload)
-        if submit_res.status_code not in (200, 302):
+        loc = submit_res.headers.get("location", "")
+        if submit_res.status_code not in (200, 302) or is_logged_out_response(submit_res) or "/login" in loc:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail=error_response(code="CREATE_FAILED", message=f"Gagal membuat topik diskusi (status {submit_res.status_code})", module="elearning"),
@@ -1468,7 +1471,7 @@ async def get_grades(
 
 @router.get("/courses/{course_id}/grades")
 async def get_course_grades(
-    course_id: str,
+    course_id: str = Path(..., pattern=r"^[A-Za-z0-9_-]+$", max_length=64, description="ID / kode mata kuliah"),
     creds: tuple[str, str] = Depends(require_elearning_creds),
 ):
     """Rekap nilai tugas & kuis satu mata kuliah (id dari /v1/elearning/courses)."""
@@ -1501,6 +1504,32 @@ async def get_course_grades(
     )
 
 # Write Operations & Interactive Quiz
+
+async def invalidate_elearning_user_cache(nim: str, token: Optional[str] = None) -> None:
+    """Invalidasi cache elearning khusus untuk NIM ini tanpa mengganggu mahasiswa lain."""
+    from app.cache import cache
+    try:
+        keys_to_del = [
+            f"{cache.make_key('elearning', 'presence', nim=nim)}:fresh",
+            f"{cache.make_key('elearning', 'presence', nim=nim)}:lgg",
+            f"{cache.make_key('elearning', 'courses', nim=nim)}:fresh",
+            f"{cache.make_key('elearning', 'courses', nim=nim)}:lgg",
+            f"{cache.make_key('elearning', 'assignments', nim=nim, token='all')}:fresh",
+            f"{cache.make_key('elearning', 'assignments', nim=nim, token='all')}:lgg",
+            f"{cache.make_key('elearning', 'grades', nim=nim, token='all')}:fresh",
+            f"{cache.make_key('elearning', 'grades', nim=nim, token='all')}:lgg",
+        ]
+        if token:
+            for endpoint in ("presence", "assignments", "materials", "discussions", "grades"):
+                keys_to_del.extend([
+                    f"{cache.make_key('elearning', endpoint, nim=nim, token=token)}:fresh",
+                    f"{cache.make_key('elearning', endpoint, nim=nim, token=token)}:lgg",
+                ])
+        client = await cache.get_client()
+        await client.delete(*keys_to_del)
+    except Exception as exc:
+        logger.warning("Gagal membersihkan cache elearning untuk NIM %s: %s", nim, exc)
+
 
 async def submit_presence(
     nim: str, password: str, token: Optional[str] = None
@@ -1553,16 +1582,18 @@ async def submit_presence(
     inputs["nilai"] = "1"
     inputs.setdefault("komentar", "")
     try:
-        await pooled_elearning_client.post_page(action_url, nim, password, data=inputs)
-        # Invalidate cache presence di Redis agar status langsung ter-update
-        try:
-            from app.cache import cache
-            redis_client = await cache.get_client()
-            keys = await redis_client.keys("ubsi:elearning:*")
-            if keys:
-                await redis_client.delete(*keys)
-        except Exception as c_exc:
-            logger.warning("Gagal membersihkan cache presence: %s", c_exc)
+        resp = await pooled_elearning_client.post_page(action_url, nim, password, data=inputs)
+        status_code = getattr(resp, "status_code", 200)
+        headers = getattr(resp, "headers", {})
+        loc = str(headers.get("location", "") if hasattr(headers, "get") else "")
+        if status_code not in (200, 302) or is_logged_out_response(resp) or "/login" in loc:
+            return {
+                "success": False,
+                "status": "ERROR",
+                "message": "Gagal mencatat presensi: sesi MyBest kedaluwarsa atau upstream menolak.",
+            }
+
+        await invalidate_elearning_user_cache(nim, target_token)
 
         return {
             "success": True,
@@ -1572,7 +1603,10 @@ async def submit_presence(
             "ruang": info["ruang"],
             "message": f"Presensi mata kuliah {info['matakuliah']} berhasil dicatat.",
         }
+    except HTTPException:
+        raise
     except Exception as exc:
+        logger.warning("Error saat submit presence: %s", exc)
         return {
             "success": False,
             "status": "ERROR",
@@ -1782,14 +1816,7 @@ async def post_upload_assignment(
     )
 
     # Invalidate cache assignments di Redis agar data tugas langsung up-to-date
-    try:
-        from app.cache import cache
-        redis_client = await cache.get_client()
-        keys = await redis_client.keys("ubsi:elearning:*assignment*")
-        if keys:
-            await redis_client.delete(*keys)
-    except Exception as exc:
-        logger.warning("Gagal membersihkan cache assignments: %s", exc)
+    await invalidate_elearning_user_cache(nim, clean_token)
 
     return success_response(data=result)
 
@@ -1844,14 +1871,7 @@ async def post_submit_assignment_link(
     )
 
     # Invalidate cache assignments di Redis agar data tugas langsung up-to-date
-    try:
-        from app.cache import cache
-        redis_client = await cache.get_client()
-        keys = await redis_client.keys("ubsi:elearning:*")
-        if keys:
-            await redis_client.delete(*keys)
-    except Exception as exc:
-        logger.warning("Gagal membersihkan cache assignments: %s", exc)
+    await invalidate_elearning_user_cache(nim, clean_token)
 
     return success_response(data=result)
 
@@ -2180,14 +2200,7 @@ async def post_discussion_comment(
     )
 
     # Invalidate cache comments agar balasan langsung terlihat
-    try:
-        from app.cache import cache
-        redis_client = await cache.get_client()
-        keys = await redis_client.keys("ubsi:elearning:*discussion*")
-        if keys:
-            await redis_client.delete(*keys)
-    except Exception as exc:
-        logger.warning("Gagal membersihkan cache comments: %s", exc)
+    await invalidate_elearning_user_cache(nim, clean_token)
 
     return success_response(data=result)
 
@@ -2210,14 +2223,7 @@ async def post_new_discussion(
     )
 
     # Invalidate cache discussions
-    try:
-        from app.cache import cache
-        redis_client = await cache.get_client()
-        keys = await redis_client.keys("ubsi:elearning:*discussion*")
-        if keys:
-            await redis_client.delete(*keys)
-    except Exception as exc:
-        logger.warning("Gagal membersihkan cache discussions: %s", exc)
+    await invalidate_elearning_user_cache(nim, clean_token)
 
     return success_response(data=result)
 

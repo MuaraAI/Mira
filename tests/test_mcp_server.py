@@ -187,6 +187,16 @@ async def test_mcp_presence_and_quiz_write_tools():
     # Test course grades tool
     mock_resp_cgrades = AsyncMock()
     mock_resp_cgrades.status_code = 200
+    mock_resp_cgrades.json = MagicMock(return_value={"success": True, "data": {"ringkasan": {}}})
+    with patch("httpx.AsyncClient.get", return_value=mock_resp_cgrades):
+        res_cg = await ubsi_get_course_grades(course_id="894", session_token="tok_sess")
+        assert json.loads(res_cg)["success"] is True
+
+        # Path traversal harus ditolak
+        res_evil = await ubsi_get_course_grades(course_id="../../auth/me", session_token="tok_sess")
+        parsed_evil = json.loads(res_evil)
+        assert parsed_evil["success"] is False
+        assert parsed_evil["error"]["code"] == "INVALID_ARGUMENT"
     mock_resp_cgrades.json = MagicMock(return_value={
         "success": True,
         "data": {

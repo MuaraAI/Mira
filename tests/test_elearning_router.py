@@ -227,6 +227,9 @@ async def test_post_presence_active_session(monkeypatch):
 
     mock_active_html = (FIXTURES / "el_absen_active.html").read_text(encoding="utf-8")
     mock_post_resp = AsyncMock()
+    mock_post_resp.status_code = 200
+    mock_post_resp.headers = {}
+    mock_post_resp.url = "https://elearning.bsi.ac.id/absen-mhs/tok_active_123"
     mock_post_resp.text = "OK"
 
     mock_redis = AsyncMock()
@@ -509,6 +512,25 @@ async def test_submit_assignment_link_success(monkeypatch):
     assert data["success"] is True
     assert data["data"]["status"] == "success"
     assert data["data"]["link_tugas"] == "https://drive.google.com/file/d/14wUrOkCVbx"
+
+
+@pytest.mark.asyncio
+async def test_submit_assignment_link_upstream_redirect_to_login_fails(monkeypatch):
+    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_PASS", "secret")
+    from fastapi import HTTPException
+
+    with patch("app.modules.elearning.pooled_elearning_client.submit_assignment_link", side_effect=HTTPException(status_code=502, detail={"error": {"code": "SUBMIT_FAILED"}})):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res = await ac.post(
+                "/v1/elearning/assignments/submit",
+                json={
+                    "token_send": "tok_send_46814",
+                    "link_tugas": "https://drive.google.com/file/d/14wUrOkCVbx",
+                },
+            )
+    assert res.status_code == 502
+
 
 @pytest.mark.asyncio
 async def test_submit_assignment_link_invalid_url(monkeypatch):
