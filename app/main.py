@@ -146,10 +146,6 @@ async def api_key_auth_middleware(request: Request, call_next):
         candidate_api_key = bearer_token
     elif api_key.startswith("muara_ubsi_"):
         candidate_api_key = api_key
-    elif request.url.path.endswith("/download"):
-        q_key = request.query_params.get("api_key") or ""
-        if q_key.startswith("muara_ubsi_"):
-            candidate_api_key = q_key
 
     if candidate_api_key:
         from app.api_keys_db import resolve_api_key

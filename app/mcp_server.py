@@ -14,23 +14,20 @@ import os
 from typing import Any, Optional
 import httpx
 from mcp.server.mcpserver import Context, MCPServer
-from urllib.parse import parse_qs, urlparse
 
 
 
 def _context_credentials(ctx: Context | None) -> tuple[str | None, str | None]:
-    """Read credentials from the current HTTP MCP request without logging them."""
+    """Read credentials from MCP HTTP headers without accepting URL secrets."""
     if ctx is None:
         return None, None
     headers = ctx.headers or {}
     authorization = headers.get("authorization", "")
     if authorization.lower().startswith("bearer "):
         return None, authorization[7:].strip()
-    request = getattr(ctx.request_context, "request", None)
-    url = str(getattr(request, "url", ""))
-    query = parse_qs(urlparse(url).query)
-    key = (query.get("api_key") or query.get("key") or [None])[0]
-    return key, None
+    api_key = headers.get("x-api-key", "").strip()
+    return api_key or None, None
+
 
 
 def _resolve_credentials(
