@@ -235,6 +235,8 @@ async def test_channels_crud_flow(fake_redis, tmp_path):
         res = await ac.get("/v1/channels", headers=auth_headers)
         assert res.status_code == 200
         assert res.json()["data"]["total"] == 1
+        listed_config = res.json()["data"]["channels"][0]["config"]
+        assert "abcdefghijklmnopqrstuvwxyz123456" not in listed_config["url"]
 
         # Invalid payload rejected
         res = await ac.post(
@@ -250,6 +252,49 @@ async def test_channels_crud_flow(fake_redis, tmp_path):
         assert res.status_code == 200
         res = await ac.get("/v1/channels", headers=auth_headers)
         assert res.json()["data"]["total"] == 0
+
+
+@pytest.mark.asyncio
+async def test_channel_categories_can_be_updated_only_by_owner(fake_redis):
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        owner_token = await _login(ac, fake_redis, nim="15260767")
+        owner_headers = {"Authorization": f"Bearer {owner_token}"}
+        created = await ac.post(
+            "/v1/channels",
+            headers=owner_headers,
+            json={
+                "type": "custom",
+                "categories": ["berita-kampus"],
+                "config": {"url": "https://example.com/hook"},
+            },
+        )
+        channel_id = created.json()["data"]["id"]
+
+        updated = await ac.patch(
+            f"/v1/channels/{channel_id}",
+            headers=owner_headers,
+            json={"categories": ["nilai-keluar", "jadwal-ujian"]},
+        )
+        assert updated.status_code == 200
+        assert updated.json()["data"]["categories"] == ["nilai-keluar", "jadwal-ujian"]
+
+        invalid = await ac.patch(
+            f"/v1/channels/{channel_id}",
+            headers=owner_headers,
+            json={"categories": []},
+        )
+        assert invalid.status_code == 400
+        assert invalid.json()["error"]["code"] == "VALIDATION_ERROR"
+
+        other_token = await _login(ac, fake_redis, nim="15260768")
+        forbidden = await ac.patch(
+            f"/v1/channels/{channel_id}",
+            headers={"Authorization": f"Bearer {other_token}"},
+            json={"categories": ["berita-kampus"]},
+        )
+        assert forbidden.status_code == 404
+        assert forbidden.json()["error"]["code"] == "NOT_FOUND"
 
 
 @pytest.mark.asyncio

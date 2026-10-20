@@ -5,13 +5,14 @@ from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from app.channel_validation import validate_channel_payload
+from app.channel_validation import ALLOWED_CATEGORIES, validate_channel_payload
 from app.channels_db import (
     add_channel,
     delete_channel,
     get_channel,
     list_channels,
     set_channel_active,
+    update_channel_categories,
 )
 from app.envelope import error_response, success_response
 
@@ -26,6 +27,10 @@ class ChannelRequest(BaseModel):
 
 class ReminderRequest(BaseModel):
     category: str = Field(default="matkul-besok", max_length=64)
+
+
+class ChannelCategoriesRequest(BaseModel):
+    categories: list[str] = Field(..., max_length=5)
 
 
 def _require_session_nim(request: Request) -> str:
@@ -87,6 +92,35 @@ async def create_channel(request: Request, body: ChannelRequest):
     )
 
 
+@router.patch("/{channel_id}")
+async def edit_channel_categories(
+    channel_id: int, request: Request, body: ChannelCategoriesRequest
+):
+    nim = _require_session_nim(request)
+    if not body.categories:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_response(code="VALIDATION_ERROR", message="Minimal pilih satu kategori event notifikasi", module="channels"),
+        )
+    invalid = [category for category in body.categories if category not in ALLOWED_CATEGORIES]
+    if invalid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_response(
+                code="VALIDATION_ERROR",
+                message=f"Kategori tidak dikenal: {', '.join(invalid)}",
+                module="channels",
+            ),
+        )
+    updated = await update_channel_categories(nim, channel_id, body.categories)
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=error_response(code="NOT_FOUND", message="Channel tidak ditemukan", module="channels"),
+        )
+    return success_response(data={"id": channel_id, "categories": body.categories, "message": "Kategori webhook diperbarui"})
+
+
 @router.delete("/{channel_id}")
 async def remove_channel(channel_id: int, request: Request):
     nim = _require_session_nim(request)
@@ -138,6 +172,7 @@ async def test_channel(channel_id: int, request: Request):
             ok = await dispatch_webhook_notification(
                 {"title": "Tes Channel Muara AI", "description": "Channel notifikasi aktif.", "link": "https://ubsi-api.muaraai.com"},
                 config["url"],
+                event="channel.test",
             )
     except Exception:
         ok = False
@@ -164,7 +199,7 @@ async def trigger_reminder(request: Request, body: ReminderRequest):
 
     from app.channels_db import list_channels
 
-    channels = await list_channels(nim)
+    channels = await list_channels(nim, mask=False)
     active_matching = [
         ch for ch in channels if ch["is_active"] and category in ch["categories"]
     ]
@@ -182,11 +217,29 @@ async def trigger_reminder(request: Request, body: ReminderRequest):
             "description": "Halo! Besok ada jadwal perkuliahan aktif. Siapkan perlengkapan, modul materi, dan hadir tepat waktu di ruang kelas.",
             "link": "https://ubsi-api.muaraai.com/dashboard/jadwal",
         }
-    elif category == "quiz-tugas":
+    elif category in ("quiz-tugas", "tugas-baru"):
         payload = {
             "title": "Pengingat Tugas & Kuis - MyBest Elearning",
             "description": "Periksa pertemuan aktif di portal MyBest. Pastikan tugas mingguan dan kuis telah disubmit sebelum tenggat waktu.",
-            "link": "https://elearning.bsi.ac.id",
+            "link": "https://ubsi-api.muaraai.com/dashboard/tugas",
+        }
+    elif category == "absen-kuliah":
+        payload = {
+            "title": "Sesi Presensi Perkuliahan Dibuka - MyBest",
+            "description": "Sesi absensi perkuliahan telah dibuka. Silakan lakukan presensi kehadiran sekarang di portal MyBest.",
+            "link": "https://ubsi-api.muaraai.com/dashboard/presensi",
+        }
+    elif category == "nilai-keluar":
+        payload = {
+            "title": "Pemberitahuan Nilai & KHS Semester - SIAKAD",
+            "description": "Pembaruan nilai mata kuliah dan Kartu Hasil Studi (KHS) telah dipublikasikan di SIAKAD UBSI.",
+            "link": "https://ubsi-api.muaraai.com/dashboard/nilai",
+        }
+    elif category == "jadwal-ujian":
+        payload = {
+            "title": "Pengingat Jadwal & Ruang Ujian - SIAKAD",
+            "description": "Informasi jadwal ruang ujian semester (UTS / UAS) telah dirilis. Periksa jadwal dan persiapan ujian Anda.",
+            "link": "https://ubsi-api.muaraai.com/dashboard/ujian",
         }
     else:
         payload = {
@@ -209,7 +262,7 @@ async def trigger_reminder(request: Request, body: ReminderRequest):
             elif ch["type"] == "telegram":
                 ok = await dispatch_telegram_message(payload, cfg["bot_token"], cfg["chat_id"])
             else:
-                ok = await dispatch_webhook_notification(payload, cfg["url"])
+                ok = await dispatch_webhook_notification(payload, cfg["url"], event=f"reminder.{category}")
             return {"channel_id": ch["id"], "type": ch["type"], "success": ok}
         except Exception:
             return {"channel_id": ch["id"], "type": ch["type"], "success": False}
