@@ -16,6 +16,7 @@ from app.envelope import success_response, error_response
 from app.cache import cache
 from app.retry import retry_async
 from app.session_pool import SessionPool
+from app.upstream_session import UpstreamSession
 from app.proxy import get_proxy
 from app.router_helper import cached_endpoint
 
@@ -325,8 +326,10 @@ def parse_lecturers(html: str, search: Optional[str] = None) -> list[dict[str, A
 
 # Authenticated Client Session
 
-class StudentV2Client:
+class StudentV2Client(UpstreamSession):
     BASE_URL = "https://students.bsi.ac.id"
+    MODULE = "studentv2"
+    HOST_LABEL = "students.bsi.ac.id"
     HEADERS = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         "Origin": "https://students.bsi.ac.id",
@@ -337,7 +340,7 @@ class StudentV2Client:
         self._proxy = proxy
         self._client: Optional[httpx.Client] = None
         self._logged_in: bool = False
-        self._login_lock = asyncio.Lock()
+        self._init_upstream_session()
 
     def get_client(self) -> httpx.Client:
         if self._client is None or self._client.is_closed:
@@ -371,7 +374,7 @@ class StudentV2Client:
             }
             r2 = client.post(login_url, data=payload)
             if "mahasiswa/beranda" in str(r2.url) or "students.bsi.ac.id/mahasiswa" in str(r2.url) or "studentv2.bsi.ac.id/mahasiswa" in str(r2.url):
-                self._logged_in = True
+                self._mark_logged_in()
                 return True
             logger.warning("SIAKAD login rejected for %s: ended at %s (status %s)", nim, r2.url, r2.status_code)
             return False
@@ -380,38 +383,8 @@ class StudentV2Client:
             return False
 
     def fetch_page(self, path: str, nim: str, password: str) -> str:
-        client = self.get_client()
-        target_url = f"{self.BASE_URL}{path}"
-        
-        if not self._logged_in:
-            ok = self.login(nim, password)
-            if not ok:
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail=error_response(
-                        code="AUTH_FAILED",
-                        message="Gagal login ke students.bsi.ac.id",
-                        module="studentv2"
-                    )
-                )
-
-        r = client.get(target_url)
-        
-        # Check if redirected to login (expired session)
-        if "/login" in str(r.url):
-            ok = self.login(nim, password)
-            if not ok:
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail=error_response(
-                        code="AUTH_EXPIRED",
-                        message="Sesi login studentv2 kedaluwarsa dan gagal login ulang",
-                        module="studentv2"
-                    )
-                )
-            r = client.get(target_url)
-
-        return r.text
+        # Sesi upstream ~15 menit: diperbarui otomatis memakai kredensial session dashboard.
+        return self.authed_request("GET", path, nim, password).text
 
 class PooledStudentV2Client:
     """Fasade client dengan pool sesi per-NIM.
