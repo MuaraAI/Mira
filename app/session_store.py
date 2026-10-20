@@ -149,6 +149,17 @@ class SessionStore:
                 await client.srem(_INDEX_PREFIX + nim, token_hash)
         await client.delete(key)
 
+    async def get_credentials_for_nim(self, nim: str) -> Optional[tuple[str, str, str]]:
+        """Resolve one active encrypted session for background notifications."""
+        client = await self.get_client()
+        token_hashes = await client.smembers(_INDEX_PREFIX + nim)
+        for token_hash in token_hashes:
+            raw = await client.get(_KEY_PREFIX + token_hash)
+            data = _decrypt_payload(raw, settings.API_KEY) if raw else None
+            if data and data.get("studentv2_pass") and data.get("elearning_pass"):
+                return str(data["nim"]), str(data["studentv2_pass"]), str(data["elearning_pass"])
+        return None
+
     async def delete_all_for_nim(self, nim: str) -> int:
         client = await self.get_client()
         index_key = _INDEX_PREFIX + nim

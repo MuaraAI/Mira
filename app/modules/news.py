@@ -1,6 +1,7 @@
 import asyncio
 import html
 import json
+import logging
 import re
 import urllib.parse
 from datetime import datetime, timezone
@@ -15,6 +16,11 @@ from app.envelope import success_response, error_response
 from app.cache import cache
 from app.router_helper import cached_endpoint
 from app.proxy import get_proxy
+from app.session_store import session_store
+from app.modules.studentv2 import parse_announcements, parse_schedule, studentv2_client
+from app.channels_db import list_active_by_category
+
+logger = logging.getLogger("app.notifications")
 
 router = APIRouter(prefix="/v1/news", tags=["news"])
 
@@ -170,12 +176,188 @@ async def get_news_detail(post_id: str = Path(..., pattern=r"^[0-9]+$")):
         cache_params={"post_id": post_id},
     )
 
-# News Multi-Channel Auto-Notification (Discord, Telegram, Custom)
+# News and user notification dispatch (Discord, Telegram, Custom)
 
-async def dispatch_webhook_notification(post: dict[str, Any], webhook_url: str) -> bool:
+_DAY_NAMES = ("Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu")
+
+
+def build_schedule_notification(
+    courses: list[dict[str, Any]], now: Optional[datetime] = None
+) -> Optional[dict[str, Any]]:
+    """Build one H-1 payload from courses scheduled for tomorrow in WIB."""
+    from zoneinfo import ZoneInfo
+
+    current = now or datetime.now(ZoneInfo("Asia/Jakarta"))
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=ZoneInfo("Asia/Jakarta"))
+    tomorrow = _DAY_NAMES[(current.astimezone(ZoneInfo("Asia/Jakarta")).weekday() + 1) % 7]
+    matches = [course for course in courses if str(course.get("hari", "")).strip().lower() == tomorrow.lower()]
+    if not matches:
+        return None
+    lines = [
+        f"- {course.get('nama', 'Mata kuliah')} | {course.get('jam', 'Jam belum tersedia')} | Ruang {course.get('ruang', '-') }"
+        for course in matches
+    ]
+    return {
+        "category": "matkul-besok",
+        "title": f"Jadwal Kuliah Besok: {tomorrow}",
+        "description": "\n".join(lines),
+        "link": "https://ubsi-api.muaraai.com/dashboard/jadwal",
+    }
+
+
+async def _dispatch_user_channel(channel: dict[str, Any], payload: dict[str, Any]) -> bool:
+    config = channel["config"]
+    if channel["type"] == "discord":
+        return await dispatch_discord_webhook(payload, config["url"])
+    if channel["type"] == "telegram":
+        return await dispatch_telegram_message(payload, config["bot_token"], config["chat_id"])
+    return await dispatch_webhook_notification(payload, config["url"])
+
+
+async def _produce_user_category(category: str) -> int:
+    channels = await list_active_by_category(category)
+    if not channels:
+        return 0
+    redis = await cache.get_client()
+    sent = 0
+    seen_nims: set[str] = set()
+    for channel in channels:
+        nim = str(channel["nim"])
+        if nim in seen_nims:
+            continue
+        seen_nims.add(nim)
+        credentials = await session_store.get_credentials_for_nim(nim)
+        if not credentials:
+            from app.api_keys_db import get_credentials_for_nim
+            credentials = await get_credentials_for_nim(nim)
+        if not credentials:
+            continue
+        _, student_password, elearning_password = credentials
+        try:
+            payload = None
+            if category == "matkul-besok":
+                raw = await studentv2_client.fetch_page("/mahasiswa/jadwal-kuliah", nim, student_password)
+                payload = build_schedule_notification(parse_schedule(raw))
+            elif category == "pengumuman-siakad":
+                raw = await studentv2_client.fetch_page("/mahasiswa/beranda", nim, student_password)
+                announcements = parse_announcements(raw)
+                if announcements:
+                    latest = announcements[0]
+                    payload = {
+                        "category": category,
+                        "title": f"Pengumuman SIAKAD: {latest['title']}",
+                        "description": "Ada pengumuman akademik baru di SIAKAD UBSI.",
+                        "link": latest.get("pdf_url") or "https://ubsi-api.muaraai.com/dashboard/berita",
+                    }
+            elif category in ("quiz-tugas", "tugas-baru"):
+                from app.modules.elearning import parse_assignments, parse_courses, parse_quiz, pooled_elearning_client
+                raw_quiz = await pooled_elearning_client.fetch_page("/exercise", nim, elearning_password)
+                raw_assignments = await pooled_elearning_client.fetch_page("/sch", nim, elearning_password)
+                quiz_items = parse_quiz(raw_quiz)
+                task_count = 0
+                for course in parse_courses(raw_assignments):
+                    token_assignment = course.get("token_assignment")
+                    if token_assignment:
+                        task_html = await pooled_elearning_client.fetch_page(f"/assignment/{token_assignment}", nim, elearning_password)
+                        task_count += len(parse_assignments(task_html).get("tasks", []))
+                if quiz_items or task_count:
+                    payload = {
+                        "category": category,
+                        "title": "Tugas dan kuis MyBest tersedia",
+                        "description": f"Tersedia {task_count} tugas dan {len(quiz_items)} kuis di MyBest. Periksa dashboard sebelum tenggat.",
+                        "link": "https://ubsi-api.muaraai.com/dashboard/tugas",
+                    }
+            elif category == "absen-kuliah":
+                from app.modules.elearning import parse_courses, inspect_session_status, pooled_elearning_client
+                raw_courses = await pooled_elearning_client.fetch_page("/sch", nim, elearning_password)
+                courses = parse_courses(raw_courses)
+                for course in courses:
+                    t_absen = course.get("token_absen")
+                    if not t_absen:
+                        continue
+                    html_absen = await pooled_elearning_client.fetch_page(f"/absen-mhs/{t_absen}", nim, elearning_password)
+                    status_info = inspect_session_status(html_absen)
+                    if status_info.get("can_submit"):
+                        payload = {
+                            "category": category,
+                            "title": f"Presensi Dibuka: {course.get('nama', 'Kuliah')}",
+                            "description": f"Sesi absensi pertemuan {status_info.get('pertemuan', '-')} mata kuliah {course.get('nama')} telah dibuka di MyBest. Segera lakukan presensi kehadiran.",
+                            "link": "https://ubsi-api.muaraai.com/dashboard/presensi",
+                        }
+                        break
+            elif category == "nilai-keluar":
+                from app.modules.studentv2 import parse_grades
+                raw_grades = await studentv2_client.fetch_page("/mahasiswa/nilai-murni", nim, student_password)
+                grades = parse_grades(raw_grades)
+                graded = [g for g in grades if g.get("grade")]
+                if graded:
+                    target = graded[0]
+                    payload = {
+                        "category": category,
+                        "title": f"Nilai Dirilis: {target['nama']}",
+                        "description": f"Nilai akhir mata kuliah {target['nama']} ({target['kode']}) telah dirilis di SIAKAD: Grade {target['grade']} (Total: {target.get('total')}).",
+                        "link": "https://ubsi-api.muaraai.com/dashboard/nilai",
+                    }
+            elif category == "jadwal-ujian":
+                from app.modules.studentv2 import parse_uts, parse_uas
+                raw_uts = await studentv2_client.fetch_page("/mahasiswa/uts", nim, student_password)
+                raw_uas = await studentv2_client.fetch_page("/mahasiswa/uas", nim, student_password)
+                uts = parse_uts(raw_uts)
+                uas = parse_uas(raw_uas)
+                if uts.get("jadwal_online_url") or uts.get("soal_offline_url"):
+                    payload = {
+                        "category": category,
+                        "title": "Jadwal & Ruang UTS Telah Diumumkan",
+                        "description": "Informasi jadwal ruang ujian tengah semester (UTS) telah dirilis di SIAKAD. Periksa jadwal dan persiapan ujian Anda.",
+                        "link": "https://ubsi-api.muaraai.com/dashboard/ujian",
+                    }
+                elif uas.get("jadwal_online_url") or uas.get("soal_offline_url"):
+                    payload = {
+                        "category": category,
+                        "title": "Jadwal & Ruang UAS Telah Diumumkan",
+                        "description": "Informasi jadwal ruang ujian akhir semester (UAS) telah dirilis di SIAKAD. Periksa jadwal dan persiapan ujian Anda.",
+                        "link": "https://ubsi-api.muaraai.com/dashboard/ujian",
+                    }
+            if not payload:
+                continue
+            from zoneinfo import ZoneInfo
+            date_key = datetime.now(ZoneInfo("Asia/Jakarta")).date().isoformat()
+            dedupe_key = f"ubsi:notify:sent:{nim}:{category}:{date_key}"
+            if await redis.get(dedupe_key):
+                continue
+            matching = [item for item in channels if str(item["nim"]) == nim]
+            results = await asyncio.gather(*(_dispatch_user_channel(item, payload) for item in matching), return_exceptions=True)
+            if any(result is True for result in results):
+                await redis.set(dedupe_key, "1", ex=172800)
+                sent += 1
+        except Exception:
+            logger.exception("User notification producer failed for NIM %s category %s", nim, category)
+    return sent
+
+
+async def poll_user_notifications() -> int:
+    """Produce account-scoped notifications from existing authenticated data sources."""
+    total = 0
+    for category in (
+        "matkul-besok",
+        "quiz-tugas",
+        "tugas-baru",
+        "pengumuman-siakad",
+        "absen-kuliah",
+        "nilai-keluar",
+        "jadwal-ujian",
+    ):
+        total += await _produce_user_category(category)
+    return total
+
+
+async def dispatch_webhook_notification(
+    post: dict[str, Any], webhook_url: str, event: str = "news.published"
+) -> bool:
     """Kirim generic JSON payload ke custom webhook URL."""
     payload = {
-        "event": "news.published",
+        "event": event,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "data": post,
     }
@@ -189,7 +371,7 @@ async def dispatch_webhook_notification(post: dict[str, Any], webhook_url: str) 
 async def dispatch_discord_webhook(post: dict[str, Any], webhook_url: str) -> bool:
     """Kirim rich embed ke Discord Webhook."""
     title = (post.get("title") or "Berita Baru UBSI")[:256]
-    description = (post.get("excerpt") or "")[:4000]
+    description = (post.get("description") or post.get("excerpt") or "")[:4000]
     author_name = (post.get("author") or "Redaksi")[:256]
 
     embed: dict[str, Any] = {
@@ -218,22 +400,23 @@ async def dispatch_discord_webhook(post: dict[str, Any], webhook_url: str) -> bo
 async def dispatch_telegram_message(post: dict[str, Any], bot_token: str, chat_id: str) -> bool:
     """Kirim pesan HTML dengan foto (jika ada) ke Telegram via Bot API."""
     raw_title = post.get("title", "Berita Kampus UBSI")
-    raw_excerpt = post.get("excerpt", "")
+    raw_excerpt = post.get("description") or post.get("excerpt", "")
     raw_author = post.get("author", "Redaksi")
     date = post.get("date", "")
     link = post.get("link", "https://news.bsi.ac.id")
     image_url = post.get("featured_image")
 
     # Escape karakter khusus HTML agar Telegram Bot API tidak melempar 400 Bad Request
-    title = html.escape(raw_title, quote=False)
-    excerpt = html.escape(raw_excerpt, quote=False)
-    author = html.escape(raw_author, quote=False)
+    safe_link = html.escape(str(link), quote=True)
+    title = html.escape(raw_title, quote=True)
+    excerpt = html.escape(raw_excerpt, quote=True)
+    author = html.escape(raw_author, quote=True)
 
     caption = (
-        f"📰 <b><a href=\"{link}\">{title}</a></b>\n\n"
+        f"📰 <b><a href=\"{safe_link}\">{title}</a></b>\n\n"
         f"{excerpt}\n\n"
         f"✍️ <i>{author}</i> • 📅 {date}\n"
-        f"🔗 <a href=\"{link}\">Baca Selengkapnya di Portal Berita</a>"
+        f"🔗 <a href=\"{safe_link}\">Baca Selengkapnya di Portal Berita</a>"
     )
 
     base_url = f"https://api.telegram.org/bot{bot_token}"
@@ -349,12 +532,13 @@ async def poll_news_webhook() -> int:
         p_id = p.get("id")
         if not p_id:
             continue
-        is_member = await redis.sismember(key_seen, p_id)
-        if not is_member:
+        claimed = await redis.sadd(key_seen, p_id)
+        if claimed:
             results = await broadcast_news_article(p)
             if any(results.values()):
-                await redis.sadd(key_seen, p_id)
                 dispatched_count += 1
+            else:
+                await redis.srem(key_seen, p_id)
 
     return dispatched_count
 
@@ -362,8 +546,9 @@ async def news_webhook_worker():
     while True:
         try:
             await poll_news_webhook()
+            await poll_user_notifications()
         except Exception:
-            pass
+            logger.exception("Notification worker iteration failed")
         await asyncio.sleep(settings.NEWS_WEBHOOK_INTERVAL)
 
 def is_safe_webhook_url(url_str: str) -> bool:

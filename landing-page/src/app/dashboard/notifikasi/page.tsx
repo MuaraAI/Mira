@@ -13,6 +13,9 @@ import {
   BookOpen,
   CalendarCheck,
   GraduationCap,
+  Clock,
+  Award,
+  FileText,
 } from "lucide-react";
 import { apiFetch, ApiError, useApi, clearApiCache } from "@/lib/api";
 import {
@@ -47,8 +50,14 @@ const AVAILABLE_CATEGORIES = [
   },
   {
     id: "quiz-tugas",
-    label: "Tugas Baru & Kuis MyBest",
+    label: "Tugas dan Kuis MyBest",
     desc: "Pengingat berkala kuis atau tugas kuliah yang belum dikerjakan.",
+    icon: BookOpen,
+  },
+  {
+    id: "tugas-baru",
+    label: "Tugas Baru",
+    desc: "Pemberitahuan saat tugas baru terdeteksi di MyBest.",
     icon: BookOpen,
   },
   {
@@ -63,6 +72,24 @@ const AVAILABLE_CATEGORIES = [
     desc: "Pemberitahuan akademik resmi dari sistem studentv2 kampus.",
     icon: GraduationCap,
   },
+  {
+    id: "absen-kuliah",
+    label: "Presensi Kuliah Terbuka",
+    desc: "Pemberitahuan saat sesi absensi pertemuan dibuka di MyBest.",
+    icon: Clock,
+  },
+  {
+    id: "nilai-keluar",
+    label: "Rilis Nilai & KHS",
+    desc: "Notifikasi otomatis saat nilai akhir atau KHS semester dipublikasikan.",
+    icon: Award,
+  },
+  {
+    id: "jadwal-ujian",
+    label: "Jadwal & Ruang Ujian",
+    desc: "Pengingat jadwal, ruang, dan unduhan soal ruang UTS / UAS.",
+    icon: FileText,
+  },
 ] as const;
 
 const TYPE_CONFIG = {
@@ -73,7 +100,7 @@ const TYPE_CONFIG = {
   },
   telegram: {
     label: "Telegram Bot",
-    hint: "Buat bot via @BotFather untuk token, dan kirim /start ke @userinfobot untuk Chat ID Anda.",
+    hint: "Buat bot via @BotFather, buka bot Anda lalu klik START, lalu ambil Chat ID via @userinfobot.",
   },
   custom: {
     label: "Custom HTTP Endpoint",
@@ -88,6 +115,8 @@ export default function NotifikasiPage() {
   );
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingChannelId, setEditingChannelId] = useState<number | null>(null);
+  const [editCategories, setEditCategories] = useState<string[]>([]);
   const [type, setType] = useState<Channel["type"]>("discord");
   const [url, setUrl] = useState("");
   const [botToken, setBotToken] = useState("");
@@ -106,7 +135,16 @@ export default function NotifikasiPage() {
   const [triggerStatus, setTriggerStatus] = useState<string | null>(null);
   const [triggering, setTriggering] = useState<string | null>(null);
 
-  async function handleSimulate(cat: "matkul-besok" | "quiz-tugas") {
+  async function handleSimulate(
+    cat:
+      | "matkul-besok"
+      | "quiz-tugas"
+      | "tugas-baru"
+      | "pengumuman-siakad"
+      | "absen-kuliah"
+      | "nilai-keluar"
+      | "jadwal-ujian"
+  ) {
     setTriggering(cat);
     setTriggerStatus(null);
     try {
@@ -162,8 +200,11 @@ export default function NotifikasiPage() {
 
     setSaving(true);
     try {
-      await apiFetch("/v1/channels", { json: { type, categories, config } });
+      const created = await apiFetch<{ id: number }>("/v1/channels", { json: { type, categories, config } });
       clearApiCache("/v1/channels");
+      if (created?.id) {
+        await handleTest(created.id);
+      }
       setUrl("");
       setBotToken("");
       setChatId("");
@@ -173,6 +214,44 @@ export default function NotifikasiPage() {
       setFormError(
         err instanceof ApiError ? err.message : "Gagal menambahkan webhook channel."
       );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function openEditCategories(channel: Channel) {
+    setEditingChannelId(channel.id);
+    setEditCategories([...channel.categories]);
+    setFormError(null);
+  }
+
+  function toggleEditCategory(categoryId: string) {
+    setEditCategories((current) =>
+      current.includes(categoryId)
+        ? current.filter((category) => category !== categoryId)
+        : [...current, categoryId]
+    );
+  }
+
+  async function handleEditCategories(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingChannelId || editCategories.length === 0) {
+      setFormError("Minimal pilih satu kategori event notifikasi.");
+      return;
+    }
+    setSaving(true);
+    setFormError(null);
+    try {
+      await apiFetch(`/v1/channels/${editingChannelId}`, {
+        method: "PATCH",
+        json: { categories: editCategories },
+      });
+      clearApiCache("/v1/channels");
+      setEditingChannelId(null);
+      setEditCategories([]);
+      reload();
+    } catch (err) {
+      setFormError(err instanceof ApiError ? err.message : "Gagal memperbarui kategori webhook.");
     } finally {
       setSaving(false);
     }
@@ -199,7 +278,7 @@ export default function NotifikasiPage() {
     }
   }
 
-  async function handleTest(id: number) {
+  async function handleTest(id: number): Promise<boolean> {
     setBusyId(id);
     setActionStatus((s) => ({ ...s, [id]: { ok: true, message: "Mengirim sinyal tes..." } }));
     try {
@@ -209,6 +288,7 @@ export default function NotifikasiPage() {
       setActionStatus((s) => ({ ...s, [id]: { ok: true, message: res.message } }));
       clearApiCache("/v1/channels");
       reload();
+      return true;
     } catch (err) {
       setActionStatus((s) => ({
         ...s,
@@ -217,6 +297,7 @@ export default function NotifikasiPage() {
           message: err instanceof ApiError ? err.message : "Pengiriman pesan tes gagal.",
         },
       }));
+      return false;
     } finally {
       setBusyId(null);
     }
@@ -339,6 +420,15 @@ export default function NotifikasiPage() {
               <div className="mt-5 pt-3 border-t border-white/10 flex items-center justify-between gap-2">
                 <button
                   type="button"
+                  onClick={() => openEditCategories(ch)}
+                  disabled={busyId === ch.id}
+                  className={`${ghostButtonClass} text-xs py-1.5 px-3`}
+                >
+                  <Radio className="h-3.5 w-3.5" aria-hidden="true" />
+                  Edit Kategori
+                </button>
+                <button
+                  type="button"
                   onClick={() => handleTest(ch.id)}
                   disabled={busyId === ch.id}
                   className={`${ghostButtonClass} text-xs py-1.5 px-3`}
@@ -390,7 +480,34 @@ export default function NotifikasiPage() {
                 className={`${ghostButtonClass} text-xs py-1.5 px-3`}
               >
                 <BookOpen className="h-3.5 w-3.5 text-[#0369A1]" />
-                {triggering === "quiz-tugas" ? "Mengirim..." : "Tes Notif Tugas & Kuis"}
+                {triggering === "quiz-tugas" ? "Mengirim..." : "Tes Tugas & Kuis"}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSimulate("absen-kuliah")}
+                disabled={Boolean(triggering)}
+                className={`${ghostButtonClass} text-xs py-1.5 px-3`}
+              >
+                <Clock className="h-3.5 w-3.5 text-[#0369A1]" />
+                {triggering === "absen-kuliah" ? "Mengirim..." : "Tes Presensi"}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSimulate("nilai-keluar")}
+                disabled={Boolean(triggering)}
+                className={`${ghostButtonClass} text-xs py-1.5 px-3`}
+              >
+                <Award className="h-3.5 w-3.5 text-[#0369A1]" />
+                {triggering === "nilai-keluar" ? "Mengirim..." : "Tes Nilai"}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSimulate("jadwal-ujian")}
+                disabled={Boolean(triggering)}
+                className={`${ghostButtonClass} text-xs py-1.5 px-3`}
+              >
+                <FileText className="h-3.5 w-3.5 text-[#0369A1]" />
+                {triggering === "jadwal-ujian" ? "Mengirim..." : "Tes Ujian"}
               </button>
             </div>
           </div>
@@ -401,6 +518,34 @@ export default function NotifikasiPage() {
               <span>{triggerStatus}</span>
             </div>
           )}
+        </div>
+      )}
+
+      {editingChannelId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+          <div className="glass-card-3d w-full max-w-xl p-6 sm:p-7 relative max-h-[90vh] overflow-y-auto space-y-5 rounded-2xl shadow-2xl border border-[#0369A1]/30" role="dialog" aria-modal="true" aria-labelledby="edit-category-title">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div>
+                <h2 id="edit-category-title" className="text-lg font-display font-bold text-foreground">Edit Kategori Webhook</h2>
+                <p className="text-xs text-secondary mt-0.5">Tambah atau hapus jenis notifikasi tanpa mengubah kredensial channel.</p>
+              </div>
+              <button type="button" onClick={() => setEditingChannelId(null)} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-secondary hover:text-foreground hover:bg-[#F0F7FB]" aria-label="Tutup edit kategori"><X className="h-5 w-5" /></button>
+            </div>
+            <form onSubmit={handleEditCategories} className="space-y-4">
+              {formError && <div className="p-3 rounded-lg bg-[#F0F7FB] border border-[#BE123C]/30 text-[#BE123C] text-xs"><span>{formError}</span></div>}
+              <div className="space-y-2">
+                {AVAILABLE_CATEGORIES.map((cat) => {
+                  const active = editCategories.includes(cat.id);
+                  const Icon = cat.icon;
+                  return <button key={cat.id} type="button" onClick={() => toggleEditCategory(cat.id)} className={`w-full text-left p-3 rounded-xl border transition-all flex items-start gap-3 ${active ? "bg-[#0369A1]/20 border-[#0369A1]/60" : "bg-white/5 border-white/10 hover:bg-white/10"}`} aria-pressed={active}>
+                    <span className={`mt-0.5 h-4 w-4 rounded border ${active ? "bg-[#0369A1] border-[#0369A1]" : "border-[#9FB4C2]"}`} aria-hidden="true" />
+                    <span className="flex-1"><span className="flex items-center gap-1.5 font-semibold text-xs text-foreground"><Icon className="h-3.5 w-3.5 text-[#0369A1]" />{cat.label}</span><span className="block text-[11px] text-secondary mt-0.5">{cat.desc}</span></span>
+                  </button>;
+                })}
+              </div>
+              <div className="pt-3 border-t border-white/10 flex justify-end gap-3"><button type="button" onClick={() => setEditingChannelId(null)} className={ghostButtonClass}>Batal</button><button type="submit" disabled={saving} className={primaryButtonClass}>{saving ? "Menyimpan..." : "Simpan Kategori"}</button></div>
+            </form>
+          </div>
         </div>
       )}
 

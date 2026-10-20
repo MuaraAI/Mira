@@ -382,8 +382,8 @@ API_DOCS_DATA: dict[str, Any] = {
                 "path": "/v1/channels/trigger-reminder",
                 "method": "POST",
                 "auth": "Session Token",
-                "description": "Trigger pengingat kuliah instan ('matkul-besok' atau 'quiz-tugas').",
-                "payload": {"category": "matkul-besok | quiz-tugas"},
+                "description": "Trigger pengingat kuliah instan ('matkul-besok', 'quiz-tugas', 'tugas-baru', 'absen-kuliah', 'nilai-keluar', 'jadwal-ujian').",
+                "payload": {"category": "matkul-besok | quiz-tugas | tugas-baru | pengumuman-siakad | absen-kuliah | nilai-keluar | jadwal-ujian"},
             },
         ],
         "stats": [

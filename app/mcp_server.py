@@ -534,7 +534,7 @@ async def ubsi_list_channels(session_token: Optional[str] = None, api_key: Optio
 
 @server.tool(
     name="ubsi_trigger_reminder",
-    description="Kirim pengingat event langsung (kategori: 'matkul-besok' atau 'quiz-tugas') ke seluruh channel aktif mahasiswa.",
+    description="Kirim pengingat event langsung (kategori: 'matkul-besok', 'quiz-tugas', 'tugas-baru', 'pengumuman-siakad', 'absen-kuliah', 'nilai-keluar', 'jadwal-ujian') ke seluruh channel aktif mahasiswa.",
 )
 async def ubsi_trigger_reminder(
     category: str = "matkul-besok",
