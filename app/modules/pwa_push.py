@@ -13,8 +13,10 @@ from app.envelope import error_response, success_response
 from app.pwa_push_db import (
     add_subscription,
     get_active_subscriptions_for_nim,
+    list_categories,
     list_subscriptions,
     remove_subscription,
+    set_categories,
 )
 from app.pwa_webpush import send_web_push
 
@@ -41,6 +43,10 @@ class SubscribeRequest(BaseModel):
     endpoint: str = Field(..., min_length=8, max_length=2048)
     keys: dict[str, str] = Field(..., min_length=1, max_length=2)
     device_name: str = Field(default="Browser", max_length=64)
+
+
+class CategoriesRequest(BaseModel):
+    categories: list[str] = Field(..., min_length=1, max_length=16)
 
 
 @router.get("/vapid-key")
@@ -103,6 +109,31 @@ async def list_devices(request: Request):
     nim = _require_session_nim(request)
     devices = await list_subscriptions(nim)
     return success_response(data={"devices": devices, "total": len(devices)})
+
+
+@router.get("/categories")
+async def get_my_categories(request: Request):
+    nim = _require_session_nim(request)
+    cats = await list_categories(nim)
+    return success_response(data={"categories": cats, "total": len(cats)})
+
+
+@router.put("/categories")
+async def update_my_categories(request: Request, body: CategoriesRequest):
+    nim = _require_session_nim(request)
+    try:
+        await set_categories(nim, body.categories)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_response(
+                code="VALIDATION_ERROR",
+                message=str(exc),
+                module="pwa-push",
+            ),
+        )
+    cats = await list_categories(nim)
+    return success_response(data={"categories": cats, "total": len(cats)})
 
 
 @router.delete("/devices/{device_id}")

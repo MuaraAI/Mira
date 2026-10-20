@@ -27,7 +27,17 @@ CREATE TABLE IF NOT EXISTS pwa_push_subscriptions (
 );
 CREATE INDEX IF NOT EXISTS idx_pwa_push_nim ON pwa_push_subscriptions(nim);
 CREATE INDEX IF NOT EXISTS idx_pwa_push_endpoint ON pwa_push_subscriptions(endpoint);
+CREATE TABLE IF NOT EXISTS pwa_push_categories (
+    nim TEXT NOT NULL,
+    category TEXT NOT NULL,
+    PRIMARY KEY (nim, category)
+);
 """
+
+# Kategori PWA terikat akun (bukan per-device); default semua aktif saat subscribe.
+from app.channel_validation import ALLOWED_CATEGORIES  # noqa: E402
+
+DEFAULT_CATEGORIES: tuple[str, ...] = tuple(ALLOWED_CATEGORIES)
 
 
 def _connect() -> sqlite3.Connection:
@@ -88,6 +98,10 @@ def _sync_add(nim: str, endpoint: str, p256dh: str, auth: str, device_name: str)
         cursor = conn.execute(
             "INSERT INTO pwa_push_subscriptions (nim, endpoint, p256dh, auth, device_name) VALUES (?, ?, ?, ?, ?)",
             (nim, endpoint, p256dh, auth, device_name),
+        )
+        conn.executemany(
+            "INSERT OR IGNORE INTO pwa_push_categories (nim, category) VALUES (?, ?)",
+            [(nim, cat) for cat in DEFAULT_CATEGORIES],
         )
         conn.commit()
         new_id = cursor.lastrowid
@@ -197,3 +211,56 @@ def _sync_deactivate(endpoint: str) -> bool:
 
 async def deactivate_subscription(endpoint: str) -> bool:
     return await run_in_threadpool(_sync_deactivate, endpoint)
+
+
+def _sync_set_categories(nim: str, categories: list[str]) -> None:
+    invalid = [c for c in categories if c not in ALLOWED_CATEGORIES]
+    if invalid:
+        raise ValueError(f"Kategori tidak dikenal: {', '.join(invalid)}")
+    conn = _connect()
+    try:
+        conn.execute("DELETE FROM pwa_push_categories WHERE nim = ?", (nim,))
+        conn.executemany(
+            "INSERT OR IGNORE INTO pwa_push_categories (nim, category) VALUES (?, ?)",
+            [(nim, cat) for cat in categories],
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+async def set_categories(nim: str, categories: list[str]) -> None:
+    await run_in_threadpool(_sync_set_categories, nim, categories)
+
+
+def _sync_list_categories(nim: str) -> list[str]:
+    conn = _connect()
+    try:
+        rows = conn.execute(
+            "SELECT category FROM pwa_push_categories WHERE nim = ?", (nim,)
+        ).fetchall()
+        return [r["category"] for r in rows]
+    finally:
+        conn.close()
+
+
+async def list_categories(nim: str) -> list[str]:
+    return await run_in_threadpool(_sync_list_categories, nim)
+
+
+def _sync_nims_with_category(category: str) -> list[str]:
+    conn = _connect()
+    try:
+        rows = conn.execute(
+            "SELECT DISTINCT s.nim FROM pwa_push_subscriptions s "
+            "JOIN pwa_push_categories c ON c.nim = s.nim "
+            "WHERE s.is_active = 1 AND c.category = ?",
+            (category,),
+        ).fetchall()
+        return [r["nim"] for r in rows]
+    finally:
+        conn.close()
+
+
+async def list_nims_with_category(category: str) -> list[str]:
+    return await run_in_threadpool(_sync_nims_with_category, category)

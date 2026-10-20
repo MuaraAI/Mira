@@ -145,3 +145,35 @@ async def send_web_push(subscription: dict[str, str], payload: dict[str, Any], t
         raise
     except Exception:
         return False, 0
+
+
+async def dispatch_pwa_to_nim(nim: str, payload: dict[str, Any], ttl: int = 86400) -> int:
+    """Kirim payload ke semua device aktif milik 1 NIM; prune endpoint 404/410."""
+    from app.pwa_push_db import (
+        get_active_subscriptions_for_nim,
+        prune_subscription,
+    )
+
+    delivered = 0
+    for sub in await get_active_subscriptions_for_nim(nim):
+        try:
+            ok, http_status = await send_web_push(sub, payload, ttl=ttl)
+        except ValueError:
+            # VAPID belum dikonfigurasi: jangan coba device lain sia-sia
+            return 0
+        if ok:
+            delivered += 1
+        elif http_status in (404, 410):
+            await prune_subscription(sub["endpoint"])
+    return delivered
+
+
+async def dispatch_pwa_to_category(category: str, payload: dict[str, Any], ttl: int = 86400) -> int:
+    """Broadcast payload ke seluruh NIM aktif yang mengaktifkan `category`."""
+    from app.pwa_push_db import list_nims_with_category
+
+    nims = await list_nims_with_category(category)
+    total = 0
+    for nim in nims:
+        total += await dispatch_pwa_to_nim(nim, payload, ttl=ttl)
+    return total

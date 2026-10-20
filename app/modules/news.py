@@ -484,6 +484,23 @@ async def broadcast_news_article(post: dict[str, Any]) -> dict[str, bool]:
         # SQLite down / belum ada tabel: tetap kirim ke channel admin
         pass
 
+    # PWA Web Push: kategori terikat akun, broadcast ke semua device NIM terkait
+    try:
+        from app.pwa_webpush import dispatch_pwa_to_category
+
+        tasks["pwa-push"] = dispatch_pwa_to_category(
+            "berita-kampus",
+            {
+                "title": f"Berita Kampus: {post.get('title', 'Artikel Baru')}"[:120],
+                "body": (post.get("description") or "Ada artikel baru di portal berita UBSI.")[:200],
+                "url": post.get("link") or "/dashboard/berita",
+                "tag": "berita-kampus",
+            },
+        )
+    except Exception:
+        # VAPID belum dikonfigurasi / SQLite down: broadcast berita tetap lanjut
+        pass
+
     if not tasks:
         return {}
 
@@ -501,11 +518,21 @@ async def poll_news_webhook() -> int:
     except Exception:
         pass
 
+    # PWA push subscribers juga dihitung sebagai channel (tanpa webhook eksternal)
+    pwa_has_subscribers = False
+    try:
+        from app.pwa_push_db import list_nims_with_category
+
+        pwa_has_subscribers = bool(await list_nims_with_category("berita-kampus"))
+    except Exception:
+        pass
+
     has_channel = bool(
         settings.DISCORD_WEBHOOK_URL
         or (settings.TELEGRAM_BOT_TOKEN and settings.TELEGRAM_CHAT_ID)
         or settings.NEWS_WEBHOOK_URL
         or user_channels
+        or pwa_has_subscribers
     )
     if not has_channel:
         return 0
