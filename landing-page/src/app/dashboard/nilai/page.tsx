@@ -111,8 +111,8 @@ export default function NilaiPage() {
           description="Transkrip nilai resmi dari sistem SIAKAD UBSI. Pantau IPK, mutu, dan rincian komponen nilai."
         />
 
-        <div className="max-w-full overflow-x-auto self-start sm:self-auto">
-          <div className="flex w-max items-center gap-1.5 p-1 bg-[#F0F7FB] border border-stroke rounded-pill">
+        <div className="w-full sm:w-auto sm:max-w-full sm:overflow-x-auto sm:self-auto">
+          <div className="grid w-full grid-flow-col auto-cols-fr items-center gap-1.5 p-1 bg-[#F0F7FB] border border-stroke rounded-pill sm:flex sm:w-max">
           <button
             type="button"
             onClick={() => setActiveTab("khs")}
@@ -275,7 +275,7 @@ export default function NilaiPage() {
       {/* Tab 1: KHS Table */}
       {activeTab === "khs" && (
         <div className="glass-card overflow-hidden">
-          <div className="p-4 border-b border-stroke flex items-center justify-between">
+          <div className="p-4 border-b border-stroke flex items-center justify-between flex-wrap gap-x-4 gap-y-1">
             <h3 className="font-display font-bold text-sm text-foreground">
               Tabel Kartu Hasil Studi (KHS)
             </h3>
@@ -290,7 +290,7 @@ export default function NilaiPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] text-sm text-left">
+              <table className="px-table w-full md:min-w-[640px] text-sm text-left">
                 <thead>
                   <tr className="border-b border-stroke bg-[#F7FAFC] text-xs font-mono uppercase tracking-wider text-secondary">
                     <th scope="col" className="px-4 py-3">No</th>
@@ -308,19 +308,19 @@ export default function NilaiPage() {
                       key={item.kode || item.no}
                       className="border-b border-stroke/60 last:border-0 hover:bg-[#F0F7FB]/50"
                     >
-                      <td className="px-4 py-3 text-secondary font-mono text-xs">
+                      <td data-label="No" className="px-4 py-3 text-secondary font-mono text-xs">
                         {item.no}
                       </td>
-                      <td className="px-4 py-3 font-mono font-bold text-[#0369A1] text-xs">
+                      <td data-label="Kode" className="px-4 py-3 font-mono font-bold text-[#0369A1] text-xs">
                         {item.kode}
                       </td>
-                      <td className="px-4 py-3 font-semibold text-foreground">
+                      <td data-label="Mata Kuliah" data-primary="" className="px-4 py-3 font-semibold text-foreground">
                         {item.mata_kuliah}
                       </td>
-                      <td className="px-4 py-3 text-center text-secondary">
+                      <td data-label="SKS" className="px-4 py-3 text-center text-secondary">
                         {item.sks}
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td data-label="Nilai Huruf" className="px-4 py-3 text-center">
                         <span
                           className={`inline-flex items-center justify-center w-7 h-7 rounded-full font-bold text-xs ${
                             item.nilai === "A"
@@ -335,10 +335,10 @@ export default function NilaiPage() {
                           {item.nilai || "-"}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-center font-mono font-semibold text-foreground">
+                      <td data-label="Bobot Mutu" className="px-4 py-3 text-center font-mono font-semibold text-foreground">
                         {item.mutu}
                       </td>
-                      <td className="px-4 py-3 text-xs text-secondary">
+                      <td data-label="Keterangan" className="px-4 py-3 text-xs text-secondary">
                         {item.keterangan || "LULUS"}
                       </td>
                     </tr>
@@ -353,7 +353,7 @@ export default function NilaiPage() {
       {/* Tab 2: Nilai Murni Breakdown */}
       {activeTab === "murni" && (
         <div className="glass-card overflow-hidden">
-          <div className="p-4 border-b border-stroke flex items-center justify-between">
+          <div className="p-4 border-b border-stroke flex items-center justify-between flex-wrap gap-x-4 gap-y-1">
             <h3 className="font-display font-bold text-sm text-foreground">
               Rincian Komponen Nilai Murni
             </h3>
@@ -368,7 +368,7 @@ export default function NilaiPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-sm text-left">
+              <table className="px-table w-full md:min-w-[720px] text-sm text-left">
                 <thead>
                   <tr className="border-b border-stroke bg-[#F7FAFC] text-xs font-mono uppercase tracking-wider text-secondary">
                     <th scope="col" className="px-4 py-3">Mata Kuliah</th>
@@ -387,7 +387,7 @@ export default function NilaiPage() {
                       key={g.id || g.kode}
                       className="border-b border-stroke/60 last:border-0 hover:bg-[#F0F7FB]/50"
                     >
-                      <td className="px-4 py-3 font-semibold text-foreground">
+                      <td data-label="Mata Kuliah" data-primary="" className="px-4 py-3 font-semibold text-foreground">
                         <div>
                           <span>{g.nama}</span>
                           <span className="block text-[10px] font-mono text-[#0369A1]">
@@ -395,25 +395,25 @@ export default function NilaiPage() {
                           </span>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-center text-secondary font-mono">
+                      <td data-label="SKS" className="px-4 py-3 text-center text-secondary font-mono">
                         {g.sks}
                       </td>
-                      <td className="px-4 py-3 text-center font-mono text-secondary">
+                      <td data-label="Absen" className="px-4 py-3 text-center font-mono text-secondary">
                         {g.absen ?? "-"}
                       </td>
-                      <td className="px-4 py-3 text-center font-mono text-secondary">
+                      <td data-label="Tugas" className="px-4 py-3 text-center font-mono text-secondary">
                         {g.tugas ?? "-"}
                       </td>
-                      <td className="px-4 py-3 text-center font-mono text-secondary">
+                      <td data-label="UTS" className="px-4 py-3 text-center font-mono text-secondary">
                         {g.uts ?? "-"}
                       </td>
-                      <td className="px-4 py-3 text-center font-mono text-secondary">
+                      <td data-label="UAS" className="px-4 py-3 text-center font-mono text-secondary">
                         {g.uas ?? "-"}
                       </td>
-                      <td className="px-4 py-3 text-center font-mono font-bold text-foreground">
+                      <td data-label="Total Akhir" className="px-4 py-3 text-center font-mono font-bold text-foreground">
                         {g.total ?? "-"}
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td data-label="Grade" className="px-4 py-3 text-center">
                         <span
                           className={`inline-flex items-center justify-center w-7 h-7 rounded-full font-bold text-xs ${
                             g.grade === "A"

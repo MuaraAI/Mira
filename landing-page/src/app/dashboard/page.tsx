@@ -21,6 +21,7 @@ import {
   EmptyState,
   ErrorState,
   LoadingState,
+  Skeleton,
 } from "@/components/dashboard-ui";
 
 interface StudentProfile {
@@ -92,6 +93,14 @@ export default function DashboardOverviewPage() {
   }
   if (me.error) return <ErrorState error={me.error} onRetry={me.reload} />;
 
+  // Selama request belum selesai tampilkan skeleton, bukan fallback, supaya teks tidak berganti di tengah jalan.
+  const isPending = (q: { loading: boolean; data: unknown }) => q.loading && !q.data;
+  const profilePending = isPending(profile);
+  const schedulePending = isPending(schedule);
+  const khsPending = isPending(khs);
+  const assignmentsPending = isPending(assignments);
+  const presencePending = isPending(presence);
+
   const nim = me.data?.nim ?? profile.data?.nim ?? "-";
   const studentName = profile.data?.nama || `Mahasiswa (${nim})`;
   const prodi = profile.data?.program_studi || "Data belum tersedia";
@@ -129,41 +138,67 @@ export default function DashboardOverviewPage() {
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-pill bg-[#0369A1]/10 border border-[#0369A1]/25 text-[11px] font-mono font-bold text-[#0369A1]">
                 NIM {nim}
               </span>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-pill bg-[#F0F7FB] border border-stroke text-[11px] font-semibold text-secondary">
-                Semester {semester}
-              </span>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-pill bg-[#0F766E]/10 border border-[#0F766E]/30 text-[11px] font-semibold text-[#0F766E]">
-                {profile.data?.status_aktif || "Aktif"}
-              </span>
+              {profilePending ? (
+                <>
+                  <Skeleton className="h-6 w-24" />
+                  <Skeleton className="h-6 w-14" />
+                </>
+              ) : (
+                <>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-pill bg-[#F0F7FB] border border-stroke text-[11px] font-semibold text-secondary">
+                    Semester {semester}
+                  </span>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-pill bg-[#0F766E]/10 border border-[#0F766E]/30 text-[11px] font-semibold text-[#0F766E]">
+                    {profile.data?.status_aktif || "Aktif"}
+                  </span>
+                </>
+              )}
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-display font-bold tracking-tight text-foreground">
-              Selamat Datang, {studentName}
+            <h1 className="text-2xl sm:text-3xl font-display font-bold tracking-tight text-foreground break-words">
+              Selamat Datang,{" "}
+              {profilePending ? (
+                <>
+                  <Skeleton className="h-7 w-48 max-w-full sm:h-8 sm:w-64" />
+                  <span className="sr-only">memuat nama mahasiswa</span>
+                </>
+              ) : (
+                studentName
+              )}
             </h1>
 
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-secondary">
-              <span className="flex items-center gap-1">
-                <School className="w-3.5 h-3.5 text-[#0369A1]" aria-hidden="true" />
-                {prodi} ({kelas})
-              </span>
-              <span className="flex items-center gap-1">
-                <MapPin className="w-3.5 h-3.5 text-[#0369A1]" aria-hidden="true" />
-                {kampus}
-              </span>
+              {profilePending ? (
+                <>
+                  <Skeleton className="h-4 w-40" />
+                  <Skeleton className="h-4 w-20" />
+                </>
+              ) : (
+                <>
+                  <span className="flex items-center gap-1">
+                    <School className="w-3.5 h-3.5 shrink-0 text-[#0369A1]" aria-hidden="true" />
+                    {prodi} ({kelas})
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5 shrink-0 text-[#0369A1]" aria-hidden="true" />
+                    {kampus}
+                  </span>
+                </>
+              )}
             </div>
           </div>
 
-          <div className="shrink-0 flex items-center gap-3">
+          <div className="shrink-0 grid grid-cols-2 gap-3 sm:flex sm:items-center">
             <Link
               href="/dashboard/jadwal"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-pill bg-[#0369A1] hover:bg-[#075985] text-white text-xs sm:text-sm font-semibold transition-all shadow-sm"
+              className="inline-flex min-h-11 items-center justify-center gap-2 px-4 py-2 rounded-pill bg-[#0369A1] hover:bg-[#075985] text-white text-xs sm:text-sm font-semibold transition-all shadow-sm"
             >
               <CalendarDays className="w-4 h-4" aria-hidden="true" />
               <span>Jadwal Lengkap</span>
             </Link>
             <Link
               href="/dashboard/sesi"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-pill border border-stroke bg-white hover:bg-[#F0F7FB] text-secondary hover:text-foreground text-xs sm:text-sm font-semibold transition-all"
+              className="inline-flex min-h-11 items-center justify-center gap-2 px-4 py-2 rounded-pill border border-stroke bg-white hover:bg-[#F0F7FB] text-secondary hover:text-foreground text-xs sm:text-sm font-semibold transition-all"
             >
               <span>Profil Saya</span>
             </Link>
@@ -187,13 +222,19 @@ export default function DashboardOverviewPage() {
             </div>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-display font-bold text-foreground">
-              {ipkValue}
-            </span>
-            <span className="ml-1 text-xs text-secondary font-mono">/ 4.00</span>
+            {khsPending ? (
+              <Skeleton className="h-8 w-20" />
+            ) : (
+              <>
+                <span className="text-2xl font-display font-bold text-foreground">
+                  {ipkValue}
+                </span>
+                <span className="ml-1 text-xs text-secondary font-mono">/ 4.00</span>
+              </>
+            )}
           </div>
           <p className="mt-1 text-xs text-secondary flex items-center justify-between">
-            <span>{totalSks} SKS Lulus</span>
+            {khsPending ? <Skeleton className="h-3.5 w-20" /> : <span>{totalSks} SKS Lulus</span>}
             <span className="text-[#0369A1] font-semibold group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
               KHS <ArrowRight className="w-3 h-3" />
             </span>
@@ -214,13 +255,23 @@ export default function DashboardOverviewPage() {
             </div>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-display font-bold text-foreground">
-              {todayClasses.length}
-            </span>
-            <span className="ml-1 text-xs text-secondary">Kelas</span>
+            {schedulePending ? (
+              <Skeleton className="h-8 w-16" />
+            ) : (
+              <>
+                <span className="text-2xl font-display font-bold text-foreground">
+                  {todayClasses.length}
+                </span>
+                <span className="ml-1 text-xs text-secondary">Kelas</span>
+              </>
+            )}
           </div>
           <p className="mt-1 text-xs text-secondary flex items-center justify-between">
-            <span>{todayClasses.length > 0 ? "Ada perkuliahan" : "Hari bebas kuliah"}</span>
+            {schedulePending ? (
+              <Skeleton className="h-3.5 w-24" />
+            ) : (
+              <span>{todayClasses.length > 0 ? "Ada perkuliahan" : "Hari bebas kuliah"}</span>
+            )}
             <span className="text-[#0369A1] font-semibold group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
               Jadwal <ArrowRight className="w-3 h-3" />
             </span>
@@ -241,13 +292,23 @@ export default function DashboardOverviewPage() {
             </div>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-display font-bold text-foreground">
-              {pendingTasks.length}
-            </span>
-            <span className="ml-1 text-xs text-secondary">Tugas</span>
+            {assignmentsPending ? (
+              <Skeleton className="h-8 w-16" />
+            ) : (
+              <>
+                <span className="text-2xl font-display font-bold text-foreground">
+                  {pendingTasks.length}
+                </span>
+                <span className="ml-1 text-xs text-secondary">Tugas</span>
+              </>
+            )}
           </div>
           <p className="mt-1 text-xs text-secondary flex items-center justify-between">
-            <span>{pendingTasks.length > 0 ? "Perlu dikumpulkan" : "Semua tugas beres"}</span>
+            {assignmentsPending ? (
+              <Skeleton className="h-3.5 w-24" />
+            ) : (
+              <span>{pendingTasks.length > 0 ? "Perlu dikumpulkan" : "Semua tugas beres"}</span>
+            )}
             <span className="text-[#0369A1] font-semibold group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
               Tugas <ArrowRight className="w-3 h-3" />
             </span>
@@ -268,9 +329,13 @@ export default function DashboardOverviewPage() {
             </div>
           </div>
           <div className="mt-3">
-            <span className="text-sm font-display font-bold text-foreground truncate block">
-              {presence.data?.status_sesi || "Sesi Ditutup"}
-            </span>
+            {presencePending ? (
+              <Skeleton className="h-5 w-28" />
+            ) : (
+              <span className="text-sm font-display font-bold text-foreground truncate block">
+                {presence.data?.status_sesi || "Sesi Ditutup"}
+              </span>
+            )}
           </div>
           <p className="mt-1 text-xs text-secondary flex items-center justify-between">
             <span>Presensi perkuliahan</span>
@@ -283,9 +348,9 @@ export default function DashboardOverviewPage() {
 
       {/* 3. Section Kelas Hari Ini */}
       <section aria-labelledby="heading-kelas-hari-ini">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Clock className="w-5 h-5 text-[#0369A1]" aria-hidden="true" />
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-4">
+          <div className="flex items-center gap-2 min-w-0">
+            <Clock className="w-5 h-5 shrink-0 text-[#0369A1]" aria-hidden="true" />
             <h2 id="heading-kelas-hari-ini" className="text-lg font-display font-bold tracking-tight text-foreground">
               Jadwal Kelas Hari {today}
             </h2>
@@ -298,7 +363,15 @@ export default function DashboardOverviewPage() {
           </Link>
         </div>
 
-        {todayClasses.length === 0 ? (
+        {schedulePending ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4" aria-hidden="true">
+            <div className="glass-card p-5 space-y-3">
+              <Skeleton className="h-4 w-16" />
+              <Skeleton className="h-5 w-3/4" />
+              <Skeleton className="h-4 w-1/2" />
+            </div>
+          </div>
+        ) : todayClasses.length === 0 ? (
           <EmptyState
             title={`Tidak ada jadwal kuliah hari ${today}.`}
             description="Nikmati waktu luangmu atau cicil tugas perkuliahan di MyBest."

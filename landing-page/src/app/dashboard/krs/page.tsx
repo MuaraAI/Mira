@@ -83,7 +83,7 @@ export default function KrsPage() {
 
       {/* Table KRS */}
       <div className="glass-card overflow-hidden">
-        <div className="p-4 border-b border-stroke flex items-center justify-between">
+        <div className="p-4 border-b border-stroke flex items-center justify-between flex-wrap gap-x-4 gap-y-1">
           <h2 className="font-display font-bold text-sm text-foreground">
             Daftar Mata Kuliah KRS
           </h2>
@@ -99,7 +99,7 @@ export default function KrsPage() {
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[600px] text-sm text-left">
+            <table className="px-table w-full md:min-w-[600px] text-sm text-left">
               <thead>
                 <tr className="border-b border-stroke bg-[#F7FAFC] text-xs font-mono uppercase tracking-wider text-secondary">
                   <th scope="col" className="px-4 py-3">No</th>
@@ -115,19 +115,19 @@ export default function KrsPage() {
                     key={item.kode || item.no}
                     className="border-b border-stroke/60 last:border-0 hover:bg-[#F0F7FB]/50"
                   >
-                    <td className="px-4 py-3 text-secondary font-mono text-xs">
+                    <td data-label="No" className="px-4 py-3 text-secondary font-mono text-xs">
                       {item.no}
                     </td>
-                    <td className="px-4 py-3 font-mono font-bold text-[#0369A1] text-xs">
+                    <td data-label="Kode MTK" className="px-4 py-3 font-mono font-bold text-[#0369A1] text-xs">
                       {item.kode}
                     </td>
-                    <td className="px-4 py-3 font-semibold text-foreground">
+                    <td data-label="Mata Kuliah" data-primary="" className="px-4 py-3 font-semibold text-foreground">
                       {item.mata_kuliah}
                     </td>
-                    <td className="px-4 py-3 text-center font-mono text-secondary">
+                    <td data-label="SKS" className="px-4 py-3 text-center font-mono text-secondary">
                       {item.sks}
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td data-label="Status" className="px-4 py-3 text-center">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-pill bg-[#0F766E]/10 text-[#0F766E] border border-[#0F766E]/20 text-xs font-semibold">
                         Disetujui
                       </span>

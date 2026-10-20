@@ -243,7 +243,7 @@ export default function MateriPage() {
           return (
             <div className="glass-card overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[640px] text-sm text-left">
+                <table className="px-table w-full md:min-w-[640px] text-sm text-left">
                   <thead>
                     <tr className="border-b border-stroke bg-[#F7FAFC] text-xs font-mono uppercase tracking-wider text-secondary">
                       <th scope="col" className="px-4 py-3">Materi</th>
@@ -258,19 +258,19 @@ export default function MateriPage() {
                         key={m.id}
                         className="border-b border-stroke/60 last:border-0 hover:bg-[#F0F7FB]/50"
                       >
-                        <td className="px-4 py-3 font-semibold text-foreground">
+                        <td data-label="Materi" data-primary="" className="px-4 py-3 font-semibold text-foreground">
                           <div className="flex items-center gap-2">
                             <FileText className="w-4 h-4 text-[#0369A1] shrink-0" aria-hidden="true" />
                             <span>{m.judul}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-xs text-secondary max-w-xs truncate">
+                        <td data-label="Deskripsi" data-stack="" className="px-4 py-3 text-xs text-secondary max-w-xs truncate">
                           {m.deskripsi || "-"}
                         </td>
-                        <td className="px-4 py-3 text-xs text-secondary whitespace-nowrap">
+                        <td data-label="Terakhir Diperbarui" className="px-4 py-3 text-xs text-secondary whitespace-nowrap">
                           {m.update || "-"}
                         </td>
-                        <td className="px-4 py-3 text-right whitespace-nowrap">
+                        <td data-label="Aksi" className="px-4 py-3 text-right whitespace-nowrap">
                           {m.file_url ? (
                             m.file_url.startsWith("/v1/") ? (
                               <button
