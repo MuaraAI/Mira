@@ -184,6 +184,36 @@ async def test_session_token_grants_api_access(fake_redis):
 
 
 @pytest.mark.asyncio
+async def test_download_endpoint_accepts_dashboard_referer_and_query_token(fake_redis):
+    transport = ASGITransport(app=app)
+    mock_resp = AsyncMock()
+    mock_resp.status_code = 200
+    mock_resp.content = b"%PDF-1.4 file"
+    mock_resp.headers = {"content-type": "application/pdf"}
+
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        with patch("app.main.settings.API_KEY", "master_secret"), \
+             patch("app.modules.elearning.pooled_elearning_client.download_file", return_value=mock_resp):
+            token = await _login(ac, fake_redis)
+
+            # 1. Cookie + Dashboard Referer is accepted on /download path
+            res_ref = await ac.get(
+                "/v1/elearning/assignments/download?file_url=https://elearning.bsi.ac.id/storage/soal/t1.pdf",
+                cookies={"ubsi_session": token},
+                headers={"Referer": "https://ubsi-api.muaraai.com/dashboard/tugas"},
+            )
+            assert res_ref.status_code == 200
+            assert res_ref.headers.get("access-control-expose-headers") == "Content-Disposition"
+
+            # 2. Query parameter token is accepted on /download path
+            res_query = await ac.get(
+                f"/v1/elearning/assignments/download?file_url=https://elearning.bsi.ac.id/storage/soal/t1.pdf&token={token}"
+            )
+            assert res_query.status_code == 200
+
+
+
+@pytest.mark.asyncio
 async def test_expired_or_unknown_session_returns_session_expired(fake_redis):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
