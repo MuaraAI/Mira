@@ -13,7 +13,7 @@ Universal Model Context Protocol (MCP) Server untuk ekosistem akademik Universit
   https://api.muaraai.com/v1/ubsi-api/mcp
   ```
 - **Port Produksi Lokal (VPS)**: `127.0.0.1:8350/mcp`
-- **Total Tools Aktif**: **37 Tools Akademik** (Read & Write).
+- **Total Tools Aktif**: **38 Tools Akademik** (Read & Write).
 - **Keamanan & Isolasi**:
   - Multi-tenant berbasis **Personal API Key** (`muara_ubsi_<hex>`) atau **Session Token** (Redis AES-256-GCM).
   - Setiap agent hanya memiliki akses ke akun mahasiswa yang sesuai dengan key-nya.
@@ -159,13 +159,14 @@ Seluruh modul mata kuliah di MyBest diidentifikasi menggunakan **token terenkrip
 
 ---
 
-### Kategori D: Notifikasi & Sistem — 3 Tools
+### Kategori D: Notifikasi & Sistem — 4 Tools
 
 | Nama Tool | Parameter | Deskripsi & Kegunaan |
 |---|---|---|
 | `ubsi_list_channels` | `session_token?`, `api_key?` | Daftar channel notifikasi webhook aktif milik mahasiswa (Discord/Telegram). |
 | `ubsi_trigger_reminder` | `category`, `session_token?`, `api_key?` | Memicu pengiriman pengingat manual (`matkul-besok` atau `quiz-tugas`). |
 | `ubsi_whoami` | `session_token?`, `api_key?` | Cek status identitas kredensial API Key yang sedang aktif digunakan. |
+| `ubsi_get_api_docs` | `category?`, `session_token?`, `api_key?` | Kamus dokumentasi lengkap seluruh endpoint REST API dan MCP tools UBSI API beserta skema parameter. |
 
 ---
 

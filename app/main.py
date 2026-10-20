@@ -2,7 +2,7 @@ import asyncio
 import os
 import secrets
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional
 from fastapi import FastAPI, Request, status, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,7 +10,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.cache import cache
 from app.limiter import limiter
-from app.envelope import error_response
+from app.envelope import error_response, success_response
+from app.docs import get_api_docs
 from app.router_helper import close_background_tasks
 from app.modules.studentv2 import router as studentv2_router, studentv2_client
 from app.modules.elearning import router as elearning_router, pooled_elearning_client
@@ -127,8 +128,8 @@ async def api_key_auth_middleware(request: Request, call_next):
     if request.method == "OPTIONS":
         return await call_next(request)
 
-    # 2. Allow /health + /v1/auth/login without auth (resilient to trailing slash)
-    public_paths = {"/health", "/v1/auth/login", "/v1/stats"}
+    # 2. Allow /health + /v1/auth/login + /v1/docs without auth (resilient to trailing slash)
+    public_paths = {"/health", "/v1/auth/login", "/v1/stats", "/v1/docs"}
     if request.url.path.rstrip("/") in public_paths:
         return await call_next(request)
 
@@ -289,6 +290,12 @@ async def global_exception_handler(request: Request, exc: Exception):
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content=error_response(code="INTERNAL_SERVER_ERROR", message="Terjadi kesalahan internal pada server")
     )
+
+@app.get("/v1/docs", status_code=status.HTTP_200_OK)
+async def get_documentation(category: Optional[str] = None):
+    """Kamus dokumentasi lengkap seluruh endpoint REST API dan MCP tools UBSI API."""
+    data = get_api_docs(category)
+    return success_response(data=data)
 
 @app.get("/health", status_code=status.HTTP_200_OK)
 async def health():
