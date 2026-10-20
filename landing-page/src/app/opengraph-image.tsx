@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
 
-export const alt = "UBSI API: Unofficial REST API Aggregator 6 Layanan Kampus UBSI";
+export const alt = "UBSI API v2: Dashboard Akademik, REST API, dan MCP UBSI";
 export const size = {
   width: 1200,
   height: 630,
@@ -82,7 +82,7 @@ export default async function Image() {
               border: "1px solid #D9E5ED",
             }}
           >
-            Sub-250ms Redis Cache
+            Dashboard Akademik
           </div>
           <div
             style={{
@@ -106,7 +106,7 @@ export default async function Image() {
               border: "1px solid #D9E5ED",
             }}
           >
-            v1.1.7 Stable
+            v2.0.0
           </div>
         </div>
       </div>
