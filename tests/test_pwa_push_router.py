@@ -110,6 +110,25 @@ async def test_vapid_key_public_endpoint(fake_redis):
 
 
 @pytest.mark.asyncio
+async def test_vapid_key_accessible_without_any_credentials(fake_redis):
+    """Browser baru gak punya API key/session: endpoint ini WAJIB publik beneran."""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.get(
+            "/v1/notifications/pwa/vapid-key",
+            headers={"_skip_auto_auth": "1"},  # conftest: matikan auto-inject X-API-Key
+        )
+        assert res.status_code == 200
+        assert res.json()["data"]["public_key"].startswith("B")
+
+        # Endpoint lain tetap terkunci tanpa kredensial
+        res_devices = await ac.get(
+            "/v1/notifications/pwa/devices",
+            headers={"_skip_auto_auth": "1"},
+        )
+        assert res_devices.status_code in (401, 403)
+
+
+@pytest.mark.asyncio
 async def test_subscribe_requires_session(fake_redis):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         res = await ac.post("/v1/notifications/pwa/subscribe", json={
