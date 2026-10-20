@@ -63,6 +63,28 @@ def test_mcp_context_credentials_override_empty_tool_args():
     assert _resolve_credentials(ctx, None, None) == (None, "session_from_mcp")
 
 
+@pytest.mark.asyncio
+async def test_mcp_call_tool_propagates_headers_to_all_tools():
+    from app.mcp_server import _current_mcp_context, ubsi_whoami
+    ctx = MagicMock()
+    ctx.headers = {"x-api-key": "muara_ubsi_propagated_test_key_12345678"}
+
+    mock_resp = AsyncMock()
+    mock_resp.status_code = 200
+    mock_resp.json = MagicMock(return_value={"success": True, "data": {"nim": "15260767"}})
+
+    with patch("httpx.AsyncClient.get", return_value=mock_resp) as mock_get:
+        # Panggil ubsi_whoami melalui tool manager seperti panggilan asli MCP streamable HTTP
+        res = await server._tool_manager.call_tool("ubsi_whoami", {}, ctx)
+        data = json.loads(res)
+        assert data["success"] is True
+
+        # Periksa bahwa request ke backend membawa header x-api-key dari context
+        called_headers = mock_get.call_args[1]["headers"]
+        assert called_headers["X-API-Key"] == "muara_ubsi_propagated_test_key_12345678"
+        assert called_headers["Authorization"] == "Bearer muara_ubsi_propagated_test_key_12345678"
+
+
 def test_mcp_credential_headers_isolation():
     # 1. Session token isolation
     h_sess = _build_headers(session_token="my_custom_session_token_123")

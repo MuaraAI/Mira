@@ -12,8 +12,11 @@ from __future__ import annotations
 import json
 import os
 from typing import Any, Optional
+from contextvars import ContextVar
 import httpx
 from mcp.server.mcpserver import Context, MCPServer
+
+_current_mcp_context: ContextVar[Optional[Context]] = ContextVar("_current_mcp_context", default=None)
 
 
 
@@ -45,6 +48,24 @@ server = MCPServer(
     description="Universal API aggregator dan otomasi akademik untuk 6 layanan digital Universitas Bina Sarana Informatika (UBSI).",
 )
 
+_orig_call_tool = server._tool_manager.call_tool
+
+
+async def _hooked_call_tool(
+    name: str,
+    arguments: dict[str, Any],
+    context: Context,
+    convert_result: bool = False,
+) -> Any:
+    tok = _current_mcp_context.set(context)
+    try:
+        return await _orig_call_tool(name, arguments, context, convert_result=convert_result)
+    finally:
+        _current_mcp_context.reset(tok)
+
+
+server._tool_manager.call_tool = _hooked_call_tool
+
 
 def _get_base_url() -> str:
     url = os.getenv("UBSI_API_URL", "https://api.muaraai.com/v1/ubsi-api")
@@ -55,6 +76,12 @@ def _build_headers(
     api_key: Optional[str] = None,
     session_token: Optional[str] = None,
 ) -> dict[str, str]:
+    ctx = _current_mcp_context.get()
+    if ctx is not None:
+        ck, cs = _context_credentials(ctx)
+        api_key = api_key or ck
+        session_token = session_token or cs
+
     headers: dict[str, str] = {"Content-Type": "application/json"}
     k = api_key or os.getenv("UBSI_API_KEY", "")
     s = session_token or os.getenv("UBSI_SESSION_TOKEN", "")

@@ -841,6 +841,7 @@ class ElearningClient(UpstreamSession):
 
     def login(self, nim: str, password: str) -> bool:
         client = self.get_client()
+        client.cookies.clear()
         login_url = f"{self.BASE_URL}/login"
         try:
             r1 = client.get(login_url)
