@@ -165,10 +165,10 @@ async def create_api_key(
     res = await run_in_threadpool(
         _sync_create_api_key, nim, name, studentv2_pass, elearning_pass
     )
-    # Cache ke Redis agar lookup otentikasi super cepat (sub-1ms)
+    # Cache terenkripsi ke Redis agar lookup otentikasi super cepat (sub-1ms) tanpa plaintext leak
     try:
         client = await cache.get_client()
-        redis_key = f"ubsi:apikey:{res['key_hash']}"
+        redis_key = f"ubsi:apikey:{res['...']}"
         cache_data = json.dumps(
             {
                 "nim": res["nim"],
@@ -176,7 +176,8 @@ async def create_api_key(
                 "elearning_pass": res["elearning_pass"],
             }
         )
-        await client.set(redis_key, cache_data, ex=_REDIS_KEY_TTL)
+        encrypted_cache = _get_fernet().encrypt(cache_data.encode("utf-8")).decode("utf-8")
+        await client.set(redis_key, encrypted_cache, ex=_REDIS_KEY_TTL)
     except Exception:
         pass
 

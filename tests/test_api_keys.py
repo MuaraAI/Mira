@@ -80,6 +80,15 @@ async def test_api_key_lifecycle_direct():
     assert key_info["key"].startswith("muara_ubsi_")
     plain_key = key_info["key"]
 
+    # Pastikan password kampus TIDAK disimpan plaintext di Redis
+    import inspect
+    from app.cache import cache
+    getter = cache.get_client()
+    r_client = await getter if inspect.isawaitable(getter) else getter
+    for val in getattr(r_client, "kv", {}).values():
+        assert "pass_sv2" not in str(val), "Password kampus tidak boleh bocor plaintext di Redis!"
+        assert "pass_el" not in str(val), "Password kampus tidak boleh bocor plaintext di Redis!"
+
     # 2. List Keys
     keys = await list_api_keys("15260767")
     assert len(keys) == 1
