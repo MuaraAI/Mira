@@ -116,7 +116,7 @@ export function DashboardMobileNav({ nim }: { nim?: string | null }) {
       {/* Mobile Bottom Navigation Bar */}
       <nav
         aria-label="Navigasi cepat bawah"
-        className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-stroke py-1.5 px-3 flex items-center justify-around shadow-lg"
+        className="dashboard-bottom-nav lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-stroke py-1.5 px-3 flex items-center justify-around shadow-lg"
       >
         {quickNav.map(({ href, label, icon: Icon, exact }) => {
           const active = exact ? pathname === href : pathname.startsWith(href);

@@ -452,7 +452,7 @@ export default function KuisPage() {
                 type="button"
                 onClick={handleCloseQuestions}
                 aria-label="Tutup jendela"
-                className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-sm text-secondary hover:text-foreground hover:bg-[#F0F7FB]"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-sm text-secondary hover:text-foreground hover:bg-[#F0F7FB]"
               >
                 <X className="w-5 h-5" aria-hidden="true" />
               </button>

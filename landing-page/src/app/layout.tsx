@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { Analytics } from "@vercel/analytics/react";
+import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 import "./globals.css";
 
 const spaceGrotesk = localFont({
@@ -75,7 +76,25 @@ const jetbrainsMono = localFont({
 });
 
 
+export const viewport: Viewport = {
+  themeColor: "#0369A1",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+};
+
 export const metadata: Metadata = {
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "UBSI API",
+    statusBarStyle: "default",
+  },
+  formatDetection: { telephone: false },
+  icons: {
+    icon: "/icon.png",
+    apple: [{ url: "/pwa/apple-touch-icon.png", sizes: "180x180" }],
+  },
   title: "UBSI API: Unofficial REST API Aggregator 6 Layanan Kampus UBSI | Muara AI",
   description:
     "Agregator REST API modern untuk layanan Universitas Bina Sarana Informatika (SIAKAD, Elearning MyBest, E-Journal, E-Library, Repository, Berita). Caching Redis sub-250ms, open-source & developer-first.",
@@ -164,6 +183,7 @@ export default function RootLayout({
           Langsung ke konten utama
         </a>
         {children}
+        <ServiceWorkerRegistration />
         <Analytics />
       </body>
     </html>

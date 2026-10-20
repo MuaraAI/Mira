@@ -46,7 +46,8 @@ export default function UjianPage() {
         />
 
         {/* Tab Switcher UTS vs UAS */}
-        <div className="flex items-center gap-1.5 p-1 bg-[#F0F7FB] border border-stroke rounded-pill self-start sm:self-auto">
+        <div className="max-w-full overflow-x-auto self-start sm:self-auto">
+          <div className="flex w-max items-center gap-1.5 p-1 bg-[#F0F7FB] border border-stroke rounded-pill">
           <button
             type="button"
             onClick={() => setActiveTab("uts")}
@@ -69,6 +70,7 @@ export default function UjianPage() {
           >
             Ujian Akhir Semester (UAS)
           </button>
+          </div>
         </div>
       </div>
 

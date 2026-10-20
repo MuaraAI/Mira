@@ -111,7 +111,8 @@ export default function NilaiPage() {
           description="Transkrip nilai resmi dari sistem SIAKAD UBSI. Pantau IPK, mutu, dan rincian komponen nilai."
         />
 
-        <div className="flex items-center gap-1.5 p-1 bg-[#F0F7FB] border border-stroke rounded-pill self-start sm:self-auto">
+        <div className="max-w-full overflow-x-auto self-start sm:self-auto">
+          <div className="flex w-max items-center gap-1.5 p-1 bg-[#F0F7FB] border border-stroke rounded-pill">
           <button
             type="button"
             onClick={() => setActiveTab("khs")}
@@ -145,6 +146,7 @@ export default function NilaiPage() {
           >
             Nilai Tugas MyBest
           </button>
+          </div>
         </div>
       </div>
 
