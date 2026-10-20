@@ -288,7 +288,7 @@ export default function BeritaPage() {
               </div>
             ) : (
               <div className="overflow-x-auto max-h-[500px]">
-                <table className="w-full min-w-[680px] text-xs text-left">
+                <table className="px-table w-full md:min-w-[680px] text-xs text-left">
                   <thead className="sticky top-0 bg-[#F7FAFC] border-b border-stroke">
                     <tr className="font-mono uppercase tracking-wider text-secondary">
                       <th className="px-4 py-2.5">No</th>
@@ -301,11 +301,11 @@ export default function BeritaPage() {
                   <tbody className="divide-y divide-stroke/60">
                     {filteredContacts.map((c, i) => (
                       <tr key={i} className="hover:bg-[#F0F7FB]/50">
-                        <td className="px-4 py-2.5 text-secondary font-mono">{c.no}</td>
-                        <td className="px-4 py-2.5 font-semibold text-foreground">{c.prodi}</td>
-                        <td className="px-4 py-2.5 text-center font-mono font-bold text-[#0369A1]">{c.jenjang}</td>
-                        <td className="px-4 py-2.5 text-secondary">{c.kaprodi}</td>
-                        <td className="px-4 py-2.5 font-mono">
+                        <td data-label="No" className="px-4 py-2.5 text-secondary font-mono">{c.no}</td>
+                        <td data-label="Fakultas / Program Studi" data-primary="" className="px-4 py-2.5 font-semibold text-foreground">{c.prodi}</td>
+                        <td data-label="Jenjang" className="px-4 py-2.5 text-center font-mono font-bold text-[#0369A1]">{c.jenjang}</td>
+                        <td data-label="Dekan / Ketua Program Studi" data-stack="" className="px-4 py-2.5 text-secondary">{c.kaprodi}</td>
+                        <td data-label="Email Resmi" data-stack="" className="px-4 py-2.5 font-mono">
                           <a
                             href={`mailto:${c.email}`}
                             className="text-[#0369A1] hover:underline flex items-center gap-1"

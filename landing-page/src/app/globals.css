@@ -436,3 +436,24 @@ html { scrollbar-color: var(--px-water-mid) var(--px-tint); scrollbar-width: thi
 @keyframes login-seg { to { background-position: 16px 0; } }
 @keyframes login-form-in { from { opacity: 0; transform: translateY(8px); } }
 .login-form-in { animation: login-form-in .32s var(--ease-px) both; }
+
+/* Skeleton: stepped shimmer block shown until real data arrives. */
+@keyframes px-skeleton { to { background-position: -32px 0; } }
+.px-skeleton { background: repeating-linear-gradient(90deg, var(--px-tint) 0 8px, var(--px-highlight) 8px 16px); background-size: 32px 100%; animation: px-skeleton 0.9s steps(4, end) infinite; }
+
+/* Responsive tables: on phones each row becomes a stacked card with labelled fields. */
+@media (max-width: 767px) {
+  .px-table { min-width: 0 !important; }
+  .px-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .px-table, .px-table tbody { display: block; width: 100%; }
+  .px-table tr { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border-bottom: 2px dashed var(--px-line-soft) !important; }
+  .px-table tr:last-child { border-bottom: 0 !important; }
+  .px-table td { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 !important; max-width: none !important; white-space: normal !important; overflow: visible !important; text-overflow: clip !important; text-align: right !important; overflow-wrap: anywhere; }
+  .px-table td::before { content: attr(data-label); flex: none; font-family: var(--font-jetbrains-mono), ui-monospace, monospace; font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--text-muted); text-align: left; }
+  .px-table td[data-primary] { order: -1; display: block; text-align: left !important; font-size: 15px; margin-bottom: 2px; }
+  .px-table td[data-primary]::before { display: none; }
+  .px-table td > div, .px-table td > a { justify-content: flex-end; }
+  .px-table td[data-primary] > div, .px-table td[data-primary] > a { justify-content: flex-start; }
+  .px-table td[data-stack] { display: block; text-align: left !important; }
+  .px-table td[data-stack]::before { display: block; margin-bottom: 2px; }
+}
