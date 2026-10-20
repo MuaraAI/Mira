@@ -197,6 +197,11 @@ async def test_api_key_endpoints_async():
         assert res_me_x.status_code == 200
         assert res_me_x.json()["data"]["nim"] == "15260767"
 
+        # Personal keys may use data routes but cannot manage key lifecycle.
+        assert (await client.get("/v1/auth/keys", headers=apikey_headers)).status_code == 403
+        assert (await client.post("/v1/auth/keys", headers=apikey_headers, json={"name": "Escalation"})).status_code == 403
+        assert (await client.delete(f"/v1/auth/keys/{key_id}", headers=apikey_headers)).status_code == 403
+
         # 5. Revoke key
         res_del = await client.delete(f"/v1/auth/keys/{key_id}", headers=headers)
         assert res_del.status_code == 200

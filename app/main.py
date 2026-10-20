@@ -201,10 +201,6 @@ async def api_key_auth_middleware(request: Request, call_next):
     effective_cookie_token = cookie_token if is_dashboard_request else ""
 
     session_token = bearer_token or effective_cookie_token
-    if not session_token and request.url.path.endswith("/download"):
-        q_token = request.query_params.get("session_token") or request.query_params.get("token") or ""
-        if q_token and not q_token.startswith("eyJ"):
-            session_token = q_token
     if session_token:
         from app.session_store import session_store
 
@@ -259,10 +255,24 @@ async def rate_limiting_middleware(request: Request, call_next):
         path = authorized_request.url.path.rstrip("/")
         if authorized_request.method == "OPTIONS" or path in ("/health", "/docs", "/openapi.json", "/redoc"):
             return await call_next(authorized_request)
+        client_key = getattr(authorized_request.state, "key_id", None)
+        is_write_route = authorized_request.method in {"POST", "PUT", "PATCH", "DELETE"} and (
+            "/elearning/presence" in path or "/elearning/assignments/" in path
+        )
+        if is_write_route:
+            rate_identifier = f"write:{client_key or extract_client_ip(authorized_request)}"
+            if not await limiter.is_allowed(rate_identifier, limit=5):
+                return JSONResponse(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    content=error_response(
+                        code="WRITE_RATE_LIMIT_EXCEEDED",
+                        message="Terlalu banyak operasi tulis. Coba lagi beberapa saat.",
+                        module="limiter",
+                    ),
+                )
         if getattr(authorized_request.state, "is_master", False):
             return await call_next(authorized_request)
 
-        client_key = getattr(authorized_request.state, "key_id", None)
         rate_identifier = f"key:{client_key}" if client_key else extract_client_ip(authorized_request)
         module = authorized_request.url.path.split("/")[2] if authorized_request.url.path.startswith("/v1/") else "other"
         await record_request(module, getattr(authorized_request.state, "nim", None))
