@@ -424,6 +424,27 @@ async def test_download_assignment_file_with_id_and_file(monkeypatch):
     assert res.content == b"%PDF-1.7 official assignment PDF content"
 
 @pytest.mark.asyncio
+async def test_download_material_file_with_id_and_file(monkeypatch):
+    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_PASS", "secret")
+
+    mock_resp = AsyncMock()
+    mock_resp.status_code = 200
+    mock_resp.content = b"%PDF-1.7 official material PDF content"
+    mock_resp.headers = {"content-type": "application/pdf"}
+
+    with patch("app.modules.elearning.pooled_elearning_client.download_material_post", return_value=mock_resp):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res = await ac.get(
+                "/v1/elearning/materials/download?id=tok_id_123&file=materi_ptik_2.pdf"
+            )
+
+    assert res.status_code == 200
+    assert res.headers["content-type"] == "application/pdf"
+    assert "materi_ptik_2.pdf" in res.headers.get("content-disposition", "")
+    assert res.content == b"%PDF-1.7 official material PDF content"
+
+@pytest.mark.asyncio
 async def test_submit_assignment_link_success(monkeypatch):
     monkeypatch.setenv("ELEARNING_NIM", "15260767")
     monkeypatch.setenv("ELEARNING_PASS", "secret")
