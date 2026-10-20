@@ -198,7 +198,7 @@ export default function PerpustakaanPage() {
 
               {!selectedBookId ? (
                 <div className="text-center py-8 text-xs text-secondary leading-relaxed">
-                  Pilih salah satu judul buku di sebelah kiri untuk melihat nomor rak, edisi, dan ketersediaan stok fisik.
+                  Pilih salah satu judul buku dari hasil pencarian untuk melihat nomor rak, edisi, dan ketersediaan stok fisik.
                 </div>
               ) : detailLoading ? (
                 <LoadingState label="Memeriksa stok cabang..." />

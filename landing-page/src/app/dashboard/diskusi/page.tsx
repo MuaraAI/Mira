@@ -193,7 +193,7 @@ export default function DiskusiPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col">
         <PageHeader
           title="Forum Diskusi Perkuliahan"
           description="Ruang tanya jawab, diskusi tugas kelompok, dan arahan instruksi dosen per mata kuliah di MyBest."
