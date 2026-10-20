@@ -75,6 +75,28 @@ const jetbrainsMono = localFont({
   display: "swap",
 });
 
+// Pixelify Sans (OFL-1.1): pixel display face shared with muaraai.com, used for dashboard headings.
+const pixelify = localFont({
+  src: [
+    {
+      path: "../../public/fonts/pixelify-sans-latin-500-normal.woff2",
+      weight: "500",
+      style: "normal",
+    },
+    {
+      path: "../../public/fonts/pixelify-sans-latin-600-normal.woff2",
+      weight: "600",
+      style: "normal",
+    },
+    {
+      path: "../../public/fonts/pixelify-sans-latin-700-normal.woff2",
+      weight: "700",
+      style: "normal",
+    },
+  ],
+  variable: "--font-pixel",
+  display: "swap",
+});
 
 export const viewport: Viewport = {
   themeColor: "#0369A1",
@@ -167,7 +189,7 @@ export default function RootLayout({
   return (
     <html
       lang="id"
-      className={`${spaceGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable}`}
+      className={`${spaceGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable} ${pixelify.variable}`}
     >
       <head>
         <script
@@ -178,7 +200,7 @@ export default function RootLayout({
       <body className="bg-background text-foreground antialiased min-h-screen font-sans">
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-accent focus:text-white focus:font-semibold focus:rounded-md focus:shadow-float focus:outline-none focus:ring-2 focus:ring-accent"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-accent focus:text-white focus:font-semibold focus:shadow-float focus:outline-none"
         >
           Langsung ke konten utama
         </a>
