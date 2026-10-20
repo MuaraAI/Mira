@@ -3,9 +3,9 @@ import type { Metadata } from "next";
 import { Monogram } from "@/components/Monogram";
 
 export const metadata: Metadata = {
-  title: "DMCA dan Hak Kekayaan Intelektual | UBSI API",
+  title: "DMCA dan Hak Kekayaan Intelektual",
   description:
-    "Pemberitahuan hak cipta, kekayaan intelektual, dan prosedur notice and takedown untuk proyek UBSI API.",
+    "Pemberitahuan hak cipta, kekayaan intelektual, dan prosedur notice and takedown untuk proyek UBSI-API Muara.",
   alternates: { canonical: "https://ubsi-api.muaraai.com/dmca" },
 };
 

@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { useApi } from "@/lib/api";
 import { findSubmission, formatShortDate, parseDeadline } from "@/lib/assignments";
+import { DosenInfo } from "@/components/DosenInfo";
+import { splitProgram } from "@/lib/profile";
 import {
   EmptyState,
   ErrorState,
@@ -104,8 +106,9 @@ export default function DashboardOverviewPage() {
 
   const nim = me.data?.nim ?? profile.data?.nim ?? "-";
   const studentName = profile.data?.nama || `Mahasiswa (${nim})`;
-  const prodi = profile.data?.program_studi || "Data belum tersedia";
-  const kampus = profile.data?.lokasi_cabang || "Data belum tersedia";
+  const { prodi: prodiName, kampus: kampusName } = splitProgram(profile.data);
+  const prodi = prodiName || "Data belum tersedia";
+  const kampus = kampusName;
   const semester = profile.data?.semester_aktif || "Data belum tersedia";
   const kelas = profile.data?.kelas || "Data belum tersedia";
 
@@ -180,12 +183,15 @@ export default function DashboardOverviewPage() {
                 <>
                   <span className="flex items-center gap-1">
                     <School className="w-3.5 h-3.5 shrink-0 text-[#0369A1]" aria-hidden="true" />
-                    {prodi} ({kelas})
+                    {prodi}
+                    {profile.data?.kelas ? ` · Kelas ${kelas}` : ""}
                   </span>
-                  <span className="flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5 shrink-0 text-[#0369A1]" aria-hidden="true" />
-                    {kampus}
-                  </span>
+                  {kampus && (
+                    <span className="flex items-center gap-1">
+                      <MapPin className="w-3.5 h-3.5 shrink-0 text-[#0369A1]" aria-hidden="true" />
+                      {kampus}
+                    </span>
+                  )}
                 </>
               )}
             </div>
@@ -402,11 +408,13 @@ export default function DashboardOverviewPage() {
                     <span className="block text-[10px] font-mono uppercase text-secondary/70">Waktu:</span>
                     <span className="font-semibold text-foreground">{s.jam}</span>
                   </div>
-                  <div>
-                    <span className="block text-[10px] font-mono uppercase text-secondary/70">Ruang & Dosen:</span>
-                    <span className="font-semibold text-foreground truncate block">
-                      {s.ruang} ({s.kode_dosen})
-                    </span>
+                  <div className="min-w-0">
+                    <span className="block text-[10px] font-mono uppercase text-secondary/70">Ruang:</span>
+                    <span className="font-semibold text-foreground break-words block">{s.ruang || "-"}</span>
+                  </div>
+                  <div className="col-span-2 min-w-0">
+                    <span className="block text-[10px] font-mono uppercase text-secondary/70">Dosen:</span>
+                    <DosenInfo kode={s.kode_dosen} />
                   </div>
                 </div>
                 <Link

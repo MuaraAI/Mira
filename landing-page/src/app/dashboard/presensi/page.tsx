@@ -20,6 +20,7 @@ import {
 } from "@/components/dashboard-ui";
 import { CourseSelect } from "@/components/CourseSelect";
 import { resolveDosen } from "@/lib/courses";
+import { DosenInfo } from "@/components/DosenInfo";
 
 interface CourseItem {
   id: string;
@@ -240,13 +241,20 @@ export default function PresensiPage() {
                   </span>
                 </div>
                 <h2 id="presensi-course-title" className="text-lg font-display font-bold leading-snug text-foreground sm:text-xl">
-                  {pData?.matakuliah || activeCourse?.nama}
+                  {activeCourse?.nama || pData?.matakuliah}
                 </h2>
                 <dl className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-secondary">
                   <div className="flex items-center gap-1.5">
-                    <User className="h-3.5 w-3.5 text-[#0369A1]" aria-hidden="true" />
+                    <User className="h-3.5 w-3.5 shrink-0 text-[#0369A1]" aria-hidden="true" />
                     <dt className="sr-only">Dosen</dt>
-                    <dd className="font-mono font-semibold text-foreground">{dosen}</dd>
+                    <dd className="min-w-0">
+                      <DosenInfo
+                        kode={dosen}
+                        courses={courses
+                          .filter((c) => resolveDosen(c, scheduleApi.data) === dosen)
+                          .map((c) => ({ nama: c.nama, hari: c.hari, jam: c.jam }))}
+                      />
+                    </dd>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <MapPin className="h-3.5 w-3.5 text-[#0369A1]" aria-hidden="true" />

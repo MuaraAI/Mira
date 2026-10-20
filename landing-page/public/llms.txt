@@ -1,0 +1,34 @@
+# UBSI-API Muara
+
+> UBSI-API Muara adalah dashboard akademik, REST API, dan server MCP untuk layanan kampus Universitas Bina Sarana Informatika (UBSI): SIAKAD (students.bsi.ac.id) dan MyBest (elearning.bsi.ac.id). Proyek riset independen, non-komersial, open source (MIT) dari komunitas Muara AI. Tidak berafiliasi secara resmi dengan UBSI.
+
+Nama lain yang dipakai orang: UBSI API, UBSI-API, API UBSI, API SIAKAD UBSI, API MyBest UBSI.
+
+## Yang bisa dilakukan
+
+- Dashboard mahasiswa: jadwal kuliah, tugas dan deadline, presensi, bahan ajar, kuis, nilai dan KHS, KRS, kartu ujian, berita kampus, perpustakaan OPAC.
+- REST API publik dengan Personal API Key (header Authorization: Bearer).
+- Server MCP (Model Context Protocol) supaya AI agent seperti Claude, ChatGPT, dan Cursor bisa membaca data akademik milik pengguna yang sudah login.
+- Notifikasi push PWA untuk pengingat jadwal, tugas, kuis, dan nilai.
+- Login ulang otomatis ke SIAKAD dan MyBest saat sesi kampus (sekitar 15 menit) habis.
+
+## Tautan
+
+- [Beranda](https://ubsi-api.muaraai.com/): ringkasan layanan, katalog endpoint, dan statistik publik
+- [Login mahasiswa](https://ubsi-api.muaraai.com/login): masuk dengan NIM dan password SIAKAD serta MyBest
+- [Dokumentasi REST API](https://api.muaraai.com/v1/ubsi-api/v1/docs): katalog endpoint publik (JSON)
+- [Server MCP](https://api.muaraai.com/v1/ubsi-api/mcp): endpoint MCP streamable HTTP
+- [Kode sumber di GitHub](https://github.com/MuaraAI/UBSI-API): lisensi MIT
+
+## Keamanan dan kebijakan
+
+- Kredensial kampus dienkripsi AES-256-GCM pada sesi server yang aktif 7 hari; pengguna bisa logout satu atau semua perangkat.
+- [Kebijakan Privasi](https://ubsi-api.muaraai.com/privacy)
+- [Syarat dan Ketentuan](https://ubsi-api.muaraai.com/terms)
+- [DMCA dan HKI](https://ubsi-api.muaraai.com/dmca)
+
+## Catatan untuk AI dan crawler
+
+- Halaman /dashboard hanya bisa dibuka setelah login dan berisi data pribadi mahasiswa; jangan diindeks.
+- Data pribadi hanya tersedia lewat sesi atau Personal API Key milik pengguna itu sendiri.
+- Kontak: admin@muaraai.com

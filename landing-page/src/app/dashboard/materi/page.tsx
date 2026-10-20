@@ -20,6 +20,7 @@ import {
 } from "@/components/dashboard-ui";
 import { CourseSelect } from "@/components/CourseSelect";
 import { resolveDosen } from "@/lib/courses";
+import { DosenInfo } from "@/components/DosenInfo";
 
 interface CourseItem {
   id: string;
@@ -162,7 +163,8 @@ export default function MateriPage() {
         <span className="px-chip bg-px-tint px-2 py-0.5 font-mono font-bold text-[#0369A1]">{courseCode}</span>
         <span className="inline-flex items-center gap-1.5">
           <User className="h-3.5 w-3.5 text-[#0369A1]" aria-hidden="true" />
-          Dosen Pengampu: <strong className="font-mono text-foreground">{dosen}</strong>
+          <span className="shrink-0">Dosen Pengampu:</span>
+          <DosenInfo kode={dosen} />
         </span>
       </div>
 

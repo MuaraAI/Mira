@@ -27,6 +27,7 @@ import {
   primaryButtonClass,
   ghostButtonClass,
 } from "@/components/dashboard-ui";
+import { DosenInfo } from "@/components/DosenInfo";
 
 interface QuizItem {
   id: string;
@@ -333,9 +334,10 @@ export default function KuisPage() {
                     </h2>
 
                     {q.dosen && (
-                      <p className="text-xs text-secondary">
-                        Dosen Pengampu: <span className="font-semibold text-foreground">{q.dosen}</span>
-                      </p>
+                      <div className="flex flex-wrap items-center gap-x-1.5 text-xs text-secondary">
+                        <span>Dosen Pengampu:</span>
+                        <DosenInfo kode={q.dosen} />
+                      </div>
                     )}
 
                     {/* Timeline Info */}
