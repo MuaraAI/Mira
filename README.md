@@ -13,8 +13,8 @@
   <img src="https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI" />
   <img src="https://img.shields.io/badge/Next.js-15%20App%20Router-000000?style=flat-square&logo=nextdotjs&logoColor=white" alt="Next.js" />
   <img src="https://img.shields.io/badge/Redis-AES--256--GCM-DC382D?style=flat-square&logo=redis&logoColor=white" alt="Redis" />
-  <img src="https://img.shields.io/badge/tests-169%20lulus-0F766E?style=flat-square" alt="Tests" />
-  <a href="https://github.com/MuaraAI/UBSI-API/releases"><img src="https://img.shields.io/badge/release-v1.3.0%20stable-0369A1?style=flat-square" alt="Release" /></a>
+  <img src="https://img.shields.io/badge/tests-181%20lulus-0F766E?style=flat-square" alt="Tests" />
+  <a href="https://github.com/MuaraAI/UBSI-API/releases"><img src="https://img.shields.io/badge/release-v2.0.0%20stable-0369A1?style=flat-square" alt="Release" /></a>
 
 </div>
 
@@ -122,7 +122,7 @@ UBSI API menyatukan seluruh layanan tersebut ke dalam satu antarmuka REST API da
 | **Personal API Key Engine** | Mahasiswa dapat menerbitkan API Key mandiri berformat `muara_ubsi_<hex>` (terenkripsi di SQLite WAL, di-cache di Redis) untuk bot Discord, Telegram, atau skrip tanpa perlu memasukkan password kampus. |
 | **Two-Tier Redis Cache & SWR** | Caching berjenjang (jadwal 2 jam, nilai 30 menit, tugas 10 menit) dengan fallback offline Last-Known-Good (LGG) dan single-flight mutex anti-stampede. |
 | **Multi-Tenant SessionPool** | Setiap NIM memiliki pool koneksi HTTP terisolasi dengan auto-eviction idle (15 menit) dan proteksi sticky proxy per-NIM. |
-| **Universal MCP Server** | Terhubung ke AI Agent (Hermes, Claude Code, Cursor, Codex) via transport Streamable HTTP (`/v1/ubsi-api/mcp`) dengan 37 tools akademik siap pakai (lihat [docs/mcp.md](docs/mcp.md)). |
+| **Universal MCP Server** | Terhubung ke AI Agent (Hermes, Claude Code, Cursor, Codex) via transport Streamable HTTP (`/v1/ubsi-api/mcp`) dengan 38 tools akademik siap pakai (lihat [docs/mcp.md](docs/mcp.md)). |
 | **Pertahanan Anti-SSRF** | Validasi IP Scheme dan resolusi DNS ketat untuk webhook custom dan pengunduhan berkas storage resmi kampus. |
 | **Frontend Fluid Currents Light** | Dashboard App Shell Next.js 15: kanvas mist water `#F7FAFC`, teks riverbed `#072033`, aksen `#0369A1` (WCAG AAA), font woff2 lokal, responsif 360px+, dan cache SWR 0ms. |
 
@@ -200,7 +200,7 @@ Semua endpoint bisnis menggunakan prefix `/v1/`:
 
 ## MCP Server untuk AI Agent
 
-UBSI API menyediakan endpoint **Model Context Protocol (MCP)** siap pakai dengan **37 tools akademik**:
+UBSI API menyediakan endpoint **Model Context Protocol (MCP)** siap pakai dengan **38 tools akademik**:
 ```text
 https://api.muaraai.com/v1/ubsi-api/mcp
 ```
@@ -254,7 +254,7 @@ http_headers = { "Authorization" = "Bearer muara_ubsi_YOUR_KEY" }
 - **Security & Enkripsi** — AES-256-GCM (Redis Session), Fernet (SQLite WAL Personal Keys), Keyed BLAKE2b KDF.
 - **HTTP Client & Parsing** — Scrapling (FetcherSession), HTTPX (AsyncClient/Client), lxml.
 - **Caching & Limiter** — Redis DB 2 (asyncio), single-flight mutex, sliding-window rate limiter.
-- **Testing & Quality** — Pytest (155 pengujian 100% offline), Pytest-Asyncio, HTTPX ASGITransport.
+- **Testing & Quality** — Pytest (181 pengujian 100% offline), Pytest-Asyncio, HTTPX ASGITransport.
 - **Deployment & Hosting** — Vercel (`ubsi-api.muaraai.com`), Tencent Cloud VPS + PM2 (`/opt/ubsi-api`) + Caddy HTTPS.
 
 ---
@@ -285,7 +285,7 @@ UBSI-API/
 │   ├── session_store.py       # Enkripsi sesi Redis AES-256-GCM (sliding 7 hari)
 │   ├── api_keys_db.py         # Personal API Keys engine (SQLite WAL + Fernet)
 │   ├── channels_db.py         # Webhook channels storage (SQLite WAL)
-│   ├── mcp_server.py          # Universal MCP Server (Streamable HTTP, 37 tools)
+│   ├── mcp_server.py          # Universal MCP Server (Streamable HTTP, 38 tools)
 │   ├── stats.py               # Usage counter & privacy-preserving analytics
 │   └── main.py                # Server entrypoint, middleware auth & proxy, health, metrics
 ├── landing-page/              # [FRONTEND] Landing Page & Dashboard (Next.js 15)
@@ -427,7 +427,7 @@ Frontend di-deploy secara otomatis melalui Vercel di domain resmi [ubsi-api.muar
 ## Dokumentasi & Legal
 
 - [API Reference](docs/api.md) — Kamus lengkap seluruh endpoint REST API beserta format request dan response JSON.
-- [Model Context Protocol (MCP) Server](docs/mcp.md) — Panduan lengkap 37 tools MCP akademik, skema parameter, dan integrasi AI Agent.
+- [Model Context Protocol (MCP) Server](docs/mcp.md) — Panduan lengkap 38 tools MCP akademik, skema parameter, dan integrasi AI Agent.
 - [System Architecture](docs/architecture.md) — Siklus request, two-tier cache, dan single-flight mutex.
 - [Access & Account Safety](docs/anti-ban.md) — Kebijakan penggunaan bertanggung jawab: manajemen sesi, jeda adaptif, dan batas laju request.
 - [Production Deployment](docs/deploy.md) — Panduan operasi dan pemeliharaan server VPS via PM2.

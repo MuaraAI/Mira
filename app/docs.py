@@ -3,7 +3,7 @@ from typing import Any, Optional
 API_DOCS_DATA: dict[str, Any] = {
     "info": {
         "title": "UBSI API & Universal MCP Server",
-        "version": "1.3.0",
+        "version": "2.0.0",
         "description": "Unified Unofficial REST API Aggregator & Model Context Protocol (MCP) Server for Universitas Bina Sarana Informatika digital services.",
         "base_url": "https://api.muaraai.com/v1/ubsi-api",
         "mcp_url": "https://api.muaraai.com/v1/ubsi-api/mcp",

@@ -68,7 +68,7 @@ async def test_get_docs_endpoint_public_access():
     assert data["success"] is True
     assert "endpoints" in data["data"]
     assert "mcp" in data["data"]
-    assert data["data"]["info"]["version"] == "1.3.0"
+    assert data["data"]["info"]["version"] == "2.0.0"
 
 @pytest.mark.asyncio
 async def test_get_docs_endpoint_with_category():

@@ -36,6 +36,7 @@ export function Footer() {
           <ul className="space-y-2.5">
             <li><Link href="/privacy" className="text-secondary hover:text-foreground">Kebijakan Privasi</Link></li>
             <li><Link href="/terms" className="text-secondary hover:text-foreground">Syarat dan Ketentuan</Link></li>
+            <li><Link href="/dmca" className="text-secondary hover:text-foreground">DMCA dan HKI</Link></li>
             <li><a href="mailto:admin@muaraai.com" className="inline-flex items-center gap-1.5 text-secondary hover:text-foreground"><Mail className="h-3.5 w-3.5" aria-hidden="true" /> admin@muaraai.com</a></li>
             <li><a href="https://www.threads.com/@muara.ai" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-secondary hover:text-foreground"><MessageCircle className="h-3.5 w-3.5" aria-hidden="true" /> Threads</a></li>
             <li><a href="https://www.instagram.com/muara.ai/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-secondary hover:text-foreground"><Instagram className="h-3.5 w-3.5" aria-hidden="true" /> Instagram</a></li>
