@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     # Session Login BSI (Redis-backed, sliding 7 hari)
     SESSION_COOKIE_DOMAIN: str = ""
     SQLITE_DB_PATH: str = "data/ubsi.db"
+    # Sesi SIAKAD/MyBest kedaluwarsa ~15 menit; diperbarui otomatis sebelum batas itu (detik)
+    UPSTREAM_SESSION_MAX_AGE: int = 780
 
     # Scraper Proxy Configuration (Opsional - Single Proxy / Rotating Pool)
     SCRAPER_PROXY: str = ""
