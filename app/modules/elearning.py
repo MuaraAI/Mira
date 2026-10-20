@@ -352,40 +352,87 @@ def parse_materials(html: str) -> list[dict[str, Any]]:
     page = Adaptor(html)
     materials = []
 
-    # Check table rows first
+    # 1. Materi Tambahan / Tatap Muka Dosen dari Tabel
     tables = page.css("table")
     if tables:
         for r in tables[0].css("tr")[1:]:
             cols = [c.get_all_text().strip() for c in r.css("td")]
-            links = [a.attrib.get("href") for a in r.css("a") if a.attrib.get("href")]
             if len(cols) >= 5:
                 item_id = hashlib.sha256(f"{cols[1]}:{cols[3]}".encode()).hexdigest()[:12]
+
+                # Cek form POST download-file-materi
+                file_id = None
+                file_name = None
+                forms = r.css("form[action*='download-file-materi']")
+                if forms:
+                    inp_id = forms[0].css("input[name='id']")
+                    inp_file = forms[0].css("input[name='file']")
+                    if inp_id and inp_id[0].attrib.get("value"):
+                        file_id = inp_id[0].attrib["value"]
+                    if inp_file and inp_file[0].attrib.get("value"):
+                        file_name = inp_file[0].attrib["value"]
+
+                # Cek anchor tag
+                links = [a.attrib.get("href") for a in r.css("a") if a.attrib.get("href")]
+                file_url = links[0] if links else None
+                if not file_url and file_id and file_name:
+                    file_url = f"/v1/elearning/materials/download?id={file_id}&file={file_name}"
+
                 materials.append({
                     "id": item_id,
                     "kode": cols[1],
                     "kelas": cols[2],
                     "judul": cols[3],
                     "deskripsi": cols[4],
-                    "file_url": links[0] if links else None,
+                    "file_url": file_url,
+                    "file_id": file_id,
+                    "file_name": file_name,
+                    "kategori": "materi_dosen",
                     "update": cols[6] if len(cols) > 6 else None,
                 })
 
-    # Also capture any standalone download links (silabus / modul zip)
+    # 2. Paket Berkas Standar Resmi Kampus (Silabus, RPS, Slide, Modul, RTM)
     seen_urls = {m["file_url"] for m in materials if m.get("file_url")}
     for a in page.css("a"):
         h = a.attrib.get("href", "").strip()
-        if h and any(ext in h.lower() for ext in [".zip", ".pdf", ".rar", "silabus"]):
+        if h and any(ext in h.lower() for ext in [".zip", ".pdf", ".rar", "silabus", "bahan_ajar"]):
             if h not in seen_urls:
                 seen_urls.add(h)
-                title = a.get_all_text().strip() or ("Silabus / Modul" if "silabus" in h else "Bahan Ajar")
+                cat = "bahan_ajar"
+                title = "Bahan Ajar"
+                desc = "Berkas resmi perkuliahan"
+                if "/silabus/" in h.lower():
+                    cat = "silabus"
+                    title = "Silabus Mata Kuliah (ZIP)"
+                    desc = "Garis besar pokok bahasan mata kuliah satu semester"
+                elif "/rps/" in h.lower():
+                    cat = "rps"
+                    title = "Rencana Pembelajaran Semester / RPS (ZIP)"
+                    desc = "Capaian pembelajaran lulusan (CPL) dan referensi dosen"
+                elif "/slide/" in h.lower():
+                    cat = "slide"
+                    title = "Slide Presentasi Dosen P1-P14 (ZIP)"
+                    desc = "Kumpulan slide materi tatap muka mingguan dosen"
+                elif "/modul/" in h.lower():
+                    cat = "modul"
+                    title = "Modul Praktikum & Teori (ZIP)"
+                    desc = "Panduan praktikum laboratorium dan studi kasus"
+                elif "/rtm/" in h.lower():
+                    cat = "rtm"
+                    title = "Rencana Tugas Mahasiswa / RTM (ZIP)"
+                    desc = "Pedoman tugas dan rubrik penilaian resmi"
+
                 item_id = hashlib.sha256(h.encode()).hexdigest()[:12]
                 materials.append({
                     "id": item_id,
                     "kode": None,
                     "kelas": None,
                     "judul": title,
-                    "deskripsi": "Berkas silabus / modul pembelajaran",
+                    "deskripsi": desc,
                     "file_url": h,
+                    "file_id": None,
+                    "file_name": None,
+                    "kategori": cat,
                     "update": None,
                 })
 
@@ -979,6 +1026,27 @@ class ElearningClient:
         }
         return client.post(f"{self.BASE_URL}/download-file-tugas", data=post_data)
 
+    def download_material_post(self, token_id: str, filename: str, nim: str, password: str) -> httpx.Response:
+        client = self.get_client()
+        if not self._logged_in:
+            ok = self.login(nim, password)
+            if not ok:
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail=error_response(code="AUTH_FAILED", message="Gagal login ke elearning.bsi.ac.id", module="elearning"),
+                )
+
+        sch_res = client.get(f"{self.BASE_URL}/sch")
+        m = re.search(r'name=["\']_token["\']\s+value=["\']([^"\']+)["\']', sch_res.text)
+        csrf_token = m.group(1) if m else ""
+
+        post_data = {
+            "_token": csrf_token,
+            "id": token_id,
+            "file": filename,
+        }
+        return client.post(f"{self.BASE_URL}/download-file-materi", data=post_data)
+
     def submit_assignment_link(self, token_send: str, link_tugas: str, nim: str, password: str) -> dict[str, Any]:
         client = self.get_client()
         if not self._logged_in:
@@ -1231,6 +1299,14 @@ class PooledElearningClient:
 
         def _post_once() -> httpx.Response:
             return client.download_assignment_post(token_id, filename, nim, password)
+
+        return await retry_async(_post_once, attempts=3, base_delay=1.0)
+
+    async def download_material_post(self, token_id: str, filename: str, nim: str, password: str) -> httpx.Response:
+        client = self._pool.get(nim)
+
+        def _post_once() -> httpx.Response:
+            return client.download_material_post(token_id, filename, nim, password)
 
         return await retry_async(_post_once, attempts=3, base_delay=1.0)
 
@@ -1721,7 +1797,7 @@ def is_safe_bsi_storage_url(url_str: str) -> bool:
         hostname = (p.hostname or "").lower()
         if hostname not in ("elearning.bsi.ac.id", "students.bsi.ac.id", "news.bsi.ac.id", "repository.bsi.ac.id"):
             return False
-        if ".." in p.path or not p.path.startswith(("/storage/soal/", "/storage/tugas/")):
+        if ".." in p.path or not p.path.startswith(("/storage/soal/", "/storage/tugas/", "/storage/", "/mhs_download/")):
             return False
         return not p.query and not p.fragment
     except Exception:
@@ -1974,6 +2050,118 @@ async def download_assignment_file(
             detail=error_response(
                 code="DOWNLOAD_ERROR",
                 message=f"Terjadi kesalahan saat mengunduh file: {exc}",
+                module="elearning",
+            ),
+        )
+
+
+@router.get("/materials/download")
+async def download_material_file(
+    id: Optional[str] = Query(default=None, description="ID token dari form download-file-materi MyBest"),
+    file: Optional[str] = Query(default=None, description="Nama file dari form download-file-materi MyBest"),
+    file_url: Optional[str] = Query(default=None, description="Direct URL berkas bahan ajar"),
+    creds: tuple[str, str] = Depends(require_elearning_creds),
+):
+    """Download berkas materi tatap muka dosen atau paket bahan ajar resmi MyBest secara aman."""
+    nim, password = creds
+
+    # Mode 1: Download via form POST /download-file-materi
+    if id and file:
+        clean_id = extract_clean_token(id) or id.strip("/")
+        resp = await pooled_elearning_client.download_material_post(
+            token_id=clean_id,
+            filename=file,
+            nim=nim,
+            password=password,
+        )
+        if resp.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=error_response(
+                    code="DOWNLOAD_FAILED",
+                    message=f"Gagal mengunduh berkas materi dari MyBest (status {resp.status_code})",
+                    module="elearning",
+                ),
+            )
+        filename = file or "materi_kuliah.pdf"
+        content_type = resp.headers.get("content-type", "application/pdf")
+        return Response(
+            content=resp.content,
+            media_type=content_type,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    # Mode 2: Download via direct file_url
+    if not file_url:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_response(
+                code="MISSING_PARAMS",
+                message="Wajib menyertakan parameter 'id' & 'file' atau 'file_url'",
+                module="elearning",
+            ),
+        )
+
+    # Check if file_url encodes ?id=...&file=...
+    if "id=" in file_url and "file=" in file_url:
+        import urllib.parse
+        parsed = urllib.parse.urlparse(file_url)
+        q_params = urllib.parse.parse_qs(parsed.query)
+        p_id = q_params.get("id", [None])[0]
+        p_file = q_params.get("file", [None])[0]
+        if p_id and p_file:
+            clean_pid = extract_clean_token(p_id) or p_id.strip("/")
+            resp = await pooled_elearning_client.download_material_post(
+                token_id=clean_pid,
+                filename=p_file,
+                nim=nim,
+                password=password,
+            )
+            if resp.status_code == 200:
+                filename = p_file or "materi_kuliah.pdf"
+                content_type = resp.headers.get("content-type", "application/pdf")
+                return Response(
+                    content=resp.content,
+                    media_type=content_type,
+                    headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+                )
+
+    if not is_safe_bsi_storage_url(file_url):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_response(
+                code="INVALID_URL",
+                message="file_url tidak valid atau bukan berasal dari domain storage resmi BSI (anti-SSRF)",
+                module="elearning",
+            ),
+        )
+
+    try:
+        resp = await pooled_elearning_client.download_file(file_url, nim, password)
+        if resp.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=error_response(
+                    code="DOWNLOAD_FAILED",
+                    message=f"Gagal mengunduh file materi dari storage kampus (status {resp.status_code})",
+                    module="elearning",
+                ),
+            )
+        filename = file_url.rstrip("/").split("/")[-1] or "materi_kuliah.zip"
+        content_type = resp.headers.get("content-type", "application/octet-stream")
+        return Response(
+            content=resp.content,
+            media_type=content_type,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=error_response(
+                code="DOWNLOAD_ERROR",
+                message=f"Terjadi kesalahan saat mengunduh materi: {exc}",
                 module="elearning",
             ),
         )
