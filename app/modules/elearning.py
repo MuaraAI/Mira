@@ -1676,9 +1676,10 @@ async def submit_presence(
 
     action_url = info.get("form_action") or f"/absen-mhs/{target_token}"
     inputs = dict(info.get("form_inputs") or {})
-    # Ensure required payload for /komentar-mhs form (nilai radio must be present; default 1 = Pengajaran Sesuai)
-    if inputs.get("nilai") not in ("0", "1"):
-        inputs["nilai"] = "1"
+    # Force nilai=1 (Pengajaran Sesuai) — the dict comprehension in
+    # inspect_session_status picks the LAST input value, which is "0" (Tidak Sesuai).
+    # Presence submission should always send nilai=1 so attendance is recorded positively.
+    inputs["nilai"] = "1"
     inputs.setdefault("komentar", "")
     try:
         await pooled_elearning_client.post_page(action_url, nim, password, data=inputs)
