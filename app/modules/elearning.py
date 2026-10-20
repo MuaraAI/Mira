@@ -18,6 +18,7 @@ from app.config import settings
 from app.deps import require_elearning_creds
 from app.envelope import success_response, error_response
 from app.session_pool import SessionPool
+from app.upstream_session import UpstreamSession, is_logged_out_response
 from app.retry import retry_async
 from app.proxy import get_proxy
 from app.router_helper import cached_endpoint
@@ -808,8 +809,10 @@ def summarize_grades(
 
 # Authenticated Scrapling Client
 
-class ElearningClient:
+class ElearningClient(UpstreamSession):
     BASE_URL = "https://elearning.bsi.ac.id"
+    MODULE = "elearning"
+    HOST_LABEL = "elearning.bsi.ac.id"
     HEADERS = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         "Origin": "https://elearning.bsi.ac.id",
@@ -820,7 +823,7 @@ class ElearningClient:
         self._proxy = proxy
         self._client: Optional[httpx.Client] = None
         self._logged_in: bool = False
-        self._login_lock = asyncio.Lock()
+        self._init_upstream_session()
 
     def get_client(self) -> httpx.Client:
         if self._client is None or self._client.is_closed:
@@ -862,10 +865,10 @@ class ElearningClient:
             # Login sukses jika TIDAK lagi di halaman login dan status 200 (Laravel redirect ke intended page)
             is_login_page = "/login" in final_url and ("captcha_answer" in r2.text or "password" in r2.text)
             if not is_login_page and r2.status_code == 200:
-                self._logged_in = True
+                self._mark_logged_in()
                 return True
             if "dashboard" in final_url or "elearning.bsi.ac.id/user" in final_url:
-                self._logged_in = True
+                self._mark_logged_in()
                 return True
             logger.warning("Elearning login rejected for %s: ended at %s (status %s)", nim, r2.url, r2.status_code)
             return False
@@ -873,8 +876,7 @@ class ElearningClient:
             logger.error("Elearning login exception for %s: %s", nim, err)
             return False
 
-    def fetch_page(self, path: str, nim: str, password: str) -> str:
-        client = self.get_client()
+    def _check_relative_path(self, path: str) -> None:
         if "://" in path or path.startswith("//"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -884,37 +886,11 @@ class ElearningClient:
                     module="elearning",
                 ),
             )
-        target_url = f"{self.BASE_URL}{path}" if path.startswith("/") else f"{self.BASE_URL}/{path}"
 
-        if not self._logged_in:
-            ok = self.login(nim, password)
-            if not ok:
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail=error_response(
-                        code="AUTH_FAILED",
-                        message="Gagal login ke elearning.bsi.ac.id (captcha/kredensial salah)",
-                        module="elearning"
-                    )
-                )
-
-        r = client.get(target_url)
-
-        # Handle session expiration
-        if "/login" in str(r.url):
-            ok = self.login(nim, password)
-            if not ok:
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail=error_response(
-                        code="AUTH_EXPIRED",
-                        message="Sesi login elearning kedaluwarsa dan gagal login ulang",
-                        module="elearning"
-                    )
-                )
-            r = client.get(target_url)
-
-        return r.text
+    def fetch_page(self, path: str, nim: str, password: str) -> str:
+        self._check_relative_path(path)
+        # Sesi MyBest ~15 menit: diperbarui otomatis memakai kredensial session dashboard.
+        return self.authed_request("GET", path, nim, password).text
 
     def post_page(
         self,
@@ -925,51 +901,11 @@ class ElearningClient:
         json_body: Optional[dict] = None,
         headers: Optional[dict] = None,
     ) -> httpx.Response:
-        client = self.get_client()
-        if "://" in path or path.startswith("//"):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=error_response(
-                    code="INVALID_PATH",
-                    message="Path tidak valid (dilarang menggunakan URL absolut atau skema)",
-                    module="elearning",
-                ),
-            )
-        target_url = f"{self.BASE_URL}{path}" if path.startswith("/") else f"{self.BASE_URL}/{path}"
-
-        if not self._logged_in:
-            ok = self.login(nim, password)
-            if not ok:
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail=error_response(
-                        code="AUTH_FAILED",
-                        message="Gagal login ke elearning.bsi.ac.id (captcha/kredensial salah)",
-                        module="elearning",
-                    ),
-                )
-
+        self._check_relative_path(path)
         req_headers = dict(self.HEADERS)
         if headers:
             req_headers.update(headers)
-
-        r = client.post(target_url, data=data, json=json_body, headers=req_headers)
-
-        # Handle session expiration
-        if "/login" in str(r.url):
-            ok = self.login(nim, password)
-            if not ok:
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail=error_response(
-                        code="AUTH_EXPIRED",
-                        message="Sesi login elearning kedaluwarsa dan gagal login ulang",
-                        module="elearning",
-                    ),
-                )
-            r = client.post(target_url, data=data, json=json_body, headers=req_headers)
-
-        return r
+        return self.authed_request("POST", path, nim, password, data=data, json=json_body, headers=req_headers)
 
     def post_multipart(
         self,
@@ -980,98 +916,48 @@ class ElearningClient:
         files: Optional[dict] = None,
         headers: Optional[dict] = None,
     ) -> httpx.Response:
-        client = self.get_client()
-        if "://" in path or path.startswith("//"):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=error_response(
-                    code="INVALID_PATH",
-                    message="Path tidak valid (dilarang menggunakan URL absolut atau skema)",
-                    module="elearning",
-                ),
-            )
-        target_url = f"{self.BASE_URL}{path}" if path.startswith("/") else f"{self.BASE_URL}/{path}"
-
-        if not self._logged_in:
-            ok = self.login(nim, password)
-            if not ok:
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail=error_response(
-                        code="AUTH_FAILED",
-                        message="Gagal login ke elearning.bsi.ac.id (captcha/kredensial salah)",
-                        module="elearning",
-                    ),
-                )
+        self._check_relative_path(path)
+        if not self.ensure_session(nim, password):
+            raise self._auth_error("AUTH_FAILED", "Gagal login ke elearning.bsi.ac.id (captcha/kredensial salah)")
 
         req_headers = dict(self.HEADERS)
         if headers:
             req_headers.update(headers)
 
-        return client.post(target_url, data=data, files=files, headers=req_headers)
+        # Upload tidak diulang otomatis (stream file sudah terpakai); sesi sudah dijamin segar di atas.
+        return self.get_client().post(self.resolve_url(path), data=data, files=files, headers=req_headers)
 
     def download_file(self, url: str, nim: str, password: str) -> httpx.Response:
-        client = self.get_client()
-        if not self._logged_in:
-            self.login(nim, password)
-        return client.get(url)
+        return self.authed_request("GET", url, nim, password)
+
+    def _csrf_from_sch(self, nim: str, password: str) -> str:
+        sch_res = self.authed_request("GET", "/sch", nim, password)
+        m = re.search(r'name=["\']_token["\']\s+value=["\']([^"\']+)["\']', sch_res.text)
+        return m.group(1) if m else ""
+
+    def _download_post(self, endpoint: str, token_id: str, filename: str, nim: str, password: str) -> httpx.Response:
+        post_data = {
+            "_token": self._csrf_from_sch(nim, password),
+            "id": token_id,
+            "file": filename,
+        }
+        resp = self.get_client().post(f"{self.BASE_URL}{endpoint}", data=post_data)
+        if is_logged_out_response(resp):
+            # Sesi habis di antara ambil CSRF dan download: login ulang + CSRF baru.
+            post_data["_token"] = self._csrf_from_sch(nim, password)
+            resp = self.get_client().post(f"{self.BASE_URL}{endpoint}", data=post_data)
+        return resp
 
     def download_assignment_post(self, token_id: str, filename: str, nim: str, password: str) -> httpx.Response:
-        client = self.get_client()
-        if not self._logged_in:
-            ok = self.login(nim, password)
-            if not ok:
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail=error_response(code="AUTH_FAILED", message="Gagal login ke elearning.bsi.ac.id", module="elearning"),
-                )
-
-        # Ambil CSRF token dari halaman /sch
-        sch_res = client.get(f"{self.BASE_URL}/sch")
-        m = re.search(r'name=["\']_token["\']\s+value=["\']([^"\']+)["\']', sch_res.text)
-        csrf_token = m.group(1) if m else ""
-
-        post_data = {
-            "_token": csrf_token,
-            "id": token_id,
-            "file": filename,
-        }
-        return client.post(f"{self.BASE_URL}/download-file-tugas", data=post_data)
+        return self._download_post("/download-file-tugas", token_id, filename, nim, password)
 
     def download_material_post(self, token_id: str, filename: str, nim: str, password: str) -> httpx.Response:
-        client = self.get_client()
-        if not self._logged_in:
-            ok = self.login(nim, password)
-            if not ok:
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail=error_response(code="AUTH_FAILED", message="Gagal login ke elearning.bsi.ac.id", module="elearning"),
-                )
-
-        sch_res = client.get(f"{self.BASE_URL}/sch")
-        m = re.search(r'name=["\']_token["\']\s+value=["\']([^"\']+)["\']', sch_res.text)
-        csrf_token = m.group(1) if m else ""
-
-        post_data = {
-            "_token": csrf_token,
-            "id": token_id,
-            "file": filename,
-        }
-        return client.post(f"{self.BASE_URL}/download-file-materi", data=post_data)
+        return self._download_post("/download-file-materi", token_id, filename, nim, password)
 
     def submit_assignment_link(self, token_send: str, link_tugas: str, nim: str, password: str) -> dict[str, Any]:
-        client = self.get_client()
-        if not self._logged_in:
-            ok = self.login(nim, password)
-            if not ok:
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail=error_response(code="AUTH_FAILED", message="Gagal login ke elearning.bsi.ac.id", module="elearning"),
-                )
-
         send_path = token_send if token_send.startswith("/assignment/send/") else f"/assignment/send/{token_send}"
-        send_url = f"{self.BASE_URL}{send_path}" if not send_path.startswith("http") else send_path
-        res_page = client.get(send_url)
+        res_page = self.authed_request("GET", send_path, nim, password)
+        client = self.get_client()
         if res_page.status_code != 200:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
@@ -1140,17 +1026,9 @@ class ElearningClient:
         }
 
     def post_discussion_comment(self, token_komentar: str, id_chat: str, komentar: str, nim: str, password: str) -> dict[str, Any]:
-        client = self.get_client()
-        if not self._logged_in:
-            ok = self.login(nim, password)
-            if not ok:
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail=error_response(code="AUTH_FAILED", message="Gagal login ke elearning.bsi.ac.id", module="elearning"),
-                )
-
         kom_path = f"/form-komentarmhs/{token_komentar}"
-        res_page = client.get(f"{self.BASE_URL}{kom_path}")
+        res_page = self.authed_request("GET", kom_path, nim, password)
+        client = self.get_client()
         if res_page.status_code != 200:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
@@ -1186,17 +1064,9 @@ class ElearningClient:
         return {"status": "success", "message": "Komentar berhasil dikirimkan ke forum MyBest"}
 
     def post_new_discussion(self, token_course: str, judul: str, chat: str, nim: str, password: str) -> dict[str, Any]:
-        client = self.get_client()
-        if not self._logged_in:
-            ok = self.login(nim, password)
-            if not ok:
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail=error_response(code="AUTH_FAILED", message="Gagal login ke elearning.bsi.ac.id", module="elearning"),
-                )
-
         disc_path = f"/form-diskusimhs/{token_course}"
-        res_page = client.get(f"{self.BASE_URL}{disc_path}")
+        res_page = self.authed_request("GET", disc_path, nim, password)
+        client = self.get_client()
         if res_page.status_code != 200:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,

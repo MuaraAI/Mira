@@ -418,3 +418,21 @@ html { scrollbar-color: var(--px-water-mid) var(--px-tint); scrollbar-width: thi
   .px-card-hover:hover, .px-btn:hover, .px-btn-ghost:hover, .current-node:hover { transform: none; }
   .px-loader span:nth-child(1) { background: #0369A1; }
 }
+
+/* Login check panel: steps enter one by one, the running step blinks block by block. */
+@keyframes login-step-in { from { opacity: 0; transform: translateX(-10px); } }
+.login-check .login-step { animation: login-step-in .36s var(--ease-px) both; animation-delay: calc(var(--i, 0) * 70ms); box-shadow: 0 -2px 0 0 var(--px-line-soft), 0 2px 0 0 var(--px-line-soft), -2px 0 0 0 var(--px-line-soft), 2px 0 0 0 var(--px-line-soft); }
+.login-check .login-step[data-state="running"] { box-shadow: 0 -2px 0 0 #0369A1, 0 2px 0 0 #0369A1, -2px 0 0 0 #0369A1, 2px 0 0 0 #0369A1, 4px 4px 0 0 var(--px-water); }
+.login-check .login-step[data-state="done"] { box-shadow: 0 -2px 0 0 #99D5CC, 0 2px 0 0 #99D5CC, -2px 0 0 0 #99D5CC, 2px 0 0 0 #99D5CC; }
+.login-check .login-step[data-state="failed"] { box-shadow: 0 -2px 0 0 #FDA4AF, 0 2px 0 0 #FDA4AF, -2px 0 0 0 #FDA4AF, 2px 0 0 0 #FDA4AF, 4px 4px 0 0 #FFE4E6; animation: login-shake .4s steps(4, end) both; }
+@keyframes login-shake { 25% { transform: translateX(-4px); } 50% { transform: translateX(4px); } 75% { transform: translateX(-2px); } }
+.login-step-running > span { background: var(--px-line-soft); animation: login-cell 0.8s steps(1, end) infinite; }
+.login-step-running > span:nth-child(1) { animation-delay: 0s; }
+.login-step-running > span:nth-child(2) { animation-delay: .2s; }
+.login-step-running > span:nth-child(4) { animation-delay: .4s; }
+.login-step-running > span:nth-child(3) { animation-delay: .6s; }
+@keyframes login-cell { 0%, 24% { background: #0369A1; } 25%, 100% { background: var(--px-line-soft); } }
+.login-seg-running { background: repeating-linear-gradient(90deg, #0369A1 0 4px, var(--px-water) 4px 8px); background-size: 16px 100%; animation: login-seg 0.6s steps(4, end) infinite; }
+@keyframes login-seg { to { background-position: 16px 0; } }
+@keyframes login-form-in { from { opacity: 0; transform: translateY(8px); } }
+.login-form-in { animation: login-form-in .32s var(--ease-px) both; }
