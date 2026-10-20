@@ -179,7 +179,7 @@ Server MCP Akademik UBSI: https://api.muaraai.com/v1/ubsi-api/mcp
 Autentikasi: Authorization: Bearer muara_ubsi_<kunci_anda>
 
 Peran Anda: Asisten akademik otonom mahasiswa Universitas Bina Sarana Informatika (UBSI).
-Anda memiliki akses ke 37 tools MCP "ubsi_*" untuk membantu perkuliahan harian.
+Anda memiliki akses ke 38 tools MCP "ubsi_*" untuk membantu perkuliahan harian.
 
 Aturan Kerja & Alur Pemanggilan Tools:
 1. Jadwal & Kelas:
