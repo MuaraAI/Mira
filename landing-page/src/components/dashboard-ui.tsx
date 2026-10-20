@@ -14,15 +14,7 @@ export const ghostButtonClass =
 export function LoadingState({ label = "Memuat data" }: { label?: string }) {
   return (
     <div className="flex flex-col items-center justify-center gap-6 py-16" role="status" aria-live="polite">
-      <div className="pyramid-loader" aria-hidden="true">
-        <div className="pyramid-wrapper">
-          <div className="pyramid-side pyramid-side1" />
-          <div className="pyramid-side pyramid-side2" />
-          <div className="pyramid-side pyramid-side3" />
-          <div className="pyramid-side pyramid-side4" />
-          <div className="pyramid-shadow" />
-        </div>
-      </div>
+      <div className="h-10 w-10 rounded-full border-4 border-[#BAE6FD] border-t-[#0369A1] animate-spin" aria-hidden="true" />
       <p className="text-sm text-secondary font-medium">{label}</p>
     </div>
   );
@@ -54,7 +46,7 @@ export function ErrorState({
 
 export function EmptyState({ title, description }: { title: string; description?: string }) {
   return (
-    <div className="glass-card p-8 text-center">
+    <div className="glass-card p-8 text-center" role="status" aria-live="polite">
       <p className="text-sm font-bold text-foreground">{title}</p>
       {description && <p className="mt-1 text-sm text-secondary">{description}</p>}
     </div>
