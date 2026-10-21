@@ -88,6 +88,24 @@ export function tidyLink(raw: string): string {
   return parsed && parsed.provider !== "web" && parsed.id ? parsed.normalizedUrl : raw.trim();
 }
 
+/** Hasil pengganti bila server tidak bisa dihubungi, supaya status tidak menggantung di "Mengecek". */
+export function failedCheck(url: string): LinkCheck {
+  return {
+    url,
+    valid: true,
+    provider: null,
+    kind: null,
+    label: "",
+    id: null,
+    normalized_url: null,
+    preview_url: null,
+    can_preview: false,
+    access: "unknown",
+    title: null,
+    message: "Status akses belum bisa dicek (server belum merespons). Tekan Cek ulang, atau pastikan link bisa dibuka tanpa login.",
+  };
+}
+
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const cache = new Map<string, { at: number; value: LinkCheck }>();
 
@@ -132,7 +150,10 @@ export function useLinkChecks(urls: string[]) {
         setFailed(false);
       }
     } catch {
-      if (alive.current) setFailed(true);
+      if (alive.current) {
+        setFailed(true);
+        setResults((prev) => ({ ...prev, ...Object.fromEntries(list.map((url) => [url, failedCheck(url)])) }));
+      }
     } finally {
       if (alive.current) setPending((prev) => new Set([...prev].filter((u) => !list.includes(u))));
     }
@@ -176,7 +197,7 @@ export function useLinkCheck(url: string, delayMs = 700) {
         const [item] = await requestChecks([trimmed], tick > 0);
         if (alive) setResult(item ?? null);
       } catch {
-        if (alive) setResult(null);
+        if (alive) setResult(failedCheck(trimmed));
       } finally {
         if (alive) setChecking(false);
       }

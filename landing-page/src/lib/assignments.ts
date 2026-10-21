@@ -21,6 +21,13 @@ export function isSameTask(a: TaskLike, b: TaskLike) {
   return courseA === courseB || (norm(a.kode) !== "" && norm(a.kode) === norm(b.kode));
 }
 
+/** MyBest memakai 0 (atau kosong) untuk tugas yang belum dinilai dosen, jadi itu bukan nilai sungguhan. */
+export function gradeValue(nilai: unknown): number | null {
+  if (nilai === null || nilai === undefined || nilai === "" || nilai === "-") return null;
+  const n = typeof nilai === "number" ? nilai : Number(String(nilai).replace(",", "."));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 export function findSubmission<T extends TaskLike>(task: TaskLike, submissions: T[]) {
   return submissions.find((s) => isSameTask(task, s));
 }

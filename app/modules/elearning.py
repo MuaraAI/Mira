@@ -203,6 +203,10 @@ def parse_assignments(html: str) -> dict[str, list[dict[str, Any]]]:
             if len(cols) >= 7:
                 item_id = hashlib.sha256(f"{cols[1]}:{cols[2]}:{cols[3]}".encode()).hexdigest()[:12]
                 val_nilai = float(cols[6]) if cols[6] and cols[6].replace(".", "").isdigit() else None
+                # MyBest menampilkan 0 untuk tugas yang belum diperiksa dosen: bukan nilai sungguhan,
+                # jangan dihitung sebagai "sudah dinilai" maupun menurunkan rata-rata.
+                if val_nilai is not None and val_nilai <= 0:
+                    val_nilai = None
                 submissions.append({
                     "id": item_id,
                     "kode": cols[1],
