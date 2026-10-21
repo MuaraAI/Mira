@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { BellRing, Check, Info, RefreshCw, Send, Smartphone, Trash2 } from "lucide-react";
 
-import { apiFetch, ApiError, clearApiCache } from "@/lib/api";
+import { apiFetch, ApiError } from "@/lib/api";
 import { EmptyState, ghostButtonClass, primaryButtonClass } from "@/components/dashboard-ui";
 import {
   getExistingSubscription,
@@ -29,20 +29,34 @@ export default function PwaPushDeviceSection() {
   const [categories, setCategories] = useState<string[] | null>(null);
   const [blocker, setBlocker] = useState<string | null>(null);
   const [hasLocalSub, setHasLocalSub] = useState(false);
+  const [localEndpoint, setLocalEndpoint] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [savingCategory, setSavingCategory] = useState<string | null>(null);
   const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     setBlocker(getPushBlocker());
-    setHasLocalSub(isPushSupported() ? (await getExistingSubscription()) !== null : false);
+    try {
+      const sub = isPushSupported() ? await getExistingSubscription() : null;
+      setHasLocalSub(sub !== null);
+      setLocalEndpoint(sub?.endpoint ?? null);
+    } catch (err) {
+      setHasLocalSub(false);
+      setLocalEndpoint(null);
+      setBlocker(err instanceof Error && err.message ? err.message : "Notifikasi belum bisa disiapkan di perangkat ini.");
+    }
+    let loadFailed = false;
     try {
       const res = await apiFetch<{ devices: PushDevice[] }>("/v1/notifications/pwa/devices");
       setDevices(res.devices);
-    } catch {
-      setDevices([]);
+    } catch (err) {
+      loadFailed = true;
+      // Jangan kosongkan daftar lama: pengguna tetap bisa mencabut device saat API ngambek
+      setLoadError(err instanceof ApiError && err.message ? err.message : "Gagal memuat daftar perangkat.");
     }
+    if (!loadFailed) setLoadError(null);
     try {
       const res = await apiFetch<{ categories: string[] }>("/v1/notifications/pwa/categories");
       setCategories(res.categories);
@@ -86,8 +100,17 @@ export default function PwaPushDeviceSection() {
 
   const handleDelete = (id: number) =>
     run(async () => {
+      const target = devices.find((d) => d.id === id);
+      if (!window.confirm(`Hapus perangkat ${target?.device_name ?? "ini"}? Perangkat tersebut berhenti menerima notifikasi.`)) {
+        return "Penghapusan dibatalkan.";
+      }
+      if (target && localEndpoint && target.endpoint === localEndpoint) {
+        // Device yang sedang dipakai: cabut subscription lokal JUGA, bukan cuma baris server.
+        // Kalau cuma DELETE, browser tetap punya subscription dan tombol Aktifkan malah hilang.
+        await unsubscribeCurrentDevice();
+        return "Perangkat ini berhenti menerima notifikasi dan dihapus.";
+      }
       await apiFetch(`/v1/notifications/pwa/devices/${id}`, { method: "DELETE" });
-      clearApiCache("/v1/notifications/pwa/devices");
       return "Perangkat dihapus.";
     }, "Gagal menghapus perangkat.");
 
@@ -117,8 +140,13 @@ export default function PwaPushDeviceSection() {
   }
 
   const supported = isPushSupported();
+  // Server dan browser harus sinkron dua-duanya: subscription lokal tanpa baris server
+  // berarti backend kehilangan barisnya (dihapus dari device lain / kuota penuh).
+  const serverSynced = hasLocalSub && !!localEndpoint && devices.some((d) => d.endpoint === localEndpoint);
   const statusLabel = hasLocalSub
-    ? "Perangkat ini aktif menerima notifikasi"
+    ? serverSynced
+      ? "Perangkat ini aktif menerima notifikasi"
+      : "Perangkat ini perlu didaftarkan ulang"
     : blocker
     ? "Perangkat ini belum bisa menerima notifikasi"
     : "Perangkat ini belum diaktifkan";
@@ -140,9 +168,15 @@ export default function PwaPushDeviceSection() {
       </div>
 
       <div className="flex items-center gap-2 font-mono text-xs">
-        <span className={`h-2 w-2 shrink-0 ${hasLocalSub ? "bg-[#0F766E]" : blocker ? "bg-[#BE123C]" : "bg-secondary/50"}`} aria-hidden="true" />
-        <span className={hasLocalSub ? "font-semibold text-[#0F766E]" : "text-secondary"}>{statusLabel}</span>
+        <span className={`h-2 w-2 shrink-0 ${hasLocalSub && serverSynced ? "bg-[#0F766E]" : blocker ? "bg-[#BE123C]" : "bg-secondary/50"}`} aria-hidden="true" />
+        <span className={hasLocalSub && serverSynced ? "font-semibold text-[#0F766E]" : "text-secondary"}>{statusLabel}</span>
       </div>
+
+      {loadError && (
+        <p className="bg-[#FFF1F2] p-3 text-xs text-[#BE123C]" role="alert">
+          {loadError}
+        </p>
+      )}
 
       {blocker && (
         <div className="flex items-start gap-2.5 bg-[#FFF7ED] p-3 text-xs leading-relaxed text-[#9A3412] shadow-[0_-2px_0_0_#FDBA74,0_2px_0_0_#FDBA74,-2px_0_0_0_#FDBA74,2px_0_0_0_#FDBA74]" role="note">
@@ -161,10 +195,10 @@ export default function PwaPushDeviceSection() {
       )}
 
       <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
-        {supported && !hasLocalSub && !blocker && (
+        {supported && !serverSynced && !blocker && (
           <button type="button" onClick={handleEnable} disabled={busy} className={`${primaryButtonClass} col-span-2 text-xs sm:col-span-1`}>
             <Smartphone className="h-4 w-4" aria-hidden="true" />
-            Aktifkan di Perangkat Ini
+            {hasLocalSub ? "Daftarkan Ulang Perangkat" : "Aktifkan di Perangkat Ini"}
           </button>
         )}
         {supported && hasLocalSub && (
