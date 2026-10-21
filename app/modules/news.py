@@ -22,6 +22,18 @@ from app.channels_db import list_active_by_category
 
 logger = logging.getLogger("app.notifications")
 
+# Pengingat H-1 (WIB): kirim pertama 19:00, reminder 21:00. Tambah jam di sini bila perlu.
+H1_REMINDER_HOURS = (19, 21)
+
+
+def _h1_slot(now: Optional[datetime] = None) -> Optional[int]:
+    """Slot pengingat H-1 yang sudah aktif (WIB). None = di luar jam pengingat."""
+    from zoneinfo import ZoneInfo
+
+    current = now or datetime.now(ZoneInfo("Asia/Jakarta"))
+    eligible = [h for h in H1_REMINDER_HOURS if current.hour >= h]
+    return eligible[-1] if eligible else None
+
 router = APIRouter(prefix="/v1/news", tags=["news"])
 
 def clean_html_text(raw: str) -> str:
@@ -184,10 +196,8 @@ _DAY_NAMES = ("Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu")
 
 
 def _h1_window_open(now: Optional[datetime] = None) -> bool:
-    """Pengingat 'kuliah besok' hanya dikirim sore-malam WIB (18:00-22:59), bukan tengah malam."""
-    from zoneinfo import ZoneInfo
-
-    return 18 <= (now or datetime.now(ZoneInfo("Asia/Jakarta"))).hour <= 22
+    """Pengingat 'kuliah besok' hanya slot 19:00 & 21:00 WIB (tiap slot kirim sekali)."""
+    return _h1_slot(now) is not None
 
 
 def build_schedule_notification(
@@ -244,6 +254,7 @@ async def _produce_user_category(category: str) -> int:
     redis = await cache.get_client()
     sent = 0
     for nim in nims:
+        slot_suffix = ""  # hanya matkul-besok yang di-suffix slot pengingat
         credentials = await session_store.get_credentials_for_nim(nim)
         if not credentials:
             from app.api_keys_db import get_credentials_for_nim
@@ -254,8 +265,10 @@ async def _produce_user_category(category: str) -> int:
         try:
             payload = None
             if category == "matkul-besok":
-                if not _h1_window_open():
+                h1_slot = _h1_slot()
+                if h1_slot is None:
                     continue
+                slot_suffix = f":h{h1_slot}"
                 raw = await studentv2_client.fetch_page("/mahasiswa/jadwal-kuliah", nim, student_password)
                 payload = build_schedule_notification(parse_schedule(raw))
             elif category == "pengumuman-siakad":
@@ -324,13 +337,13 @@ async def _produce_user_category(category: str) -> int:
                 continue
             from zoneinfo import ZoneInfo
             date_key = datetime.now(ZoneInfo("Asia/Jakarta")).date().isoformat()
-            dedupe_key = f"ubsi:notify:sent:{nim}:{category}:{date_key}"
+            dedupe_key = f"ubsi:notify:sent:{nim}:{category}:{date_key}" + slot_suffix
             if await redis.get(dedupe_key):
                 continue
             import hashlib
             content_key = "ubsi:notify:content:%s:%s:%s" % (
                 nim, hashlib.sha1((payload["title"] + payload["description"]).encode()).hexdigest()[:16], date_key
-            )
+            ) + slot_suffix
             if await redis.get(content_key):
                 continue  # kategori berbeda dengan isi sama (mis. quiz-tugas dan tugas-baru): kirim sekali
             matching = [item for item in channels if str(item["nim"]) == nim]

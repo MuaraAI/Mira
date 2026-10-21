@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from app.modules.news import _h1_window_open as REAL_H1_WINDOW_OPEN  # sebelum di-patch fixture
+from app.modules.news import _h1_slot as REAL_H1_SLOT  # sebelum di-patch fixture
 
 
 def _tomorrow_name() -> str:
@@ -24,8 +24,9 @@ def temp_channel_db(monkeypatch, tmp_path):
 
 @pytest.fixture(autouse=True)
 def evening_window(monkeypatch):
-    """Pengingat 'kuliah besok' hanya jalan 18:00-22:59 WIB; test tidak boleh bergantung jam eksekusi."""
+    """Pengingat H-1 pakai slot 19:00/21:00 WIB; test tidak boleh bergantung jam eksekusi."""
     monkeypatch.setattr("app.modules.news._h1_window_open", lambda now=None: True)
+    monkeypatch.setattr("app.modules.news._h1_slot", lambda now=None: 19)
 
 
 
@@ -232,7 +233,7 @@ async def test_h1_reminder_is_skipped_outside_evening_window(monkeypatch):
     from app.modules.news import _produce_user_category
     from app.pwa_push_db import add_subscription
 
-    monkeypatch.setattr("app.modules.news._h1_window_open", lambda now=None: False)
+    monkeypatch.setattr("app.modules.news._h1_slot", lambda now=None: None)
     await add_subscription("15260225", "https://fcm.googleapis.com/fcm/send/abc", "k", "a", "HP")
     fetch = AsyncMock(return_value="<html/>")
     with (
@@ -247,12 +248,59 @@ async def test_h1_reminder_is_skipped_outside_evening_window(monkeypatch):
 
 
 def test_h1_window_hours():
-    _h1_window_open = REAL_H1_WINDOW_OPEN
+    _h1_window_open = REAL_H1_SLOT
     wib = ZoneInfo("Asia/Jakarta")
-    assert _h1_window_open(datetime(2026, 10, 20, 18, 0, tzinfo=wib))
-    assert _h1_window_open(datetime(2026, 10, 20, 22, 59, tzinfo=wib))
+    assert not _h1_window_open(datetime(2026, 10, 20, 18, 0, tzinfo=wib))  # sebelum 19:00
+    assert _h1_window_open(datetime(2026, 10, 20, 19, 0, tzinfo=wib))   # slot 1
+    assert _h1_window_open(datetime(2026, 10, 20, 21, 30, tzinfo=wib))  # slot 2
+    assert _h1_window_open(datetime(2026, 10, 20, 23, 59, tzinfo=wib))  # masih malam yang sama
     assert not _h1_window_open(datetime(2026, 10, 20, 0, 5, tzinfo=wib))
     assert not _h1_window_open(datetime(2026, 10, 20, 12, 0, tzinfo=wib))
+
+
+@pytest.mark.asyncio
+async def test_h1_reminder_sends_once_per_slot(monkeypatch):
+    """Slot 19:00 dan 21:00 masing-masing kirim sekali: dedupe key per slot, bukan per hari."""
+    from app.modules.news import _produce_user_category
+
+    class FakeRedis:
+        def __init__(self):
+            self.kv: dict = {}
+
+        async def get(self, key):
+            return self.kv.get(key)
+
+        async def set(self, key, value, ex=None):
+            self.kv[key] = value
+
+    redis = FakeRedis()
+    fetch = AsyncMock(return_value="<html/>")
+    with (
+        patch("app.modules.news.list_active_by_category", new=AsyncMock(return_value=[])),
+        patch("app.pwa_push_db.list_nims_with_category", new=AsyncMock(return_value=["15260767"])),
+        patch("app.modules.news.session_store.get_credentials_for_nim", new=AsyncMock(return_value=("15260767", "sp", "ep"))),
+        patch("app.modules.news.studentv2_client.fetch_page", new=fetch),
+        patch("app.modules.news.parse_schedule", return_value=[{"nama": "Dasar Pemrograman", "hari": _tomorrow_name(), "jam": "08:00", "ruang": "A1"}]),
+        patch("app.modules.news.build_schedule_notification", return_value={"title": "Jadwal Besok", "description": "Ada kelas", "link": "x"}),
+        patch("app.notifier.deliver", new=AsyncMock(return_value=2)),
+        patch("app.modules.news.cache.get_client", new=AsyncMock(return_value=redis)),
+        patch("app.modules.news._h1_slot", return_value=19),
+    ):
+        assert await _produce_user_category("matkul-besok") == 1
+        assert await _produce_user_category("matkul-besok") == 0  # slot sama: dedupe
+
+    with (
+        patch("app.modules.news.list_active_by_category", new=AsyncMock(return_value=[])),
+        patch("app.pwa_push_db.list_nims_with_category", new=AsyncMock(return_value=["15260767"])),
+        patch("app.modules.news.session_store.get_credentials_for_nim", new=AsyncMock(return_value=("15260767", "sp", "ep"))),
+        patch("app.modules.news.studentv2_client.fetch_page", new=fetch),
+        patch("app.modules.news.parse_schedule", return_value=[{"nama": "Dasar Pemrograman", "hari": _tomorrow_name(), "jam": "08:00", "ruang": "A1"}]),
+        patch("app.modules.news.build_schedule_notification", return_value={"title": "Jadwal Besok", "description": "Ada kelas", "link": "x"}),
+        patch("app.notifier.deliver", new=AsyncMock(return_value=2)),
+        patch("app.modules.news.cache.get_client", new=AsyncMock(return_value=redis)),
+        patch("app.modules.news._h1_slot", return_value=21),
+    ):
+        assert await _produce_user_category("matkul-besok") == 1  # slot baru: kirim lagi
 
 
 @pytest.mark.asyncio
