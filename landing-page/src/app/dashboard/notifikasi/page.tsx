@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { apiFetch, ApiError, useApi, clearApiCache } from "@/lib/api";
 import PwaPushDeviceSection from "@/components/PwaPushDeviceSection";
-import { NOTIFICATION_CATEGORIES } from "@/lib/notification-categories";
+import { NOTIFICATION_CATEGORIES, type NotificationCategoryId } from "@/lib/notification-categories";
 import {
   ChannelActiveBadge,
   ChannelTypeBadge,
@@ -43,7 +43,7 @@ interface Channel {
 
 const MAX_CHANNELS = 5;
 
-const CATEGORY_ICONS = {
+const CATEGORY_ICONS: Record<NotificationCategoryId, typeof Clock> = {
   "kelas-mulai": Clock,
   "absen-kuliah": CheckCircle2,
   "matkul-besok": CalendarCheck,
@@ -53,7 +53,7 @@ const CATEGORY_ICONS = {
   "pengumuman-siakad": GraduationCap,
   "nilai-keluar": Award,
   "jadwal-ujian": FileText,
-} as const;
+};
 
 const AVAILABLE_CATEGORIES = NOTIFICATION_CATEGORIES.map((cat) => ({ ...cat, icon: CATEGORY_ICONS[cat.id] }));
 
@@ -100,16 +100,7 @@ export default function NotifikasiPage() {
   const [triggerStatus, setTriggerStatus] = useState<string | null>(null);
   const [triggering, setTriggering] = useState<string | null>(null);
 
-  async function handleSimulate(
-    cat:
-      | "matkul-besok"
-      | "quiz-tugas"
-      | "tugas-baru"
-      | "pengumuman-siakad"
-      | "absen-kuliah"
-      | "nilai-keluar"
-      | "jadwal-ujian"
-  ) {
+  async function handleSimulate(cat: NotificationCategoryId) {
     setTriggering(cat);
     setTriggerStatus(null);
     try {
@@ -139,14 +130,17 @@ export default function NotifikasiPage() {
       window.addEventListener("keydown", handleKeyDown);
       return () => window.removeEventListener("keydown", handleKeyDown);
     }
-  }, [isModalOpen]);
+  }, [isModalOpen, editingChannelId]);
 
-  if (loading) return <LoadingState label="Memuat channel webhook notifikasi" />;
-  if (error) return <ErrorState error={error} onRetry={reload} />;
+  // Section push dirender SEBELUM early-return: kontrol cabut device tidak boleh
+  // hilang hanya karena /v1/channels sedang error.
+  const pushSection = <PwaPushDeviceSection />;
+
+  if (loading) return (<>{pushSection}<LoadingState label="Memuat channel webhook notifikasi" /></>);
+  if (error) return (<>{pushSection}<ErrorState error={error} onRetry={reload} /></>);
 
   const channels = data?.channels ?? [];
   const atLimit = channels.length >= MAX_CHANNELS;
-
   function toggleCategory(catId: string) {
     setCategories((prev) =>
       prev.includes(catId) ? prev.filter((c) => c !== catId) : [...prev, catId]
@@ -282,7 +276,7 @@ export default function NotifikasiPage() {
 
   return (
     <div className="space-y-6">
-      <PwaPushDeviceSection />
+      {pushSection}
 
       <div className="flex flex-col">
         <PageHeader

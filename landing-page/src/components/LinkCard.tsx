@@ -189,21 +189,21 @@ export function LinkCard({
 
       <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1">
         {canPreview && (
-          <button type="button" onClick={() => setPreview(true)} className="px-btn inline-flex min-h-10 items-center justify-center gap-1.5 px-3 text-xs font-bold">
+          <button type="button" onClick={() => setPreview(true)} className="px-btn inline-flex min-h-11 items-center justify-center gap-1.5 px-3 text-xs font-bold">
             <Eye className="h-3.5 w-3.5" aria-hidden="true" />
             Pratinjau
           </button>
         )}
-        <a href={openUrl} target="_blank" rel="noopener noreferrer" className="px-btn-ghost inline-flex min-h-10 items-center justify-center gap-1.5 px-3 text-xs font-bold">
+        <a href={openUrl} target="_blank" rel="noopener noreferrer" className="px-btn-ghost inline-flex min-h-11 items-center justify-center gap-1.5 px-3 text-xs font-bold">
           <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
           Buka
         </a>
-        <button type="button" onClick={copy} className="px-btn-ghost inline-flex min-h-10 items-center justify-center gap-1.5 px-3 text-xs font-bold">
+        <button type="button" onClick={copy} className="px-btn-ghost inline-flex min-h-11 items-center justify-center gap-1.5 px-3 text-xs font-bold">
           {copied ? <Check className="h-3.5 w-3.5 text-[#0F766E]" aria-hidden="true" /> : <Copy className="h-3.5 w-3.5" aria-hidden="true" />}
           <span role="status">{copied ? "Tersalin" : "Salin link"}</span>
         </button>
         {onRecheck && (
-          <button type="button" onClick={onRecheck} disabled={checking} className="px-btn-ghost inline-flex min-h-10 items-center justify-center gap-1.5 px-3 text-xs font-bold">
+          <button type="button" onClick={onRecheck} disabled={checking} className="px-btn-ghost inline-flex min-h-11 items-center justify-center gap-1.5 px-3 text-xs font-bold">
             <RefreshCw className={`h-3.5 w-3.5 ${checking ? "animate-spin" : ""}`} aria-hidden="true" />
             Cek ulang
           </button>

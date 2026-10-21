@@ -75,8 +75,18 @@ export function getNotificationPermission(): NotificationPermission | "unsupport
 
 export async function getExistingSubscription(): Promise<PushSubscription | null> {
   if (!isPushSupported()) return null;
-  const reg = await navigator.serviceWorker.ready;
+  const reg = await waitForServiceWorker();
   return reg.pushManager.getSubscription();
+}
+
+/** serviceWorker.ready tanpa guard bisa menggantung selamanya bila instalasi SW gagal. */
+async function waitForServiceWorker(): Promise<ServiceWorkerRegistration> {
+  return Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Service worker belum siap. Muat ulang halaman.")), 5000),
+    ),
+  ]);
 }
 
 export interface SubscribeResult {
@@ -85,7 +95,17 @@ export interface SubscribeResult {
   message: string;
 }
 
-export async function subscribeToPushNotifications(): Promise<SubscribeResult> {
+let inflightSubscribe: Promise<SubscribeResult> | null = null;
+
+export function subscribeToPushNotifications(): Promise<SubscribeResult> {
+  // Mutex: banner + section bisa hidup bersamaan; jangan subscribe paralel dua kali.
+  inflightSubscribe ??= doSubscribe().finally(() => {
+    inflightSubscribe = null;
+  });
+  return inflightSubscribe;
+}
+
+async function doSubscribe(): Promise<SubscribeResult> {
   if (!isPushSupported()) {
     throw new Error("Browser tidak mendukung Web Push");
   }
@@ -98,7 +118,7 @@ export async function subscribeToPushNotifications(): Promise<SubscribeResult> {
     "/v1/notifications/pwa/vapid-key",
   );
 
-  const reg = await navigator.serviceWorker.ready;
+  const reg = await waitForServiceWorker();
   const existing = await reg.pushManager.getSubscription();
   // TS 5.7: BufferSource butuh ArrayBuffer non-shared; copy dari Uint8Array ke buffer baru
   const keyBytes = urlBase64ToUint8Array(public_key);
@@ -143,22 +163,16 @@ export async function unsubscribeCurrentDevice(): Promise<boolean> {
   const subscription = await getExistingSubscription();
   if (!subscription) return false;
   const endpoint = subscription.endpoint;
-  const ok = await subscription.unsubscribe();
-  // Hapus di server berdasarkan endpoint match (device milik NIM sendiri)
-  try {
-    const { devices } = await apiFetch<{
-      devices: Array<{ id: number; endpoint: string }>;
-    }>("/v1/notifications/pwa/devices");
-    const mine = devices.find((d) => d.endpoint === endpoint);
-    if (mine) {
-      await apiFetch(`/v1/notifications/pwa/devices/${mine.id}`, {
-        method: "DELETE",
-      });
-    }
-  } catch {
-    // server cleanup best-effort
+  // Server dulu, lokal kemudian: kalau server gagal, jangan klaim sukses —
+  // baris yatim akan terus dikirimi push sampai push service balas 410.
+  const { devices } = await apiFetch<{
+    devices: Array<{ id: number; endpoint: string }>;
+  }>("/v1/notifications/pwa/devices");
+  const mine = devices.find((d) => d.endpoint === endpoint);
+  if (mine) {
+    await apiFetch(`/v1/notifications/pwa/devices/${mine.id}`, { method: "DELETE" });
   }
-  return ok;
+  return subscription.unsubscribe();
 }
 
 export async function sendTestPush(): Promise<{ delivered: number; message: string }> {

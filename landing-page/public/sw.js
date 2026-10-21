@@ -2,8 +2,12 @@ const CACHE_NAME = "ubsi-pwa-v2";
 const PRECACHE_URLS = ["/offline.html", "/manifest.webmanifest", "/pwa/icon-192.png", "/pwa/icon-512.png"];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS)));
-  self.skipWaiting();
+  // Precache best-effort: 1 URL 404 tidak boleh mematikan seluruh PWA
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) =>
+      Promise.allSettled(PRECACHE_URLS.map((url) => cache.add(url).catch(() => undefined)))),
+  );
+  event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener("activate", (event) => {
@@ -64,18 +68,40 @@ self.addEventListener("push", (event) => {
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
+// Browser merotasi endpoint push (rotasi kunci, kedaluwarsa): daftarkan ulang
+// ke server — endpoint subscribe di backend upsert sehingga idempoten.
+self.addEventListener("pushsubscriptionchange", (event) => {
+  event.waitUntil(
+    (async () => {
+      if (!event.newSubscription) return; // langganan batal oleh user: biarkan server prune via 404/410
+      const raw = event.newSubscription.toJSON();
+      if (!raw.endpoint || !raw.keys || !raw.keys.p256dh || !raw.keys.auth) return;
+      const base = new URL("/dashboard", self.location.origin).origin;
+      await fetch(base + "/api/pwa-push-resubscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ endpoint: raw.endpoint, keys: raw.keys }),
+      }).catch(() => undefined);
+    })(),
+  );
+});
+
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const target = event.notification.data && event.notification.data.url ? event.notification.data.url : "/dashboard";
+  const targetUrl = new URL(target, self.location.origin).href;
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      // Utamakan tab yang SUDAH di halaman target: jangan reload tab lain
+      const same = clientList.find((client) => client.url === targetUrl);
+      if (same && "focus" in same) return same.focus();
       for (const client of clientList) {
-        if ("focus" in client) {
-          client.navigate(target).catch(() => {});
+        if (new URL(client.url).origin === self.location.origin && "focus" in client) {
+          client.navigate(targetUrl).catch(() => {});
           return client.focus();
         }
       }
-      return self.clients.openWindow(target);
+      return self.clients.openWindow(targetUrl);
     }),
   );
 });
