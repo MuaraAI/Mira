@@ -472,3 +472,8 @@ html { scrollbar-color: var(--px-water-mid) var(--px-tint); scrollbar-width: thi
 .px-seg-btn { min-height: 40px; padding: 6px 12px; font-family: var(--font-jetbrains-mono), ui-monospace, monospace; font-size: 12px; font-weight: 700; line-height: 1.25; color: var(--text-muted); transition: background-color .2s ease, color .2s ease, box-shadow .2s ease; }
 .px-seg-btn:hover { background: #fff; color: var(--text); }
 .px-seg-btn.px-seg-on, .px-seg-btn.px-seg-on:hover { background: #0369A1; color: #fff; box-shadow: 2px 2px 0 0 var(--px-ink); }
+
+/* Side sheet: slides in from the right on desktop, rises from the bottom on phones. */
+@keyframes side-in { from { transform: translateX(100%); } }
+.side-sheet { animation: sheet-up .32s var(--ease-px) both; }
+@media (min-width: 640px) { .side-sheet { animation-name: side-in; } }

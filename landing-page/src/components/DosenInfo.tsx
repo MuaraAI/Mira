@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
-import { Check, Copy, GraduationCap, X } from "lucide-react";
+import { useState } from "react";
+import { Check, Copy } from "lucide-react";
 import { formatLecturerName, lecturerName, useLecturers } from "@/lib/lecturers";
 import { Skeleton } from "@/components/dashboard-ui";
+import { SideSheet } from "@/components/SideSheet";
 
 export interface TaughtCourse {
   nama: string;
@@ -64,13 +64,6 @@ export function DosenInfo({
   const code = isFullName ? "" : raw.toUpperCase();
   const nama = isFullName ? formatLecturerName(raw) : lecturerName(names, code);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
-
   if (!raw) return <span className={className}>-</span>;
   if (loading) return <Skeleton className={`h-4 w-32 ${className}`} />;
 
@@ -88,69 +81,43 @@ export function DosenInfo({
         <span className="break-words">{label}</span>
       </button>
 
-      {open &&
-        createPortal(
-        <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-4">
-          <div className="modal-backdrop fixed inset-0 bg-[#072033]/50 backdrop-blur-[2px]" onClick={() => setOpen(false)} aria-hidden="true" />
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Info dosen"
-            className="sheet-panel relative z-10 w-full max-w-md bg-white shadow-[0_-4px_0_0_#0369A1] sm:shadow-[0_-2px_0_0_#163A55,0_2px_0_0_#163A55,-2px_0_0_0_#163A55,2px_0_0_0_#163A55,8px_8px_0_0_#0369A1]"
-          >
-            <div className="flex items-start gap-3 border-b-2 border-px-soft bg-px-tint p-4">
-              <span className="px-icon h-10 w-10 shrink-0">
-                <GraduationCap className="h-5 w-5" aria-hidden="true" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#0369A1]">Info dosen</p>
-                <h3 className="break-words text-base font-bold leading-snug text-foreground">{nama ?? "Nama belum ada di direktori"}</h3>
-                {code && (
-                  <p className="mt-0.5 font-mono text-xs text-secondary">
-                    Kode dosen <strong className="text-foreground">{code}</strong>
-                  </p>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                aria-label="Tutup"
-                className="px-frame flex min-h-11 min-w-11 shrink-0 items-center justify-center bg-white text-secondary [--px-line:#CFE2EE] hover:text-foreground"
-              >
-                <X className="h-5 w-5" aria-hidden="true" />
-              </button>
-            </div>
-
-            <div className="space-y-4 p-4">
-              {courses && courses.length > 0 && (
-                <div>
-                  <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-secondary">Mengajar kamu di</p>
-                  <ul className="mt-2 space-y-1.5">
-                    {courses.map((c) => (
-                      <li key={`${c.nama}-${c.hari}-${c.jam}`} className="flex items-start gap-2 text-sm text-foreground">
-                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 bg-[#0369A1]" aria-hidden="true" />
-                        <span className="min-w-0">
-                          {c.nama}
-                          {(c.hari || c.jam) && (
-                            <span className="block font-mono text-xs text-secondary">{[c.hari, c.jam].filter(Boolean).join(" ")}</span>
-                          )}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              <div className={`grid gap-3 ${nama && code ? "grid-cols-2" : "grid-cols-1"}`}>
-                {nama && <CopyButton value={nama} label="Salin nama" />}
-                {code && <CopyButton value={code} label="Salin kode" />}
-              </div>
-              <p className="font-mono text-[10px] text-secondary">{isFullName ? "Sumber: MyBest" : "Sumber: direktori dosen SIAKAD"}</p>
-            </div>
+      <SideSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        eyebrow="Info dosen"
+        title={nama ?? "Nama belum ada di direktori"}
+        subtitle={code ? `Kode dosen ${code}` : undefined}
+        titleId="dosen-info-title"
+        width="md"
+        footer={
+          <div className={`grid gap-3 ${nama && code ? "grid-cols-2" : "grid-cols-1"}`}>
+            {nama && <CopyButton value={nama} label="Salin nama" />}
+            {code && <CopyButton value={code} label="Salin kode" />}
           </div>
-        </div>,
-        document.body
-      )}
+        }
+      >
+        <div className="space-y-4">
+          {courses && courses.length > 0 ? (
+            <div>
+              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-secondary">Mengajar kamu di</p>
+              <ul className="mt-2 space-y-2">
+                {courses.map((c) => (
+                  <li key={`${c.nama}-${c.hari}-${c.jam}`} className="flex items-start gap-2 text-sm text-foreground">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 bg-[#0369A1]" aria-hidden="true" />
+                    <span className="min-w-0">
+                      {c.nama}
+                      {(c.hari || c.jam) && <span className="block font-mono text-xs text-secondary">{[c.hari, c.jam].filter(Boolean).join(" ")}</span>}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="text-sm text-secondary">Belum ada mata kuliahmu yang tercatat untuk dosen ini.</p>
+          )}
+          <p className="font-mono text-[10px] text-secondary">{isFullName ? "Sumber: MyBest" : "Sumber: direktori dosen SIAKAD"}</p>
+        </div>
+      </SideSheet>
     </>
   );
 }
