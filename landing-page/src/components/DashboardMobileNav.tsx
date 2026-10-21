@@ -7,7 +7,9 @@ import {
   LayoutDashboard,
   CalendarDays,
   CheckSquare,
-  Menu,
+  UserCheck,
+  Ellipsis,
+  BellRing,
   X,
 } from "lucide-react";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
@@ -45,7 +47,13 @@ export function DashboardMobileNav({ nim }: { nim?: string | null }) {
     { href: "/dashboard", label: "Ringkasan", icon: LayoutDashboard, exact: true },
     { href: "/dashboard/jadwal", label: "Jadwal", icon: CalendarDays },
     { href: "/dashboard/tugas", label: "Tugas", icon: CheckSquare },
+    { href: "/dashboard/presensi", label: "Presensi", icon: UserCheck },
   ];
+  const isActive = (href: string, exact?: boolean) => (exact ? pathname === href : pathname.startsWith(href));
+  // "Lainnya" menyala saat halaman aktif bukan salah satu tab cepat, supaya posisi pengguna tetap jelas.
+  const moreActive = !quickNav.some(({ href, exact }) => isActive(href, exact));
+  const itemBase =
+    "relative flex min-h-[56px] flex-col items-center justify-center gap-0.5 px-1 pt-1.5 pb-1 font-mono text-[10px] leading-tight transition-colors duration-200";
 
   return (
     <>
@@ -65,15 +73,14 @@ export function DashboardMobileNav({ nim }: { nim?: string | null }) {
           </div>
         </Link>
 
-        <button
-          type="button"
-          onClick={() => setIsOpen(true)}
-          aria-expanded={isOpen}
-          aria-label="Buka navigasi menu lengkap"
-          className="px-frame min-w-[44px] min-h-[44px] flex items-center justify-center bg-white text-secondary [--px-line:#CFE2EE] hover:text-foreground"
+        <Link
+          href="/dashboard/notifikasi"
+          aria-label="Buka pengaturan notifikasi"
+          aria-current={pathname.startsWith("/dashboard/notifikasi") ? "page" : undefined}
+          className="px-frame flex min-h-[44px] min-w-[44px] items-center justify-center bg-white text-foreground [--px-line:#CFE2EE] hover:bg-px-tint"
         >
-          <Menu className="w-5 h-5 text-foreground" aria-hidden="true" />
-        </button>
+          <BellRing className="h-5 w-5" aria-hidden="true" />
+        </Link>
       </header>
 
       {/* Mobile Drawer (Slide-Over) */}
@@ -118,38 +125,44 @@ export function DashboardMobileNav({ nim }: { nim?: string | null }) {
       {/* Mobile Bottom Navigation Bar */}
       <nav
         aria-label="Navigasi cepat bawah"
-        className="dashboard-bottom-nav lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-xl border-t-2 border-[#163A55] py-1.5 px-2 grid grid-cols-4 gap-1 shadow-[0_-4px_0_0_#CFE2EE]"
+        className="dashboard-bottom-nav lg:hidden fixed bottom-0 inset-x-0 z-40 grid grid-cols-5 border-t-2 border-[#163A55] bg-white px-1 shadow-[0_-4px_0_0_#CFE2EE]"
       >
         {quickNav.map(({ href, label, icon: Icon, exact }) => {
-          const active = exact ? pathname === href : pathname.startsWith(href);
+          const active = isActive(href, exact);
           return (
             <Link
               key={href}
               href={href}
               aria-current={active ? "page" : undefined}
-              className={`flex flex-col items-center justify-center gap-1 py-2 px-1 min-h-[48px] font-mono text-[11px] font-medium transition-[background-color,color,box-shadow] duration-200 ${
-                active
-                  ? "bg-px-highlight text-[#0369A1] font-bold shadow-[inset_0_3px_0_#0369A1]"
-                  : "text-secondary hover:text-foreground hover:bg-[#F0F7FB]"
-              }`}
+              className={`${itemBase} ${active ? "font-bold text-[#0369A1]" : "text-secondary hover:text-foreground"}`}
             >
-              <Icon
-                className={`w-4 h-4 ${active ? "text-[#0369A1]" : "text-secondary"}`}
+              <span
                 aria-hidden="true"
+                className={`absolute inset-x-3 top-0 h-[3px] transition-colors ${active ? "bg-[#0369A1]" : "bg-transparent"}`}
               />
+              <span className={`flex h-7 w-12 items-center justify-center transition-colors ${active ? "bg-px-highlight" : ""}`}>
+                <Icon className="h-5 w-5" aria-hidden="true" />
+              </span>
               <span>{label}</span>
             </Link>
           );
         })}
 
-        {/* Button to open full drawer */}
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          className="flex flex-col items-center justify-center gap-1 py-2 px-1 min-h-[48px] font-mono text-[11px] font-medium text-secondary transition-colors hover:text-foreground hover:bg-[#F0F7FB]"
+          aria-haspopup="dialog"
+          aria-expanded={isOpen}
+          className={`${itemBase} ${moreActive ? "font-bold text-[#0369A1]" : "text-secondary hover:text-foreground"}`}
         >
-          <Menu className="w-4 h-4 text-secondary" aria-hidden="true" />
-          <span>Menu</span>
+          <span
+            aria-hidden="true"
+            className={`absolute inset-x-3 top-0 h-[3px] transition-colors ${moreActive ? "bg-[#0369A1]" : "bg-transparent"}`}
+          />
+          <span className={`flex h-7 w-12 items-center justify-center transition-colors ${moreActive ? "bg-px-highlight" : ""}`}>
+            <Ellipsis className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <span>Lainnya</span>
         </button>
       </nav>
     </>
