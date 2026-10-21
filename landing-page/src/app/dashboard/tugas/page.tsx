@@ -23,7 +23,7 @@ import {
   primaryButtonClass,
   ghostButtonClass,
 } from "@/components/dashboard-ui";
-import { describeDeadline, findSubmission, formatShortDate, parseDeadline, type DeadlineTone } from "@/lib/assignments";
+import { describeDeadline, findSubmission, formatShortDate, gradeValue, parseDeadline, type DeadlineTone } from "@/lib/assignments";
 import { LinkCard } from "@/components/LinkCard";
 import { parseShareLink, tidyLink, useLinkCheck, useLinkChecks, type LinkCheck } from "@/lib/links";
 
@@ -159,11 +159,14 @@ function TaskCard({
         <Clock className={`h-3.5 w-3.5 shrink-0 ${done ? "text-secondary" : "text-[#9A3412]"}`} aria-hidden="true" />
         <span className="text-secondary">Batas</span>
         <span className={`font-mono font-semibold ${done ? "text-foreground" : "text-[#9A3412]"}`}>{formatShortDate(deadline, task.selesai)}</span>
-        {submission?.nilai != null && submission.nilai !== "" && (
-          <span className="ml-auto font-mono text-xs text-secondary">
-            Nilai <strong className="text-base text-[#0369A1]">{submission.nilai}</strong>
-          </span>
-        )}
+        {submission &&
+          (gradeValue(submission.nilai) !== null ? (
+            <span className="ml-auto font-mono text-xs text-secondary">
+              Nilai <strong className="text-base text-[#0369A1]">{gradeValue(submission.nilai)}</strong>
+            </span>
+          ) : (
+            <span className="ml-auto bg-[#F0F7FB] px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-secondary">Belum dinilai</span>
+          ))}
       </div>
 
       {submission?.link_tugas && (

@@ -95,3 +95,20 @@ def test_summarize_from_fixture():
         "Pertemuan 3",
         "Pertemuan 4",
     ]
+
+
+def test_zero_score_from_mybest_means_not_graded_yet():
+    """MyBest menampilkan 0 untuk tugas yang belum diperiksa dosen: bukan nilai, tidak menurunkan rata-rata."""
+    from app.modules.elearning import parse_assignments
+
+    html = (FIXTURES / "el_assignment_grades.html").read_text(encoding="utf-8")
+    html = html.replace("<td>90</td>", "<td>0</td>", 1)
+    subs = parse_assignments(html)["submissions"]
+    first = next(s for s in subs if s["judul"] == "Implementasi Class")
+    assert first["nilai"] is None
+    assert first["status_penilaian"] == "Menunggu Penilaian"
+
+    recap = summarize_grades(subs, [])
+    assert recap["sudah_dinilai"] == 2
+    assert recap["belum_dinilai"] == 1
+    assert recap["nilai_min"] == 78.0

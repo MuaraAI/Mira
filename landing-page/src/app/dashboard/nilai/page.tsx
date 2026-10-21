@@ -14,6 +14,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { useApi } from "@/lib/api";
+import { gradeValue } from "@/lib/assignments";
 import {
   EmptyState,
   ErrorState,
@@ -84,10 +85,50 @@ interface ElearningGradesData {
   per_pertemuan: ElearningPertemuanGrade[];
 }
 
+const average = (values: number[]) => (values.length ? values.reduce((a, b) => a + b, 0) / values.length : null);
+
+/** MyBest memakai 0 untuk tugas yang belum diperiksa dosen: hitung ulang supaya 0 tidak dianggap nilai. */
+function normalizeElearningGrades(data: ElearningGradesData | null): ElearningGradesData | null {
+  if (!data) return data;
+  const perPertemuan = (data.per_pertemuan ?? []).map((pert) => {
+    const graded = pert.items.map((item) => gradeValue(item.nilai)).filter((v): v is number => v !== null);
+    return {
+      ...pert,
+      sudah_dinilai: graded.length,
+      belum_dinilai: pert.items.length - graded.length,
+      rata_nilai: average(graded),
+      nilai_max: graded.length ? Math.max(...graded) : null,
+      nilai_min: graded.length ? Math.min(...graded) : null,
+    };
+  });
+  const items = perPertemuan.flatMap((pert) => pert.items);
+  const graded = items.map((item) => gradeValue(item.nilai)).filter((v): v is number => v !== null);
+  const perMatkul: ElearningGradesData["per_matkul"] = {};
+  for (const item of items) {
+    const value = gradeValue(item.nilai);
+    if (value === null) continue;
+    const key = item.kode || "-";
+    const current = perMatkul[key] ?? { total_tugas: 0, rata_nilai: 0 };
+    perMatkul[key] = { total_tugas: current.total_tugas + 1, rata_nilai: current.rata_nilai + value };
+  }
+  for (const key of Object.keys(perMatkul)) perMatkul[key].rata_nilai /= perMatkul[key].total_tugas;
+  return {
+    total_tugas: items.length,
+    sudah_dinilai: graded.length,
+    belum_dinilai: items.length - graded.length,
+    rata_nilai: average(graded),
+    nilai_max: graded.length ? Math.max(...graded) : null,
+    nilai_min: graded.length ? Math.min(...graded) : null,
+    per_matkul: perMatkul,
+    per_pertemuan: perPertemuan,
+  };
+}
+
 export default function NilaiPage() {
   const khsApi = useApi<KhsData>("/v1/studentv2/khs");
   const gradesApi = useApi<GradeItem[]>("/v1/studentv2/grades");
-  const elearningApi = useApi<ElearningGradesData>("/v1/elearning/grades");
+  const elearningRaw = useApi<ElearningGradesData>("/v1/elearning/grades");
+  const elearningApi = { ...elearningRaw, data: normalizeElearningGrades(elearningRaw.data) };
   const [activeTab, setActiveTab] = useState<"khs" | "murni" | "elearning">("khs");
 
   if (khsApi.loading && gradesApi.loading && elearningApi.loading) {
@@ -513,8 +554,8 @@ export default function NilaiPage() {
 
                     <div className="divide-y divide-stroke/60">
                       {pert.items.map((item) => {
-                        const numericScore = typeof item.nilai === "number" ? item.nilai : Number(item.nilai);
-                        const hasScore = !Number.isNaN(numericScore) && item.nilai != null && item.nilai !== "";
+                        const numericScore = gradeValue(item.nilai) ?? 0;
+                        const hasScore = gradeValue(item.nilai) !== null;
 
                         return (
                           <div
