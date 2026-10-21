@@ -27,6 +27,7 @@ async def cached_endpoint(
     ttl: int,
     cache_params: Optional[dict] = None,
     swr: bool = True,
+    should_cache: Optional[Callable[[Any], bool]] = None,
 ):
     """Pola standar endpoint: cek cache, fetch upstream dengan lock, fallback LGG.
 
@@ -35,6 +36,8 @@ async def cached_endpoint(
       (hanya jika swr=True; kalau False, LGG dikirim tanpa revalidasi)
     - kosong semuanya -> fetch upstream di bawah single-flight lock,
       hasil diparse lalu disimpan dengan TTL
+    - should_cache(data) False -> hasil dikirim tapi tidak disimpan (mis. hasil parsial
+      karena sebagian sumber gagal), supaya request berikutnya mencoba lagi
     """
     params = cache_params or {}
     cache_key = cache.make_key(module, name, **params)
@@ -44,7 +47,7 @@ async def cached_endpoint(
         data, is_stale = cached
         if is_stale:
             if swr:
-                _schedule_revalidate(cache_key, fetch, parse, ttl)
+                _schedule_revalidate(cache_key, fetch, parse, ttl, should_cache)
             return success_response(data=data, cached=True, stale=True)
         return success_response(data=data, cached=True)
 
@@ -61,7 +64,8 @@ async def cached_endpoint(
             if inspect.isawaitable(html):
                 html = await html
             data = parse(html)
-            await cache.set(cache_key, data, ttl=ttl)
+            if should_cache is None or should_cache(data):
+                await cache.set(cache_key, data, ttl=ttl)
             return success_response(data=data, cached=False)
         except Exception as e:
             lgg_result = await cache.get_lgg(cache_key)
@@ -81,6 +85,7 @@ def _schedule_revalidate(
     fetch: Callable[[], Any],
     parse: Callable[[Any], Any],
     ttl: int,
+    should_cache: Optional[Callable[[Any], bool]] = None,
 ) -> None:
     if cache_key in _revalidating:
         return
@@ -92,7 +97,8 @@ def _schedule_revalidate(
             if inspect.isawaitable(html):
                 html = await html
             data = parse(html)
-            await cache.set(cache_key, data, ttl=ttl)
+            if should_cache is None or should_cache(data):
+                await cache.set(cache_key, data, ttl=ttl)
         except Exception:
             pass  # background refresh: biarkan LGG tetap terpakai
         finally:

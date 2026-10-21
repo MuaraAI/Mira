@@ -14,6 +14,9 @@ from scrapling.parser import Adaptor
 
 logger = logging.getLogger("app.elearning")
 
+_ASSIGNMENT_FETCH_CONCURRENCY = 4
+_ASSIGNMENT_FETCH_ATTEMPTS = 2
+
 from app.config import settings
 from app.deps import require_elearning_creds
 from app.envelope import success_response, error_response
@@ -21,6 +24,7 @@ from app.session_pool import SessionPool
 from app.upstream_session import UpstreamSession, is_logged_out_response
 from app.retry import retry_async
 from app.proxy import get_proxy
+from app.cache import cache
 from app.router_helper import cached_endpoint
 
 router = APIRouter(prefix="/v1/elearning", tags=["elearning"])
@@ -1270,36 +1274,66 @@ async def get_assignments(
     clean_token = extract_clean_token(token)
 
     if not clean_token:
+        all_key = cache.make_key("elearning", "assignments", nim=nim, token="all")
+        gate = asyncio.Semaphore(_ASSIGNMENT_FETCH_CONCURRENCY)
+
+        async def _fetch_for(course: dict[str, Any]) -> Optional[dict[str, list[dict[str, Any]]]]:
+            """Tugas satu mata kuliah. None bila gagal setelah retry (bukan "tidak ada tugas")."""
+            t = course.get("token_assignment")
+            if not t:
+                return {"tasks": [], "submissions": []}
+            clean_t = extract_clean_token(t) or t
+            for attempt in range(_ASSIGNMENT_FETCH_ATTEMPTS):
+                try:
+                    async with gate:
+                        html = await pooled_elearning_client.fetch_page(f"/assignment/{clean_t}", nim, password)
+                    parsed = parse_assignments(html)
+                except Exception as exc:
+                    logger.warning(
+                        "assignment fetch failed course=%s attempt=%d: %s", course.get("kode"), attempt + 1, exc
+                    )
+                    if attempt + 1 < _ASSIGNMENT_FETCH_ATTEMPTS:
+                        await asyncio.sleep(0.4 * (attempt + 1))
+                    continue
+                for item in parsed.get("tasks", []) + parsed.get("submissions", []):
+                    item.setdefault("kode", course.get("kode") or "")
+                    item["mata_kuliah"] = course.get("nama") or ""
+                return parsed
+            return None
+
         async def _fetch_all_assignments():
             courses_res = await get_courses(creds)
             courses = courses_res["data"]
+            results = await asyncio.gather(*(_fetch_for(c) for c in courses))
 
-            async def _fetch_for(course: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
-                t = course.get("token_assignment")
-                if not t:
-                    return {"tasks": [], "submissions": []}
-                clean_t = extract_clean_token(t) or t
-                try:
-                    html = await pooled_elearning_client.fetch_page(f"/assignment/{clean_t}", nim, password)
-                    parsed = parse_assignments(html)
-                    for item in parsed.get("tasks", []):
-                        item.setdefault("kode", course.get("kode") or "")
-                        item["mata_kuliah"] = course.get("nama") or ""
-                    for item in parsed.get("submissions", []):
-                        item.setdefault("kode", course.get("kode") or "")
-                        item["mata_kuliah"] = course.get("nama") or ""
-                    return parsed
-                except Exception:
-                    return {"tasks": [], "submissions": []}
-
-            results = await asyncio.gather(*(_fetch_for(c) for c in courses), return_exceptions=True)
             tasks_list: list[dict[str, Any]] = []
             submissions_list: list[dict[str, Any]] = []
-            for r in results:
-                if isinstance(r, dict):
-                    tasks_list.extend(r.get("tasks", []))
-                    submissions_list.extend(r.get("submissions", []))
-            return {"tasks": tasks_list, "submissions": submissions_list}
+            failed: list[dict[str, Any]] = []
+            for course, result in zip(courses, results):
+                if result is None:
+                    failed.append(course)
+                    continue
+                tasks_list.extend(result.get("tasks", []))
+                submissions_list.extend(result.get("submissions", []))
+
+            if failed:
+                # Mata kuliah yang gagal diambil: pakai data terakhir yang berhasil bila ada.
+                previous = await cache.get_lgg(all_key)
+                previous_data = previous[0] if previous and isinstance(previous[0], dict) else {}
+                failed_codes = {c.get("kode") or "" for c in failed}
+                failed_names = {c.get("nama") or "" for c in failed}
+
+                def belongs(item: dict[str, Any]) -> bool:
+                    return (item.get("kode") or "") in failed_codes or (item.get("mata_kuliah") or "") in failed_names
+
+                tasks_list.extend(i for i in previous_data.get("tasks", []) if belongs(i))
+                submissions_list.extend(i for i in previous_data.get("submissions", []) if belongs(i))
+
+            return {
+                "tasks": tasks_list,
+                "submissions": submissions_list,
+                "failed_courses": [c.get("nama") or c.get("kode") or "" for c in failed],
+            }
 
         return await cached_endpoint(
             module="elearning",
@@ -1308,6 +1342,7 @@ async def get_assignments(
             parse=lambda data: data,
             ttl=settings.TTL_ASSIGNMENTS,
             cache_params={"nim": nim, "token": "all"},
+            should_cache=lambda data: not data.get("failed_courses"),
         )
 
     return await cached_endpoint(

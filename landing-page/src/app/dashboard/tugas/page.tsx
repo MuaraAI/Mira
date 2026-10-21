@@ -10,6 +10,8 @@ import {
   ExternalLink,
   Link as LinkIcon,
   Send,
+  TriangleAlert,
+  RefreshCw,
   X,
 } from "lucide-react";
 import { apiDownload, apiFetch, ApiError, useApi } from "@/lib/api";
@@ -65,6 +67,8 @@ interface SubmissionItem {
 interface AssignmentsData {
   tasks: TaskItem[];
   submissions: SubmissionItem[];
+  /** Mata kuliah yang gagal diambil dari MyBest (data bisa belum lengkap). */
+  failed_courses?: string[];
 }
 
 type Filter = "all" | "pending" | "completed";
@@ -250,6 +254,7 @@ export default function TugasPage() {
   if (loading) return <LoadingState label="Memuat daftar tugas perkuliahan" />;
   if (error) return <ErrorState error={error} onRetry={reload} />;
 
+  const failedCourses = data?.failed_courses ?? [];
   const rows = filter === "pending" ? pendingRows : filter === "completed" ? completedRows : allRows;
 
   async function handleDownloadTask(task: TaskItem) {
@@ -342,6 +347,23 @@ export default function TugasPage() {
         description={`Terintegrasi dengan MyBest. Total ${allRows.length} tugas terdeteksi semester ini.`}
       />
 
+      {failedCourses.length > 0 && (
+        <div role="alert" className="px-frame flex flex-col gap-3 bg-[#FFF7ED] p-3 text-sm text-[#9A3412] [--px-line:#FDBA74] sm:flex-row sm:items-center sm:justify-between">
+          <span className="flex items-start gap-2">
+            <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>
+              Tugas dari {failedCourses.length} mata kuliah belum berhasil dimuat dari MyBest
+              <span className="text-secondary"> ({failedCourses.slice(0, 3).join(", ")}{failedCourses.length > 3 ? ", ..." : ""})</span>.
+              Daftar di bawah bisa belum lengkap.
+            </span>
+          </span>
+          <button type="button" onClick={reload} className="px-btn-ghost inline-flex min-h-10 shrink-0 items-center justify-center gap-2 px-3 font-mono text-xs font-bold">
+            <RefreshCw className="h-4 w-4" aria-hidden="true" />
+            Muat ulang
+          </button>
+        </div>
+      )}
+
       <div role="tablist" aria-label="Filter tugas" className="grid grid-cols-3 gap-1 bg-px-tint p-1 shadow-[0_-2px_0_0_#CFE2EE,0_2px_0_0_#CFE2EE,-2px_0_0_0_#CFE2EE,2px_0_0_0_#CFE2EE] sm:w-[26rem]">
         {tabs.map((t) => (
           <button
@@ -379,7 +401,9 @@ export default function TugasPage() {
       {rows.length === 0 ? (
         <EmptyState
           title={
-            filter === "pending"
+            filter === "pending" && failedCourses.length > 0
+              ? "Belum bisa memastikan tugas yang tertunda."
+              : filter === "pending"
               ? "Hebat! Tidak ada tugas yang tertunda."
               : filter === "completed"
               ? "Belum ada tugas yang dikumpulkan."
