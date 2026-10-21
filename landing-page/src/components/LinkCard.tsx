@@ -21,6 +21,9 @@ function shortId(id: string | null) {
 }
 
 function StatusPill({ access, checking }: { access: LinkCheck["access"] | null; checking: boolean }) {
+  if (access === null && !checking) {
+    return <span className="inline-flex shrink-0 items-center bg-[#F0F7FB] px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-secondary">Belum dicek</span>;
+  }
   if (checking || access === null) {
     return (
       <span className="inline-flex shrink-0 items-center gap-1 bg-[#F0F7FB] px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-secondary">
@@ -150,10 +153,10 @@ export function LinkCard({
   const local = parseShareLink(url);
   const [copied, setCopied] = useState(false);
   const [preview, setPreview] = useState(false);
-  const provider = check?.provider ?? local?.provider ?? "web";
-  const label = check?.label ?? local?.label ?? "Tautan";
-  const id = check?.id ?? local?.id ?? null;
-  const openUrl = check?.normalized_url ?? local?.normalizedUrl ?? url;
+  const provider = check?.provider || local?.provider || "web";
+  const label = check?.label || local?.label || "Tautan";
+  const id = check?.id || local?.id || null;
+  const openUrl = check?.normalized_url || local?.normalizedUrl || url;
   const title = check?.title || label;
   const canPreview = Boolean(check?.can_preview && check.access === "public");
   const danger = check?.access === "private" || check?.access === "missing";
