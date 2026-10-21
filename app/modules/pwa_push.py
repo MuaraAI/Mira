@@ -3,6 +3,8 @@
 Auth: session mahasiswa saja (sama seperti channels). Master Key / API key
 tidak boleh mendaftar device pribadi orang lain.
 """
+import asyncio
+
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, Field, field_validator
 
@@ -17,11 +19,24 @@ from app.pwa_push_db import (
     remove_subscription,
     set_categories,
 )
-from app.pwa_webpush import send_web_push
+from app.pwa_webpush import _b64url_decode, dispatch_pwa_to_nim
 
 router = APIRouter(prefix="/v1/notifications/pwa", tags=["pwa-push"])
 
-_VALID_ENDPOINT_SCHEMES = {"https", "http"}
+# Anti-SSRF ketat: endpoint push hanya boleh ke push service resmi (suffix host).
+ALLOWED_PUSH_HOST_SUFFIXES = (
+    "fcm.googleapis.com",  # Android/Chrome
+    "push.apple.com",  # Safari/iOS
+    "notify.windows.com",  # Edge
+    "mozilla.com",  # Firefox (autopush)
+)
+
+
+def _endpoint_allowed(endpoint: str) -> bool:
+    from urllib.parse import urlparse
+
+    host = urlparse(endpoint).hostname or ""
+    return any(host == s or host.endswith("." + s) for s in ALLOWED_PUSH_HOST_SUFFIXES)
 
 
 def _require_session_nim(request: Request) -> str:
@@ -74,9 +89,11 @@ async def get_vapid_public_key():
 async def subscribe_device(request: Request, body: SubscribeRequest):
     nim = _require_session_nim(request)
 
-    # Anti-SSRF: endpoint harus https dan resolve ke IP publik
-    # (blok metadata cloud 169.254.169.254, CGNAT, loopback, private)
-    if not is_safe_webhook_url(body.endpoint):
+    # Anti-SSRF: host wajib push service resmi (anti DNS-rebinding + anti internal host).
+    # getaddrinfo blocking dijalankan di threadpool agar tidak membekukan event loop.
+    if not _endpoint_allowed(body.endpoint) or not await asyncio.to_thread(
+        is_safe_webhook_url, body.endpoint
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=error_response(
@@ -88,12 +105,26 @@ async def subscribe_device(request: Request, body: SubscribeRequest):
 
     p256dh = body.keys.get("p256dh", "")
     auth = body.keys.get("auth", "")
-    if not p256dh or not auth:
+    # Validasi bentuk di trust boundary: kunci rusak jangan sampai tersimpan
+    # (device yang tersimpan rusak tidak pernah menerima push tanpa jejak).
+    try:
+        user_pub = _b64url_decode(p256dh)
+        auth_raw = _b64url_decode(auth)
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=error_response(
                 code="VALIDATION_ERROR",
-                message="keys.p256dh dan keys.auth wajib diisi",
+                message="keys.p256dh/auth harus base64url valid",
+                module="pwa-push",
+            ),
+        ) from exc
+    if len(user_pub) != 65 or user_pub[0] != 0x04 or len(auth_raw) < 16:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_response(
+                code="VALIDATION_ERROR",
+                message="keys.p256dh harus P-256 uncompressed (65 byte, prefix 0x04) dan keys.auth minimal 16 byte",
                 module="pwa-push",
             ),
         )
@@ -179,11 +210,17 @@ async def send_test_push(request: Request):
         "url": "/dashboard/notifikasi",
         "tag": "pwa-test",
     }
-    delivered = 0
-    for sub in subs:
-        ok, http_status = await send_web_push(sub, payload, ttl=60)
-        if ok:
-            delivered += 1
+    # Jalur dispatch yang sama dengan worker: ValueError tertangani, 404/410 ter-prune
+    delivered = await dispatch_pwa_to_nim(nim, payload, ttl=60)
+    if delivered == 0:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=error_response(
+                code="DELIVERY_FAILED",
+                message="Tidak ada perangkat yang menerima uji coba. Cek koneksi perangkat atau daftar ulang.",
+                module="pwa-push",
+            ),
+        )
     return success_response(data={
         "delivered": delivered,
         "total_devices": len(subs),

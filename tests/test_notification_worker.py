@@ -270,8 +270,11 @@ async def test_h1_reminder_sends_once_per_slot(monkeypatch):
         async def get(self, key):
             return self.kv.get(key)
 
-        async def set(self, key, value, ex=None):
+        async def set(self, key, value, ex=None, nx=False):
+            if nx and key in self.kv:
+                return False
             self.kv[key] = value
+            return True
 
     redis = FakeRedis()
     fetch = AsyncMock(return_value="<html/>")

@@ -154,22 +154,34 @@ async def probe(client: httpx.AsyncClient, url: str) -> tuple[str, Optional[str]
         if host not in FETCH_HOSTS and host not in _FOLLOW_HOSTS:
             return "unknown", None, "Status link belum bisa dipastikan."
         try:
-            response = await client.get(current, follow_redirects=False)
+            # Stream + cap body: jangan download file ratusan MB ke RAM
+            async with client.stream("GET", current, follow_redirects=False) as response:
+                if response.status_code in (301, 302, 303, 307, 308):
+                    location = response.headers.get("location", "")
+                    try:
+                        target = httpx.URL(current).join(location)
+                    except httpx.InvalidURL:
+                        return "unknown", None, "Redirect link tidak valid."
+                    target_host = (target.host or "").lower()
+                    if target_host in _LOGIN_HOSTS:
+                        via_login = True
+                        break
+                    if target_host in _CONSENT_HOSTS:
+                        return "unknown", None, "Google meminta persetujuan cookie, status link belum bisa dipastikan."
+                    current = str(target)
+                    continue
+                chunks: list[bytes] = []
+                total = 0
+                if response.status_code == 200:
+                    async for chunk in response.aiter_bytes(65536):
+                        chunks.append(chunk)
+                        total += len(chunk)
+                        if total >= 256_000:
+                            break
+                text = b"".join(chunks).decode("utf-8", errors="replace")[:200_000]
+                return classify_response(response.status_code, _host(current), text, False)
         except (httpx.HTTPError, OSError):
             return "unknown", None, "Tidak bisa menghubungi server link. Coba lagi sebentar."
-        if response.status_code in (301, 302, 303, 307, 308):
-            location = response.headers.get("location", "")
-            target = httpx.URL(current).join(location)
-            target_host = (target.host or "").lower()
-            if target_host in _LOGIN_HOSTS:
-                via_login = True
-                break
-            if target_host in _CONSENT_HOSTS:
-                return "unknown", None, "Google meminta persetujuan cookie, status link belum bisa dipastikan."
-            current = str(target)
-            continue
-        text = response.text[:200_000] if response.status_code == 200 else ""
-        return classify_response(response.status_code, _host(current), text, False)
     return classify_response(0, "", "", via_login) if via_login else ("unknown", None, "Terlalu banyak pengalihan.")
 
 
@@ -205,7 +217,11 @@ async def check_link(
             cached = await redis.get(key)
             if cached:
                 data = json.loads(cached)
-                return {**result, **data}
+                # can_preview ikut deterministik dari access: jangan bawa nilai awal True
+                # untuk link privat saat hasil disajikan dari cache.
+                merged = {**result, **data}
+                merged["can_preview"] = data.get("access") == "public" and bool(result.get("preview_url"))
+                return merged
         except Exception:
             pass
 
@@ -231,6 +247,19 @@ async def check_links(urls: list[str], redis: Any = None, refresh: bool = False)
 
         async def one(url: str) -> dict[str, Any]:
             async with semaphore:
-                return await check_link(url, client, redis, refresh)
+                try:
+                    return await check_link(url, client, redis, refresh)
+                except httpx.InvalidURL:
+                    return {
+                        "url": url, "valid": True, "provider": None, "kind": None, "label": "Link tidak valid",
+                        "id": None, "normalized_url": None, "preview_url": None, "can_preview": False,
+                        "access": "unknown", "title": None, "message": "Redirect link tidak valid.",
+                    }
 
-        return list(await asyncio.gather(*(one(u) for u in urls)))
+        # return_exceptions=True: 1 link jelek tidak boleh menggugurkan batch 20 link
+        results = await asyncio.gather(*(one(u) for u in urls), return_exceptions=True)
+        return [r if isinstance(r, dict) else {
+            "url": u, "valid": True, "provider": None, "kind": None, "label": "Gagal diperiksa",
+            "id": None, "normalized_url": None, "preview_url": None, "can_preview": False,
+            "access": "unknown", "title": None, "message": "Pemeriksaan link gagal. Coba lagi sebentar.",
+        } for u, r in zip(urls, results)]

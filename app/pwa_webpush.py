@@ -6,6 +6,7 @@ dependency baru. Encrypt dijalankan di threadpool karena CPU-bound.
 import asyncio
 import base64
 import json
+import logging
 import os
 import struct
 import time
@@ -30,6 +31,8 @@ from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 from app.config import settings
 
 _JWT_TTL = 12 * 3600
+
+logger = logging.getLogger("app.pwa_webpush")
 
 
 def _b64url(data: bytes) -> str:
@@ -78,8 +81,8 @@ def _vapid_auth_header(endpoint: str) -> str:
 
 def _encrypt_payload(p256dh_b64: str, auth_b64: str, plaintext: bytes) -> bytes:
     """RFC 8291 aes128gcm: body = salt(16) | rs(4) | idlen(1) | eph_pub(65) | ciphertext."""
-    if len(plaintext) > 4095:  # rs=4096 dikurangi 1 byte delimiter: 1 record saja
-        raise ValueError("Payload push terlalu besar untuk satu record (maks 4095 byte)")
+    if len(plaintext) > 3993:  # RFC 8291 §4: body maks 4096 oktet termasuk tag 16B + delimiter
+        raise ValueError("Payload push maks 3993 byte (RFC 8291 §4: body maks 4096)")
 
     user_pub_raw = _b64url_decode(p256dh_b64)
     auth_secret = _b64url_decode(auth_b64)
@@ -161,6 +164,7 @@ async def dispatch_pwa_to_nim(nim: str, payload: dict[str, Any], ttl: int = 8640
         return 0  # VAPID belum dikonfigurasi: no-op, jangan spam log per device
 
     delivered = 0
+    rejected: set[int] = set()
     for sub in await get_active_subscriptions_for_nim(nim):
         try:
             ok, http_status = await send_web_push(sub, payload, ttl=ttl)
@@ -170,6 +174,11 @@ async def dispatch_pwa_to_nim(nim: str, payload: dict[str, Any], ttl: int = 8640
             delivered += 1
         elif http_status in (404, 410):
             await prune_subscription(sub["endpoint"])
+        elif http_status:
+            rejected.add(http_status)
+    if rejected:
+        # 401/403 biasanya VAPID key mismatch: tanpa log ini kanal mati tanpa jejak
+        logger.warning("Web push ditolak push service (nim=%s): status=%s", nim, sorted(rejected))
     return delivered
 
 

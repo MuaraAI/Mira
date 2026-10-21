@@ -36,5 +36,19 @@ async def link_check(request: Request, body: LinkCheckRequest):
         redis = await cache.get_client()
     except Exception:
         redis = None
+    if redis is None:
+        # Route ini mahal (sampai 100 fetch keluar per panggilan): tanpa Redis
+        # limiter fail-open dan cache mati -> tolak, jangan jadi proxy gratis.
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=error_response(code="LINK_CHECK_UNAVAILABLE", message="Layanan cek link sedang tidak tersedia. Coba lagi sebentar.", module="tools"),
+        )
+    if body.refresh:
+        # refresh melewati cache sepenuhnya: batasi jauh lebih ketat
+        if not await limiter.is_allowed(f"linkcheck:refresh:{identity}", limit=2):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=error_response(code="RATE_LIMIT_EXCEEDED", message="Terlalu banyak pengecekan ulang. Tunggu sebentar.", module="tools"),
+            )
     results = await check_links(body.urls, redis=redis, refresh=body.refresh)
     return success_response(data={"results": results, "total": len(results)})

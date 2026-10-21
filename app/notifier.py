@@ -226,10 +226,14 @@ async def _send_class_alerts(nim: str, schedule: list[dict[str, Any]], current: 
         if not await _claim(key, 129600):
             continue
         title, body = class_alert_text(course, stage, minutes)
-        delivered = await deliver(
-            nim, CATEGORY_CLASS, title, body, "https://ubsi-api.muaraai.com/dashboard/jadwal",
-            tag=f"kelas-{course.get('kode')}", ttl=600,
-        )
+        try:
+            delivered = await deliver(
+                nim, CATEGORY_CLASS, title, body, "https://ubsi-api.muaraai.com/dashboard/jadwal",
+                tag=f"kelas-{course.get('kode')}", ttl=600,
+            )
+        except Exception:
+            await _release(key)  # claim jangan nyangkut 36 jam karena error tak terduga
+            raise
         if delivered:
             sent += 1
         else:
@@ -240,7 +244,7 @@ async def _send_class_alerts(nim: str, schedule: list[dict[str, Any]], current: 
 async def _send_absen_reminders(
     nim: str, schedule: list[dict[str, Any]], elearning_password: str, current: datetime
 ) -> int:
-    from app.modules.elearning import inspect_session_status, parse_courses, pooled_elearning_client
+    from app.modules.elearning import parse_courses, pooled_elearning_client
 
     live = active_classes(schedule, current)
     if not live:
@@ -267,27 +271,44 @@ async def _send_absen_reminders(
 
     sent = 0
     for course, key, state in pending:
-        match = by_kode.get(str(course.get("kode", "")).strip()) or by_name.get(str(course.get("nama", "")).strip().lower())
-        token = match.get("token_absen") if match else None
-        if not token:
-            continue
-        html = await pooled_elearning_client.fetch_page(f"/absen-mhs/{token}", nim, elearning_password)
-        session_open = bool(inspect_session_status(html).get("can_submit"))
-        action, new_state = absen_decision(state, session_open, now_ts)
-        if action == "remind":
-            nama = str(course.get("nama") or "Kuliah").strip()
-            count = int(new_state.get("sent", 1))
-            title = f"Belum absen: {nama}" if count > 1 else f"Absen sudah dibuka: {nama}"
-            body = "Kamu belum presensi. Segera absen sebelum sesi ditutup." if count > 1 else "Sesi presensi dibuka di MyBest. Tekan untuk absen sekarang."
-            link = "https://ubsi-api.muaraai.com/dashboard/presensi?" + _query({"kode": course.get("kode", ""), "mk": nama})
-            delivered = await deliver(nim, CATEGORY_ABSEN, title, body, link, tag=f"absen-{course.get('kode')}", ttl=900)
-            if not delivered:
-                # Tak ada tujuan yang menerima: jangan hitung sebagai pengingat terkirim.
-                new_state["sent"] = int(state.get("sent", 0))
-            else:
-                sent += 1
-        await redis.set(key, json.dumps(new_state), ex=86400)
+        sent += await _absen_process_course(
+            nim, course, key, state, elearning_password, now_ts, by_kode, by_name
+        )
     return sent
+
+
+async def _absen_process_course(
+    nim: str, course: dict[str, Any], key: str, state: dict[str, Any],
+    elearning_password: str, now_ts: float,
+    by_kode: dict[str, dict[str, Any]], by_name: dict[str, dict[str, Any]],
+) -> int:
+    from app.modules.elearning import inspect_session_status, parse_courses, pooled_elearning_client
+
+    redis = await _redis()
+    sent_flag = 0
+    match = by_kode.get(str(course.get("kode", "")).strip()) or by_name.get(str(course.get("nama", "")).strip().lower())
+    token = match.get("token_absen") if match else None
+    if not token:
+        # Tidak ada token absen: tetap tulis state agar tidak fetch MyBest tiap menit
+        await redis.set(key, json.dumps({**state, "next": now_ts + ABSEN_RECHECK_SECONDS}), ex=86400)
+        return 0
+    html = await pooled_elearning_client.fetch_page(f"/absen-mhs/{token}", nim, elearning_password)
+    session_open = bool(inspect_session_status(html).get("can_submit"))
+    action, new_state = absen_decision(state, session_open, now_ts)
+    if action == "remind":
+        nama = str(course.get("nama") or "Kuliah").strip()
+        count = int(new_state.get("sent", 1))
+        title = f"Belum absen: {nama}" if count > 1 else f"Absen sudah dibuka: {nama}"
+        body = "Kamu belum presensi. Segera absen sebelum sesi ditutup." if count > 1 else "Sesi presensi dibuka di MyBest. Tekan untuk absen sekarang."
+        link = "https://ubsi-api.muaraai.com/dashboard/presensi?" + _query({"kode": course.get("kode", ""), "mk": nama})
+        delivered = await deliver(nim, CATEGORY_ABSEN, title, body, link, tag=f"absen-{course.get('kode')}", ttl=900)
+        if not delivered:
+            # Tak ada tujuan yang menerima: jangan hitung sebagai pengingat terkirim.
+            new_state["sent"] = int(state.get("sent", 0))
+        else:
+            sent_flag = 1
+    await redis.set(key, json.dumps(new_state), ex=86400)
+    return sent_flag
 
 
 def _query(params: dict[str, Any]) -> str:
@@ -329,6 +350,11 @@ async def collect_targets() -> dict[str, tuple[bool, bool]]:
 
 
 async def run_realtime_cycle(current: Optional[datetime] = None) -> int:
+    # Leader lock: produksi jalan --workers 2, cukup satu worker per siklus (anti dobel push/scrape)
+    interval = max(30, int(getattr(settings, "REALTIME_NOTIFY_INTERVAL", 60)))
+    cycle = int(time.time()) // interval
+    if not await _claim(f"ubsi:worker:realtime:{cycle}", interval * 2):
+        return 0
     targets = await collect_targets()
     if not targets:
         return 0
