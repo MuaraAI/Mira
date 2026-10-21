@@ -32,7 +32,13 @@ CREATE TABLE IF NOT EXISTS pwa_push_categories (
     category TEXT NOT NULL,
     PRIMARY KEY (nim, category)
 );
+CREATE TABLE IF NOT EXISTS pwa_push_migrations (
+    name TEXT PRIMARY KEY
+);
 """
+
+# Kategori yang ditambahkan setelah rilis awal: aktif otomatis untuk pelanggan lama (sekali saja).
+_DEFAULT_ON_MIGRATIONS = {"kelas-mulai-default-on": "kelas-mulai"}
 
 # Kategori PWA terikat akun (bukan per-device); default semua aktif saat subscribe.
 from app.channel_validation import ALLOWED_CATEGORIES  # noqa: E402
@@ -59,6 +65,15 @@ def _init_db_sync() -> None:
     conn = _connect()
     try:
         conn.executescript(_SCHEMA)
+        for name, category in _DEFAULT_ON_MIGRATIONS.items():
+            if conn.execute("SELECT 1 FROM pwa_push_migrations WHERE name = ?", (name,)).fetchone():
+                continue
+            conn.execute(
+                "INSERT OR IGNORE INTO pwa_push_categories (nim, category) "
+                "SELECT DISTINCT nim, ? FROM pwa_push_subscriptions",
+                (category,),
+            )
+            conn.execute("INSERT OR IGNORE INTO pwa_push_migrations (name) VALUES (?)", (name,))
         conn.commit()
     finally:
         conn.close()

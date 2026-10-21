@@ -383,7 +383,16 @@ API_DOCS_DATA: dict[str, Any] = {
                 "method": "POST",
                 "auth": "Session Token",
                 "description": "Trigger pengingat kuliah instan ('matkul-besok', 'quiz-tugas', 'tugas-baru', 'absen-kuliah', 'nilai-keluar', 'jadwal-ujian').",
-                "payload": {"category": "matkul-besok | quiz-tugas | tugas-baru | pengumuman-siakad | absen-kuliah | nilai-keluar | jadwal-ujian"},
+                "payload": {"category": "matkul-besok | kelas-mulai | quiz-tugas | tugas-baru | pengumuman-siakad | absen-kuliah | nilai-keluar | jadwal-ujian"},
+            },
+        ],
+        "tools": [
+            {
+                "path": "/v1/tools/link-check",
+                "method": "POST",
+                "auth": "Session Token / Personal API Key",
+                "description": "Urai link tugas (Google Drive, Docs, GitHub) dan cek tanpa login apakah orang lain bisa membukanya. Mengembalikan jenis, ID, link bersih, link pratinjau, dan status akses (public/private/missing/unknown).",
+                "payload": {"urls": ["array maks 20 URL"], "refresh": "boolean opsional, abaikan cache"},
             },
         ],
         "stats": [

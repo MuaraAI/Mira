@@ -4,6 +4,8 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from app.modules.news import _h1_window_open as REAL_H1_WINDOW_OPEN  # sebelum di-patch fixture
+
 
 def _tomorrow_name() -> str:
     """Nama hari besok (WIB) agar test tidak depend pada hari eksekusi."""
@@ -15,7 +17,15 @@ def _tomorrow_name() -> str:
 def temp_channel_db(monkeypatch, tmp_path):
     monkeypatch.setattr("app.config.settings.SQLITE_DB_PATH", str(tmp_path / "notifications.db"))
     from app.channels_db import init_db
+    from app.pwa_push_db import init_pwa_db
     init_db()
+    init_pwa_db()
+
+
+@pytest.fixture(autouse=True)
+def evening_window(monkeypatch):
+    """Pengingat 'kuliah besok' hanya jalan 18:00-22:59 WIB; test tidak boleh bergantung jam eksekusi."""
+    monkeypatch.setattr("app.modules.news._h1_window_open", lambda now=None: True)
 
 
 
@@ -131,39 +141,6 @@ def test_validation_accepts_extended_notification_categories():
 
 
 @pytest.mark.asyncio
-async def test_user_notification_dispatches_absen_kuliah():
-    from app.modules.news import _produce_user_category
-
-    active_channel = {
-        "id": 9,
-        "nim": "15260767",
-        "type": "custom",
-        "categories": ["absen-kuliah"],
-        "config": {"url": "https://example.com/webhook"},
-    }
-    mock_courses = [
-        {"kode": "104", "nama": "Bahasa Inggris I", "token_absen": "eyJabsen123"}
-    ]
-    with (
-        patch("app.modules.news.list_active_by_category", new=AsyncMock(return_value=[active_channel])),
-        patch("app.modules.news.session_store.get_credentials_for_nim", new=AsyncMock(return_value=("15260767", "sv", "el"))),
-        patch("app.modules.elearning.pooled_elearning_client.fetch_page", new=AsyncMock(side_effect=["<html>courses</html>", "<html>presence</html>"])),
-        patch("app.modules.elearning.parse_courses", return_value=mock_courses),
-        patch("app.modules.elearning.inspect_session_status", return_value={"can_submit": True, "status_raw": "Kirim", "pertemuan": "5"}),
-        patch("app.modules.news.dispatch_webhook_notification", new=AsyncMock(return_value=True)) as dispatch,
-        patch("app.modules.news.cache.get_client") as get_client,
-    ):
-        redis = AsyncMock()
-        redis.get.return_value = None
-        get_client.return_value = redis
-        assert await _produce_user_category("absen-kuliah") == 1
-        dispatch.assert_awaited_once()
-        payload = dispatch.call_args[0][0]
-        assert payload["category"] == "absen-kuliah"
-        assert "Bahasa Inggris I" in payload["title"]
-
-
-@pytest.mark.asyncio
 async def test_user_notification_dispatches_nilai_keluar():
     from app.modules.news import _produce_user_category
 
@@ -223,3 +200,89 @@ async def test_user_notification_dispatches_jadwal_ujian():
         payload = dispatch.call_args[0][0]
         assert payload["category"] == "jadwal-ujian"
         assert "UTS" in payload["title"]
+
+
+@pytest.mark.asyncio
+async def test_worker_pushes_to_pwa_subscribers_without_any_webhook_channel():
+    """Regresi: notifikasi otomatis dulu hanya ke webhook, pelanggan push PWA tidak pernah dapat."""
+    from app.modules.news import _produce_user_category
+    from app.pwa_push_db import add_subscription
+
+    await add_subscription("15260225", "https://fcm.googleapis.com/fcm/send/abc", "k", "a", "HP")
+    with (
+        patch("app.modules.news.list_active_by_category", new=AsyncMock(return_value=[])),
+        patch("app.modules.news.session_store.get_credentials_for_nim", new=AsyncMock(return_value=("15260225", "sp", "ep"))),
+        patch("app.modules.news.studentv2_client.fetch_page", new=AsyncMock(return_value="<html/>")),
+        patch("app.modules.news.parse_schedule", return_value=[{"nama": "Basis Data", "hari": _tomorrow_name(), "jam": "08:00", "ruang": "A1"}]),
+        patch("app.pwa_webpush.dispatch_pwa_to_nim", new=AsyncMock(return_value=1)) as push,
+        patch("app.modules.news.cache.get_client") as get_client,
+    ):
+        redis = AsyncMock()
+        redis.get.return_value = None
+        get_client.return_value = redis
+        assert await _produce_user_category("matkul-besok") == 1
+
+    push.assert_awaited_once()
+    assert push.await_args.args[0] == "15260225"
+    assert "Basis Data" in push.await_args.args[1]["body"]
+
+
+@pytest.mark.asyncio
+async def test_h1_reminder_is_skipped_outside_evening_window(monkeypatch):
+    from app.modules.news import _produce_user_category
+    from app.pwa_push_db import add_subscription
+
+    monkeypatch.setattr("app.modules.news._h1_window_open", lambda now=None: False)
+    await add_subscription("15260225", "https://fcm.googleapis.com/fcm/send/abc", "k", "a", "HP")
+    fetch = AsyncMock(return_value="<html/>")
+    with (
+        patch("app.modules.news.list_active_by_category", new=AsyncMock(return_value=[])),
+        patch("app.modules.news.session_store.get_credentials_for_nim", new=AsyncMock(return_value=("15260225", "sp", "ep"))),
+        patch("app.modules.news.studentv2_client.fetch_page", new=fetch),
+        patch("app.modules.news.cache.get_client") as get_client,
+    ):
+        get_client.return_value = AsyncMock()
+        assert await _produce_user_category("matkul-besok") == 0
+    fetch.assert_not_awaited()
+
+
+def test_h1_window_hours():
+    _h1_window_open = REAL_H1_WINDOW_OPEN
+    wib = ZoneInfo("Asia/Jakarta")
+    assert _h1_window_open(datetime(2026, 10, 20, 18, 0, tzinfo=wib))
+    assert _h1_window_open(datetime(2026, 10, 20, 22, 59, tzinfo=wib))
+    assert not _h1_window_open(datetime(2026, 10, 20, 0, 5, tzinfo=wib))
+    assert not _h1_window_open(datetime(2026, 10, 20, 12, 0, tzinfo=wib))
+
+
+@pytest.mark.asyncio
+async def test_existing_pwa_subscribers_get_new_kelas_mulai_category_once(tmp_path, monkeypatch):
+    import sqlite3
+
+    from app.pwa_push_db import init_pwa_db, list_categories
+
+    db = str(tmp_path / "legacy.db")
+    monkeypatch.setattr("app.config.settings.SQLITE_DB_PATH", db)
+    conn = sqlite3.connect(db)
+    conn.executescript(
+        """
+        CREATE TABLE pwa_push_subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, nim TEXT NOT NULL,
+          endpoint TEXT NOT NULL UNIQUE, p256dh TEXT NOT NULL, auth TEXT NOT NULL, device_name TEXT NOT NULL,
+          is_active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (datetime('now')), last_used_at TEXT);
+        CREATE TABLE pwa_push_categories (nim TEXT NOT NULL, category TEXT NOT NULL, PRIMARY KEY (nim, category));
+        INSERT INTO pwa_push_subscriptions (nim, endpoint, p256dh, auth, device_name) VALUES ('1', 'https://x/1', 'k', 'a', 'HP');
+        INSERT INTO pwa_push_categories VALUES ('1', 'berita-kampus');
+        """
+    )
+    conn.commit()
+    conn.close()
+
+    init_pwa_db()
+    assert set(await list_categories("1")) == {"berita-kampus", "kelas-mulai"}
+
+    # Pengguna mematikan kategori itu: migrasi tidak boleh menyalakannya lagi saat server restart.
+    from app.pwa_push_db import set_categories
+
+    await set_categories("1", ["berita-kampus"])
+    init_pwa_db()
+    assert set(await list_categories("1")) == {"berita-kampus"}

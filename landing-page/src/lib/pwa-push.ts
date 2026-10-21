@@ -45,6 +45,29 @@ export function isPushSupported(): boolean {
   );
 }
 
+/** iPhone/iPad hanya mengizinkan Web Push untuk situs yang dipasang ke Layar Utama. */
+export function isIosNotInstalled(): boolean {
+  if (typeof window === "undefined") return false;
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const standalone =
+    window.matchMedia?.("(display-mode: standalone)").matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  return ios && !standalone;
+}
+
+/** Alasan kenapa notifikasi belum bisa diaktifkan di perangkat ini (null = bisa). */
+export function getPushBlocker(): string | null {
+  if (typeof window === "undefined") return null;
+  if (isIosNotInstalled()) {
+    return "Di iPhone/iPad, buka menu Bagikan lalu pilih Tambahkan ke Layar Utama, kemudian buka UBSI-API dari ikon itu untuk mengaktifkan notifikasi.";
+  }
+  if (!isPushSupported()) return "Browser ini belum mendukung notifikasi push. Coba Chrome, Edge, Firefox, atau Safari terbaru.";
+  if (getNotificationPermission() === "denied") {
+    return "Izin notifikasi diblokir. Buka pengaturan situs di browser (ikon gembok di address bar), izinkan Notifikasi, lalu muat ulang halaman.";
+  }
+  return null;
+}
+
 export function getNotificationPermission(): NotificationPermission | "unsupported" {
   if (typeof window === "undefined" || !("Notification" in window)) return "unsupported";
   return Notification.permission;
@@ -81,8 +104,18 @@ export async function subscribeToPushNotifications(): Promise<SubscribeResult> {
   const keyBytes = urlBase64ToUint8Array(public_key);
   const keyBuffer = new ArrayBuffer(keyBytes.length);
   new Uint8Array(keyBuffer).set(keyBytes);
+  // Langganan lama yang dibuat dengan kunci VAPID berbeda tidak akan pernah menerima push: buat ulang.
+  let current = existing;
+  if (current?.options?.applicationServerKey) {
+    const old = new Uint8Array(current.options.applicationServerKey);
+    const same = old.length === keyBytes.length && old.every((byte, i) => byte === keyBytes[i]);
+    if (!same) {
+      await current.unsubscribe();
+      current = null;
+    }
+  }
   const subscription =
-    existing ??
+    current ??
     (await reg.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: keyBuffer,
