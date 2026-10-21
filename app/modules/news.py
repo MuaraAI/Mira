@@ -183,6 +183,13 @@ async def get_news_detail(post_id: str = Path(..., pattern=r"^[0-9]+$")):
 _DAY_NAMES = ("Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu")
 
 
+def _h1_window_open(now: Optional[datetime] = None) -> bool:
+    """Pengingat 'kuliah besok' hanya dikirim sore-malam WIB (18:00-22:59), bukan tengah malam."""
+    from zoneinfo import ZoneInfo
+
+    return 18 <= (now or datetime.now(ZoneInfo("Asia/Jakarta"))).hour <= 22
+
+
 def build_schedule_notification(
     courses: list[dict[str, Any]], now: Optional[datetime] = None
 ) -> Optional[dict[str, Any]]:
@@ -218,17 +225,25 @@ async def _dispatch_user_channel(channel: dict[str, Any], payload: dict[str, Any
 
 
 async def _produce_user_category(category: str) -> int:
+    from app.notifier import deliver
+    from app.pwa_push_db import list_nims_with_category
+
     channels = await list_active_by_category(category)
-    if not channels:
+    # Penerima = pemilik webhook channel + pelanggan push PWA yang mengaktifkan kategori ini.
+    try:
+        pwa_nims = [str(n) for n in await list_nims_with_category(category)]
+    except Exception:
+        logger.exception("Gagal membaca pelanggan push PWA untuk kategori %s", category)
+        pwa_nims = []
+    nims: list[str] = []
+    for nim in [str(c["nim"]) for c in channels] + pwa_nims:
+        if nim not in nims:
+            nims.append(nim)
+    if not nims:
         return 0
     redis = await cache.get_client()
     sent = 0
-    seen_nims: set[str] = set()
-    for channel in channels:
-        nim = str(channel["nim"])
-        if nim in seen_nims:
-            continue
-        seen_nims.add(nim)
+    for nim in nims:
         credentials = await session_store.get_credentials_for_nim(nim)
         if not credentials:
             from app.api_keys_db import get_credentials_for_nim
@@ -239,6 +254,8 @@ async def _produce_user_category(category: str) -> int:
         try:
             payload = None
             if category == "matkul-besok":
+                if not _h1_window_open():
+                    continue
                 raw = await studentv2_client.fetch_page("/mahasiswa/jadwal-kuliah", nim, student_password)
                 payload = build_schedule_notification(parse_schedule(raw))
             elif category == "pengumuman-siakad":
@@ -270,24 +287,6 @@ async def _produce_user_category(category: str) -> int:
                         "description": f"Tersedia {task_count} tugas dan {len(quiz_items)} kuis di MyBest. Periksa dashboard sebelum tenggat.",
                         "link": "https://ubsi-api.muaraai.com/dashboard/tugas",
                     }
-            elif category == "absen-kuliah":
-                from app.modules.elearning import parse_courses, inspect_session_status, pooled_elearning_client
-                raw_courses = await pooled_elearning_client.fetch_page("/sch", nim, elearning_password)
-                courses = parse_courses(raw_courses)
-                for course in courses:
-                    t_absen = course.get("token_absen")
-                    if not t_absen:
-                        continue
-                    html_absen = await pooled_elearning_client.fetch_page(f"/absen-mhs/{t_absen}", nim, elearning_password)
-                    status_info = inspect_session_status(html_absen)
-                    if status_info.get("can_submit"):
-                        payload = {
-                            "category": category,
-                            "title": f"Presensi Dibuka: {course.get('nama', 'Kuliah')}",
-                            "description": f"Sesi absensi pertemuan {status_info.get('pertemuan', '-')} mata kuliah {course.get('nama')} telah dibuka di MyBest. Segera lakukan presensi kehadiran.",
-                            "link": "https://ubsi-api.muaraai.com/dashboard/presensi",
-                        }
-                        break
             elif category == "nilai-keluar":
                 from app.modules.studentv2 import parse_grades
                 raw_grades = await studentv2_client.fetch_page("/mahasiswa/nilai-murni", nim, student_password)
@@ -328,10 +327,21 @@ async def _produce_user_category(category: str) -> int:
             dedupe_key = f"ubsi:notify:sent:{nim}:{category}:{date_key}"
             if await redis.get(dedupe_key):
                 continue
+            import hashlib
+            content_key = "ubsi:notify:content:%s:%s:%s" % (
+                nim, hashlib.sha1((payload["title"] + payload["description"]).encode()).hexdigest()[:16], date_key
+            )
+            if await redis.get(content_key):
+                continue  # kategori berbeda dengan isi sama (mis. quiz-tugas dan tugas-baru): kirim sekali
             matching = [item for item in channels if str(item["nim"]) == nim]
-            results = await asyncio.gather(*(_dispatch_user_channel(item, payload) for item in matching), return_exceptions=True)
-            if any(result is True for result in results):
+            delivered = await deliver(
+                nim, category, payload["title"], payload["description"], payload["link"],
+                tag=category if category not in ("quiz-tugas", "tugas-baru") else "tugas-kuis",
+                ttl=21600, channels=matching,
+            )
+            if delivered:
                 await redis.set(dedupe_key, "1", ex=172800)
+                await redis.set(content_key, "1", ex=172800)
                 sent += 1
         except Exception:
             logger.exception("User notification producer failed for NIM %s category %s", nim, category)
@@ -346,7 +356,6 @@ async def poll_user_notifications() -> int:
         "quiz-tugas",
         "tugas-baru",
         "pengumuman-siakad",
-        "absen-kuliah",
         "nilai-keluar",
         "jadwal-ujian",
     ):

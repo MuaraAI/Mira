@@ -55,6 +55,10 @@ self.addEventListener("push", (event) => {
     badge: "/pwa/icon-192.png",
     tag: payload.tag || "ubsi-general",
     renotify: true,
+    vibrate: [120, 60, 120],
+    timestamp: Date.now(),
+    // Pengingat absen tetap di layar sampai disentuh, supaya tidak terlewat.
+    requireInteraction: typeof payload.tag === "string" && payload.tag.indexOf("absen-") === 0,
     data: { url: payload.url || "/dashboard" },
   };
   event.waitUntil(self.registration.showNotification(title, options));

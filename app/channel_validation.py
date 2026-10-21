@@ -11,6 +11,7 @@ ALLOWED_CATEGORIES = (
     "tugas-baru",
     "pengumuman-siakad",
     "absen-kuliah",
+    "kelas-mulai",
     "nilai-keluar",
     "jadwal-ujian",
 )

@@ -24,6 +24,8 @@ import {
   ghostButtonClass,
 } from "@/components/dashboard-ui";
 import { describeDeadline, findSubmission, formatShortDate, parseDeadline, type DeadlineTone } from "@/lib/assignments";
+import { LinkCard } from "@/components/LinkCard";
+import { parseShareLink, tidyLink, useLinkCheck, useLinkChecks, type LinkCheck } from "@/lib/links";
 
 interface TaskItem {
   id: string;
@@ -86,12 +88,18 @@ function TaskCard({
   downloading,
   onDownload,
   onSubmit,
+  linkCheck,
+  linkChecking,
+  onRecheckLink,
 }: {
   row: Row;
   now: Date | null;
   downloading: boolean;
   onDownload: () => void;
   onSubmit: () => void;
+  linkCheck: LinkCheck | null;
+  linkChecking: boolean;
+  onRecheckLink: () => void;
 }) {
   const { task, submission, deadline } = row;
   const done = Boolean(submission);
@@ -159,16 +167,9 @@ function TaskCard({
       </div>
 
       {submission?.link_tugas && (
-        <a
-          href={submission.link_tugas}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-3 flex min-h-10 items-center gap-2 bg-[#F0F7FB] px-3 text-xs text-[#0369A1] transition-colors hover:bg-px-highlight"
-        >
-          <LinkIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          <span className="min-w-0 flex-1 truncate font-mono">{submission.link_tugas}</span>
-          <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        </a>
+        <div className="mt-3">
+          <LinkCard url={submission.link_tugas} check={linkCheck} checking={linkChecking} onRecheck={onRecheckLink} compact />
+        </div>
       )}
 
       <div className={`mt-auto grid gap-3 pt-4 ${hasFile ? "grid-cols-2" : "grid-cols-1"}`}>
@@ -223,6 +224,13 @@ export default function TugasPage() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [activeTaskForSubmit]);
+
+  const submittedLinks = useMemo(
+    () => (data?.submissions ?? []).map((item) => item.link_tugas?.trim() ?? "").filter(Boolean),
+    [data],
+  );
+  const linkChecks = useLinkChecks(submittedLinks);
+  const draftCheck = useLinkCheck(linkInput);
 
   const { pendingRows, completedRows, allRows } = useMemo(() => {
     const tasks = data?.tasks ?? [];
@@ -283,6 +291,11 @@ export default function TugasPage() {
     setSubmitError(null);
   }
 
+  function tidyInput() {
+    const tidy = tidyLink(linkInput);
+    if (tidy && tidy !== linkInput.trim()) setLinkInput(tidy);
+  }
+
   async function handleSubmitLink(e: React.FormEvent) {
     e.preventDefault();
     if (!activeTaskForSubmit) return;
@@ -293,7 +306,7 @@ export default function TugasPage() {
       return;
     }
 
-    const trimmedLink = linkInput.trim();
+    const trimmedLink = tidyLink(linkInput);
     if (!trimmedLink) {
       setSubmitError("URL link tugas wajib diisi.");
       return;
@@ -388,6 +401,9 @@ export default function TugasPage() {
               downloading={downloadingId === row.task.id}
               onDownload={() => handleDownloadTask(row.task)}
               onSubmit={() => openSubmitModal(row)}
+              linkCheck={row.submission?.link_tugas ? linkChecks.results[row.submission.link_tugas.trim()] ?? null : null}
+              linkChecking={row.submission?.link_tugas ? linkChecks.pending.has(row.submission.link_tugas.trim()) : false}
+              onRecheckLink={() => row.submission?.link_tugas && linkChecks.recheck(row.submission.link_tugas.trim())}
             />
           ))}
         </div>
@@ -437,10 +453,16 @@ export default function TugasPage() {
                   autoFocus
                   value={linkInput}
                   onChange={(e) => setLinkInput(e.target.value)}
-                  placeholder="https://drive.google.com/..."
+                  onBlur={tidyInput}
+                  placeholder="https://drive.google.com/file/d/..."
                   className={`${inputClass} min-h-12 text-base sm:text-sm`}
                 />
+                <p className="text-[11px] text-secondary">Link Google Drive, Docs, atau GitHub otomatis dirapikan saat kamu selesai mengetik.</p>
               </div>
+
+              {parseShareLink(linkInput.trim()) && (
+                <LinkCard url={tidyLink(linkInput)} check={draftCheck.result} checking={draftCheck.checking} onRecheck={draftCheck.recheck} compact />
+              )}
 
               <div className="flex items-start gap-2.5 bg-[#F0F7FB] p-3 text-xs leading-relaxed text-secondary">
                 <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#0369A1]" aria-hidden="true" />
@@ -460,9 +482,17 @@ export default function TugasPage() {
                 <button type="button" onClick={closeSubmitModal} className={ghostButtonClass} disabled={submitting}>
                   Batal
                 </button>
-                <button type="submit" disabled={submitting} className={primaryButtonClass}>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className={draftCheck.result?.access === "private" || draftCheck.result?.access === "missing" ? "px-btn-danger inline-flex min-h-11 items-center justify-center gap-2 px-5 text-sm font-bold" : primaryButtonClass}
+                >
                   <Send className="h-3.5 w-3.5" aria-hidden="true" />
-                  {submitting ? "Mengirim..." : "Kirim Tugas"}
+                  {submitting
+                    ? "Mengirim..."
+                    : draftCheck.result?.access === "private" || draftCheck.result?.access === "missing"
+                    ? "Kirim Tetap"
+                    : "Kirim Tugas"}
                 </button>
               </div>
             </form>
