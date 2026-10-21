@@ -235,6 +235,12 @@ async def trigger_reminder(request: Request, body: ReminderRequest):
             "description": "Sesi absensi perkuliahan telah dibuka. Silakan lakukan presensi kehadiran sekarang di portal MyBest.",
             "link": "https://ubsi-api.muaraai.com/dashboard/presensi",
         }
+    elif category == "kelas-mulai":
+        payload = {
+            "title": "Kuliah 15 menit lagi (contoh pengingat)",
+            "description": "Pengingat seperti ini dikirim otomatis 15 menit sebelum kelas mulai dan saat kelas dimulai.",
+            "link": "https://ubsi-api.muaraai.com/dashboard/jadwal",
+        }
     elif category == "nilai-keluar":
         payload = {
             "title": "Pemberitahuan Nilai & KHS Semester - SIAKAD",

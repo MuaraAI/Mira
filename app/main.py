@@ -23,6 +23,7 @@ from app.modules.ejournal import router as ejournal_router
 from app.modules.auth import router as auth_router
 from app.modules.channels import router as channels_router
 from app.modules.pwa_push import router as pwa_push_router
+from app.modules.links import router as links_router
 from app.modules.stats import router as stats_router
 from app.stats import record_request, record_profile
 
@@ -71,12 +72,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     eviction_task = None
     news_task = None
+    realtime_task = None
     if not os.getenv("PYTEST_CURRENT_TEST"):
         eviction_task = asyncio.create_task(_eviction_worker())
         from app.modules.news import news_webhook_worker
         news_task = asyncio.create_task(news_webhook_worker())
+        from app.notifier import realtime_notification_worker
+        realtime_task = asyncio.create_task(realtime_notification_worker())
 
     yield
+
+    if realtime_task:
+        realtime_task.cancel()
+        try:
+            await realtime_task
+        except asyncio.CancelledError:
+            pass
 
     if news_task:
         news_task.cancel()
@@ -122,6 +133,7 @@ app.include_router(ejournal_router)
 app.include_router(auth_router)
 app.include_router(channels_router)
 app.include_router(pwa_push_router)
+app.include_router(links_router)
 app.include_router(stats_router)
 
 @app.middleware("http")
