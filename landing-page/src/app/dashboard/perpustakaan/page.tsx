@@ -11,6 +11,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useApi, apiFetch } from "@/lib/api";
+import { Dropdown } from "@/components/Dropdown";
 import {
   EmptyState,
   ErrorState,
@@ -18,6 +19,15 @@ import {
   PageHeader,
   inputClass,
 } from "@/components/dashboard-ui";
+
+const COLLECTIONS = [
+  { value: "buku", label: "Buku Teks" },
+  { value: "semua", label: "Semua Koleksi" },
+  { value: "ta", label: "Tugas Akhir" },
+  { value: "skripsi", label: "Skripsi" },
+  { value: "jurnal", label: "Jurnal" },
+  { value: "ebook", label: "E-Book" },
+];
 
 interface BookSearchResult {
   id: string;
@@ -101,22 +111,16 @@ export default function PerpustakaanPage() {
             />
           </div>
 
-          <select
+          <Dropdown
+            ariaLabel="Pilih kategori koleksi perpustakaan"
             value={category}
-            onChange={(e) => {
-              setCategory(e.target.value);
+            onChange={(value) => {
+              setCategory(value);
               setSelectedBookId(null);
             }}
-            aria-label="Pilih kategori koleksi perpustakaan"
-            className="rounded-sm border border-stroke bg-white px-3 py-2 text-sm text-foreground focus:border-[#0369A1] focus:outline-none"
-          >
-            <option value="buku">Buku Teks</option>
-            <option value="semua">Semua Koleksi</option>
-            <option value="ta">Tugas Akhir</option>
-            <option value="skripsi">Skripsi</option>
-            <option value="jurnal">Jurnal</option>
-            <option value="ebook">E-Book</option>
-          </select>
+            options={COLLECTIONS}
+            className="sm:w-56 sm:shrink-0"
+          />
 
           <button
             type="submit"
