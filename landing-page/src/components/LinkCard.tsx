@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
-import { AlertTriangle, Check, CheckCircle2, Copy, ExternalLink, Eye, FileText, FolderOpen, Github, Link2, Loader2, RefreshCw, X } from "lucide-react";
+import { useState } from "react";
+import { AlertTriangle, Check, CheckCircle2, Copy, ExternalLink, Eye, FileText, FolderOpen, Github, Link2, Loader2, RefreshCw } from "lucide-react";
 import { parseShareLink, type LinkCheck } from "@/lib/links";
+import { SideSheet } from "@/components/SideSheet";
 
 const PREVIEW_HOSTS = new Set(["drive.google.com", "docs.google.com"]);
 
@@ -75,61 +75,47 @@ function PreviewDialog({ check, onClose }: { check: LinkCheck; onClose: () => vo
     src = null;
   }
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  return createPortal(
-    <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-4">
-      <div className="modal-backdrop fixed inset-0 bg-[#072033]/60 backdrop-blur-[2px]" onClick={onClose} aria-hidden="true" />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Pratinjau berkas"
-        className="sheet-panel relative z-10 flex h-[85dvh] w-full max-w-4xl flex-col bg-white shadow-[0_-4px_0_0_#0369A1] sm:shadow-[0_-2px_0_0_#163A55,0_2px_0_0_#163A55,-2px_0_0_0_#163A55,2px_0_0_0_#163A55,8px_8px_0_0_#0369A1]"
-      >
-        <div className="flex items-center gap-3 border-b-2 border-px-soft bg-px-tint p-3">
-          <div className="min-w-0 flex-1">
-            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#0369A1]">Pratinjau</p>
-            <p className="truncate text-sm font-bold text-foreground">{check.title || check.label}</p>
-          </div>
-          {check.normalized_url && (
-            <a href={check.normalized_url} target="_blank" rel="noopener noreferrer" className="px-btn-ghost inline-flex min-h-10 items-center gap-1.5 px-3 text-xs font-bold">
-              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-              <span className="hidden sm:inline">Buka</span>
-            </a>
-          )}
-          <button type="button" onClick={onClose} aria-label="Tutup pratinjau" className="px-frame flex min-h-10 min-w-10 items-center justify-center bg-white text-secondary [--px-line:#CFE2EE] hover:text-foreground">
-            <X className="h-5 w-5" aria-hidden="true" />
-          </button>
-        </div>
-        <div className="relative min-h-0 flex-1 bg-[#F7FAFC]">
-          {src ? (
-            <>
-              {!loaded && (
-                <div className="absolute inset-0 flex items-center justify-center gap-2 font-mono text-xs text-secondary">
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                  Memuat pratinjau...
-                </div>
-              )}
-              <iframe
-                title="Pratinjau berkas"
-                src={src}
-                onLoad={() => setLoaded(true)}
-                className="h-full w-full border-0"
-                sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-                referrerPolicy="no-referrer"
-              />
-            </>
-          ) : (
-            <p className="p-6 text-sm text-secondary">Pratinjau tidak tersedia untuk link ini. Gunakan tombol Buka.</p>
-          )}
-        </div>
+  return (
+    <SideSheet
+      open
+      onClose={onClose}
+      eyebrow="Pratinjau"
+      title={check.title || check.label}
+      titleId="link-preview-title"
+      width="xl"
+      flush
+      footer={
+        check.normalized_url ? (
+          <a href={check.normalized_url} target="_blank" rel="noopener noreferrer" className="px-btn-ghost inline-flex min-h-11 w-full items-center justify-center gap-2 px-4 text-sm font-bold sm:w-auto">
+            <ExternalLink className="h-4 w-4" aria-hidden="true" />
+            Buka di tab baru
+          </a>
+        ) : undefined
+      }
+    >
+      <div className="h-full min-h-[60dvh] bg-[#F7FAFC]">
+        {src ? (
+          <>
+            {!loaded && (
+              <div className="absolute inset-0 flex items-center justify-center gap-2 font-mono text-xs text-secondary">
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                Memuat pratinjau...
+              </div>
+            )}
+            <iframe
+              title="Pratinjau berkas"
+              src={src}
+              onLoad={() => setLoaded(true)}
+              className="absolute inset-0 h-full w-full border-0"
+              sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+              referrerPolicy="no-referrer"
+            />
+          </>
+        ) : (
+          <p className="p-6 text-sm text-secondary">Pratinjau tidak tersedia untuk link ini. Gunakan tombol Buka.</p>
+        )}
       </div>
-    </div>,
-    document.body,
+    </SideSheet>
   );
 }
 
