@@ -374,7 +374,7 @@ section[id] { scroll-margin-top: 96px; }
 }
 
 .dashboard-bottom-nav {
-  padding-bottom: calc(0.375rem + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .dashboard-main {

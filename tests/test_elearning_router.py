@@ -735,3 +735,68 @@ async def test_get_guides_success():
     assert data["success"] is True
     assert len(data["data"]) >= 3
     assert data["data"][0]["format"] == "PDF"
+
+
+async def _get_all_assignments(monkeypatch, fake_fetch, saved):
+    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_PASS", "secret")
+
+    async def fake_set(key, payload, ttl=None):
+        saved[key] = payload
+
+    async def no_lgg(key):
+        return None
+
+    monkeypatch.setattr(cache, "set", fake_set)
+    monkeypatch.setattr(cache, "get_lgg", no_lgg)
+    monkeypatch.setattr(cache, "fresh_or_stale", no_lgg)
+    monkeypatch.setattr("app.modules.elearning.asyncio.sleep", AsyncMock())
+
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = None
+    mock_redis.incr.return_value = 1
+    with patch("redis.asyncio.from_url", return_value=mock_redis), \
+         patch("app.modules.elearning.pooled_elearning_client.fetch_page", side_effect=fake_fetch):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            return await ac.get("/v1/elearning/assignments")
+
+
+@pytest.mark.asyncio
+async def test_assignments_retry_course_that_fails_once(monkeypatch):
+    sch_html = (FIXTURES / "el_sch.html").read_text(encoding="utf-8")
+    task_html = (FIXTURES / "el_assignment_grades.html").read_text(encoding="utf-8")
+    seen: dict[str, int] = {}
+
+    async def flaky_fetch(path, nim, password):
+        if path == "/sch":
+            return sch_html
+        seen[path] = seen.get(path, 0) + 1
+        if seen[path] == 1:
+            raise RuntimeError("MyBest sedang sibuk")
+        return task_html
+
+    saved: dict = {}
+    res = await _get_all_assignments(monkeypatch, flaky_fetch, saved)
+    data = res.json()["data"]
+    assert res.status_code == 200
+    assert data["failed_courses"] == []
+    assert data["submissions"], "data harus tetap muncul setelah retry"
+    assert saved, "hasil lengkap boleh di-cache"
+
+
+@pytest.mark.asyncio
+async def test_assignments_report_failed_courses_and_skip_cache(monkeypatch):
+    sch_html = (FIXTURES / "el_sch.html").read_text(encoding="utf-8")
+
+    async def broken_fetch(path, nim, password):
+        if path == "/sch":
+            return sch_html
+        raise RuntimeError("MyBest down")
+
+    saved: dict = {}
+    res = await _get_all_assignments(monkeypatch, broken_fetch, saved)
+    data = res.json()["data"]
+    assert res.status_code == 200
+    assert data["tasks"] == []
+    assert data["failed_courses"], "mata kuliah yang gagal harus dilaporkan, bukan dianggap kosong"
+    assert not any(k.endswith("all") or "assignments" in k for k in saved), "hasil parsial tidak boleh di-cache"
