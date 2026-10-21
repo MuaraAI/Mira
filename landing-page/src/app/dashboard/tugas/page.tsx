@@ -8,7 +8,6 @@ import {
   Download,
   Edit3,
   ExternalLink,
-  Info,
   Link as LinkIcon,
   Send,
   X,
@@ -25,6 +24,7 @@ import {
 } from "@/components/dashboard-ui";
 import { describeDeadline, findSubmission, formatShortDate, gradeValue, parseDeadline, type DeadlineTone } from "@/lib/assignments";
 import { LinkCard } from "@/components/LinkCard";
+import { SideSheet } from "@/components/SideSheet";
 import { parseShareLink, tidyLink, useLinkCheck, useLinkChecks, type LinkCheck } from "@/lib/links";
 
 interface TaskItem {
@@ -221,13 +221,6 @@ export default function TugasPage() {
     return () => window.clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    if (!activeTaskForSubmit) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeSubmitModal();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [activeTaskForSubmit]);
-
   const submittedLinks = useMemo(
     () => (data?.submissions ?? []).map((item) => item.link_tugas?.trim() ?? "").filter(Boolean),
     [data],
@@ -412,81 +405,23 @@ export default function TugasPage() {
         </div>
       )}
 
-      {/* Modal Kumpulkan Tugas: bottom sheet di HP, dialog di tengah di desktop */}
-      {activeTaskForSubmit && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
-          <div className="modal-backdrop fixed inset-0 bg-[#072033]/50 backdrop-blur-[2px]" onClick={closeSubmitModal} aria-hidden="true" />
-
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="submit-modal-title"
-            className="sheet-panel relative z-10 flex max-h-[90dvh] w-full max-w-lg flex-col overflow-y-auto bg-white shadow-[0_-4px_0_0_#0369A1] sm:shadow-[0_-2px_0_0_#163A55,0_2px_0_0_#163A55,-2px_0_0_0_#163A55,2px_0_0_0_#163A55,8px_8px_0_0_#0369A1]"
-          >
-            <div className="flex items-start justify-between gap-3 border-b-2 border-px-soft bg-px-tint p-4">
-              <div className="min-w-0">
-                <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#0369A1]">Pengumpulan Tugas MyBest</span>
-                <h3 id="submit-modal-title" className="text-base font-display font-bold text-foreground">
-                  {activeTaskForSubmit.judul}
-                </h3>
-                <p className="mt-0.5 text-xs text-secondary">
-                  {activeTaskForSubmit.mata_kuliah || activeTaskForSubmit.kode}
-                  {activeTaskForSubmit.pertemuan ? ` · Pertemuan ${activeTaskForSubmit.pertemuan}` : ""}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={closeSubmitModal}
-                aria-label="Tutup jendela"
-                className="px-frame flex min-h-11 min-w-11 shrink-0 items-center justify-center bg-white text-secondary [--px-line:#CFE2EE] hover:text-foreground"
-              >
-                <X className="h-5 w-5" aria-hidden="true" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmitLink} className="space-y-4 p-4 sm:p-6">
-              <div className="space-y-2">
-                <label htmlFor="input-link-tugas" className="block text-xs font-bold uppercase tracking-wider text-foreground">
-                  Link / URL Tugas Mahasiswa <span className="text-[#BE123C]">*</span>
-                </label>
-                <input
-                  id="input-link-tugas"
-                  type="url"
-                  required
-                  autoFocus
-                  value={linkInput}
-                  onChange={(e) => setLinkInput(e.target.value)}
-                  onBlur={tidyInput}
-                  placeholder="https://drive.google.com/file/d/..."
-                  className={`${inputClass} min-h-12 text-base sm:text-sm`}
-                />
-                <p className="text-[11px] text-secondary">Link Google Drive, Docs, atau GitHub otomatis dirapikan saat kamu selesai mengetik.</p>
-              </div>
-
-              {parseShareLink(linkInput.trim()) && (
-                <LinkCard url={tidyLink(linkInput)} check={draftCheck.result} checking={draftCheck.checking} onRecheck={draftCheck.recheck} compact />
-              )}
-
-              <div className="flex items-start gap-2.5 bg-[#F0F7FB] p-3 text-xs leading-relaxed text-secondary">
-                <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#0369A1]" aria-hidden="true" />
-                <p>
-                  Masukkan URL Google Drive, GitHub repository, atau link dokumen tugas Anda. Pastikan akses Google Drive disetel ke{" "}
-                  <em>&quot;Siapa saja yang memiliki link dapat melihat&quot;</em>.
-                </p>
-              </div>
-
-              {submitError && (
-                <div className="bg-[#FFF1F2] p-3 text-xs text-[#BE123C]" role="alert">
-                  {submitError}
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-3 border-t-2 border-dashed border-px-soft pt-4 sm:flex sm:justify-end">
+      {/* Kumpulkan / ubah link: panel samping (desktop) atau dari bawah (HP) */}
+      <SideSheet
+        open={activeTaskForSubmit !== null}
+        onClose={closeSubmitModal}
+        eyebrow="Pengumpulan Tugas MyBest"
+        title={activeTaskForSubmit?.judul ?? ""}
+        subtitle={[activeTaskForSubmit?.mata_kuliah || activeTaskForSubmit?.kode, activeTaskForSubmit?.pertemuan && `Pertemuan ${activeTaskForSubmit.pertemuan}`].filter(Boolean).join(" · ")}
+        titleId="submit-modal-title"
+        width="lg"
+        footer={
+              <div className="grid grid-cols-2 gap-3 sm:flex sm:justify-end">
                 <button type="button" onClick={closeSubmitModal} className={ghostButtonClass} disabled={submitting}>
                   Batal
                 </button>
                 <button
                   type="submit"
+                  form="submit-link-form"
                   disabled={submitting}
                   className={draftCheck.result?.access === "private" || draftCheck.result?.access === "missing" ? "px-btn-danger inline-flex min-h-11 items-center justify-center gap-2 px-5 text-sm font-bold" : primaryButtonClass}
                 >
@@ -498,10 +433,40 @@ export default function TugasPage() {
                     : "Kirim Tugas"}
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+        }
+      >
+        <form id="submit-link-form" onSubmit={handleSubmitLink} className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="input-link-tugas" className="block text-xs font-bold uppercase tracking-wider text-foreground">
+                  Link / URL Tugas Mahasiswa <span className="text-[#BE123C]">*</span>
+                </label>
+                <input
+                  id="input-link-tugas"
+                  type="url"
+                  required
+                  data-autofocus
+                  value={linkInput}
+                  onChange={(e) => setLinkInput(e.target.value)}
+                  onBlur={tidyInput}
+                  placeholder="https://drive.google.com/file/d/..."
+                  className={`${inputClass} min-h-12 text-base sm:text-sm`}
+                />
+                <p className="text-[11px] leading-relaxed text-secondary">
+                  Tempel link Google Drive, Docs, atau GitHub; link dirapikan otomatis. Pastikan akses Drive disetel ke <em>&quot;Siapa saja yang memiliki link&quot;</em> supaya dosen bisa membukanya.
+                </p>
+              </div>
+
+              {parseShareLink(linkInput.trim()) && (
+                <LinkCard url={tidyLink(linkInput)} check={draftCheck.result} checking={draftCheck.checking} onRecheck={draftCheck.recheck} compact />
+              )}
+
+              {submitError && (
+                <div className="bg-[#FFF1F2] p-3 text-xs text-[#BE123C]" role="alert">
+                  {submitError}
+                </div>
+              )}
+        </form>
+      </SideSheet>
     </div>
   );
 }
