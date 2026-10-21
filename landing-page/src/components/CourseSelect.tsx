@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { Dropdown } from "@/components/Dropdown";
 
 export interface CourseOption {
   key: string;
@@ -30,32 +30,17 @@ export function CourseSelect({
 
   return (
     <div>
-      {/* HP: native select dibungkus tampilan pixel, jadi tetap nyaman dipakai dengan jempol. */}
-      <label className="relative block md:hidden">
-        <span className="sr-only">{label}</span>
-        <span className="px-input flex min-h-14 items-center gap-3 px-4 py-2.5">
-          <span className="min-w-0 flex-1">
-            <span className="block font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-secondary">{label}</span>
-            <span className="block truncate text-sm font-bold text-foreground">{current?.label ?? "-"}</span>
-          </span>
-          {current?.badge && (
-            <span className="shrink-0 bg-[#0F766E] px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase text-white">{current.badge}</span>
-          )}
-          <ChevronDown className="h-4 w-4 shrink-0 text-[#0369A1]" aria-hidden="true" />
-        </span>
-        <select
-          value={current?.key ?? ""}
-          onChange={(e) => onChange(e.target.value)}
-          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-        >
-          {options.map((o) => (
-            <option key={o.key} value={o.key}>
-              {o.label}
-              {o.badge ? ` (${o.badge})` : o.sub ? ` · ${o.sub}` : ""}
-            </option>
-          ))}
-        </select>
-      </label>
+      {/* HP: dropdown pixel satu baris, jadi tidak perlu geser ke samping. */}
+      <div className="md:hidden">
+        <Dropdown
+          ariaLabel={label}
+          caption={label}
+          value={current?.key ?? null}
+          onChange={onChange}
+          options={options.map((o) => ({ value: o.key, label: o.label, sub: o.sub, badge: o.badge }))}
+          className="[&>button]:min-h-14"
+        />
+      </div>
 
       {/* Desktop: kotak berukuran sama dalam grid, jadi rata kiri-kanan dan tidak bergeser antar baris. */}
       <div

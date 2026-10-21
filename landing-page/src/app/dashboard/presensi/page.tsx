@@ -21,6 +21,8 @@ import {
 import { CourseSelect } from "@/components/CourseSelect";
 import { resolveDosen } from "@/lib/courses";
 import { DosenInfo } from "@/components/DosenInfo";
+import { FormattedNote } from "@/components/FormattedNote";
+import { notePreview, sameNote } from "@/lib/notes";
 
 interface CourseItem {
   id: string;
@@ -344,7 +346,7 @@ export default function PresensiPage() {
                         <span className="w-10 shrink-0 font-mono text-sm font-bold text-[#0369A1]">P-{r.pertemuan}</span>
                         <span className="min-w-0 flex-1">
                           <span className="block font-mono text-xs text-secondary">{r.tanggal}</span>
-                          {summary && !open && <span className="block truncate text-sm text-foreground">{summary}</span>}
+                          {summary && !open && <span className="block truncate text-sm text-foreground">{notePreview(summary)}</span>}
                         </span>
                         <span
                           className={`inline-flex shrink-0 items-center gap-1 px-2 py-0.5 text-[11px] font-bold ${
@@ -359,18 +361,18 @@ export default function PresensiPage() {
                         )}
                       </button>
                       {open && (
-                        <div className="page-in space-y-3 px-4 pb-4 text-sm sm:px-5 sm:pl-[4.75rem]">
+                        <div className="page-in space-y-5 px-4 pb-5 pt-1 text-sm sm:px-5 sm:pl-[4.75rem]">
                           {summary && (
                             <div>
-                              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-secondary">Rangkuman / Materi Dosen</p>
-                              <p className="mt-1 leading-relaxed text-foreground">{summary}</p>
+                              <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-secondary">Rangkuman / Materi Dosen</p>
+                              <FormattedNote text={summary} />
                             </div>
                           )}
-                          {/* Berita acara sering sama persis dengan rangkuman; tampilkan hanya bila berbeda. */}
-                          {bap && bap !== summary && (
+                          {/* Berita acara sering sama dengan rangkuman; tampilkan hanya bila isinya berbeda. */}
+                          {bap && !sameNote(bap, summary) && (
                             <div>
-                              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-secondary">Berita Acara</p>
-                              <p className="mt-1 leading-relaxed text-secondary">{bap}</p>
+                              <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-secondary">Berita Acara</p>
+                              <FormattedNote text={bap} tone="muted" />
                             </div>
                           )}
                         </div>
