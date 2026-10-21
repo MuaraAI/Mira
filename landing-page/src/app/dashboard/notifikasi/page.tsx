@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { apiFetch, ApiError, useApi, clearApiCache } from "@/lib/api";
 import PwaPushDeviceSection from "@/components/PwaPushDeviceSection";
+import { NOTIFICATION_CATEGORIES } from "@/lib/notification-categories";
 import {
   ChannelActiveBadge,
   ChannelTypeBadge,
@@ -42,56 +43,19 @@ interface Channel {
 
 const MAX_CHANNELS = 5;
 
-const AVAILABLE_CATEGORIES = [
-  {
-    id: "matkul-besok",
-    label: "Pengingat Kuliah H-1",
-    desc: "Notifikasi otomatis jadwal matkul, ruang, jam, dan dosen esok hari.",
-    icon: CalendarCheck,
-  },
-  {
-    id: "quiz-tugas",
-    label: "Tugas dan Kuis MyBest",
-    desc: "Pengingat berkala kuis atau tugas kuliah yang belum dikerjakan.",
-    icon: BookOpen,
-  },
-  {
-    id: "tugas-baru",
-    label: "Tugas Baru",
-    desc: "Pemberitahuan saat tugas baru terdeteksi di MyBest.",
-    icon: BookOpen,
-  },
-  {
-    id: "berita-kampus",
-    label: "Warta Berita Kampus",
-    desc: "Broadcast otomatis setiap ada warta dan artikel baru di portal kampus.",
-    icon: Bell,
-  },
-  {
-    id: "pengumuman-siakad",
-    label: "Pengumuman SIAKAD",
-    desc: "Pemberitahuan akademik resmi dari sistem studentv2 kampus.",
-    icon: GraduationCap,
-  },
-  {
-    id: "absen-kuliah",
-    label: "Presensi Kuliah Terbuka",
-    desc: "Pemberitahuan saat sesi absensi pertemuan dibuka di MyBest.",
-    icon: Clock,
-  },
-  {
-    id: "nilai-keluar",
-    label: "Rilis Nilai & KHS",
-    desc: "Notifikasi otomatis saat nilai akhir atau KHS semester dipublikasikan.",
-    icon: Award,
-  },
-  {
-    id: "jadwal-ujian",
-    label: "Jadwal & Ruang Ujian",
-    desc: "Pengingat jadwal, ruang, dan unduhan soal ruang UTS / UAS.",
-    icon: FileText,
-  },
-] as const;
+const CATEGORY_ICONS = {
+  "kelas-mulai": Clock,
+  "absen-kuliah": CheckCircle2,
+  "matkul-besok": CalendarCheck,
+  "quiz-tugas": BookOpen,
+  "tugas-baru": BookOpen,
+  "berita-kampus": Bell,
+  "pengumuman-siakad": GraduationCap,
+  "nilai-keluar": Award,
+  "jadwal-ujian": FileText,
+} as const;
+
+const AVAILABLE_CATEGORIES = NOTIFICATION_CATEGORIES.map((cat) => ({ ...cat, icon: CATEGORY_ICONS[cat.id] }));
 
 const TYPE_CONFIG = {
   discord: {
