@@ -90,6 +90,16 @@ def allow_push_endpoints(monkeypatch):
     )
 
 
+def _valid_keys() -> dict[str, str]:
+    """p256dh = P-256 uncompressed 65 byte (prefix 0x04), auth = 16 byte — sesuai validasi router."""
+    import base64 as b64
+
+    return {
+        "p256dh": b64.urlsafe_b64encode(bytes([0x04] + [1] * 64)).rstrip(b"=").decode(),
+        "auth": b64.urlsafe_b64encode(bytes([9] * 16)).rstrip(b"=").decode(),
+    }
+
+
 async def _login(ac: AsyncClient, nim: str = "15260767") -> str:
     res = await ac.post(
         "/v1/auth/login",
@@ -133,7 +143,7 @@ async def test_subscribe_requires_session(fake_redis):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         res = await ac.post("/v1/notifications/pwa/subscribe", json={
             "endpoint": "https://fcm.googleapis.com/fcm/send/x",
-            "keys": {"p256dh": "k", "auth": "a"},
+            "keys": _valid_keys(),
             "device_name": "Test",
         })
         assert res.status_code == 403
@@ -147,7 +157,7 @@ async def test_subscribe_list_delete_device_flow(fake_redis):
 
         res = await ac.post("/v1/notifications/pwa/subscribe", headers=headers, json={
             "endpoint": "https://fcm.googleapis.com/fcm/send/abc123",
-            "keys": {"p256dh": "BNck==", "auth": "Auth=="},
+            "keys": _valid_keys(),
             "device_name": "Chrome on Android",
         })
         assert res.status_code == 200
@@ -160,7 +170,7 @@ async def test_subscribe_list_delete_device_flow(fake_redis):
         # Duplicate endpoint -> upsert, bukan duplikat
         await ac.post("/v1/notifications/pwa/subscribe", headers=headers, json={
             "endpoint": "https://fcm.googleapis.com/fcm/send/abc123",
-            "keys": {"p256dh": "BNck==", "auth": "Auth=="},
+            "keys": _valid_keys(),
             "device_name": "Chrome renamed",
         })
         res = await ac.get("/v1/notifications/pwa/devices", headers=headers)
@@ -169,7 +179,7 @@ async def test_subscribe_list_delete_device_flow(fake_redis):
         # Endpoint non-https ditolak
         res = await ac.post("/v1/notifications/pwa/subscribe", headers=headers, json={
             "endpoint": "http://evil.example.com/push",
-            "keys": {"p256dh": "k", "auth": "a"},
+            "keys": _valid_keys(),
         })
         assert res.status_code == 400
 
@@ -210,7 +220,7 @@ async def test_subscribe_rejects_ssrf_private_ip(fake_redis, monkeypatch):
         token = await _login(ac)
         res = await ac.post("/v1/notifications/pwa/subscribe", headers={"Authorization": f"Bearer {token}"}, json={
             "endpoint": "https://169.254.169.254/latest/meta-data",
-            "keys": {"p256dh": "k", "auth": "a"},
+            "keys": _valid_keys(),
             "device_name": "Evil",
         })
         assert res.status_code == 400
@@ -229,12 +239,13 @@ async def test_test_push_no_device_returns_404(fake_redis):
 async def test_test_push_sends_to_all_devices_and_reports(fake_redis):
     from app.pwa_push_db import add_subscription
 
-    await add_subscription("15260767", "https://fcm.googleapis.com/fcm/send/d1", "k", "a", "HP")
-    await add_subscription("15260767", "https://fcm.googleapis.com/fcm/send/d2", "k", "a", "Laptop")
+    vk = _valid_keys()
+    await add_subscription("15260767", "https://fcm.googleapis.com/fcm/send/d1", vk["p256dh"], vk["auth"], "HP")
+    await add_subscription("15260767", "https://fcm.googleapis.com/fcm/send/d2", vk["p256dh"], vk["auth"], "Laptop")
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         token = await _login(ac)
-        with patch("app.modules.pwa_push.send_web_push", AsyncMock(return_value=(True, 201))) as m:
+        with patch("app.pwa_webpush.send_web_push", AsyncMock(return_value=(True, 201))) as m:
             res = await ac.post(
                 "/v1/notifications/pwa/test",
                 headers={"Authorization": f"Bearer {token}"},

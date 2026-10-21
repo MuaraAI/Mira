@@ -51,6 +51,7 @@ def _connect() -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     try:
         conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=5000")
     except Exception:
         pass
     return conn
@@ -86,48 +87,54 @@ def init_pwa_db() -> None:
 def _sync_add(nim: str, endpoint: str, p256dh: str, auth: str, device_name: str) -> int:
     conn = _connect()
     try:
-        existing = conn.execute(
-            "SELECT id FROM pwa_push_subscriptions WHERE endpoint = ?",
-            (endpoint,),
+        # Upsert atomik via ON CONFLICT: dua subscribe serentak tidak 500 IntegrityError.
+        # Endpoint ikut pindah ke NIM terbaru (browser ganti akun dashboard).
+        cursor = conn.execute(
+            "INSERT INTO pwa_push_subscriptions (nim, endpoint, p256dh, auth, device_name) "
+            "VALUES (?, ?, ?, ?, ?) "
+            "ON CONFLICT(endpoint) DO UPDATE SET nim = excluded.nim, p256dh = excluded.p256dh, "
+            "auth = excluded.auth, device_name = excluded.device_name, is_active = 1, last_used_at = datetime('now')",
+            (nim, endpoint, p256dh, auth, device_name),
+        )
+        new_id = int(cursor.lastrowid) if cursor.lastrowid is not None else 0
+
+        # Seed kategori default HANYA untuk NIM yang belum punya preferensi sama sekali:
+        # subscribe ulang tidak boleh menghidupkan kembali kategori yang dimatikan user.
+        has_pref = conn.execute(
+            "SELECT 1 FROM pwa_push_categories WHERE nim = ? LIMIT 1", (nim,)
         ).fetchone()
-        if existing:
-            # Upsert: endpoint ikut pindah ke NIM terbaru (browser ganti akun dashboard)
-            conn.execute(
-                "UPDATE pwa_push_subscriptions SET nim = ?, p256dh = ?, auth = ?, device_name = ?, is_active = 1, last_used_at = datetime('now') WHERE id = ?",
-                (nim, p256dh, auth, device_name, existing["id"]),
-            )
+        if not has_pref:
             conn.executemany(
                 "INSERT OR IGNORE INTO pwa_push_categories (nim, category) VALUES (?, ?)",
                 [(nim, cat) for cat in DEFAULT_CATEGORIES],
             )
-            conn.commit()
-            return existing["id"]
 
-        count = conn.execute(
+        # Kuota device: buang melebihi batas, terlama dulu (baris yang barusan di-upsert aman)
+        stale = conn.execute(
+            "SELECT id FROM pwa_push_subscriptions WHERE nim = ? AND is_active = 1 AND id != ? "
+            "ORDER BY COALESCE(last_used_at, created_at) ASC LIMIT ?",
+            (nim, new_id, max(0, _MAX_SUBSCRIPTIONS_PER_NIM - 1)),
+        ).fetchall()
+        active = conn.execute(
             "SELECT COUNT(*) AS c FROM pwa_push_subscriptions WHERE nim = ? AND is_active = 1",
             (nim,),
         ).fetchone()["c"]
-        if count >= _MAX_SUBSCRIPTIONS_PER_NIM:
-            oldest = conn.execute(
-                "SELECT id FROM pwa_push_subscriptions WHERE nim = ? AND is_active = 1 ORDER BY last_used_at ASC, created_at ASC LIMIT 1",
-                (nim,),
-            ).fetchone()
-            if oldest:
-                conn.execute("DELETE FROM pwa_push_subscriptions WHERE id = ?", (oldest["id"],))
+        excess = int(active) - _MAX_SUBSCRIPTIONS_PER_NIM
+        for row in stale[: max(0, excess)]:
+            conn.execute("DELETE FROM pwa_push_subscriptions WHERE id = ?", (row["id"],))
 
-        cursor = conn.execute(
-            "INSERT INTO pwa_push_subscriptions (nim, endpoint, p256dh, auth, device_name) VALUES (?, ?, ?, ?, ?)",
-            (nim, endpoint, p256dh, auth, device_name),
-        )
-        conn.executemany(
-            "INSERT OR IGNORE INTO pwa_push_categories (nim, category) VALUES (?, ?)",
-            [(nim, cat) for cat in DEFAULT_CATEGORIES],
-        )
+        _cleanup_orphan_categories(conn)
         conn.commit()
-        new_id = cursor.lastrowid
-        return int(new_id) if new_id is not None else 0
+        return new_id
     finally:
         conn.close()
+
+
+def _cleanup_orphan_categories(conn: sqlite3.Connection) -> None:
+    """Buang kategori milik NIM yang sudah tidak punya device (anti tabel tumbuh monoton)."""
+    conn.execute(
+        "DELETE FROM pwa_push_categories WHERE nim NOT IN (SELECT nim FROM pwa_push_subscriptions)"
+    )
 
 
 async def add_subscription(nim: str, endpoint: str, p256dh: str, auth: str, device_name: str) -> int:
@@ -167,6 +174,7 @@ def _sync_remove(nim: str, device_id: int) -> bool:
             "DELETE FROM pwa_push_subscriptions WHERE id = ? AND nim = ?",
             (device_id, nim),
         )
+        _cleanup_orphan_categories(conn)
         conn.commit()
         return cursor.rowcount > 0
     finally:
@@ -207,6 +215,7 @@ def _sync_prune(endpoint: str) -> bool:
             "DELETE FROM pwa_push_subscriptions WHERE endpoint = ?",
             (endpoint,),
         )
+        _cleanup_orphan_categories(conn)
         conn.commit()
         return cursor.rowcount > 0
     finally:

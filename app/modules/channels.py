@@ -299,6 +299,16 @@ async def trigger_reminder(request: Request, body: ReminderRequest):
             pwa_pushed = 0
 
     total_dispatched = dispatched + pwa_pushed
+    if total_dispatched == 0:
+        # False success dilarang: 0 terkirim bukan sukses
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=error_response(
+                code="DELIVERY_FAILED",
+                message=f"Tidak ada tujuan aktif yang menerima pengingat '{category}'.",
+                module="channels",
+            ),
+        )
     return success_response(
         data={
             "dispatched": total_dispatched,

@@ -3,6 +3,7 @@ import html
 import json
 import logging
 import re
+import time
 import urllib.parse
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -234,7 +235,9 @@ async def _dispatch_user_channel(channel: dict[str, Any], payload: dict[str, Any
     return await dispatch_webhook_notification(payload, config["url"])
 
 
-async def _produce_user_category(category: str) -> int:
+async def _produce_user_category(
+    category: str, assignment_fetch_cache: Optional[dict[str, tuple[str, str]]] = None
+) -> int:
     from app.notifier import deliver
     from app.pwa_push_db import list_nims_with_category
 
@@ -284,8 +287,14 @@ async def _produce_user_category(category: str) -> int:
                     }
             elif category in ("quiz-tugas", "tugas-baru"):
                 from app.modules.elearning import parse_assignments, parse_courses, parse_quiz, pooled_elearning_client
-                raw_quiz = await pooled_elearning_client.fetch_page("/exercise", nim, elearning_password)
-                raw_assignments = await pooled_elearning_client.fetch_page("/sch", nim, elearning_password)
+                # quiz-tugas dan tugas-baru baca halaman sama: fetch sekali per siklus per NIM
+                if assignment_fetch_cache is not None and nim in assignment_fetch_cache:
+                    raw_quiz, raw_assignments = assignment_fetch_cache[nim]
+                else:
+                    raw_quiz = await pooled_elearning_client.fetch_page("/exercise", nim, elearning_password)
+                    raw_assignments = await pooled_elearning_client.fetch_page("/sch", nim, elearning_password)
+                    if assignment_fetch_cache is not None:
+                        assignment_fetch_cache[nim] = (raw_quiz, raw_assignments)
                 quiz_items = parse_quiz(raw_quiz)
                 task_count = 0
                 for course in parse_courses(raw_assignments):
@@ -336,26 +345,37 @@ async def _produce_user_category(category: str) -> int:
             if not payload:
                 continue
             from zoneinfo import ZoneInfo
-            date_key = datetime.now(ZoneInfo("Asia/Jakarta")).date().isoformat()
+            from app.notifier import _claim, _release
+
+            now_wib = datetime.now(ZoneInfo("Asia/Jakarta"))
+            date_key = now_wib.date().isoformat()
             dedupe_key = f"ubsi:notify:sent:{nim}:{category}:{date_key}" + slot_suffix
-            if await redis.get(dedupe_key):
+            # Klaim atomik (SET NX) sebelum deliver: anti dobel saat 2 worker bangun bareng
+            if not await _claim(dedupe_key, 172800):
                 continue
             import hashlib
             content_key = "ubsi:notify:content:%s:%s:%s" % (
                 nim, hashlib.sha1((payload["title"] + payload["description"]).encode()).hexdigest()[:16], date_key
             ) + slot_suffix
-            if await redis.get(content_key):
+            if not await _claim(content_key, 172800):
                 continue  # kategori berbeda dengan isi sama (mis. quiz-tugas dan tugas-baru): kirim sekali
             matching = [item for item in channels if str(item["nim"]) == nim]
-            delivered = await deliver(
-                nim, category, payload["title"], payload["description"], payload["link"],
-                tag=category if category not in ("quiz-tugas", "tugas-baru") else "tugas-kuis",
-                ttl=21600, channels=matching,
-            )
+            try:
+                delivered = await deliver(
+                    nim, category, payload["title"], payload["description"], payload["link"],
+                    tag=category if category not in ("quiz-tugas", "tugas-baru") else "tugas-kuis",
+                    ttl=21600, channels=matching,
+                )
+            except Exception:
+                await _release(dedupe_key)
+                await _release(content_key)
+                raise
             if delivered:
-                await redis.set(dedupe_key, "1", ex=172800)
-                await redis.set(content_key, "1", ex=172800)
                 sent += 1
+            else:
+                # Gagal total: lepas klaim supaya slot berikutnya bisa mencoba lagi
+                await _release(dedupe_key)
+                await _release(content_key)
         except Exception:
             logger.exception("User notification producer failed for NIM %s category %s", nim, category)
     return sent
@@ -364,6 +384,7 @@ async def _produce_user_category(category: str) -> int:
 async def poll_user_notifications() -> int:
     """Produce account-scoped notifications from existing authenticated data sources."""
     total = 0
+    assignment_fetch_cache: dict[str, tuple[str, str]] = {}  # nim -> (raw_quiz, raw_assignments)
     for category in (
         "matkul-besok",
         "quiz-tugas",
@@ -372,7 +393,11 @@ async def poll_user_notifications() -> int:
         "nilai-keluar",
         "jadwal-ujian",
     ):
-        total += await _produce_user_category(category)
+        # Satu kategori crash tidak boleh membunuh kategori berikutnya
+        try:
+            total += await _produce_user_category(category, assignment_fetch_cache)
+        except Exception:
+            logger.exception("Kategori notifikasi %s gagal diproses", category)
     return total
 
 
@@ -567,6 +592,7 @@ async def poll_news_webhook() -> int:
         raw_posts = await loop.run_in_executor(None, news_client.fetch_posts, None, 1, 5)
         posts = parse_wp_posts(raw_posts)
     except Exception:
+        logger.exception("Gagal fetch/parse berita di poll_news_webhook")
         return 0
 
     if not posts:
@@ -597,10 +623,16 @@ async def poll_news_webhook() -> int:
     return dispatched_count
 
 async def news_webhook_worker():
+    interval = max(30, int(settings.NEWS_WEBHOOK_INTERVAL))
     while True:
         try:
-            await poll_news_webhook()
-            await poll_user_notifications()
+            # Leader lock: produksi jalan --workers 2, cukup satu worker per siklus
+            from app.notifier import _claim
+
+            cycle = int(time.time()) // interval
+            if await _claim(f"ubsi:worker:news:{cycle}", interval * 2):
+                await poll_news_webhook()
+                await poll_user_notifications()
         except Exception:
             logger.exception("Notification worker iteration failed")
         await asyncio.sleep(settings.NEWS_WEBHOOK_INTERVAL)
