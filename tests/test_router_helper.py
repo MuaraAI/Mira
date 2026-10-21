@@ -53,7 +53,7 @@ async def test_lgg_dikirim_instan_dan_revalidate_dijadwalkan(monkeypatch):
     monkeypatch.setattr(cache, "fresh_or_stale", fake_fresh_or_stale)
     monkeypatch.setattr(
         "app.router_helper._schedule_revalidate",
-        lambda key, fetch, parse, ttl: revalidate_called.append(key),
+        lambda key, fetch, parse, ttl, *rest: revalidate_called.append(key),
     )
 
     fetch_called = []
