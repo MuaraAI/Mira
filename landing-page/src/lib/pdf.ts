@@ -12,9 +12,14 @@ function pdfjs(): Promise<PdfJs> {
   return loader;
 }
 
+/** Spesifikasi PDF mengizinkan "%PDF-" muncul di 1024 byte pertama (mis. setelah spasi atau BOM). */
 export async function isPdfBlob(blob: Blob) {
-  const head = await blob.slice(0, 5).text();
-  return head.startsWith("%PDF");
+  const head = new Uint8Array(await blob.slice(0, 1024).arrayBuffer());
+  const marker = [0x25, 0x50, 0x44, 0x46, 0x2d]; // %PDF-
+  for (let i = 0; i + marker.length <= head.length; i++) {
+    if (marker.every((byte, j) => head[i + j] === byte)) return true;
+  }
+  return false;
 }
 
 export async function openPdf(blob: Blob): Promise<PDFDocumentProxy> {
