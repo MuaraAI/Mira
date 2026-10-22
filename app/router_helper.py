@@ -19,6 +19,13 @@ _revalidating: set[str] = set()
 _background_tasks: set[asyncio.Task] = set()
 
 
+async def _read_cache(cache_key: str, allow_stale: bool):
+    if allow_stale:
+        return await cache.fresh_or_stale(cache_key)
+    fresh = await cache.get_fresh(cache_key)
+    return (fresh, False) if fresh is not None else None
+
+
 async def cached_endpoint(
     module: str,
     name: str,
@@ -28,6 +35,7 @@ async def cached_endpoint(
     cache_params: Optional[dict] = None,
     swr: bool = True,
     should_cache: Optional[Callable[[Any], bool]] = None,
+    allow_stale: bool = True,
 ):
     """Pola standar endpoint: cek cache, fetch upstream dengan lock, fallback LGG.
 
@@ -36,13 +44,15 @@ async def cached_endpoint(
       (hanya jika swr=True; kalau False, LGG dikirim tanpa revalidasi)
     - kosong semuanya -> fetch upstream di bawah single-flight lock,
       hasil diparse lalu disimpan dengan TTL
+    - allow_stale False -> data yang sudah lewat TTL tidak dikirim; selalu fetch ulang (data
+      real-time seperti status presensi), LGG hanya dipakai bila upstream gagal
     - should_cache(data) False -> hasil dikirim tapi tidak disimpan (mis. hasil parsial
       karena sebagian sumber gagal), supaya request berikutnya mencoba lagi
     """
     params = cache_params or {}
     cache_key = cache.make_key(module, name, **params)
 
-    cached = await cache.fresh_or_stale(cache_key)
+    cached = await _read_cache(cache_key, allow_stale)
     if cached is not None:
         data, is_stale = cached
         if is_stale:
@@ -52,7 +62,7 @@ async def cached_endpoint(
         return success_response(data=data, cached=True)
 
     async with cache.get_lock(cache_key):
-        cached = await cache.fresh_or_stale(cache_key)
+        cached = await _read_cache(cache_key, allow_stale)
         if cached is not None:
             data, is_stale = cached
             if is_stale:
