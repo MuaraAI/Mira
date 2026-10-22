@@ -149,10 +149,89 @@ async def test_invalid_link_and_cache_roundtrip():
 @pytest.mark.asyncio
 async def test_check_links_keeps_order(monkeypatch):
     urls = ["bukan link", f"https://drive.google.com/file/d/{FID}/view"]
-    monkeypatch.setattr("app.link_check.probe", lambda client, url: _async(("private", None, "x")))
+    monkeypatch.setattr("app.link_check.probe_full", lambda client, url: _async(("private", None, "x", None)))
     results = await check_links(urls)
     assert [r["access"] for r in results] == ["invalid", "private"]
 
 
 async def _async(value):
     return value
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        f"drive.google.com/drive/folders/{FID}",
+        f"  https://drive.google.com/drive/u/0/folders/{FID}?usp=sharing  ",
+        f"https://drive.google.com/drive/mobile/folders/{FID}",
+        f"https://drive.google.com/folderview?id={FID}",
+        f"Ini link tugas saya: https://drive.google.com/drive/folders/{FID}?usp=drive_link, mohon dicek",
+        f"<https://drive.google.com/drive/folders/{FID}>",
+    ],
+)
+def test_folder_link_variants_and_messy_input(raw):
+    info = parse_share_link(raw)
+    assert info["kind"] == "folder" and info["id"] == FID
+    assert info["normalized_url"] == f"https://drive.google.com/drive/folders/{FID}"
+    assert info["preview_url"] == f"https://drive.google.com/embeddedfolderview?id={FID}#list"
+
+
+def test_file_variants_with_account_index_and_usercontent_host():
+    for raw in (
+        f"https://drive.google.com/file/u/1/d/{FID}/view",
+        f"https://drive.usercontent.google.com/download?id={FID}&export=download",
+    ):
+        info = parse_share_link(raw)
+        assert info["kind"] == "file" and info["id"] == FID
+
+
+def test_open_id_is_flagged_ambiguous_but_other_forms_are_not():
+    assert parse_share_link(f"https://drive.google.com/open?id={FID}")["ambiguous"] is True
+    assert parse_share_link(f"https://drive.google.com/file/d/{FID}/view")["ambiguous"] is False
+
+
+def test_published_google_docs_use_embed_urls_and_youtube_has_embed():
+    doc = parse_share_link(f"https://docs.google.com/document/d/e/{FID}/pub")
+    assert doc["preview_url"] == f"https://docs.google.com/document/d/e/{FID}/pub?embedded=true"
+    sheet = parse_share_link(f"https://docs.google.com/spreadsheets/d/e/{FID}/pubhtml")
+    assert "widget=true" in sheet["preview_url"]
+    yt = parse_share_link("https://youtu.be/dQw4w9WgXcQ?t=10")
+    assert yt["provider"] == "youtube" and yt["preview_url"] == "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"
+    assert yt["probe_url"] is None
+
+
+@pytest.mark.asyncio
+async def test_open_id_that_redirects_to_a_folder_is_resolved_as_folder():
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/open":
+            return httpx.Response(302, headers={"location": f"https://drive.google.com/drive/folders/{FID}"})
+        assert request.url.path.startswith("/drive/folders/")
+        return html("Tugas Akhir - Google Drive")
+
+    async with client_for(handler) as client:
+        result = await check_link(f"https://drive.google.com/open?id={FID}&usp=sharing", client)
+    assert result["kind"] == "folder" and result["label"] == "Folder Google Drive"
+    assert result["access"] == "public" and result["title"] == "Tugas Akhir"
+    assert result["normalized_url"] == f"https://drive.google.com/drive/folders/{FID}"
+    assert result["preview_url"].startswith("https://drive.google.com/embeddedfolderview")
+    assert result["can_preview"] is True
+
+
+@pytest.mark.asyncio
+async def test_open_id_private_stays_file_and_not_previewable():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(302, headers={"location": "https://accounts.google.com/ServiceLogin?continue=x"})
+
+    async with client_for(handler) as client:
+        result = await check_link(f"https://drive.google.com/open?id={FID}", client)
+    assert result["access"] == "private" and result["can_preview"] is False
+
+
+@pytest.mark.asyncio
+async def test_youtube_link_is_previewable_without_probing():
+    def boom(request):
+        raise AssertionError("YouTube tidak boleh di-fetch")
+
+    async with client_for(boom) as client:
+        result = await check_link("https://www.youtube.com/watch?v=dQw4w9WgXcQ", client)
+    assert result["can_preview"] is True and result["access"] == "unknown"
