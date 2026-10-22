@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { FocusDialog } from "@/components/FocusDialog";
+import { lockScroll } from "@/lib/scroll-lock";
 
 const WIDTHS = {
   md: "sm:max-w-md",
@@ -48,11 +49,10 @@ export function SideSheet({
 
   useEffect(() => {
     if (!open) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockScroll();
     const frame = window.requestAnimationFrame(() => root.current?.querySelector<HTMLElement>("[data-autofocus]")?.focus());
     return () => {
-      document.body.style.overflow = previous;
+      unlock();
       window.cancelAnimationFrame(frame);
     };
   }, [open]);

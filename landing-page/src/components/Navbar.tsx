@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Monogram } from "./Monogram";
 import { API_DOCS_URL, GITHUB_URL } from "@/lib/public-links";
+import { lockScroll } from "@/lib/scroll-lock";
 
 const NAV_LINKS = [
   { href: "#fitur", label: "Fitur" },
@@ -72,14 +73,13 @@ function PixelTakeover({ open, onClose }: { open: boolean; onClose: () => void }
 
   useEffect(() => {
     if (!open) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockScroll();
     const onKey = (event: KeyboardEvent) => event.key === "Escape" && onClose();
     const onResize = () => window.innerWidth >= 768 && onClose();
     window.addEventListener("keydown", onKey);
     window.addEventListener("resize", onResize);
     return () => {
-      document.body.style.overflow = previous;
+      unlock();
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("resize", onResize);
     };

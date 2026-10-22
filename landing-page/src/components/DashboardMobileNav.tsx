@@ -15,6 +15,7 @@ import {
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { Monogram } from "@/components/Monogram";
 import { FocusDialog } from "@/components/FocusDialog";
+import { lockScroll } from "@/lib/scroll-lock";
 
 export function DashboardMobileNav({ nim }: { nim?: string | null }) {
   const pathname = usePathname();
@@ -31,16 +32,10 @@ export function DashboardMobileNav({ nim }: { nim?: string | null }) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen]);
 
-  // Lock body scroll when mobile drawer is open
+  // Kunci scroll halaman selagi drawer terbuka.
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
+    if (!isOpen) return;
+    return lockScroll();
   }, [isOpen]);
 
   const quickNav = [
