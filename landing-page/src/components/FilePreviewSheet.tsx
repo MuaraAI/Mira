@@ -6,6 +6,7 @@ import type { PDFDocumentProxy } from "pdfjs-dist";
 import { apiBlob, ApiError, saveBlob } from "@/lib/api";
 import { extractPages, isPdfBlob, openPdf, renderPage } from "@/lib/pdf";
 import { summarizePdfText, type PdfSummary } from "@/lib/summarize";
+import { SheetTabs } from "@/components/SheetTabs";
 import { SideSheet } from "@/components/SideSheet";
 
 type Tab = "ringkasan" | "pratinjau";
@@ -137,22 +138,15 @@ export function FilePreviewSheet({
         <Notice message="Pratinjau dan ringkasan otomatis hanya tersedia untuk berkas PDF. Unduh berkas ini untuk membukanya." />
       ) : (
         <div>
-          <div role="tablist" aria-label="Tampilan berkas" className="sticky top-0 z-10 grid grid-cols-2 gap-1 border-b-2 border-px-soft bg-white p-2">
-            {(["ringkasan", "pratinjau"] as const).map((t) => (
-              <button
-                key={t}
-                type="button"
-                role="tab"
-                aria-selected={tab === t}
-                onClick={() => setTab(t)}
-                className={`min-h-11 px-3 font-mono text-xs font-bold capitalize transition-colors ${
-                  tab === t ? "bg-[#0369A1] text-white shadow-[2px_2px_0_0_#072033]" : "bg-px-tint text-secondary hover:text-foreground"
-                }`}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
+          <SheetTabs
+            label="Tampilan berkas"
+            value={tab}
+            onChange={setTab}
+            tabs={[
+              { key: "ringkasan", label: "Ringkasan" },
+              { key: "pratinjau", label: "Pratinjau" },
+            ]}
+          />
 
           {load.state === "loading" ? (
             <div className="space-y-3 p-4 sm:p-6" aria-busy="true" aria-label="Memuat berkas">

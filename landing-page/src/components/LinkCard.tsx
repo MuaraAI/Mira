@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, Check, CheckCircle2, Copy, ExternalLink, Eye, FileText, FolderOpen, Github, Link2, Loader2, RefreshCw } from "lucide-react";
+import { Check, CheckCircle2, Copy, ExternalLink, Eye, FileText, FolderOpen, Github, Link2, Loader2, RefreshCw } from "lucide-react";
 import { parseShareLink, type LinkCheck } from "@/lib/links";
-import { SideSheet } from "@/components/SideSheet";
-
-const PREVIEW_HOSTS = new Set(["drive.google.com", "docs.google.com"]);
+import { LinkAccessWarning } from "@/components/LinkAccessWarning";
+import { LinkPreviewSheet } from "@/components/LinkPreviewSheet";
 
 function ProviderIcon({ provider, label }: { provider: string; label: string }) {
   const cls = "h-5 w-5";
@@ -43,82 +42,6 @@ function StatusPill({ access, checking }: { access: LinkCheck["access"] | null; 
   return <span className={`inline-flex shrink-0 items-center gap-1 px-2 py-0.5 font-mono text-[10px] font-bold uppercase ${cls}`}>{text}</span>;
 }
 
-/** Peringatan merah saat link tidak bisa dibuka orang lain, lengkap dengan langkah memperbaikinya. */
-export function LinkAccessWarning({ check, provider }: { check: LinkCheck | null; provider: string | null }) {
-  if (!check || (check.access !== "private" && check.access !== "missing")) return null;
-  const google = provider === "google_drive" || provider === "google_docs";
-  return (
-    <div className="bg-[#FFF1F2] p-3 text-xs leading-relaxed text-[#9F1239] shadow-[0_-2px_0_0_#FDA4AF,0_2px_0_0_#FDA4AF,-2px_0_0_0_#FDA4AF,2px_0_0_0_#FDA4AF]" role="alert">
-      <p className="flex items-center gap-1.5 font-bold">
-        <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
-        {check.access === "missing" ? "Link tidak ditemukan" : "Dosen belum bisa membuka link ini"}
-      </p>
-      <p className="mt-1">{check.message}</p>
-      {google && check.access === "private" && (
-        <ol className="mt-2 list-decimal space-y-0.5 pl-5">
-          <li>Buka berkasnya di Google Drive, klik <strong>Bagikan</strong>.</li>
-          <li>Di bagian Akses umum pilih <strong>Siapa saja yang memiliki link</strong>.</li>
-          <li>Pastikan perannya <strong>Pelihat (Viewer)</strong>, lalu klik <strong>Selesai</strong> dan tekan Cek ulang.</li>
-        </ol>
-      )}
-    </div>
-  );
-}
-
-function PreviewDialog({ check, onClose }: { check: LinkCheck; onClose: () => void }) {
-  const [loaded, setLoaded] = useState(false);
-  let src: string | null = null;
-  try {
-    const target = new URL(check.preview_url ?? "");
-    if (target.protocol === "https:" && PREVIEW_HOSTS.has(target.hostname)) src = target.toString();
-  } catch {
-    src = null;
-  }
-
-  return (
-    <SideSheet
-      open
-      onClose={onClose}
-      eyebrow="Pratinjau"
-      title={check.title || check.label}
-      titleId="link-preview-title"
-      width="xl"
-      flush
-      footer={
-        check.normalized_url ? (
-          <a href={check.normalized_url} target="_blank" rel="noopener noreferrer" className="px-btn-ghost inline-flex min-h-11 w-full items-center justify-center gap-2 px-4 text-sm font-bold sm:w-auto">
-            <ExternalLink className="h-4 w-4" aria-hidden="true" />
-            Buka di tab baru
-          </a>
-        ) : undefined
-      }
-    >
-      <div className="h-full min-h-[60dvh] bg-[#F7FAFC]">
-        {src ? (
-          <>
-            {!loaded && (
-              <div className="absolute inset-0 flex items-center justify-center gap-2 font-mono text-xs text-secondary">
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                Memuat pratinjau...
-              </div>
-            )}
-            <iframe
-              title="Pratinjau berkas"
-              src={src}
-              onLoad={() => setLoaded(true)}
-              className="absolute inset-0 h-full w-full border-0"
-              sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-              referrerPolicy="no-referrer"
-            />
-          </>
-        ) : (
-          <p className="p-6 text-sm text-secondary">Pratinjau tidak tersedia untuk link ini. Gunakan tombol Buka.</p>
-        )}
-      </div>
-    </SideSheet>
-  );
-}
-
 /**
  * Kartu link terstruktur: jenis, judul, ID ringkas, status akses (publik/privat), dan aksi
  * Pratinjau / Buka / Salin / Cek ulang. `check` boleh null selagi menunggu hasil server.
@@ -144,7 +67,7 @@ export function LinkCard({
   const id = check?.id || local?.id || null;
   const openUrl = check?.normalized_url || local?.normalizedUrl || url;
   const title = check?.title || label;
-  const canPreview = Boolean(check?.can_preview && check.access === "public");
+  const canPreview = Boolean(check?.can_preview && check.access !== "private" && check.access !== "missing" && check.access !== "invalid");
   const danger = check?.access === "private" || check?.access === "missing";
 
   async function copy() {
@@ -210,7 +133,7 @@ export function LinkCard({
         )}
       </div>
 
-      {preview && check && <PreviewDialog check={check} onClose={() => setPreview(false)} />}
+      {preview && check && <LinkPreviewSheet check={check} onClose={() => setPreview(false)} />}
     </div>
   );
 }
