@@ -17,6 +17,7 @@ logger = logging.getLogger("app.elearning")
 
 _ASSIGNMENT_FETCH_CONCURRENCY = 4
 _ASSIGNMENT_FETCH_ATTEMPTS = 2
+_PRESENCE_REKAP_TTL = 30
 
 from app.config import settings
 from app.deps import require_elearning_creds
@@ -1413,18 +1414,25 @@ async def get_presence(
         html = await pooled_elearning_client.fetch_page(f"/absen-mhs/{clean_token}", nim, password)
         presence = parse_presence(html)
 
-        # Ambil riwayat presensi lengkap via DataTables AJAX (/rekap-side/{token})
+        # Ambil riwayat presensi lengkap via DataTables AJAX (/rekap-side/{token}).
+        # Rekap jarang berubah, jadi disimpan 30 detik: polling status sesi tiap beberapa detik
+        # hanya memukul MyBest dengan satu request (halaman absen), bukan dua.
         m = re.findall(r"rekap-side/([^\"'\s]+)", html)
         rekap_tok = extract_clean_token(m[0]) if m else clean_token
-        ajax_path = f"/rekap-side/{rekap_tok}"
-        try:
-            rekap_raw = await pooled_elearning_client.fetch_page(ajax_path, nim, password)
-            records = parse_presence_rekap(rekap_raw)
-            if records:
-                presence["riwayat"] = records
-                presence["total_kehadiran"] = len(records)
-        except Exception as err:
-            logger.warning("Gagal fetch rekap-side presence: %s", err)
+        rekap_key = cache.make_key("elearning", "presence_rekap", nim=nim, token=clean_token)
+        records = await cache.get_fresh(rekap_key)
+        if records is None:
+            try:
+                rekap_raw = await pooled_elearning_client.fetch_page(f"/rekap-side/{rekap_tok}", nim, password)
+                records = parse_presence_rekap(rekap_raw)
+                if records:
+                    await cache.set(rekap_key, records, ttl=_PRESENCE_REKAP_TTL)
+            except Exception as err:
+                logger.warning("Gagal fetch rekap-side presence: %s", err)
+                records = None
+        if records:
+            presence["riwayat"] = records
+            presence["total_kehadiran"] = len(records)
         return annotate_presence(presence)
 
     return await cached_endpoint(
@@ -1594,7 +1602,7 @@ async def invalidate_elearning_user_cache(nim: str, token: Optional[str] = None)
             f"{cache.make_key('elearning', 'grades', nim=nim, token='all')}:lgg",
         ]
         if token:
-            for endpoint in ("presence", "assignments", "materials", "discussions", "grades"):
+            for endpoint in ("presence", "presence_rekap", "assignments", "materials", "discussions", "grades"):
                 keys_to_del.extend([
                     f"{cache.make_key('elearning', endpoint, nim=nim, token=token)}:fresh",
                     f"{cache.make_key('elearning', endpoint, nim=nim, token=token)}:lgg",

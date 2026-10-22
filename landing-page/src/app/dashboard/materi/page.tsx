@@ -10,6 +10,7 @@ import {
   FileCheck2,
   ExternalLink,
   User,
+  Eye,
 } from "lucide-react";
 import { apiDownload, ApiError, useApi } from "@/lib/api";
 import {
@@ -21,6 +22,7 @@ import {
 import { CourseSelect } from "@/components/CourseSelect";
 import { resolveDosen } from "@/lib/courses";
 import { DosenInfo } from "@/components/DosenInfo";
+import { FilePreviewSheet } from "@/components/FilePreviewSheet";
 
 interface CourseItem {
   id: string;
@@ -51,6 +53,7 @@ export default function MateriPage() {
   const scheduleApi = useApi<{ kode: string; nama: string; kode_dosen?: string }[]>("/v1/studentv2/schedule");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [view, setView] = useState<"dosen" | "resmi">("dosen");
+  const [preview, setPreview] = useState<{ url: string; title: string; subtitle?: string } | null>(null);
   const [downloadingUrl, setDownloadingUrl] = useState<string | null>(null);
 
   async function handleDownloadMaterial(url: string, title: string) {
@@ -243,16 +246,27 @@ export default function MateriPage() {
                 </span>
                 {m.file_url ? (
                   m.file_url.startsWith("/v1/") ? (
-                    <button
-                      type="button"
-                      onClick={() => handleDownloadMaterial(m.file_url!, m.judul)}
-                      disabled={busy}
-                      aria-label={`Unduh ${m.judul}`}
-                      className="px-btn inline-flex min-h-10 shrink-0 items-center gap-1.5 px-3 text-xs font-bold"
-                    >
-                      <Download className="h-4 w-4" aria-hidden="true" />
-                      <span className="hidden sm:inline">{busy ? "Mengunduh..." : "Unduh"}</span>
-                    </button>
+                    <span className="flex shrink-0 items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPreview({ url: m.file_url!, title: m.judul, subtitle: m.kode || undefined })}
+                        aria-label={`Lihat dan ringkas ${m.judul}`}
+                        className="px-btn inline-flex min-h-10 items-center gap-1.5 px-3 text-xs font-bold"
+                      >
+                        <Eye className="h-4 w-4" aria-hidden="true" />
+                        <span className="hidden sm:inline">Lihat</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadMaterial(m.file_url!, m.judul)}
+                        disabled={busy}
+                        aria-label={`Unduh ${m.judul}`}
+                        className="px-btn-ghost inline-flex min-h-10 min-w-10 items-center justify-center gap-1.5 px-3 text-xs font-bold"
+                      >
+                        <Download className="h-4 w-4" aria-hidden="true" />
+                        <span className="hidden sm:inline">{busy ? "Mengunduh..." : "Unduh"}</span>
+                      </button>
+                    </span>
                   ) : (
                     <a
                       href={m.file_url}
@@ -272,6 +286,17 @@ export default function MateriPage() {
             );
           })}
         </ul>
+      )}
+
+      {preview && (
+        <FilePreviewSheet
+          open
+          onClose={() => setPreview(null)}
+          path={preview.url}
+          eyebrow="Bahan ajar"
+          title={preview.title}
+          subtitle={preview.subtitle}
+        />
       )}
     </div>
   );
