@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     TTL_SCHEDULE: int = 7200
     TTL_GRADES: int = 1800
     TTL_ASSIGNMENTS: int = 600
+    TTL_PRESENCE: int = 3
     TTL_NEWS: int = 900
     TTL_LIBRARY: int = 3600
 
