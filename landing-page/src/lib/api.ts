@@ -87,10 +87,19 @@ export async function apiFetch<T>(
 }
 
 /** Ambil berkas sebagai Blob (dipakai unduhan, pratinjau, dan ringkasan PDF). */
+export interface BlobResult {
+  blob: Blob;
+  filename: string;
+  etag: string | null;
+  /** Server menjawab 304: berkas sama dengan salinan yang dikirim lewat `etag`. */
+  notModified: boolean;
+}
+
 export async function apiBlob(
   path: string,
-  defaultFilename = "berkas.pdf"
-): Promise<{ blob: Blob; filename: string }> {
+  defaultFilename = "berkas.pdf",
+  options?: { etag?: string | null }
+): Promise<BlobResult> {
   const base = getApiBase();
   const token =
     typeof window !== "undefined"
@@ -106,6 +115,7 @@ export async function apiBlob(
       headers: {
         "X-Requested-With": "dashboard",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(options?.etag ? { "If-None-Match": options.etag } : {}),
       },
     });
   } catch {
@@ -115,6 +125,10 @@ export async function apiBlob(
         base,
       0
     );
+  }
+
+  if (res.status === 304) {
+    return { blob: new Blob(), filename: defaultFilename, etag: options?.etag ?? null, notModified: true };
   }
 
   if (!res.ok) {
@@ -136,7 +150,7 @@ export async function apiBlob(
     }
   }
 
-  return { blob: await res.blob(), filename };
+  return { blob: await res.blob(), filename, etag: res.headers.get("etag"), notModified: false };
 }
 
 /** Simpan Blob ke perangkat sebagai berkas unduhan. */

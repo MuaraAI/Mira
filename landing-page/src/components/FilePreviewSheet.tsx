@@ -1,30 +1,62 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Download, FileText, Minus, Plus, TriangleAlert } from "lucide-react";
-import type { PDFDocumentProxy } from "pdfjs-dist";
-import { apiBlob, ApiError, saveBlob } from "@/lib/api";
-import { extractPages, isPdfBlob, openPdf, renderPage } from "@/lib/pdf";
-import { summarizePdfText, type PdfSummary } from "@/lib/summarize";
+import { useEffect, useState } from "react";
+import { Download, FileText, TriangleAlert, X } from "lucide-react";
+import { saveBlob } from "@/lib/api";
+import { useRemoteFile, type FileState } from "@/lib/remote-file";
+import type { PdfSummary } from "@/lib/summarize";
+import { PdfViewer } from "@/components/PdfViewer";
 import { SheetTabs } from "@/components/SheetTabs";
 import { SideSheet } from "@/components/SideSheet";
 
-type Tab = "ringkasan" | "pratinjau";
-type Load =
-  | { state: "loading" }
-  | { state: "error"; message: string }
-  | { state: "other"; blob: Blob; filename: string }
-  | { state: "broken"; blob: Blob; filename: string }
-  | { state: "ready"; blob: Blob; filename: string; doc: PDFDocumentProxy };
+type Tab = "pratinjau" | "ringkasan";
 
-const ZOOMS = [1, 1.5, 2] as const;
-// Ringkasan sudah dihitung sekali per berkas; membuka ulang panel tidak mengulang pekerjaan.
-const summaryCache = new Map<string, PdfSummary | "scan">();
+export function PreviewSkeleton() {
+  return (
+    <div className="space-y-3 p-4 sm:p-6" aria-busy="true" aria-label="Memuat berkas">
+      <div className="px-skeleton h-5 w-2/3" />
+      <div className="px-skeleton h-[55dvh] w-full" />
+    </div>
+  );
+}
+
+export function ImageView({ url, name }: { url: string; name: string }) {
+  return (
+    <div className="h-full overflow-auto bg-[#E7EFF5] p-3">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={url} alt={name} className="mx-auto h-auto max-w-full bg-white shadow-[3px_3px_0_0_#9CC6E0]" />
+    </div>
+  );
+}
+
+export function UpdatedNotice({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="flex shrink-0 items-center justify-between gap-3 border-b-2 border-[#99D5CC] bg-[#F0FDF4] px-4 py-2 text-xs font-semibold text-[#0F766E]" role="status">
+      <span>Berkas baru saja diperbarui. Tampilan sudah diganti ke versi terbaru.</span>
+      <button type="button" onClick={onClose} aria-label="Tutup pemberitahuan" className="flex min-h-9 min-w-9 items-center justify-center">
+        <X className="h-4 w-4" aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
+
+/** Berkas yang bisa diunduh (apa pun jenisnya), atau null selagi belum siap. */
+export function downloadable(state: FileState) {
+  return state.phase === "pdf" || state.phase === "image" || state.phase === "other" || state.phase === "broken" ? state : null;
+}
+
+/** Pesan untuk keadaan gagal/tidak didukung; null bila berkas siap ditampilkan atau masih dimuat. */
+export function stateNotice(state: FileState): string | null {
+  if (state.phase === "error") return state.message;
+  if (state.phase === "other") return "Pratinjau dan ringkasan otomatis hanya tersedia untuk berkas PDF dan gambar. Unduh berkas ini untuk membukanya.";
+  if (state.phase === "broken") return "Berkas ini tidak bisa ditampilkan di aplikasi (formatnya tidak terbaca). Unduh berkasnya untuk membukanya di aplikasi PDF.";
+  return null;
+}
 
 /**
  * Panel pratinjau + ringkasan otomatis untuk berkas PDF (soal tugas, bahan ajar).
- * Semua diproses di browser: berkas diunduh sekali, dirender dengan pdf.js dan diringkas
- * dari teksnya, tanpa beban tambahan di server.
+ * Berkas diunduh sekali dan disimpan di memori: membuka lagi langsung tampil, lalu dicek ke server
+ * di belakang layar (hanya diganti bila isinya berubah). Pindah tab tidak memuat ulang apa pun.
  */
 export function FilePreviewSheet({
   open,
@@ -44,69 +76,16 @@ export function FilePreviewSheet({
   eyebrow?: string;
   defaultFilename?: string;
 }) {
-  const [tab, setTab] = useState<Tab>("ringkasan");
-  const [load, setLoad] = useState<Load>({ state: "loading" });
-  const [summary, setSummary] = useState<PdfSummary | "scan" | null>(null);
+  const file = useRemoteFile(open ? path : null, defaultFilename);
+  const [tab, setTab] = useState<Tab>("pratinjau");
+  const { state, summary, updated, dismissUpdated } = file;
 
   useEffect(() => {
-    if (!open) return;
-    let alive = true;
-    let doc: PDFDocumentProxy | null = null;
-    setTab("ringkasan");
-    setLoad({ state: "loading" });
-    setSummary(summaryCache.get(path) ?? null);
+    if (open) setTab("pratinjau");
+  }, [open, path]);
 
-    (async () => {
-      try {
-        const { blob, filename } = await apiBlob(path, defaultFilename);
-        if (!alive) return;
-        // Nama .pdf atau tipe application/pdf cukup sebagai petunjuk; pdf.js yang menentukan bisa dibuka atau tidak.
-        const claimsPdf = (await isPdfBlob(blob)) || /\.pdf$/i.test(filename) || /pdf/i.test(blob.type);
-        if (!claimsPdf) {
-          setLoad({ state: "other", blob, filename });
-          return;
-        }
-        try {
-          doc = await openPdf(blob);
-        } catch (err) {
-          if (err instanceof Error && /password/i.test(err.message)) throw err;
-          if (!alive) return;
-          setLoad({ state: "broken", blob, filename });
-          return;
-        }
-        if (!alive) {
-          void doc.destroy();
-          return;
-        }
-        setLoad({ state: "ready", blob, filename, doc });
-        if (!summaryCache.has(path)) {
-          const pages = await extractPages(doc);
-          if (!alive) return;
-          const text = pages.join("").trim();
-          const result = text.length < 40 ? "scan" : summarizePdfText(pages);
-          if (summaryCache.size >= 8) summaryCache.delete(summaryCache.keys().next().value as string);
-          summaryCache.set(path, result);
-          setSummary(result);
-        }
-      } catch (err) {
-        if (!alive) return;
-        const message =
-          err instanceof ApiError
-            ? err.message
-            : err instanceof Error && /password/i.test(err.message)
-            ? "PDF ini dilindungi kata sandi, jadi tidak bisa ditampilkan."
-            : "Berkas tidak bisa dibuka. Coba unduh langsung.";
-        setLoad({ state: "error", message });
-      }
-    })();
-
-    return () => {
-      alive = false;
-      void doc?.destroy();
-    };
-  }, [open, path, defaultFilename]);
-
-  const file = load.state === "ready" || load.state === "other" || load.state === "broken" ? load : null;
+  const ready = downloadable(state);
+  const notice = stateNotice(state);
 
   return (
     <SideSheet
@@ -118,56 +97,56 @@ export function FilePreviewSheet({
       titleId="file-preview-title"
       width="xl"
       flush
+      fill
       footer={
         <button
           type="button"
-          disabled={!file}
-          onClick={() => file && saveBlob(file.blob, file.filename)}
+          disabled={!ready}
+          onClick={() => ready && saveBlob(ready.blob, ready.filename)}
           className="px-btn inline-flex min-h-11 w-full items-center justify-center gap-2 px-4 text-sm font-bold"
         >
           <Download className="h-4 w-4" aria-hidden="true" />
-          {file ? `Unduh ${file.filename.length > 28 ? "berkas" : file.filename}` : "Menyiapkan berkas..."}
+          {ready ? `Unduh ${ready.filename.length > 28 ? "berkas" : ready.filename}` : "Menyiapkan berkas..."}
         </button>
       }
     >
-      {load.state === "error" ? (
-        <Notice message={load.message} />
-      ) : load.state === "broken" ? (
-        <Notice message="Berkas ini tidak bisa ditampilkan di aplikasi (formatnya tidak terbaca). Unduh berkasnya untuk membukanya di aplikasi PDF." />
-      ) : load.state === "other" ? (
-        <Notice message="Pratinjau dan ringkasan otomatis hanya tersedia untuk berkas PDF. Unduh berkas ini untuk membukanya." />
+      {notice ? (
+        <Notice message={notice} />
       ) : (
-        <div>
-          <SheetTabs
-            label="Tampilan berkas"
-            value={tab}
-            onChange={setTab}
-            tabs={[
-              { key: "ringkasan", label: "Ringkasan" },
-              { key: "pratinjau", label: "Pratinjau" },
-            ]}
-          />
-
-          {load.state === "loading" ? (
-            <div className="space-y-3 p-4 sm:p-6" aria-busy="true" aria-label="Memuat berkas">
-              <div className="px-skeleton h-5 w-2/3" />
-              <div className="px-skeleton h-4 w-full" />
-              <div className="px-skeleton h-4 w-11/12" />
-              <div className="px-skeleton h-4 w-4/5" />
-              <div className="px-skeleton h-40 w-full" />
-            </div>
-          ) : tab === "ringkasan" ? (
-            <SummaryView summary={summary} />
-          ) : (
-            <PdfPages doc={load.doc} />
+        <>
+          {state.phase === "pdf" && (
+            <SheetTabs
+              label="Tampilan berkas"
+              value={tab}
+              onChange={setTab}
+              tabs={[
+                { key: "pratinjau", label: "Pratinjau" },
+                { key: "ringkasan", label: "Ringkasan" },
+              ]}
+            />
           )}
-        </div>
+          {updated && <UpdatedNotice onClose={dismissUpdated} />}
+
+          {/* Kedua panel tetap terpasang; yang tidak aktif hanya disembunyikan supaya pindah tab tidak memuat ulang PDF. */}
+          <div className={tab === "pratinjau" ? "min-h-0 flex-1" : "hidden"}>
+            {state.phase === "loading" ? (
+              <PreviewSkeleton />
+            ) : state.phase === "pdf" ? (
+              <PdfViewer doc={state.doc} active={tab === "pratinjau"} />
+            ) : state.phase === "image" ? (
+              <ImageView url={state.url} name={state.filename} />
+            ) : null}
+          </div>
+          <div className={tab === "ringkasan" ? "min-h-0 flex-1 overflow-y-auto" : "hidden"}>
+            <SummaryView summary={summary} />
+          </div>
+        </>
       )}
     </SideSheet>
   );
 }
 
-function Notice({ message }: { message: string }) {
+export function Notice({ message }: { message: string }) {
   return (
     <div className="flex items-start gap-3 p-4 text-sm text-[#9A3412] sm:p-6" role="alert">
       <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
@@ -201,7 +180,7 @@ function Bullets({ items }: { items: string[] }) {
   );
 }
 
-function SummaryView({ summary }: { summary: PdfSummary | "scan" | null }) {
+export function SummaryView({ summary }: { summary: PdfSummary | "scan" | null }) {
   if (summary === null) {
     return (
       <div className="space-y-3 p-4 sm:p-6" aria-busy="true" aria-label="Menyusun ringkasan">
@@ -274,114 +253,3 @@ function SummaryView({ summary }: { summary: PdfSummary | "scan" | null }) {
   );
 }
 
-function PdfPages({ doc }: { doc: PDFDocumentProxy }) {
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const [zoom, setZoom] = useState<(typeof ZOOMS)[number]>(1);
-  const [width, setWidth] = useState(0);
-  const [ratio, setRatio] = useState(1.414);
-
-  useEffect(() => {
-    let alive = true;
-    void doc.getPage(1).then((page) => {
-      const v = page.getViewport({ scale: 1 });
-      if (alive) setRatio(v.height / v.width);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [doc]);
-
-  useEffect(() => {
-    const el = wrapRef.current;
-    if (!el) return;
-    const measure = () => {
-      const style = getComputedStyle(el);
-      setWidth(Math.floor(el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)));
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  const cssWidth = width * zoom;
-  const zoomIndex = ZOOMS.indexOf(zoom);
-
-  return (
-    <div className="p-2 sm:p-4">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <span className="font-mono text-xs text-secondary">{doc.numPages} halaman</span>
-        <div className="flex items-center gap-1" role="group" aria-label="Perbesar tampilan">
-          <button
-            type="button"
-            onClick={() => setZoom(ZOOMS[Math.max(0, zoomIndex - 1)])}
-            disabled={zoomIndex === 0}
-            aria-label="Perkecil"
-            className="px-btn-ghost flex min-h-10 min-w-10 items-center justify-center"
-          >
-            <Minus className="h-4 w-4" aria-hidden="true" />
-          </button>
-          <span className="w-12 text-center font-mono text-xs font-bold text-foreground">{Math.round(zoom * 100)}%</span>
-          <button
-            type="button"
-            onClick={() => setZoom(ZOOMS[Math.min(ZOOMS.length - 1, zoomIndex + 1)])}
-            disabled={zoomIndex === ZOOMS.length - 1}
-            aria-label="Perbesar"
-            className="px-btn-ghost flex min-h-10 min-w-10 items-center justify-center"
-          >
-            <Plus className="h-4 w-4" aria-hidden="true" />
-          </button>
-        </div>
-      </div>
-
-      <div ref={wrapRef} className="overflow-x-auto bg-[#E7EFF5] p-2 sm:p-3">
-        <div className="space-y-3" style={{ width: cssWidth ? cssWidth : undefined }}>
-          {width > 0 &&
-            Array.from({ length: doc.numPages }, (_, i) => (
-              <PageCanvas key={i} doc={doc} pageNumber={i + 1} width={Math.max(cssWidth - 0, 1)} ratio={ratio} />
-            ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** Halaman dirender hanya saat mendekati layar, supaya PDF panjang tetap ringan di HP. */
-function PageCanvas({ doc, pageNumber, width, ratio }: { doc: PDFDocumentProxy; pageNumber: number; width: number; ratio: number }) {
-  const holder = useRef<HTMLDivElement>(null);
-  const canvas = useRef<HTMLCanvasElement>(null);
-  const [near, setNear] = useState(false);
-
-  useEffect(() => {
-    const el = holder.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(([entry]) => setNear(entry.isIntersecting), { rootMargin: "700px 0px" });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  const draw = useCallback(async () => {
-    if (canvas.current) await renderPage(doc, pageNumber, canvas.current, width);
-  }, [doc, pageNumber, width]);
-
-  useEffect(() => {
-    const el = canvas.current;
-    if (!near) {
-      // Halaman jauh dari layar: lepaskan memori bitmap, digambar ulang saat mendekat.
-      if (el) {
-        el.width = 0;
-        el.height = 0;
-      }
-      return;
-    }
-    void draw().catch(() => {
-      /* render dibatalkan saat panel ditutup */
-    });
-  }, [near, draw]);
-
-  return (
-    <div ref={holder} className="bg-white shadow-[3px_3px_0_0_#9CC6E0]" style={{ width, height: width * ratio }}>
-      <canvas ref={canvas} className="block" aria-label={`Halaman ${pageNumber}`} role="img" />
-    </div>
-  );
-}

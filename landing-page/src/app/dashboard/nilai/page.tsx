@@ -149,7 +149,7 @@ export default function NilaiPage() {
       <div className="flex flex-col">
         <PageHeader
           title="Nilai & Kartu Hasil Studi (KHS)"
-          description="Transkrip nilai resmi dari sistem SIAKAD UBSI. Pantau IPK, mutu, dan rincian komponen nilai."
+          description="IPK, nilai per mata kuliah, dan rincian komponennya dari SIAKAD."
         />
 
         <div className="w-full">
@@ -488,7 +488,7 @@ export default function NilaiPage() {
           ) : !elearningApi.data || elearningApi.data.total_tugas === 0 ? (
             <EmptyState
               title="Belum ada riwayat tugas yang dinilai."
-              description="Daftar nilai tugas akan muncul otomatis setelah Anda mengumpulkan tugas dan diperiksa oleh dosen pengampu di MyBest."
+              description="Nilai tugas muncul di sini setelah kamu kumpulin tugas dan dosen selesai menilai."
             />
           ) : (
             <>

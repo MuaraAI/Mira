@@ -243,7 +243,7 @@ export default function PresensiPage() {
         <PageHeader title="Presensi Perkuliahan" />
         <EmptyState
           title="Belum ada mata kuliah aktif di MyBest."
-          description="Pastikan akun MyBest Anda telah terhubung dengan jadwal KRS semester ini."
+          description="Pastikan KRS semester ini sudah terdaftar di MyBest."
         />
       </div>
     );
@@ -280,7 +280,7 @@ export default function PresensiPage() {
     <div className="space-y-6">
       <PageHeader
         title="Presensi Perkuliahan"
-        description="Pantau riwayat kehadiran, status sesi pertemuan, dan berita acara perkuliahan MyBest."
+        description="Absen, riwayat kehadiran, dan rangkuman tiap pertemuan."
       />
 
       <CourseSelect

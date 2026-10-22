@@ -196,7 +196,7 @@ export default function DiskusiPage() {
       <div className="flex flex-col">
         <PageHeader
           title="Forum Diskusi Perkuliahan"
-          description="Ruang tanya jawab, diskusi tugas kelompok, dan arahan instruksi dosen per mata kuliah di MyBest."
+          description="Tanya jawab dan diskusi per mata kuliah di MyBest."
         />
 
         {tokenDiskusi && (
@@ -226,7 +226,7 @@ export default function DiskusiPage() {
       {!tokenDiskusi ? (
         <EmptyState
           title="Forum diskusi belum tersedia untuk mata kuliah ini."
-          description="Dosen pengampu belum membuka akses link form diskusi pada portal MyBest."
+          description="Dosen belum membuka forum diskusi di MyBest."
         />
       ) : discussionsApi.loading ? (
         <LoadingState label="Memuat topik forum diskusi perkuliahan" />
@@ -235,7 +235,7 @@ export default function DiskusiPage() {
       ) : threads.length === 0 ? (
         <EmptyState
           title="Belum ada topik diskusi pada mata kuliah ini."
-          description="Klik 'Buat Topik Diskusi' untuk memulai ruang tanya jawab baru bersama dosen dan teman sekelas."
+          description="Klik 'Buat Topik Diskusi' buat mulai bertanya ke dosen atau teman sekelas."
         />
       ) : (
         <div className="space-y-4">
@@ -335,7 +335,7 @@ export default function DiskusiPage() {
                                 )}
                                 {comm.is_self && (
                                   <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#0369A1] text-white">
-                                    Anda
+                                    Kamu
                                   </span>
                                 )}
                               </div>
@@ -356,7 +356,7 @@ export default function DiskusiPage() {
                     {/* Form Reply */}
                     <form onSubmit={(e) => handleSendReply(e, thread)} className="pt-3 border-t border-stroke space-y-3">
                       <label htmlFor={`reply-input-${thread.id_chat}`} className="block text-xs font-bold text-foreground">
-                        Tulis Tanggapan Anda:
+                        Tulis tanggapanmu:
                       </label>
                       <textarea
                         id={`reply-input-${thread.id_chat}`}

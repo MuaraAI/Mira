@@ -42,7 +42,7 @@ export default function UjianPage() {
       <div className="flex flex-col">
         <PageHeader
           title="Kartu Ujian (UTS & UAS)"
-          description="Informasi ruang ujian semester, tautan jadwal ujian online, dan portal unduh berkas soal dari SIAKAD."
+          description="Ruang ujian, link jadwal ujian online, dan unduh soal dari SIAKAD."
         />
 
         {/* Tab Switcher UTS vs UAS */}
@@ -85,7 +85,7 @@ export default function UjianPage() {
               </h2>
             </div>
             <p className="text-xs sm:text-sm text-secondary leading-relaxed">
-              Pastikan Anda telah memenuhi syarat presensi minimal perkuliahan (75%) dan menyelesaikan administrasi akademik sebelum mengikuti ujian.
+              Pastikan kamu sudah memenuhi syarat presensi minimal perkuliahan (75%) dan menyelesaikan administrasi akademik sebelum mengikuti ujian.
             </p>
           </div>
 

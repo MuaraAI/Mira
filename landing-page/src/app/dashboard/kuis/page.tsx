@@ -166,7 +166,7 @@ export default function KuisPage() {
       <div className="flex flex-col">
         <PageHeader
           title="Kuis & Ujian Online"
-          description="Jadwal kuis latihan, ujian daring, dan evaluasi berkala MyBest Elearning UBSI."
+          description="Jadwal kuis dan ujian online dari MyBest."
         />
 
         {/* Filter Pills */}
@@ -412,7 +412,7 @@ export default function KuisPage() {
             </h3>
             <ul className="list-disc list-inside space-y-1 text-xs">
               <li>
-                <strong>Satu Kali Percobaan</strong>: Sebagian besar kuis latihan MyBest hanya mengizinkan 1 kali pengerjaan. Pastikan Anda siap sebelum memulai.
+                <strong>Satu Kali Percobaan</strong>: Sebagian besar kuis latihan MyBest hanya mengizinkan 1 kali pengerjaan. Pastikan kamu siap sebelum memulai.
               </li>
               <li>
                 <strong>Timer Otomatis</strong>: Penghitung mundur waktu ujian berjalan sejak tombol &apos;Mulai&apos; ditekan pada portal resmi.
@@ -469,7 +469,7 @@ export default function KuisPage() {
                   <p className="font-bold">Gagal memuat pratinjau soal:</p>
                   <p className="mt-1">{questionsError}</p>
                   <p className="mt-2 text-secondary">
-                    Ujian ini mungkin belum aktif di akun Anda atau membutuhkan token pengerjaan langsung di portal MyBest.
+                    Ujian ini mungkin belum aktif di akun kamu atau membutuhkan token pengerjaan langsung di portal MyBest.
                   </p>
                 </div>
               ) : questionsData ? (
