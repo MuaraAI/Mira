@@ -47,27 +47,29 @@ export default function PwaPushDeviceSection() {
       setLocalEndpoint(null);
       setBlocker(err instanceof Error && err.message ? err.message : "Notifikasi belum bisa disiapkan di perangkat ini.");
     }
-    let loadFailed = false;
-    try {
-      const res = await apiFetch<{ devices: PushDevice[] }>("/v1/notifications/pwa/devices");
-      setDevices(res.devices);
-    } catch (err) {
-      loadFailed = true;
-      // Jangan kosongkan daftar lama: pengguna tetap bisa mencabut device saat API ngambek
-      setLoadError(err instanceof ApiError && err.message ? err.message : "Gagal memuat daftar perangkat.");
+    // Dua permintaan jalan bersamaan; apiFetch sudah mencoba ulang sendiri bila jaringan putus sesaat.
+    const [devicesResult, categoriesResult] = await Promise.allSettled([
+      apiFetch<{ devices: PushDevice[] }>("/v1/notifications/pwa/devices"),
+      apiFetch<{ categories: string[] }>("/v1/notifications/pwa/categories"),
+    ]);
+    if (devicesResult.status === "fulfilled") {
+      setDevices(devicesResult.value.devices);
+      setLoadError(null);
+    } else {
+      // Jangan kosongkan daftar lama: pengguna tetap bisa mencabut perangkat saat API sedang bermasalah.
+      const err = devicesResult.reason;
+      setLoadError(err instanceof ApiError && err.message ? err.message : "Daftar perangkat belum bisa dimuat.");
     }
-    if (!loadFailed) setLoadError(null);
-    try {
-      const res = await apiFetch<{ categories: string[] }>("/v1/notifications/pwa/categories");
-      setCategories(res.categories);
-    } catch {
-      setCategories(null);
-    }
+    setCategories(categoriesResult.status === "fulfilled" ? categoriesResult.value.categories : null);
     setLoading(false);
   }, []);
 
   useEffect(() => {
     refresh();
+    // Koneksi kembali (mis. sinyal HP pulih): muat ulang otomatis supaya pesan galat hilang sendiri.
+    const onOnline = () => void refresh();
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
   }, [refresh]);
 
   async function run(action: () => Promise<string>, failure: string) {
@@ -162,7 +164,7 @@ export default function PwaPushDeviceSection() {
             Notifikasi di HP dan Laptop
           </h2>
           <p className="mt-1 text-xs leading-relaxed text-secondary">
-            Pengingat masuk langsung ke layar kunci tanpa webhook: kelas segera mulai, absen, tugas, dan nilai. Aktifkan di tiap perangkat yang kamu pakai.
+            Pengingat kelas, absen, tugas, dan nilai masuk langsung ke layar kunci. Aktifkan di tiap perangkat yang kamu pakai.
           </p>
         </div>
       </div>
@@ -173,9 +175,13 @@ export default function PwaPushDeviceSection() {
       </div>
 
       {loadError && (
-        <p className="bg-[#FFF1F2] p-3 text-xs text-[#BE123C]" role="alert">
-          {loadError}
-        </p>
+        <div className="flex flex-col gap-3 bg-[#FFF1F2] p-3 text-xs text-[#BE123C] sm:flex-row sm:items-center sm:justify-between" role="alert">
+          <span className="min-w-0 break-words">{loadError}</span>
+          <button type="button" onClick={refresh} className="inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 bg-white px-3 font-bold text-[#BE123C] shadow-[0_-2px_0_0_#FDA4AF,0_2px_0_0_#FDA4AF,-2px_0_0_0_#FDA4AF,2px_0_0_0_#FDA4AF]">
+            <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+            Coba lagi
+          </button>
+        </div>
       )}
 
       {blocker && (
@@ -194,24 +200,24 @@ export default function PwaPushDeviceSection() {
         </p>
       )}
 
-      <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
+      <div className="grid grid-cols-1 gap-3 min-[430px]:grid-cols-2 sm:flex sm:flex-wrap">
         {supported && !serverSynced && !blocker && (
-          <button type="button" onClick={handleEnable} disabled={busy} className={`${primaryButtonClass} col-span-2 text-xs sm:col-span-1`}>
+          <button type="button" onClick={handleEnable} disabled={busy} className={`${primaryButtonClass} min-h-11 text-xs min-[430px]:col-span-2 sm:col-span-1`}>
             <Smartphone className="h-4 w-4" aria-hidden="true" />
             {hasLocalSub ? "Daftarkan Ulang Perangkat" : "Aktifkan di Perangkat Ini"}
           </button>
         )}
         {supported && hasLocalSub && (
-          <button type="button" onClick={handleDisable} disabled={busy} className={`${ghostButtonClass} text-xs`}>
+          <button type="button" onClick={handleDisable} disabled={busy} className={`${ghostButtonClass} min-h-11 text-xs`}>
             <Trash2 className="h-4 w-4" aria-hidden="true" />
-            Cabut Perangkat Ini
+            Cabut perangkat ini
           </button>
         )}
-        <button type="button" onClick={handleTest} disabled={busy || devices.length === 0} className={`${ghostButtonClass} text-xs`}>
+        <button type="button" onClick={handleTest} disabled={busy || devices.length === 0} className={`${ghostButtonClass} min-h-11 text-xs`}>
           <Send className="h-4 w-4" aria-hidden="true" />
-          Kirim Uji Coba
+          Kirim uji coba
         </button>
-        <button type="button" onClick={refresh} disabled={busy} className={`${ghostButtonClass} text-xs`}>
+        <button type="button" onClick={refresh} disabled={busy} className={`${ghostButtonClass} min-h-11 text-xs`}>
           <RefreshCw className="h-4 w-4" aria-hidden="true" />
           Segarkan
         </button>
@@ -253,7 +259,7 @@ export default function PwaPushDeviceSection() {
       )}
 
       <div className="space-y-2 border-t-2 border-dashed border-px-soft pt-4">
-        <h3 className="text-sm font-bold text-foreground">Perangkat Terhubung ({devices.length})</h3>
+        <h3 className="text-sm font-bold text-foreground">Perangkat terhubung ({devices.length})</h3>
         {loading ? (
           <p className="font-mono text-xs text-secondary">Memuat daftar perangkat...</p>
         ) : devices.length === 0 ? (
