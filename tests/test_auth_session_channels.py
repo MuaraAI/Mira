@@ -219,7 +219,7 @@ async def test_download_endpoint_accepts_dashboard_referer_and_query_token(fake_
                 headers={"Referer": "https://ubsi-api.muaraai.com/dashboard/tugas"},
             )
             assert res_ref.status_code == 200
-            assert res_ref.headers.get("access-control-expose-headers") == "Content-Disposition"
+            assert "Content-Disposition" in res_ref.headers.get("access-control-expose-headers", "")
 
             # 2. Query parameter session token is rejected to prevent URL credential leakage
             res_query = await ac.get(

@@ -28,6 +28,7 @@ import { describeDeadline, findSubmission, formatShortDate, gradeValue, parseDea
 import { LinkCard } from "@/components/LinkCard";
 import { SideSheet } from "@/components/SideSheet";
 import { FilePreviewSheet } from "@/components/FilePreviewSheet";
+import { preloadPdfjs } from "@/lib/pdf";
 import { cleanUrl, parseShareLink, tidyLink, useLinkCheck, useLinkChecks, type LinkCheck } from "@/lib/links";
 
 interface TaskItem {
@@ -217,6 +218,7 @@ function TaskCard({
 }
 
 export default function TugasPage() {
+  useEffect(() => preloadPdfjs(), []);
   const { data, loading, error, reload } = useApi<AssignmentsData>("/v1/elearning/assignments");
   const [filter, setFilter] = useState<Filter>("pending");
   const [actionMessage, setActionMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -342,7 +344,7 @@ export default function TugasPage() {
     <div className="space-y-6">
       <PageHeader
         title="Tugas Kuliah & Deadline"
-        description={`Terintegrasi dengan MyBest. Total ${allRows.length} tugas terdeteksi semester ini.`}
+        description={`${allRows.length} tugas semester ini, langsung dari MyBest.`}
       />
 
       {failedCourses.length > 0 && (
@@ -407,7 +409,7 @@ export default function TugasPage() {
               ? "Belum ada tugas yang dikumpulkan."
               : "Belum ada tugas perkuliahan terdaftar."
           }
-          description="Periksa kembali berkala sesuai instruksi dosen pengampu mata kuliah di MyBest."
+          description="Cek lagi nanti, atau lihat instruksi dosen di MyBest."
         />
       ) : (
         <div className="page-in grid grid-cols-1 gap-5 p-[2px] md:grid-cols-2" key={filter}>

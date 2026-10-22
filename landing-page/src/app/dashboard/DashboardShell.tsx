@@ -83,7 +83,7 @@ export default function DashboardShell({
           <div className="flex items-center gap-3">
             <div className="px-chip flex items-center gap-1.5 px-2.5 py-1 bg-[#F0F7FB] text-[11px] font-mono text-[#0369A1] font-semibold">
               <ShieldCheck className="w-3.5 h-3.5 text-[#0369A1]" aria-hidden="true" />
-              <span>Sesi Redis (AES-256)</span>
+              <span>Sesi aktif</span>
             </div>
 
             <Link
@@ -114,7 +114,7 @@ export default function DashboardShell({
         </main>
 
         <footer className="py-4 px-6 text-center font-mono text-[11px] text-secondary border-t-2 border-dashed border-px-soft hidden lg:block">
-          UBSI API Student Command Center. Data terintegrasi dari SIAKAD, MyBest, dan portal kampus.
+          UBSI API bukan aplikasi resmi UBSI. Data diambil dari SIAKAD dan MyBest.
         </footer>
       </div>
     </div>

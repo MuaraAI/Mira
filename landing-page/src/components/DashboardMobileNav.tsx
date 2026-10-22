@@ -67,9 +67,6 @@ export function DashboardMobileNav({ nim }: { nim?: string | null }) {
             <span className="font-display font-bold text-sm tracking-tight text-foreground">
               UBSI API
             </span>
-            <span className="text-[9px] font-mono tracking-widest text-[#0369A1] font-bold uppercase -mt-0.5">
-              Command Center
-            </span>
           </div>
         </Link>
 

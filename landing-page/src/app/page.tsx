@@ -1,8 +1,6 @@
 import { Navbar } from "@/components/Navbar";
 import { Hero } from "@/components/Hero";
-import { StudentServices } from "@/components/StudentServices";
-import { PublicApiSurface } from "@/components/PublicApiSurface";
-import { PublicStats } from "@/components/PublicStats";
+import { DeveloperSection } from "@/components/DeveloperSection";
 import { Faq } from "@/components/Faq";
 import { Footer } from "@/components/Footer";
 import { getRepositoryStars } from "@/lib/github";
@@ -15,9 +13,7 @@ export default async function Home() {
       <Navbar starsCount={stars} />
       <main id="main-content" className="flex-1">
         <Hero />
-        <StudentServices />
-        <PublicApiSurface />
-        <PublicStats />
+        <DeveloperSection />
         <Faq />
       </main>
       <Footer />

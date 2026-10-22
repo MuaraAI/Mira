@@ -65,12 +65,12 @@ const TYPE_CONFIG = {
   },
   telegram: {
     label: "Telegram Bot",
-    hint: "Buat bot via @BotFather, buka bot Anda lalu klik START, lalu ambil Chat ID via @userinfobot.",
+    hint: "Buat bot via @BotFather, buka bot kamu lalu klik START, lalu ambil Chat ID via @userinfobot.",
   },
   custom: {
     label: "Custom HTTP Endpoint",
     placeholderUrl: "https://api.domain-anda.com/webhook",
-    hint: "Server Anda akan menerima HTTP POST dengan payload JSON terstruktur.",
+    hint: "Server kamu akan menerima HTTP POST dengan payload JSON terstruktur.",
   },
 } as const;
 
@@ -281,7 +281,7 @@ export default function NotifikasiPage() {
       <div className="flex flex-col">
         <PageHeader
           title="Webhook Notifikasi"
-          description="Terima pengingat kuliah H-1, tugas baru, dan warta kampus langsung ke Discord atau Telegram pribadi."
+          description="Dapat pengingat kuliah, tugas baru, dan berita kampus langsung di Discord atau Telegram."
         />
 
         <div className="flex items-center gap-3">
@@ -311,7 +311,7 @@ export default function NotifikasiPage() {
         <div className="glass-card p-8 text-center space-y-4">
           <EmptyState
             title="Belum ada channel notifikasi terpasang."
-            description="Hubungkan Discord webhook atau bot Telegram untuk menerima notifikasi kuliah otomatis."
+            description="Hubungkan Discord webhook atau bot Telegram biar notifikasi kuliah masuk otomatis."
           />
           <button
             type="button"
@@ -433,7 +433,7 @@ export default function NotifikasiPage() {
                 Simulasi Pengingat Webhook
               </h3>
               <p className="text-xs text-secondary mt-0.5 font-sans">
-                Uji format tampilan pengingat matkul H-1 dan tugas kuis langsung ke channel aktif Anda.
+                Uji format tampilan pengingat matkul H-1 dan tugas kuis langsung ke channel aktif kamu.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-center">
