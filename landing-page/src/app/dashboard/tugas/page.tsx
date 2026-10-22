@@ -28,7 +28,7 @@ import { describeDeadline, findSubmission, formatShortDate, gradeValue, parseDea
 import { LinkCard } from "@/components/LinkCard";
 import { SideSheet } from "@/components/SideSheet";
 import { FilePreviewSheet } from "@/components/FilePreviewSheet";
-import { parseShareLink, tidyLink, useLinkCheck, useLinkChecks, type LinkCheck } from "@/lib/links";
+import { cleanUrl, parseShareLink, tidyLink, useLinkCheck, useLinkChecks, type LinkCheck } from "@/lib/links";
 
 interface TaskItem {
   id: string;
@@ -261,6 +261,15 @@ export default function TugasPage() {
     return { pendingRows: pending, completedRows: completed, allRows: [...pending, ...completed] };
   }, [data]);
 
+  // Server sudah tahu jenis link yang sebenarnya (mis. open?id=... ternyata folder): rapikan isian ke link bersihnya.
+  useEffect(() => {
+    const result = draftCheck.result;
+    if (!result?.normalized_url || !result.valid || result.access === "invalid") return;
+    if (cleanUrl(linkInput) === result.url && result.normalized_url !== result.url && result.provider !== "web") {
+      setLinkInput(result.normalized_url);
+    }
+  }, [draftCheck.result]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (loading) return <LoadingState label="Memuat daftar tugas perkuliahan" />;
   if (error) return <ErrorState error={error} onRetry={reload} />;
 
@@ -467,17 +476,21 @@ export default function TugasPage() {
                 </label>
                 <input
                   id="input-link-tugas"
-                  type="url"
+                  type="text"
+                  inputMode="url"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   required
                   data-autofocus
                   value={linkInput}
                   onChange={(e) => setLinkInput(e.target.value)}
                   onBlur={tidyInput}
-                  placeholder="https://drive.google.com/file/d/..."
+                  placeholder="https://drive.google.com/drive/folders/..."
                   className={`${inputClass} min-h-12 text-base sm:text-sm`}
                 />
                 <p className="text-[11px] leading-relaxed text-secondary">
-                  Tempel link Google Drive, Docs, atau GitHub; link dirapikan otomatis. Pastikan akses Drive disetel ke <em>&quot;Siapa saja yang memiliki link&quot;</em> supaya dosen bisa membukanya.
+                  Tempel link file atau folder Google Drive, Docs, atau GitHub; link dirapikan otomatis. Pastikan akses Drive disetel ke <em>&quot;Siapa saja yang memiliki link&quot;</em> supaya dosen bisa membukanya.
                 </p>
               </div>
 
