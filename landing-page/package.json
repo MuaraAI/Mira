@@ -3,7 +3,10 @@
   "version": "2.0.0",
   "private": true,
   "scripts": {
+    "postinstall": "node scripts/copy-pdf-worker.mjs",
+    "predev": "node scripts/copy-pdf-worker.mjs",
     "dev": "next dev --port 3000",
+    "prebuild": "node scripts/copy-pdf-worker.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
@@ -12,6 +15,7 @@
     "@vercel/analytics": "^1.5.0",
     "lucide-react": "^0.475.0",
     "next": "^15.1.7",
+    "pdfjs-dist": "3.11.174",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

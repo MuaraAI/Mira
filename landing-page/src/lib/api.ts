@@ -86,10 +86,11 @@ export async function apiFetch<T>(
   return payload?.data as T;
 }
 
-export async function apiDownload(
+/** Ambil berkas sebagai Blob (dipakai unduhan, pratinjau, dan ringkasan PDF). */
+export async function apiBlob(
   path: string,
   defaultFilename = "berkas.pdf"
-): Promise<void> {
+): Promise<{ blob: Blob; filename: string }> {
   const base = getApiBase();
   const token =
     typeof window !== "undefined"
@@ -135,7 +136,11 @@ export async function apiDownload(
     }
   }
 
-  const blob = await res.blob();
+  return { blob: await res.blob(), filename };
+}
+
+/** Simpan Blob ke perangkat sebagai berkas unduhan. */
+export function saveBlob(blob: Blob, filename: string) {
   const blobUrl = window.URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = blobUrl;
@@ -144,6 +149,14 @@ export async function apiDownload(
   a.click();
   a.remove();
   window.URL.revokeObjectURL(blobUrl);
+}
+
+export async function apiDownload(
+  path: string,
+  defaultFilename = "berkas.pdf"
+): Promise<void> {
+  const { blob, filename } = await apiBlob(path, defaultFilename);
+  saveBlob(blob, filename);
 }
 
 interface ApiState<T> {
@@ -198,6 +211,7 @@ export function useApi<T>(
   });
 
   const [tick, setTick] = useState(0);
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -227,6 +241,7 @@ export function useApi<T>(
       .then((data) => {
         if (!alive) return;
         memoryCache.set(path, { data, timestamp: Date.now() });
+        setUpdatedAt(new Date());
         setState({ data, loading: false, error: null });
       })
       .catch((error: ApiError) => {
@@ -252,7 +267,9 @@ export function useApi<T>(
         .then((data) => {
           if (!alive) return;
           memoryCache.set(path, { data, timestamp: Date.now() });
-          setState({ data, loading: false, error: null });
+          setUpdatedAt(new Date());
+          // Data sama dengan sebelumnya: jangan render ulang halaman.
+          setState((prev) => (prev.data !== null && JSON.stringify(prev.data) === JSON.stringify(data) ? prev : { data, loading: false, error: null }));
         })
         .catch(() => {
           /* gagal sesaat: biarkan data terakhir tetap tampil */
@@ -278,7 +295,7 @@ export function useApi<T>(
     setTick((t) => t + 1);
   }, [path]);
 
-  return { ...state, reload };
+  return { ...state, reload, updatedAt };
 }
 
 export function useRequireSession() {

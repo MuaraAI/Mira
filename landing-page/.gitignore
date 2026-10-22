@@ -6,3 +6,6 @@ out
 *.tsbuildinfo
 .env.local
 .env.*.local
+
+# disalin dari node_modules oleh scripts/copy-pdf-worker.mjs
+public/pdfjs
