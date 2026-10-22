@@ -96,3 +96,25 @@ async def test_upstream_gagal_fallback_lgg(monkeypatch):
     assert res["success"] is True
     assert res["stale"] is True
     assert res["data"] == {"cadangan": True}
+
+
+@pytest.mark.asyncio
+async def test_allow_stale_false_refetches_instead_of_serving_expired_data(monkeypatch):
+    async def fake_get_fresh(key):
+        return None
+
+    async def fake_set(key, payload, ttl=None):
+        pass
+
+    async def fake_fresh_or_stale(key):  # tidak boleh dipakai
+        raise AssertionError("data kedaluwarsa tidak boleh dikirim")
+
+    monkeypatch.setattr(cache, "get_fresh", fake_get_fresh)
+    monkeypatch.setattr(cache, "fresh_or_stale", fake_fresh_or_stale)
+    monkeypatch.setattr(cache, "set", fake_set)
+    with patch("redis.asyncio.from_url", return_value=_mock_redis()):
+        res = await cached_endpoint(
+            module="m", name="live", fetch=lambda: "baru", parse=lambda h: {"v": h}, ttl=3, allow_stale=False
+        )
+    assert res["data"] == {"v": "baru"}
+    assert res["cached"] is False

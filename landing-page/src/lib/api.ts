@@ -178,10 +178,11 @@ export function clearApiCache(pathPrefix?: string) {
 
 export function useApi<T>(
   path: string,
-  options?: { ttlMs?: number; skipCache?: boolean }
+  options?: { ttlMs?: number; skipCache?: boolean; refreshMs?: number | null }
 ) {
   const ttl = options?.ttlMs ?? DEFAULT_TTL_MS;
   const skipCache = options?.skipCache ?? false;
+  const refreshMs = options?.refreshMs ?? null;
 
   const [state, setState] = useState<ApiState<T>>(() => {
     if (!path) {
@@ -237,6 +238,40 @@ export function useApi<T>(
       alive = false;
     };
   }, [path, tick, ttl, skipCache]);
+
+  // Pembaruan senyap berkala (real-time): tanpa layar loading, data lama tetap tampil sampai data baru tiba.
+  // Berhenti saat tab tidak terlihat dan langsung menyegarkan saat tab kembali aktif.
+  useEffect(() => {
+    if (!path || !refreshMs) return;
+    let alive = true;
+    let busy = false;
+    const refresh = () => {
+      if (busy || document.visibilityState === "hidden") return;
+      busy = true;
+      apiFetch<T>(path)
+        .then((data) => {
+          if (!alive) return;
+          memoryCache.set(path, { data, timestamp: Date.now() });
+          setState({ data, loading: false, error: null });
+        })
+        .catch(() => {
+          /* gagal sesaat: biarkan data terakhir tetap tampil */
+        })
+        .finally(() => {
+          busy = false;
+        });
+    };
+    const timer = window.setInterval(refresh, refreshMs);
+    const onVisible = () => document.visibilityState === "visible" && refresh();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, [path, refreshMs]);
 
   const reload = useCallback(() => {
     memoryCache.delete(path);

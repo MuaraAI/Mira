@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 import hashlib
 import json
 import logging
@@ -24,7 +25,7 @@ from app.session_pool import SessionPool
 from app.upstream_session import UpstreamSession, is_logged_out_response
 from app.retry import retry_async
 from app.proxy import get_proxy
-from app.cache import cache
+from app.cache import WIB, cache
 from app.router_helper import cached_endpoint
 
 router = APIRouter(prefix="/v1/elearning", tags=["elearning"])
@@ -309,7 +310,7 @@ def parse_presence(html: str) -> dict[str, Any]:
     can_submit = bool(status_sesi) and (
         "absen" in status_sesi.lower() or "masuk" in status_sesi.lower()
     ) and not any(
-        marker in status_sesi.lower() for marker in ("selesai", "belum", "tutup")
+        marker in status_sesi.lower() for marker in ("selesai", "belum", "tutup", "sudah", "telah", "hadir")
     )
 
     return {
@@ -326,6 +327,39 @@ def parse_presence(html: str) -> dict[str, Any]:
         "total_kehadiran": len(records),
         "riwayat": records,
     }
+
+
+_PRESENCE_DATE = re.compile(r"(\d{4})-(\d{1,2})-(\d{1,2})|(\d{1,2})[-/](\d{1,2})[-/](\d{4})")
+
+
+def _record_date(value: str) -> Optional[tuple[int, int, int]]:
+    m = _PRESENCE_DATE.search(value or "")
+    if not m:
+        return None
+    if m.group(1):
+        return int(m.group(1)), int(m.group(2)), int(m.group(3))
+    return int(m.group(6)), int(m.group(5)), int(m.group(4))
+
+
+def annotate_presence(presence: dict[str, Any], now: Optional[datetime] = None) -> dict[str, Any]:
+    """Tandai apakah mahasiswa sudah absen hari ini (dari rekap) supaya UI tidak menyebutnya "belum dibuka"."""
+
+    now = now or datetime.now(WIB)
+    today = (now.year, now.month, now.day)
+    present_today = any(
+        _record_date(r.get("tanggal", "")) == today and "hadir" in (r.get("status_absen") or "").lower()
+        and "tidak" not in (r.get("status_absen") or "").lower()
+        for r in presence.get("riwayat") or []
+    )
+    status = (presence.get("status_sesi") or "").lower()
+    if not present_today and any(k in status for k in ("sudah absen", "sudah hadir", "telah absen", "telah hadir")):
+        present_today = True
+    presence["present_today"] = present_today
+    if present_today:
+        presence["can_submit"] = False
+        presence["status_sesi"] = "Sudah Absen"
+    presence["server_time"] = now.isoformat()
+    return presence
 
 
 def parse_presence_rekap(raw_json: str | bytes) -> list[dict[str, Any]]:
@@ -628,7 +662,7 @@ def inspect_session_status(html: str) -> dict[str, Any]:
             val = detail[0].css("h5")
             label = detail[0].css("p")
             if val and label:
-                info[label[0].get_all_text().strip().lower()] = val[0].get_all_text().strip()
+                info[" ".join(label[0].get_all_text().split()).lower()] = " ".join(val[0].get_all_text().split())
 
     # In MyBest (2026 revamp), attendance check-in works via TWO possible forms:
     # 1. Legacy form: <form action="simpan-absen|absen"> (older MyBest layout)
@@ -1391,15 +1425,16 @@ async def get_presence(
                 presence["total_kehadiran"] = len(records)
         except Exception as err:
             logger.warning("Gagal fetch rekap-side presence: %s", err)
-        return presence
+        return annotate_presence(presence)
 
     return await cached_endpoint(
         module="elearning",
         name="presence",
         fetch=_fetch_presence,
         parse=lambda data: data,
-        ttl=settings.TTL_ASSIGNMENTS,
+        ttl=settings.TTL_PRESENCE,
         cache_params={"token": clean_token, "nim": nim},
+        allow_stale=False,
     )
 
 @router.get("/materials")
