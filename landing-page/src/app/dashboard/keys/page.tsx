@@ -50,7 +50,7 @@ const MCP_SNIPPETS: { id: string; label: string; hint: string; code: string }[] 
   {
     id: "cursor",
     label: "Cursor",
-    hint: "Simpan sebagai .cursor/mcp.json di root project Anda.",
+    hint: "Simpan sebagai .cursor/mcp.json di root project kamu.",
     code: JSON.stringify(
       {
         mcpServers: {
@@ -192,7 +192,7 @@ export default function ApiKeysPage() {
       <div className="flex flex-col">
         <PageHeader
           title="Personal API Key"
-          description="Gunakan API Key pribadi (muara_ubsi_***) untuk mengotomasi bot Discord, Telegram, atau skrip tanpa menyimpan password kampus."
+          description="Pakai API Key pribadi buat bot Discord, Telegram, atau skrip sendiri tanpa menyimpan password kampus."
         />
 
         <div className="flex items-center gap-3">
@@ -223,7 +223,7 @@ export default function ApiKeysPage() {
         <div className="glass-card p-8 text-center space-y-4">
           <EmptyState
             title="Belum ada API Key aktif."
-            description="Buat API Key untuk mengakses jadwal, nilai, dan modul lewat skrip mandiri secara aman."
+            description="Buat API Key buat akses jadwal, nilai, dan data lain lewat skrip."
           />
           <button
             type="button"
@@ -308,7 +308,7 @@ export default function ApiKeysPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
             <Code2 className="h-4 w-4 text-[#0369A1]" />
-            <span>Cara Menghubungkan Akun Anda</span>
+            <span>Cara Menghubungkan Akun kamu</span>
           </div>
 
           <div className="flex items-center gap-1.5 p-1 bg-[#F0F7FB] border border-stroke rounded-pill self-start">
@@ -351,7 +351,7 @@ export default function ApiKeysPage() {
 
             <div className="bg-[#131B26] p-4 rounded-xl border border-white/10 font-mono text-xs text-code-text overflow-x-auto space-y-3">
               <div>
-                <p className="text-code-text/60 text-[11px] mb-1"># 1. Ambil Jadwal Kuliah Anda lewat cURL:</p>
+                <p className="text-code-text/60 text-[11px] mb-1"># 1. Ambil Jadwal Kuliah kamu lewat cURL:</p>
                 <pre className="text-[#7DD3FC]">
                   {`curl -H "Authorization: Bearer muara_ubsi_YOUR_KEY" \\
   https://api.muaraai.com/v1/ubsi-api/v1/studentv2/schedule`}
@@ -372,11 +372,11 @@ print(res.json())`}
         ) : (
           <>
             <p className="text-xs text-secondary leading-relaxed">
-              Personal API Key yang sama bisa dipakai untuk menyambungkan akademik UBSI Anda ke{" "}
+              Personal API Key yang sama bisa dipakai untuk menyambungkan akademik UBSI kamu ke{" "}
               <strong className="text-foreground">AI Agent</strong> (Claude Code, Cursor, Codex, Hermes) lewat{" "}
               <strong className="text-foreground">MCP (Model Context Protocol)</strong>. Satu koneksi, 38 tools akademik:
               jadwal, nilai &amp; KHS, KRS, kuis online, tugas &amp; link submit, presensi DataTables, bahan ajar, forum diskusi, kalender, berita, perpustakaan, dan kamus dokumentasi API
-              langsung dari chat agent Anda.
+              langsung dari chat agent kamu.
             </p>
 
             {/* Prompt Siap Pakai di ATAS agar terlihat langsung (hero spot) */}
@@ -388,7 +388,7 @@ print(res.json())`}
                     Prompt Siap Pakai untuk Agent
                   </p>
                   <p className="text-[11px] text-secondary mt-0.5">
-                    Tempel prompt ini sebagai pesan pertama agar agent langsung paham base URL dan tools akademik Anda.
+                    Tempel prompt ini sebagai pesan pertama agar agent langsung paham base URL dan tools akademik kamu.
                   </p>
                 </div>
                 <button
@@ -479,7 +479,7 @@ print(res.json())`}
             </div>
 
             <p className="text-[11px] text-secondary leading-relaxed">
-              Ganti <code className="font-mono text-[#0369A1]">muara_ubsi_YOUR_KEY</code> dengan Personal API Key Anda di atas.
+              Ganti <code className="font-mono text-[#0369A1]">muara_ubsi_YOUR_KEY</code> dengan Personal API Key kamu di atas.
               Kunci dikirim sebagai header HTTP saat agent memanggil tools, aman dan tidak disimpan server.
             </p>
           </>
@@ -501,7 +501,7 @@ print(res.json())`}
                   {createdKey ? "API Key Berhasil Dibuat" : "Buat Personal API Key"}
                 </h2>
                 <p className="text-xs text-secondary mt-0.5">
-                  Tersisa {MAX_KEYS - keys.length} slot API Key untuk akun Anda.
+                  Tersisa {MAX_KEYS - keys.length} slot API Key untuk akun kamu.
                 </p>
               </div>
               <button
@@ -528,7 +528,7 @@ print(res.json())`}
 
                 <div>
                   <label className="block text-xs font-semibold text-foreground mb-1.5">
-                    Personal API Key Anda:
+                    Personal API Key kamu:
                   </label>
                   <div className="flex items-center gap-2">
                     <input

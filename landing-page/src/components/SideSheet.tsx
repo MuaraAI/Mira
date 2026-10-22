@@ -27,6 +27,7 @@ export function SideSheet({
   width = "lg",
   footer,
   flush = false,
+  fill = false,
   children,
 }: {
   open: boolean;
@@ -39,6 +40,8 @@ export function SideSheet({
   footer?: React.ReactNode;
   /** Isi tanpa padding (untuk iframe pratinjau). */
   flush?: boolean;
+  /** Isi mengisi tinggi panel dan mengatur scroll-nya sendiri (penampil PDF). */
+  fill?: boolean;
   children: React.ReactNode;
 }) {
   const root = useRef<HTMLDivElement>(null);
@@ -83,7 +86,7 @@ export function SideSheet({
           </button>
         </div>
 
-        <div className={`relative min-h-0 flex-1 overflow-y-auto ${flush ? "" : "p-4 sm:p-6"}`}>{children}</div>
+        <div className={`relative min-h-0 flex-1 ${fill ? "flex flex-col overflow-hidden" : "overflow-y-auto"} ${flush ? "" : "p-4 sm:p-6"}`}>{children}</div>
 
         {footer && (
           <div className="shrink-0 border-t-2 border-dashed border-px-soft bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">{footer}</div>

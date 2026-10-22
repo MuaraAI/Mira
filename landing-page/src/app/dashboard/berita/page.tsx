@@ -87,7 +87,7 @@ export default function BeritaPage() {
       <div className="flex flex-col">
         <PageHeader
           title="Pusat Informasi & Berita Kampus"
-          description="Kanal terpadu warta resmi, surat edaran rektorat, kalender akademik, dan direktori kontak program studi UBSI."
+          description="Berita kampus, surat edaran, kalender akademik, dan kontak program studi."
         />
 
         {/* Tab Switcher */}
@@ -138,7 +138,7 @@ export default function BeritaPage() {
           ) : news.length === 0 ? (
             <EmptyState
               title="Belum ada warta berita tersedia."
-              description="Kunjungi portal resmi news.bsi.ac.id untuk arsip selengkapnya."
+              description="Arsip lengkapnya ada di news.bsi.ac.id."
             />
           ) : (
             <ul className="grid gap-4">
@@ -183,7 +183,7 @@ export default function BeritaPage() {
           ) : announcements.length === 0 ? (
             <EmptyState
               title="Belum ada surat edaran aktif."
-              description="Surat edaran rektorat akan muncul saat diterbitkan oleh BAAK atau dekanat."
+              description="Surat edaran akan muncul di sini kalau sudah diterbitkan kampus."
             />
           ) : (
             <div className="grid gap-3">

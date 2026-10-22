@@ -56,8 +56,7 @@ export function Footer() {
               </div>
             </div>
             <p className="mt-4 max-w-sm text-sm leading-6 text-secondary">
-              Proyek riset independen non-komersial komunitas Muara AI. Tidak berafiliasi secara resmi dengan Universitas Bina Sarana Informatika.
-            </p>
+              Proyek independen non-komersial dari komunitas Muara AI. Bukan aplikasi resmi UBSI.</p>
           </div>
 
           <nav aria-label="Produk UBSI API" className="text-sm">

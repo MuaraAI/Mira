@@ -3,21 +3,20 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Monogram } from "./Monogram";
-import { API_DOCS_URL, GITHUB_URL, MCP_URL } from "@/lib/public-links";
+import { API_DOCS_URL, GITHUB_URL } from "@/lib/public-links";
 
 const NAV_LINKS = [
-  { href: "#layanan", label: "Layanan" },
-  { href: "#api", label: "API Docs" },
-  { href: "#mcp", label: "MCP" },
+  { href: "#fitur", label: "Fitur" },
+  { href: "#developer", label: "Developer" },
+  { href: "#faq", label: "FAQ" },
 ];
 
 const MOBILE_LINKS = [
-  { href: "#layanan", label: "Layanan", external: false },
-  { href: "#api", label: "API Docs", external: false },
-  { href: "#mcp", label: "MCP", external: false },
-  { href: API_DOCS_URL, label: "Dokumentasi publik", external: true },
-  { href: MCP_URL, label: "Endpoint MCP", external: true },
-  { href: GITHUB_URL, label: "Repository GitHub", external: true },
+  { href: "#fitur", label: "Fitur", external: false },
+  { href: "#developer", label: "Developer", external: false },
+  { href: "#faq", label: "FAQ", external: false },
+  { href: API_DOCS_URL, label: "API Docs", external: true },
+  { href: GITHUB_URL, label: "GitHub", external: true },
 ];
 
 const TILE = 44;

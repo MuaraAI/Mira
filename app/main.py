@@ -319,7 +319,7 @@ app.add_middleware(
     allow_origins=origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "X-API-Key", "X-Requested-With", "X-Studentv2-NIM", "X-Studentv2-Pass", "X-Elearning-NIM", "X-Elearning-Pass"],
+    allow_headers=["Content-Type", "Authorization", "If-None-Match", "X-API-Key", "X-Requested-With", "X-Studentv2-NIM", "X-Studentv2-Pass", "X-Elearning-NIM", "X-Elearning-Pass"],
 )
 
 @app.exception_handler(RequestValidationError)

@@ -74,7 +74,7 @@ export default function SesiPage() {
     <div className="space-y-6">
       <PageHeader
         title="Sesi & Keamanan Akun"
-        description="Detail sesi login terenkripsi AES-256-GCM, identitas profil, dan kontrol keluar perangkat."
+        description="Info sesi login, profil, dan tombol keluar dari perangkat."
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

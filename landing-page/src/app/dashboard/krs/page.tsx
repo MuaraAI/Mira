@@ -39,7 +39,7 @@ export default function KrsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Kartu Rencana Studi (KRS)"
-        description="Daftar mata kuliah aktif yang diambil pada semester berjalan dari SIAKAD UBSI."
+        description="Mata kuliah yang kamu ambil semester ini, dari SIAKAD."
       />
 
       {/* Info Banner */}
@@ -95,7 +95,7 @@ export default function KrsPage() {
         {items.length === 0 ? (
           <EmptyState
             title="Belum ada data KRS untuk semester ini."
-            description="Pastikan Anda telah mengisi KRS atau berkonsultasi dengan Dosen PA."
+            description="Pastikan KRS sudah diisi, atau tanya Dosen PA."
           />
         ) : (
           <div className="overflow-x-auto">

@@ -8,7 +8,7 @@ import statistics
 from typing import Any, Optional
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response, status
 from pydantic import BaseModel, Field
 from lxml import html as lxml_html
 from scrapling.parser import Adaptor
@@ -27,6 +27,7 @@ from app.upstream_session import UpstreamSession, is_logged_out_response
 from app.retry import retry_async
 from app.proxy import get_proxy
 from app.cache import WIB, cache
+from app.file_cache import serve_cached
 from app.router_helper import cached_endpoint
 
 router = APIRouter(prefix="/v1/elearning", tags=["elearning"])
@@ -1960,12 +1961,20 @@ async def post_submit_assignment_link(
 
 @router.get("/assignments/download")
 async def download_assignment_file(
+    request: Request,
     file_url: Optional[str] = Query(default=None, description="URL file tugas dari MyBest (storage/soal/... atau storage/tugas/...)"),
     id: Optional[str] = Query(default=None, description="ID token dari form download-file-tugas MyBest"),
     file: Optional[str] = Query(default=None, description="Nama file dari form download-file-tugas MyBest"),
     creds: tuple[str, str] = Depends(require_elearning_creds),
 ):
-    """Download berkas soal atau submission tugas dari storage MyBest secara aman."""
+    """Download berkas soal atau submission tugas dari storage MyBest secara aman (cache singkat + ETag)."""
+    key = f"assignment:{creds[0]}:{id}:{file}:{file_url}"
+    return await serve_cached(request, key, lambda: _fetch_assignment_file(file_url, id, file, creds))
+
+
+async def _fetch_assignment_file(
+    file_url: Optional[str], id: Optional[str], file: Optional[str], creds: tuple[str, str]
+) -> Response:
     nim, password = creds
 
     # Mode 1: Download via MyBest POST /download-file-tugas
@@ -2090,12 +2099,20 @@ async def download_assignment_file(
 
 @router.get("/materials/download")
 async def download_material_file(
+    request: Request,
     id: Optional[str] = Query(default=None, description="ID token dari form download-file-materi MyBest"),
     file: Optional[str] = Query(default=None, description="Nama file dari form download-file-materi MyBest"),
     file_url: Optional[str] = Query(default=None, description="Direct URL berkas bahan ajar"),
     creds: tuple[str, str] = Depends(require_elearning_creds),
 ):
-    """Download berkas materi tatap muka dosen atau paket bahan ajar resmi MyBest secara aman."""
+    """Download berkas materi tatap muka dosen atau paket bahan ajar resmi MyBest secara aman (cache singkat + ETag)."""
+    key = f"material:{creds[0]}:{id}:{file}:{file_url}"
+    return await serve_cached(request, key, lambda: _fetch_material_file(file_url, id, file, creds))
+
+
+async def _fetch_material_file(
+    file_url: Optional[str], id: Optional[str], file: Optional[str], creds: tuple[str, str]
+) -> Response:
     nim, password = creds
 
     # Mode 1: Download via form POST /download-file-materi
