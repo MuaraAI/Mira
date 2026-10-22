@@ -160,6 +160,10 @@ export default function PresensiPage() {
 
   const token = activeCourse?.token_absen;
 
+  // Kunci mata kuliah yang baru saja diabsen; menjaga tampilan "sudah absen" sampai rekap MyBest ikut terbarui.
+  const [justPresent, setJustPresent] = useState<string | null>(null);
+  const [serverPresent, setServerPresent] = useState(false);
+
   // Jam berjalan (menit) untuk menentukan fase sesi; diperbarui tiap 15 detik.
   const [clock, setClock] = useState(() => new Date());
   useEffect(() => {
@@ -169,9 +173,11 @@ export default function PresensiPage() {
   const nowMinutes = clock.getHours() * 60 + clock.getMinutes();
   const courseIsToday = activeCourse?.hari?.toLowerCase().trim() === todayName.toLowerCase();
   const courseRange = minutesRange(null, null, activeCourse?.jam);
-  // Dekat jam kuliah: cek tiap 4 detik supaya absen yang baru dibuka dosen langsung terlihat.
-  const nearSession = courseIsToday && (!courseRange || (nowMinutes >= courseRange[0] - 30 && nowMinutes <= courseRange[1] + 20));
-  const refreshMs = courseIsToday ? (nearSession ? 4_000 : 20_000) : null;
+  // Polling hemat: cepat hanya saat sesi absen bisa dibuka dosen, berhenti begitu sudah absen atau kelas selesai.
+  const afterClass = courseRange !== null && nowMinutes > courseRange[1] + 20;
+  const nearSession = courseIsToday && (!courseRange || (nowMinutes >= courseRange[0] - 5 && nowMinutes <= courseRange[1] + 20));
+  const alreadyPresent = serverPresent || Boolean(justPresent && activeCourse && justPresent === (activeCourse.id || activeCourse.kode || activeCourse.nama));
+  const refreshMs = !courseIsToday || afterClass || alreadyPresent ? null : nearSession ? 6_000 : 30_000;
 
   const presenceApi = useApi<PresenceData>(
     token ? `/v1/elearning/presence?token=${token}` : "/v1/elearning/presence",
@@ -179,16 +185,12 @@ export default function PresensiPage() {
   );
   const pData = presenceApi.data;
 
-  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
-  useEffect(() => {
-    if (pData) setUpdatedAt(new Date());
-  }, [pData]);
+  const updatedAt = presenceApi.updatedAt;
+  useEffect(() => setServerPresent(Boolean(pData?.present_today)), [pData?.present_today]);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  // Kunci mata kuliah yang baru saja diabsen; menjaga tampilan "sudah absen" sampai rekap MyBest ikut terbarui.
-  const [justPresent, setJustPresent] = useState<string | null>(null);
   const [liveNote, setLiveNote] = useState<string | null>(null);
 
   // Absen baru dibuka dosen saat halaman sedang terbuka: beri tahu langsung.
