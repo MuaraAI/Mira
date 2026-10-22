@@ -21,20 +21,32 @@ export interface LinkCheck {
 }
 
 export interface ParsedLink {
-  provider: "google_drive" | "google_docs" | "github" | "web";
+  provider: "google_drive" | "google_docs" | "github" | "youtube" | "web";
   label: string;
   id: string | null;
   normalizedUrl: string;
   host: string;
+  /** open?id=... : bisa berkas atau folder, jenis pastinya baru diketahui dari pengecekan server. */
+  ambiguous?: boolean;
 }
 
 const ID = "[A-Za-z0-9_-]{10,}";
+
+/** Rapikan input mentah: buang kutip/kurung sudut, ambil URL dari teks bebas, tambah https:// bila hilang. */
+export function cleanUrl(raw: string): string {
+  const text = raw.trim().replace(/^[<"']+|[>"']+$/g, "");
+  const found = text.match(/https?:\/\/[^\s<>"']+/);
+  if (found) return found[0].replace(/[.,;)]+$/, "");
+  const first = text.split(/\s+/)[0] ?? "";
+  if (first && !/^[a-z][a-z0-9+.-]*:/i.test(first) && /^(?:www\.)?[\w-]+(?:\.[\w-]+)+(?:[/?#]|$)/.test(first)) return `https://${first}`;
+  return text;
+}
 
 /** Urai link di browser supaya struktur langsung tampil sebelum hasil pengecekan server tiba. */
 export function parseShareLink(raw: string): ParsedLink | null {
   let url: URL;
   try {
-    url = new URL(raw.trim());
+    url = new URL(cleanUrl(raw));
   } catch {
     return null;
   }
@@ -42,25 +54,50 @@ export function parseShareLink(raw: string): ParsedLink | null {
   const host = url.hostname.toLowerCase().replace(/^www\./, "");
   const path = url.pathname;
   const base = { provider: "web" as const, label: "Tautan web", id: null, normalizedUrl: url.toString(), host };
+  const idPattern = new RegExp(`^${ID}$`);
+  const queryId = url.searchParams.get("id");
+  const validQueryId = queryId && idPattern.test(queryId) ? queryId : null;
 
-  if (host === "drive.google.com") {
+  if (host === "drive.google.com" || host === "drive.usercontent.google.com") {
     const folder = path.match(new RegExp(`/folders/(${ID})`));
-    if (folder) return { ...base, provider: "google_drive", label: "Folder Google Drive", id: folder[1], normalizedUrl: `https://drive.google.com/drive/folders/${folder[1]}` };
-    const file = path.match(new RegExp(`/file/d/(${ID})`));
-    const open = url.searchParams.get("id");
-    const id = file?.[1] ?? (open && new RegExp(`^${ID}$`).test(open) ? open : null);
-    if (id) return { ...base, provider: "google_drive", label: "Berkas Google Drive", id, normalizedUrl: `https://drive.google.com/file/d/${id}/view` };
+    const folderId = folder?.[1] ?? (/\/folderview\/?$/.test(path) ? validQueryId : null);
+    if (folderId) return { ...base, provider: "google_drive", label: "Folder Google Drive", id: folderId, normalizedUrl: `https://drive.google.com/drive/folders/${folderId}` };
+    const file = path.match(new RegExp(`/file/(?:u/\\d+/)?d/(${ID})`));
+    const id = file?.[1] ?? validQueryId;
+    if (id) {
+      const ambiguous = !file && /\/open\/?$/.test(path);
+      return {
+        ...base,
+        provider: "google_drive",
+        label: ambiguous ? "Google Drive (berkas atau folder)" : "Berkas Google Drive",
+        id,
+        // open?id=... jangan dipaksa jadi link berkas: bisa saja folder.
+        normalizedUrl: ambiguous ? url.toString() : `https://drive.google.com/file/d/${id}/view`,
+        ambiguous,
+      };
+    }
     return { ...base, provider: "google_drive", label: "Google Drive (tautan tidak lengkap)" };
   }
   if (host === "docs.google.com") {
-    const match = path.match(new RegExp(`^/(document|spreadsheets|presentation|forms)/(?:u/\\d+/)?d/(?:e/)?(${ID})`));
-    if (match) {
-      const labels: Record<string, string> = {
-        document: "Dokumen Google Docs",
-        spreadsheets: "Spreadsheet Google Sheets",
-        presentation: "Presentasi Google Slides",
-        forms: "Formulir Google Forms",
+    const published = path.match(new RegExp(`^/(document|spreadsheets|presentation)/d/e/(${ID})`));
+    const labels: Record<string, string> = {
+      document: "Dokumen Google Docs",
+      spreadsheets: "Spreadsheet Google Sheets",
+      presentation: "Presentasi Google Slides",
+      forms: "Formulir Google Forms",
+    };
+    if (published) {
+      const tail = published[1] === "spreadsheets" ? "pubhtml" : "pub";
+      return {
+        ...base,
+        provider: "google_docs",
+        label: `${labels[published[1]]} (dipublikasikan)`,
+        id: published[2],
+        normalizedUrl: `https://docs.google.com/${published[1]}/d/e/${published[2]}/${tail}`,
       };
+    }
+    const match = path.match(new RegExp(`^/(document|spreadsheets|presentation|forms)/(?:u/\\d+/)?d/(${ID})`));
+    if (match) {
       return {
         ...base,
         provider: "google_docs",
@@ -79,13 +116,22 @@ export function parseShareLink(raw: string): ParsedLink | null {
     }
     return { ...base, provider: "github", label: "GitHub" };
   }
+  if (["youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"].includes(host)) {
+    const segments = path.split("/").filter(Boolean);
+    const vid = host === "youtu.be" ? segments[0] : ["shorts", "embed", "live"].includes(segments[0]) ? segments[1] : url.searchParams.get("v");
+    if (vid && /^[A-Za-z0-9_-]{11}$/.test(vid)) {
+      return { ...base, provider: "youtube", label: "Video YouTube", id: vid, normalizedUrl: `https://www.youtube.com/watch?v=${vid}` };
+    }
+    return { ...base, provider: "youtube", label: "Tautan YouTube" };
+  }
   return base;
 }
 
 /** Link yang "dirapikan" bila dikenali (Drive/Docs/GitHub); selain itu dikembalikan apa adanya. */
 export function tidyLink(raw: string): string {
   const parsed = parseShareLink(raw);
-  return parsed && parsed.provider !== "web" && parsed.id ? parsed.normalizedUrl : raw.trim();
+  if (!parsed) return raw.trim();
+  return parsed.provider !== "web" && parsed.id && !parsed.ambiguous ? parsed.normalizedUrl : cleanUrl(raw);
 }
 
 /** Hasil pengganti bila server tidak bisa dihubungi, supaya status tidak menggantung di "Mengecek". */
