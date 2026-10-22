@@ -5,16 +5,16 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock,
-  Download,
   Edit3,
   ExternalLink,
   Link as LinkIcon,
   Send,
   TriangleAlert,
+  Eye,
   RefreshCw,
   X,
 } from "lucide-react";
-import { apiDownload, apiFetch, ApiError, useApi } from "@/lib/api";
+import { apiFetch, ApiError, useApi } from "@/lib/api";
 import {
   EmptyState,
   ErrorState,
@@ -27,6 +27,7 @@ import {
 import { describeDeadline, findSubmission, formatShortDate, gradeValue, parseDeadline, type DeadlineTone } from "@/lib/assignments";
 import { LinkCard } from "@/components/LinkCard";
 import { SideSheet } from "@/components/SideSheet";
+import { FilePreviewSheet } from "@/components/FilePreviewSheet";
 import { parseShareLink, tidyLink, useLinkCheck, useLinkChecks, type LinkCheck } from "@/lib/links";
 
 interface TaskItem {
@@ -71,6 +72,18 @@ interface AssignmentsData {
   failed_courses?: string[];
 }
 
+function taskFilePath(task: TaskItem): string | null {
+  if (task.file_soal_id && task.file_soal_name) {
+    return `/v1/elearning/assignments/download?id=${encodeURIComponent(task.file_soal_id)}&file=${encodeURIComponent(task.file_soal_name)}`;
+  }
+  if (task.file_soal_url) {
+    return task.file_soal_url.startsWith("/v1/")
+      ? task.file_soal_url
+      : `/v1/elearning/assignments/download?file_url=${encodeURIComponent(task.file_soal_url)}`;
+  }
+  return null;
+}
+
 type Filter = "all" | "pending" | "completed";
 
 interface Row {
@@ -89,8 +102,7 @@ const TONE_CLASS: Record<DeadlineTone, string> = {
 function TaskCard({
   row,
   now,
-  downloading,
-  onDownload,
+  onPreview,
   onSubmit,
   linkCheck,
   linkChecking,
@@ -98,8 +110,7 @@ function TaskCard({
 }: {
   row: Row;
   now: Date | null;
-  downloading: boolean;
-  onDownload: () => void;
+  onPreview: () => void;
   onSubmit: () => void;
   linkCheck: LinkCheck | null;
   linkChecking: boolean;
@@ -183,12 +194,11 @@ function TaskCard({
         {hasFile && (
           <button
             type="button"
-            onClick={onDownload}
-            disabled={downloading}
+            onClick={onPreview}
             className="px-btn-ghost inline-flex min-h-11 items-center justify-center gap-1.5 px-3 text-xs font-semibold"
           >
-            <Download className="h-3.5 w-3.5" aria-hidden="true" />
-            {downloading ? "Mengunduh..." : "Soal"}
+            <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+            Lihat Soal
           </button>
         )}
         {canSubmit && (
@@ -210,7 +220,7 @@ export default function TugasPage() {
   const { data, loading, error, reload } = useApi<AssignmentsData>("/v1/elearning/assignments");
   const [filter, setFilter] = useState<Filter>("pending");
   const [actionMessage, setActionMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [previewTask, setPreviewTask] = useState<TaskItem | null>(null);
   const [now, setNow] = useState<Date | null>(null);
 
   // State Modal Kumpulkan Tugas
@@ -257,28 +267,7 @@ export default function TugasPage() {
   const failedCourses = data?.failed_courses ?? [];
   const rows = filter === "pending" ? pendingRows : filter === "completed" ? completedRows : allRows;
 
-  async function handleDownloadTask(task: TaskItem) {
-    const path =
-      task.file_soal_id && task.file_soal_name
-        ? `/v1/elearning/assignments/download?id=${encodeURIComponent(task.file_soal_id)}&file=${encodeURIComponent(task.file_soal_name)}`
-        : task.file_soal_url
-        ? task.file_soal_url.startsWith("/v1/")
-          ? task.file_soal_url
-          : `/v1/elearning/assignments/download?file_url=${encodeURIComponent(task.file_soal_url)}`
-        : null;
-    if (!path) return;
-
-    setDownloadingId(task.id);
-    setActionMessage(null);
-    try {
-      const defaultName = task.file_soal_name || `${(task.judul || "soal_tugas").replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
-      await apiDownload(path, defaultName);
-    } catch (err) {
-      setActionMessage({ type: "error", text: err instanceof ApiError ? err.message : "Gagal mengunduh berkas soal." });
-    } finally {
-      setDownloadingId(null);
-    }
-  }
+  const previewPath = previewTask ? taskFilePath(previewTask) : null;
 
   function openSubmitModal(row: Row) {
     setActiveTaskForSubmit(row.task);
@@ -418,8 +407,7 @@ export default function TugasPage() {
               key={row.task.id}
               row={row}
               now={now}
-              downloading={downloadingId === row.task.id}
-              onDownload={() => handleDownloadTask(row.task)}
+              onPreview={() => setPreviewTask(row.task)}
               onSubmit={() => openSubmitModal(row)}
               linkCheck={row.submission?.link_tugas ? linkChecks.results[row.submission.link_tugas.trim()] ?? null : null}
               linkChecking={row.submission?.link_tugas ? linkChecks.pending.has(row.submission.link_tugas.trim()) : false}
@@ -427,6 +415,19 @@ export default function TugasPage() {
             />
           ))}
         </div>
+      )}
+
+      {/* Pratinjau + ringkasan otomatis soal tugas */}
+      {previewTask && previewPath && (
+        <FilePreviewSheet
+          open
+          onClose={() => setPreviewTask(null)}
+          path={previewPath}
+          eyebrow="Soal tugas"
+          title={previewTask.judul}
+          subtitle={previewTask.mata_kuliah || previewTask.kode}
+          defaultFilename={previewTask.file_soal_name || "soal_tugas.pdf"}
+        />
       )}
 
       {/* Kumpulkan / ubah link: panel samping (desktop) atau dari bawah (HP) */}

@@ -800,3 +800,45 @@ async def test_assignments_report_failed_courses_and_skip_cache(monkeypatch):
     assert data["tasks"] == []
     assert data["failed_courses"], "mata kuliah yang gagal harus dilaporkan, bukan dianggap kosong"
     assert not any(k.endswith("all") or "assignments" in k for k in saved), "hasil parsial tidak boleh di-cache"
+
+
+@pytest.mark.asyncio
+async def test_presence_rekap_is_cached_between_polls(monkeypatch):
+    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_PASS", "secret")
+    page_html = (FIXTURES / "el_absen_active.html").read_text(encoding="utf-8") + "<script>x('rekap-side/REKAPTOK')</script>"
+    store: dict = {}
+    rekap_calls = {"n": 0}
+
+    async def fake_get_fresh(key):
+        return store.get(key)
+
+    async def fake_set(key, payload, ttl=None):
+        store[key] = payload
+
+    async def no_stale(key):
+        return None
+
+    async def fake_fetch(path, nim, password):
+        if path.startswith("/rekap-side/"):
+            rekap_calls["n"] += 1
+            return '{"data": []}'
+        return page_html
+
+    monkeypatch.setattr(cache, "get_fresh", fake_get_fresh)
+    monkeypatch.setattr(cache, "set", fake_set)
+    monkeypatch.setattr(cache, "fresh_or_stale", no_stale)
+    monkeypatch.setattr("app.modules.elearning.parse_presence_rekap", lambda raw: [{"tanggal": "2026-10-15", "status_absen": "Hadir", "pertemuan": "1"}])
+
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = None
+    mock_redis.incr.return_value = 1
+    with patch("redis.asyncio.from_url", return_value=mock_redis), \
+         patch("app.modules.elearning.pooled_elearning_client.fetch_page", side_effect=fake_fetch):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            for _ in range(2):
+                # kunci presence sendiri dibuang di antara polling (TTL 3 detik), rekap tetap tersimpan
+                store.pop(cache.make_key("elearning", "presence", token="custom_token", nim="15260767"), None)
+                res = await ac.get("/v1/elearning/presence?token=custom_token")
+                assert res.status_code == 200
+    assert rekap_calls["n"] == 1
