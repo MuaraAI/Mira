@@ -139,3 +139,43 @@ def test_parse_quiz_questions():
     assert len(current["opsi"]) == 4
     assert current["opsi"][1]["key"] == "B"
     assert current["opsi"][1]["data_jawab"] == "501_B"
+
+
+def test_annotate_presence_marks_already_present_today():
+    from datetime import datetime
+    from app.cache import WIB
+    from app.modules.elearning import annotate_presence
+
+    now = datetime(2026, 10, 22, 13, 4, tzinfo=WIB)
+    data = {
+        "status_sesi": None,
+        "can_submit": True,
+        "riwayat": [
+            {"tanggal": "2026-10-15", "status_absen": "Hadir"},
+            {"tanggal": "22-10-2026", "status_absen": "Hadir"},
+        ],
+    }
+    out = annotate_presence(data, now)
+    assert out["present_today"] is True
+    assert out["can_submit"] is False
+    assert out["status_sesi"] == "Sudah Absen"
+
+
+def test_annotate_presence_not_present_without_todays_record():
+    from datetime import datetime
+    from app.cache import WIB
+    from app.modules.elearning import annotate_presence
+
+    now = datetime(2026, 10, 22, 13, 4, tzinfo=WIB)
+    data = {"status_sesi": "Absen Masuk", "can_submit": True,
+            "riwayat": [{"tanggal": "2026-10-15", "status_absen": "Hadir"}, {"tanggal": "2026-10-22", "status_absen": "Tidak Hadir"}]}
+    out = annotate_presence(data, now)
+    assert out["present_today"] is False
+    assert out["can_submit"] is True
+
+
+def test_parse_presence_sudah_absen_button_is_not_submittable():
+    from app.modules.elearning import parse_presence
+
+    html = '<div><div class="col-xl-3"><button class="btn btn-success">Sudah Absen</button></div></div>'
+    assert parse_presence(html)["can_submit"] is False

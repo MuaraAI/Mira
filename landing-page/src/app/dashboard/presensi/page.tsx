@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   UserCheck,
   Clock,
@@ -61,8 +61,39 @@ interface PresenceData {
   status_sesi?: string | null;
   can_submit?: boolean;
   total_kehadiran?: number;
+  /** Sudah absen hari ini menurut rekap MyBest. */
+  present_today?: boolean;
   riwayat?: PresenceRecord[];
 }
+
+type Phase = "present" | "open" | "waiting" | "live" | "ended" | "off";
+
+/** "12:30-15:00" atau jam_masuk/jam_keluar -> menit sejak tengah malam. */
+function minutesRange(start?: string | null, end?: string | null, range?: string | null): [number, number] | null {
+  const pick = (v?: string | null) => {
+    const m = (v ?? "").match(/(\d{1,2})[:.](\d{2})/);
+    return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+  };
+  let a = pick(start);
+  let b = pick(end);
+  if ((a === null || b === null) && range) {
+    const parts = range.match(/(\d{1,2}[:.]\d{2})\s*[-–]\s*(\d{1,2}[:.]\d{2})/);
+    if (parts) {
+      a = pick(parts[1]);
+      b = pick(parts[2]);
+    }
+  }
+  return a !== null && b !== null ? [a, b] : null;
+}
+
+const PHASE_COPY: Record<Phase, { chip: string; button: string }> = {
+  present: { chip: "Sudah Absen", button: "Sudah absen hari ini" },
+  open: { chip: "Absen Dibuka", button: "Absen Sekarang" },
+  waiting: { chip: "Belum Dimulai", button: "Belum waktunya absen" },
+  live: { chip: "Menunggu Dosen", button: "Menunggu dosen membuka absen" },
+  ended: { chip: "Kelas Selesai", button: "Sesi absen sudah selesai" },
+  off: { chip: "Bukan Hari Kuliah", button: "Tidak ada kelas hari ini" },
+};
 
 const DAY_ORDER = ["minggu", "senin", "selasa", "rabu", "kamis", "jumat", "sabtu"];
 
@@ -128,14 +159,52 @@ export default function PresensiPage() {
   }, [courses, selectedCourseKey]);
 
   const token = activeCourse?.token_absen;
+
+  // Jam berjalan (menit) untuk menentukan fase sesi; diperbarui tiap 15 detik.
+  const [clock, setClock] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setClock(new Date()), 15_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const nowMinutes = clock.getHours() * 60 + clock.getMinutes();
+  const courseIsToday = activeCourse?.hari?.toLowerCase().trim() === todayName.toLowerCase();
+  const courseRange = minutesRange(null, null, activeCourse?.jam);
+  // Dekat jam kuliah: cek tiap 4 detik supaya absen yang baru dibuka dosen langsung terlihat.
+  const nearSession = courseIsToday && (!courseRange || (nowMinutes >= courseRange[0] - 30 && nowMinutes <= courseRange[1] + 20));
+  const refreshMs = courseIsToday ? (nearSession ? 4_000 : 20_000) : null;
+
   const presenceApi = useApi<PresenceData>(
-    token ? `/v1/elearning/presence?token=${token}` : "/v1/elearning/presence"
+    token ? `/v1/elearning/presence?token=${token}` : "/v1/elearning/presence",
+    { ttlMs: 2_000, refreshMs }
   );
   const pData = presenceApi.data;
+
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  useEffect(() => {
+    if (pData) setUpdatedAt(new Date());
+  }, [pData]);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // Kunci mata kuliah yang baru saja diabsen; menjaga tampilan "sudah absen" sampai rekap MyBest ikut terbarui.
+  const [justPresent, setJustPresent] = useState<string | null>(null);
+  const [liveNote, setLiveNote] = useState<string | null>(null);
+
+  // Absen baru dibuka dosen saat halaman sedang terbuka: beri tahu langsung.
+  const openNow =
+    !pData?.present_today && (Boolean(pData?.can_submit) || Boolean(pData?.status_sesi?.toLowerCase().includes("absen masuk")));
+  const wasOpen = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (!pData) return;
+    if (wasOpen.current === false && openNow) setLiveNote("Absen baru saja dibuka dosen. Segera absen sekarang.");
+    if (!openNow) setLiveNote(null);
+    wasOpen.current = openNow;
+  }, [pData, openNow]);
+  useEffect(() => {
+    wasOpen.current = null;
+    setLiveNote(null);
+  }, [token]);
 
   async function handleSubmitPresence() {
     if (!token || !window.confirm(`Kirim presensi untuk ${activeCourse?.nama ?? "mata kuliah ini"} sekarang?`)) return;
@@ -149,7 +218,8 @@ export default function PresensiPage() {
       );
       if (!result.success) throw new Error(result.message || "Presensi tidak berhasil dikirim.");
       clearApiCache("/v1/elearning/presence");
-      setSubmitMessage(result.message || "Presensi berhasil dikirim.");
+      setSubmitMessage(`Presensi ${activeCourse?.nama ?? "mata kuliah"} berhasil dicatat.`);
+      setJustPresent(activeCourse ? (activeCourse.id || activeCourse.kode || activeCourse.nama) : null);
       presenceApi.reload();
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "Presensi gagal dikirim.");
@@ -179,8 +249,8 @@ export default function PresensiPage() {
 
   const records = pData?.riwayat ?? [];
   const isActiveSession =
-    Boolean(pData?.can_submit) ||
-    Boolean(pData?.status_sesi?.toLowerCase().includes("absen masuk"));
+    !pData?.present_today &&
+    (Boolean(pData?.can_submit) || Boolean(pData?.status_sesi?.toLowerCase().includes("absen masuk")));
   const hadirCount = records.filter((r) => r.status_absen.toLowerCase() === "hadir").length;
   const totalPertemuan = records.length;
   const persentase = totalPertemuan > 0 ? Math.round((hadirCount / totalPertemuan) * 100) : 0;
@@ -190,6 +260,19 @@ export default function PresensiPage() {
   const segments = 16;
   const filled = Math.round((persentase / 100) * segments);
   const courseKey = (c: CourseItem) => c.id || c.kode || c.nama;
+
+  const sessionRange = minutesRange(pData?.jam_masuk, pData?.jam_keluar, activeCourse?.jam);
+  const isTodaySession = (pData?.hari || activeCourse?.hari || "").toLowerCase().trim() === todayName.toLowerCase();
+  const presentToday = Boolean(pData?.present_today) || (activeCourse !== null && justPresent === courseKey(activeCourse));
+  let phase: Phase;
+  if (presentToday) phase = "present";
+  else if (isActiveSession) phase = "open";
+  else if (!isTodaySession) phase = "off";
+  else if (sessionRange && nowMinutes < sessionRange[0]) phase = "waiting";
+  else if (sessionRange && nowMinutes > sessionRange[1]) phase = "ended";
+  else phase = "live";
+  const copy = PHASE_COPY[phase];
+  const canAbsen = phase === "open";
 
   return (
     <div className="space-y-6">
@@ -222,7 +305,7 @@ export default function PresensiPage() {
         <div className="page-in space-y-6" key={activeCourse ? courseKey(activeCourse) : "none"}>
           {/* Kartu absen: status sesi + tombol utama */}
           <section
-            className={`glass-card p-4 sm:p-6 ${isActiveSession ? "[--px-line:#0F766E] [--px-drop:#99D5CC]" : ""}`}
+            className={`glass-card p-4 sm:p-6 ${phase === "open" || phase === "present" ? "[--px-line:#0F766E] [--px-drop:#99D5CC]" : ""}`}
             aria-labelledby="presensi-course-title"
           >
             <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
@@ -235,11 +318,11 @@ export default function PresensiPage() {
                   )}
                   <span
                     className={`inline-flex items-center gap-1.5 px-2 py-0.5 font-mono text-[10px] font-bold uppercase ${
-                      isActiveSession ? "bg-[#0F766E] text-white" : "bg-[#F0F7FB] text-secondary"
+                      phase === "open" || phase === "present" ? "bg-[#0F766E] text-white" : phase === "live" ? "bg-[#9A3412] text-white" : "bg-[#F0F7FB] text-secondary"
                     }`}
                   >
-                    <span className={`h-1.5 w-1.5 ${isActiveSession ? "px-cursor bg-white" : "bg-secondary/60"}`} aria-hidden="true" />
-                    {pData?.status_sesi || "Sesi Ditutup"}
+                    <span className={`h-1.5 w-1.5 ${phase === "open" || phase === "live" ? "px-cursor bg-white" : phase === "present" ? "bg-white" : "bg-secondary/60"}`} aria-hidden="true" />
+                    {copy.chip}
                   </span>
                 </div>
                 <h2 id="presensi-course-title" className="text-lg font-display font-bold leading-snug text-foreground sm:text-xl">
@@ -277,15 +360,23 @@ export default function PresensiPage() {
               <button
                 type="button"
                 onClick={handleSubmitPresence}
-                disabled={!isActiveSession || submitting || !token}
-                className={`${isActiveSession ? "px-btn-success" : "px-btn"} inline-flex min-h-12 w-full shrink-0 items-center justify-center gap-2 px-6 text-sm font-bold md:w-auto`}
+                disabled={!canAbsen || submitting || !token}
+                className={`${canAbsen || phase === "present" ? "px-btn-success" : "px-btn"} inline-flex min-h-12 w-full shrink-0 items-center justify-center gap-2 px-6 text-sm font-bold md:w-auto`}
               >
-                <UserCheck className="h-4 w-4" aria-hidden="true" />
-                {submitting ? "Mengirim presensi..." : isActiveSession ? "Absen Sekarang" : "Absen belum dibuka"}
+                {phase === "present" ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> : <UserCheck className="h-4 w-4" aria-hidden="true" />}
+                {submitting ? "Mengirim presensi..." : copy.button}
               </button>
             </div>
 
             {/* Rekap kehadiran */}
+            {refreshMs && (
+              <p className="mt-4 flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-secondary">
+                <span className="px-cursor h-1.5 w-1.5 shrink-0 bg-[#0F766E]" aria-hidden="true" />
+                Diperbarui otomatis
+                {updatedAt && <span className="normal-case tracking-normal">· {updatedAt.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>}
+              </p>
+            )}
+
             <div className="mt-5 border-t-2 border-dashed border-px-soft pt-4">
               <div className="flex items-baseline justify-between gap-3">
                 <span className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-secondary">Kehadiran</span>
@@ -307,9 +398,16 @@ export default function PresensiPage() {
             </div>
           </section>
 
+          {liveNote && phase === "open" && (
+            <div className="px-frame flex items-center gap-2 bg-[#F0FDF4] p-3 text-sm font-bold text-[#0F766E] [--px-line:#99D5CC]" role="status" aria-live="polite">
+              <span className="px-cursor h-2 w-2 shrink-0 bg-[#0F766E]" aria-hidden="true" />
+              {liveNote}
+            </div>
+          )}
+
           {(submitMessage || submitError) && (
             <div
-              className={`px-frame p-3 text-sm ${submitError ? "bg-[#FFF1F2] text-[#BE123C] [--px-line:#FDA4AF]" : "bg-[#F0FDF4] text-[#0F766E] [--px-line:#99D5CC]"}`}
+              className={`px-frame break-words p-3 text-sm ${submitError ? "bg-[#FFF1F2] text-[#BE123C] [--px-line:#FDA4AF]" : "bg-[#F0FDF4] text-[#0F766E] [--px-line:#99D5CC]"}`}
               role="status"
             >
               {submitError || submitMessage}
