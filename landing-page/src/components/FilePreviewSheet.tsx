@@ -13,6 +13,7 @@ type Load =
   | { state: "loading" }
   | { state: "error"; message: string }
   | { state: "other"; blob: Blob; filename: string }
+  | { state: "broken"; blob: Blob; filename: string }
   | { state: "ready"; blob: Blob; filename: string; doc: PDFDocumentProxy };
 
 const ZOOMS = [1, 1.5, 2] as const;
@@ -58,11 +59,20 @@ export function FilePreviewSheet({
       try {
         const { blob, filename } = await apiBlob(path, defaultFilename);
         if (!alive) return;
-        if (!(await isPdfBlob(blob))) {
+        // Nama .pdf atau tipe application/pdf cukup sebagai petunjuk; pdf.js yang menentukan bisa dibuka atau tidak.
+        const claimsPdf = (await isPdfBlob(blob)) || /\.pdf$/i.test(filename) || /pdf/i.test(blob.type);
+        if (!claimsPdf) {
           setLoad({ state: "other", blob, filename });
           return;
         }
-        doc = await openPdf(blob);
+        try {
+          doc = await openPdf(blob);
+        } catch (err) {
+          if (err instanceof Error && /password/i.test(err.message)) throw err;
+          if (!alive) return;
+          setLoad({ state: "broken", blob, filename });
+          return;
+        }
         if (!alive) {
           void doc.destroy();
           return;
@@ -95,7 +105,7 @@ export function FilePreviewSheet({
     };
   }, [open, path, defaultFilename]);
 
-  const file = load.state === "ready" || load.state === "other" ? load : null;
+  const file = load.state === "ready" || load.state === "other" || load.state === "broken" ? load : null;
 
   return (
     <SideSheet
@@ -121,6 +131,8 @@ export function FilePreviewSheet({
     >
       {load.state === "error" ? (
         <Notice message={load.message} />
+      ) : load.state === "broken" ? (
+        <Notice message="Berkas ini tidak bisa ditampilkan di aplikasi (formatnya tidak terbaca). Unduh berkasnya untuk membukanya di aplikasi PDF." />
       ) : load.state === "other" ? (
         <Notice message="Pratinjau dan ringkasan otomatis hanya tersedia untuk berkas PDF. Unduh berkas ini untuk membukanya." />
       ) : (
