@@ -92,7 +92,7 @@ export default function DashboardOverviewPage() {
   const presence = useApi<PresenceData>("/v1/elearning/presence");
 
   if (me.loading && !me.data) {
-    return <LoadingState label="Menyiapkan Student Command Center" />;
+    return <LoadingState label="Menyiapkan dashboard" />;
   }
   if (me.error) return <ErrorState error={me.error} onRetry={me.reload} />;
 
@@ -383,7 +383,7 @@ export default function DashboardOverviewPage() {
         ) : todayClasses.length === 0 ? (
           <EmptyState
             title={`Tidak ada jadwal kuliah hari ${today}.`}
-            description="Nikmati waktu luangmu atau cicil tugas perkuliahan di MyBest."
+            description="Santai dulu, atau cicil tugas di MyBest."
           />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

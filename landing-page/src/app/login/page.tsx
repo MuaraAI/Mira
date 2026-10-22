@@ -15,11 +15,11 @@ type StepKey = "form" | "siakad" | "mybest" | "session" | "redirect";
 type StepState = "pending" | "running" | "done" | "failed";
 
 const STEPS: { key: StepKey; label: string; detail: string }[] = [
-  { key: "form", label: "Validasi data login", detail: "NIM dan dua password terisi" },
-  { key: "siakad", label: "Verifikasi SIAKAD", detail: "students.bsi.ac.id" },
-  { key: "mybest", label: "Verifikasi MyBest + captcha", detail: "elearning.bsi.ac.id" },
-  { key: "session", label: "Membuat sesi terenkripsi", detail: "AES-256-GCM, aktif 7 hari" },
-  { key: "redirect", label: "Membuka dashboard", detail: "Student Command Center" },
+  { key: "form", label: "Cek isian", detail: "NIM dan kedua password" },
+  { key: "siakad", label: "Login ke SIAKAD", detail: "students.bsi.ac.id" },
+  { key: "mybest", label: "Login ke MyBest", detail: "elearning.bsi.ac.id" },
+  { key: "session", label: "Menyimpan sesi", detail: "Terenkripsi, aktif 7 hari" },
+  { key: "redirect", label: "Masuk ke dashboard", detail: "Sebentar lagi masuk" },
 ];
 
 const IDLE_STEPS: Record<StepKey, StepState> = {
@@ -374,7 +374,7 @@ export default function LoginPage() {
               <div className="min-w-0">
                 <h1 className="text-xl font-display font-bold tracking-tight">Login Mahasiswa</h1>
                 <p className="text-xs font-mono tracking-widest text-[#0369A1] font-bold uppercase">
-                  UBSI API Dashboard
+                  Pakai akun SIAKAD dan MyBest
                 </p>
               </div>
             </div>
@@ -384,8 +384,8 @@ export default function LoginPage() {
             ) : (
               <div className="login-form-in">
                 <p className="text-sm leading-relaxed text-secondary mb-6">
-                  Masuk dengan NIM dan password kampus Anda. Password SIAKAD dan MyBest diverifikasi
-                  langsung ke server kampus dan tidak disimpan di sistem ini.
+                  Masuk pakai NIM dan password kampusmu. Passwordnya dicek langsung ke SIAKAD dan MyBest,
+                  lalu disimpan terenkripsi selama sesi aktif (7 hari) supaya kamu nggak perlu login ulang.
                 </p>
 
                 {error && (

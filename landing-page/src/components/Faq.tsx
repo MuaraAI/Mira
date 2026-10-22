@@ -15,9 +15,8 @@ export function Faq() {
   return (
     <section id="faq" className="border-t-2 border-px-soft bg-surface-alt/60" aria-labelledby="faq-title">
       <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6 sm:py-24 lg:px-8">
-        <p className="section-kicker mb-4">Pertanyaan umum</p>
         <h2 id="faq-title" className="font-display text-3xl font-bold leading-tight tracking-[-0.03em] text-foreground sm:text-4xl">
-          Tentang UBSI-API Muara
+          Sering ditanyakan
         </h2>
 
         <div className="mt-8 space-y-4 p-[2px]">

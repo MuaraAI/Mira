@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BookOpen,
   Download,
@@ -23,6 +23,7 @@ import { CourseSelect } from "@/components/CourseSelect";
 import { resolveDosen } from "@/lib/courses";
 import { DosenInfo } from "@/components/DosenInfo";
 import { FilePreviewSheet } from "@/components/FilePreviewSheet";
+import { preloadPdfjs } from "@/lib/pdf";
 
 interface CourseItem {
   id: string;
@@ -48,6 +49,7 @@ interface MaterialItem {
 }
 
 export default function MateriPage() {
+  useEffect(() => preloadPdfjs(), []);
   const coursesApi = useApi<CourseItem[]>("/v1/elearning/courses");
   // Jadwal SIAKAD dipakai sebagai cadangan kode dosen bila kartu MyBest tidak mencantumkannya.
   const scheduleApi = useApi<{ kode: string; nama: string; kode_dosen?: string }[]>("/v1/studentv2/schedule");
@@ -93,7 +95,7 @@ export default function MateriPage() {
         <PageHeader title="Bahan Ajar & Modul" />
         <EmptyState
           title="Belum ada mata kuliah aktif."
-          description="Bahan ajar akan muncul otomatis sesuai mata kuliah di semester Anda."
+          description="Bahan ajar muncul di sini sesuai mata kuliahmu."
         />
       </div>
     );
@@ -152,7 +154,7 @@ export default function MateriPage() {
     <div className="space-y-6">
       <PageHeader
         title="Bahan Ajar & Modul Kuliah"
-        description="Unduh paket berkas resmi kampus (Slide, Modul, Silabus, RPS, RTM) serta berkas materi dari MyBest."
+        description="Materi dari dosen dan paket resmi kampus (slide, modul, silabus, RPS, RTM)."
       />
 
       <CourseSelect
@@ -222,7 +224,7 @@ export default function MateriPage() {
         <div className="space-y-3">
           <EmptyState
             title="Belum ada berkas materi tambahan dari dosen."
-            description="Dosen pengampu belum mengunggah berkas modul khusus di MyBest untuk mata kuliah ini."
+            description="Dosen belum mengunggah materi untuk mata kuliah ini di MyBest."
           />
           <button type="button" onClick={() => setView("resmi")} className="px-btn-ghost inline-flex min-h-11 w-full items-center justify-center gap-2 px-4 text-xs font-bold sm:w-auto">
             <Layers className="h-4 w-4" aria-hidden="true" />

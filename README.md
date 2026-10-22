@@ -292,7 +292,7 @@ UBSI-API/
 │   ├── public/                # Logo resmi, favicon, self-hosted fonts
 │   ├── src/
 │   │   ├── app/               # App Router: /dashboard/* (8 modul), /login, /privacy, /terms
-│   │   ├── components/        # App Shell, Sidebar, MobileNav, Command Center, UI widgets
+│   │   ├── components/        # App Shell, Sidebar, MobileNav, UI widgets
 │   │   └── lib/               # Client SWR RAM cache (0ms tab transitions), API fetcher
 │   └── package.json
 ├── tests/                     # [TEST SUITE] Pytest 100% Offline (155 Passing Tests)

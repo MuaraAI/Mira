@@ -94,7 +94,7 @@ export default function PerpustakaanPage() {
     <div className="space-y-6">
       <PageHeader
         title="Perpustakaan Kampus (OPAC)"
-        description="Pencarian katalog buku fisik, tugas akhir, skripsi, dan ketersediaan stok di seluruh cabang perpustakaan UBSI."
+        description="Cari buku, tugas akhir, dan skripsi, lengkap dengan stoknya di tiap cabang."
       />
 
       {/* Search Input Box */}
@@ -147,7 +147,7 @@ export default function PerpustakaanPage() {
       ) : items.length === 0 ? (
         <EmptyState
           title="Tidak ada buku yang cocok."
-          description="Coba gunakan kata kunci lain atau ubah kategori pencarian."
+          description="Coba kata kunci lain atau ganti kategori."
         />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

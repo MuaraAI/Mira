@@ -6,15 +6,15 @@ Nama lain yang dipakai orang: UBSI API, UBSI-API, API UBSI, API SIAKAD UBSI, API
 
 ## Yang bisa dilakukan
 
-- Dashboard mahasiswa: jadwal kuliah, tugas dan deadline, presensi, bahan ajar, kuis, nilai dan KHS, KRS, kartu ujian, berita kampus, perpustakaan OPAC.
+- Dashboard mahasiswa: jadwal kuliah, tugas dan deadline, absen, bahan ajar (pratinjau dan ringkasan PDF otomatis), kuis, nilai dan KHS, KRS, kartu ujian, berita kampus, perpustakaan OPAC.
 - REST API publik dengan Personal API Key (header Authorization: Bearer).
 - Server MCP (Model Context Protocol) supaya AI agent seperti Claude, ChatGPT, dan Cursor bisa membaca data akademik milik pengguna yang sudah login.
-- Notifikasi push PWA untuk pengingat jadwal, tugas, kuis, dan nilai.
+- Pengingat kelas, absen, dan tugas lewat notifikasi PWA, Discord, atau Telegram. Pengecek link tugas (Google Drive/Docs) memberi tahu kalau link belum publik.
 - Login ulang otomatis ke SIAKAD dan MyBest saat sesi kampus (sekitar 15 menit) habis.
 
 ## Tautan
 
-- [Beranda](https://ubsi-api.muaraai.com/): ringkasan layanan, katalog endpoint, dan statistik publik
+- [Beranda](https://ubsi-api.muaraai.com/): penjelasan singkat, fitur dashboard, info untuk developer, dan FAQ
 - [Login mahasiswa](https://ubsi-api.muaraai.com/login): masuk dengan NIM dan password SIAKAD serta MyBest
 - [Dokumentasi REST API](https://api.muaraai.com/v1/ubsi-api/v1/docs): katalog endpoint publik (JSON)
 - [Server MCP](https://api.muaraai.com/v1/ubsi-api/mcp): endpoint MCP streamable HTTP

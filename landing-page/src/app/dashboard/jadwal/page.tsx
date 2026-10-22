@@ -183,7 +183,7 @@ export default function JadwalPage() {
         <PageHeader title="Jadwal Kuliah" />
         <EmptyState
           title="Belum ada jadwal kuliah terdaftar."
-          description="Pastikan Anda sudah melakukan KRS pada SIAKAD."
+          description="Pastikan kamu sudah isi KRS di SIAKAD."
         />
       </div>
     );
@@ -200,7 +200,7 @@ export default function JadwalPage() {
     <div>
       <PageHeader
         title="Jadwal Kuliah"
-        description={`Total ${schedule.length} mata kuliah terjadwal minggu ini.`}
+        description={`${schedule.length} mata kuliah minggu ini.`}
       />
 
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
