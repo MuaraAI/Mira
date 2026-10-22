@@ -5,7 +5,6 @@ import {
   Send,
   Trash2,
   Plus,
-  X,
   Bell,
   CheckCircle2,
   AlertCircle,
@@ -31,6 +30,7 @@ import {
   inputClass,
   primaryButtonClass,
 } from "@/components/dashboard-ui";
+import { SideSheet } from "@/components/SideSheet";
 
 interface Channel {
   id: number;
@@ -135,9 +135,10 @@ export default function NotifikasiPage() {
   // Section push dirender SEBELUM early-return: kontrol cabut device tidak boleh
   // hilang hanya karena /v1/channels sedang error.
   const pushSection = <PwaPushDeviceSection />;
+  const pageHeader = <PageHeader title="Notifikasi" description="Pengingat kelas, absen, dan tugas ke HP, Discord, atau Telegram." />;
 
-  if (loading) return (<>{pushSection}<LoadingState label="Memuat channel webhook notifikasi" /></>);
-  if (error) return (<>{pushSection}<ErrorState error={error} onRetry={reload} /></>);
+  if (loading) return (<div className="space-y-6">{pageHeader}{pushSection}<LoadingState label="Memuat channel webhook notifikasi" /></div>);
+  if (error) return (<div className="space-y-6">{pageHeader}{pushSection}<ErrorState error={error} onRetry={reload} /></div>);
 
   const channels = data?.channels ?? [];
   const atLimit = channels.length >= MAX_CHANNELS;
@@ -276,421 +277,295 @@ export default function NotifikasiPage() {
 
   return (
     <div className="space-y-6">
+      {pageHeader}
       {pushSection}
 
-      <div className="flex flex-col">
-        <PageHeader
-          title="Webhook Notifikasi"
-          description="Dapat pengingat kuliah, tugas baru, dan berita kampus langsung di Discord atau Telegram."
-        />
-
-        <div className="flex items-center gap-3">
-          <div className="px-chip whitespace-nowrap px-3 py-2 bg-[#F0F7FB] text-xs font-mono [--px-line:#CFE2EE]">
-            <span className="text-secondary">Slot: </span>
-            <span className={atLimit ? "text-amber-800 font-bold" : "text-[#0369A1] font-bold"}>
-              {channels.length} / {MAX_CHANNELS}
+      <section aria-labelledby="webhook-title" className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h2 id="webhook-title" className="font-display text-lg font-bold text-foreground">Discord dan Telegram</h2>
+            <p className="mt-0.5 text-xs leading-relaxed text-secondary">
+              Pengingat yang sama juga bisa masuk ke channel Discord atau chat Telegram kamu.
+            </p>
+          </div>
+          <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
+            <span className="px-chip whitespace-nowrap bg-[#F0F7FB] px-3 py-2 font-mono text-xs [--px-line:#CFE2EE]">
+              <span className="text-secondary">Slot </span>
+              <span className={atLimit ? "font-bold text-amber-800" : "font-bold text-[#0369A1]"}>
+                {channels.length}/{MAX_CHANNELS}
+              </span>
             </span>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              setFormError(null);
-              setIsModalOpen(true);
-            }}
-            disabled={atLimit}
-            className={`${primaryButtonClass} text-xs py-2 px-3.5`}
-          >
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            Tambah Webhook
-          </button>
-        </div>
-      </div>
-
-      {channels.length === 0 ? (
-        <div className="glass-card p-8 text-center space-y-4">
-          <EmptyState
-            title="Belum ada channel notifikasi terpasang."
-            description="Hubungkan Discord webhook atau bot Telegram biar notifikasi kuliah masuk otomatis."
-          />
-          <button
-            type="button"
-            onClick={() => {
-              setFormError(null);
-              setIsModalOpen(true);
-            }}
-            className={`${primaryButtonClass} mx-auto`}
-          >
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            Hubungkan Webhook Pertama
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {channels.map((ch) => (
-            <div
-              key={ch.id}
-              className="glass-card p-5 flex flex-col justify-between hover:border-[#0369A1]/30 transition-all duration-200"
+            <button
+              type="button"
+              onClick={() => {
+                setFormError(null);
+                setIsModalOpen(true);
+              }}
+              disabled={atLimit}
+              className={`${primaryButtonClass} min-h-11 px-4 text-xs`}
             >
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <ChannelTypeBadge type={ch.type} />
-                    <ChannelActiveBadge active={ch.is_active} />
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Tambah
+            </button>
+          </div>
+        </div>
+
+        {channels.length === 0 ? (
+          <div className="glass-card space-y-4 p-6 text-center sm:p-8">
+            <EmptyState
+              title="Belum ada channel terpasang."
+              description="Hubungkan Discord webhook atau bot Telegram biar notifikasi kuliah masuk otomatis."
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setFormError(null);
+                setIsModalOpen(true);
+              }}
+              className={`${primaryButtonClass} mx-auto`}
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Hubungkan Webhook Pertama
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {channels.map((ch) => (
+              <div key={ch.id} className="glass-card flex min-w-0 flex-col justify-between p-4 sm:p-5">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <ChannelTypeBadge type={ch.type} />
+                      <ChannelActiveBadge active={ch.is_active} />
+                    </div>
+                    <span className="shrink-0 font-mono text-[11px] text-secondary">#{ch.id}</span>
                   </div>
-                  <span className="text-[11px] font-mono text-secondary">ID #{ch.id}</span>
-                </div>
 
-                <div className="space-y-1.5 text-xs text-secondary">
-                  {ch.config.url && (
-                    <div className="bg-[#F0F7FB] p-2 rounded-lg border border-[#D9E5ED] font-mono truncate">
-                      <span className="text-[#0369A1] font-semibold">URL: </span>
-                      <span className="text-foreground/80">{ch.config.url}</span>
-                    </div>
-                  )}
-                  {ch.config.chat_id && (
-                    <div className="bg-[#F0F7FB] p-2 rounded-lg border border-[#D9E5ED] font-mono">
-                      <span className="text-[#0369A1] font-semibold">Chat ID: </span>
-                      <span className="text-foreground/80">{ch.config.chat_id}</span>
-                    </div>
-                  )}
-
-                  <div className="pt-1">
-                    <span className="text-foreground font-semibold block mb-1">
-                      Event Notifikasi:
-                    </span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {ch.categories.map((c) => (
-                        <span
-                          key={c}
-                          className="px-2 py-0.5 rounded-md bg-[#F0F7FB] text-[11px] font-mono text-[#0369A1] border border-[#D9E5ED]"
-                        >
-                          {c}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {actionStatus[ch.id]?.message && (
-                  <div
-                    className={`text-xs p-2 rounded-lg flex items-center gap-1.5 ${
-                      actionStatus[ch.id].ok
-                        ? "bg-emerald-500/10 text-emerald-800 border border-emerald-500/25"
-                        : "bg-rose-500/10 text-rose-800 border border-rose-500/25"
-                    }`}
-                  >
-                    {actionStatus[ch.id].ok ? (
-                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                    ) : (
-                      <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                  <div className="space-y-2 text-xs text-secondary">
+                    {ch.config.url && (
+                      <div className="break-all bg-[#F0F7FB] p-2.5 font-mono leading-relaxed line-clamp-2">
+                        <span className="font-semibold text-[#0369A1]">URL </span>
+                        <span className="text-foreground/80">{ch.config.url}</span>
+                      </div>
                     )}
-                    <span>{actionStatus[ch.id].message}</span>
+                    {ch.config.chat_id && (
+                      <div className="bg-[#F0F7FB] p-2.5 font-mono">
+                        <span className="font-semibold text-[#0369A1]">Chat ID </span>
+                        <span className="text-foreground/80">{ch.config.chat_id}</span>
+                      </div>
+                    )}
+
+                    <div className="pt-1">
+                      <span className="mb-1.5 block font-semibold text-foreground">Yang dikirim</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {ch.categories.map((c) => (
+                          <span key={c} className="bg-[#F0F7FB] px-2 py-1 font-mono text-[11px] text-[#0369A1]">
+                            {c}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                )}
-              </div>
 
-              <div className="mt-5 pt-4 border-t-2 border-dashed border-px-soft grid grid-cols-3 gap-3 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
-                <button
-                  type="button"
-                  onClick={() => openEditCategories(ch)}
-                  disabled={busyId === ch.id}
-                  className={`${ghostButtonClass} text-xs py-2.5 px-3 min-h-[44px]`}
-                >
-                  <Radio className="h-3.5 w-3.5" aria-hidden="true" />
-                  Edit Kategori
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleTest(ch.id)}
-                  disabled={busyId === ch.id}
-                  className={`${ghostButtonClass} text-xs py-2.5 px-3 min-h-[44px]`}
-                >
-                  <Send className="h-3.5 w-3.5" aria-hidden="true" />
-                  Kirim Tes
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(ch.id)}
-                  disabled={busyId === ch.id}
-                  className={`${ghostButtonClass} text-xs py-2.5 px-3 min-h-[44px] text-[#BE123C] hover:border-[#BE123C]/40 hover:bg-rose-500/10`}
-                >
-                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                  Hapus
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* UJI COBA SIMULASI PENGINGAT OTOMATIS */}
-      {channels.length > 0 && (
-        <div className="glass-card p-5 sm:p-6 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <h3 className="font-display font-semibold text-sm text-foreground">
-                Simulasi Pengingat Webhook
-              </h3>
-              <p className="text-xs text-secondary mt-0.5 font-sans">
-                Uji format tampilan pengingat matkul H-1 dan tugas kuis langsung ke channel aktif kamu.
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-center">
-              <button
-                type="button"
-                onClick={() => handleSimulate("matkul-besok")}
-                disabled={Boolean(triggering)}
-                className={`${ghostButtonClass} text-xs py-2.5 px-3 min-h-[44px]`}
-              >
-                <CalendarCheck className="h-3.5 w-3.5 text-[#0369A1]" />
-                {triggering === "matkul-besok" ? "Mengirim..." : "Tes Notif Matkul Besok"}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSimulate("quiz-tugas")}
-                disabled={Boolean(triggering)}
-                className={`${ghostButtonClass} text-xs py-2.5 px-3 min-h-[44px]`}
-              >
-                <BookOpen className="h-3.5 w-3.5 text-[#0369A1]" />
-                {triggering === "quiz-tugas" ? "Mengirim..." : "Tes Tugas & Kuis"}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSimulate("absen-kuliah")}
-                disabled={Boolean(triggering)}
-                className={`${ghostButtonClass} text-xs py-2.5 px-3 min-h-[44px]`}
-              >
-                <Clock className="h-3.5 w-3.5 text-[#0369A1]" />
-                {triggering === "absen-kuliah" ? "Mengirim..." : "Tes Presensi"}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSimulate("nilai-keluar")}
-                disabled={Boolean(triggering)}
-                className={`${ghostButtonClass} text-xs py-2.5 px-3 min-h-[44px]`}
-              >
-                <Award className="h-3.5 w-3.5 text-[#0369A1]" />
-                {triggering === "nilai-keluar" ? "Mengirim..." : "Tes Nilai"}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSimulate("jadwal-ujian")}
-                disabled={Boolean(triggering)}
-                className={`${ghostButtonClass} text-xs py-2.5 px-3 min-h-[44px]`}
-              >
-                <FileText className="h-3.5 w-3.5 text-[#0369A1]" />
-                {triggering === "jadwal-ujian" ? "Mengirim..." : "Tes Ujian"}
-              </button>
-            </div>
-          </div>
-
-          {triggerStatus && (
-            <div className="text-xs p-3 rounded-xl bg-[#F0F7FB] border border-[#D9E5ED] text-[#0369A1] flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-emerald-700 shrink-0" />
-              <span>{triggerStatus}</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {editingChannelId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#072033]/50 backdrop-blur-[2px]">
-          <div className="glass-card-3d w-full max-w-xl p-6 sm:p-7 relative max-h-[90vh] overflow-y-auto space-y-5 rounded-2xl shadow-2xl border border-[#0369A1]/30" role="dialog" aria-modal="true" aria-labelledby="edit-category-title">
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
-              <div>
-                <h2 id="edit-category-title" className="text-lg font-display font-bold text-foreground">Edit Kategori Webhook</h2>
-                <p className="text-xs text-secondary mt-0.5">Tambah atau hapus jenis notifikasi tanpa mengubah kredensial channel.</p>
-              </div>
-              <button type="button" onClick={() => setEditingChannelId(null)} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-secondary hover:text-foreground hover:bg-[#F0F7FB]" aria-label="Tutup edit kategori"><X className="h-5 w-5" /></button>
-            </div>
-            <form onSubmit={handleEditCategories} className="space-y-4">
-              {formError && <div className="p-3 rounded-lg bg-[#F0F7FB] border border-[#BE123C]/30 text-[#BE123C] text-xs"><span>{formError}</span></div>}
-              <div className="space-y-2">
-                {AVAILABLE_CATEGORIES.map((cat) => {
-                  const active = editCategories.includes(cat.id);
-                  const Icon = cat.icon;
-                  return <button key={cat.id} type="button" onClick={() => toggleEditCategory(cat.id)} className={`w-full text-left p-3 rounded-xl border transition-all flex items-start gap-3 ${active ? "bg-[#0369A1]/20 border-[#0369A1]/60" : "bg-white/5 border-white/10 hover:bg-white/10"}`} aria-pressed={active}>
-                    <span className={`mt-0.5 h-4 w-4 rounded border ${active ? "bg-[#0369A1] border-[#0369A1]" : "border-[#9FB4C2]"}`} aria-hidden="true" />
-                    <span className="flex-1"><span className="flex items-center gap-1.5 font-semibold text-xs text-foreground"><Icon className="h-3.5 w-3.5 text-[#0369A1]" />{cat.label}</span><span className="block text-[11px] text-secondary mt-0.5">{cat.desc}</span></span>
-                  </button>;
-                })}
-              </div>
-              <div className="pt-3 border-t border-white/10 flex justify-end gap-3"><button type="button" onClick={() => setEditingChannelId(null)} className={ghostButtonClass}>Batal</button><button type="submit" disabled={saving} className={primaryButtonClass}>{saving ? "Menyimpan..." : "Simpan Kategori"}</button></div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* POPUP MODAL TAMBAH WEBHOOK */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#072033]/50 backdrop-blur-[2px] animate-in fade-in duration-200">
-          <div
-            className="glass-card-3d w-full max-w-xl p-6 sm:p-7 relative max-h-[90vh] overflow-y-auto space-y-5 rounded-2xl shadow-2xl border border-[#0369A1]/30"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="modal-title"
-          >
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
-              <div>
-                <h2 id="modal-title" className="text-lg font-display font-bold text-foreground">
-                  Hubungkan Webhook Baru
-                </h2>
-                <p className="text-xs text-secondary mt-0.5">
-                  Slot terpakai {channels.length} dari maksimal {MAX_CHANNELS} channel.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-secondary hover:text-foreground hover:bg-[#F0F7FB] transition-colors"
-                aria-label="Tutup modal"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAdd} className="space-y-4">
-              {formError && (
-                <div className="p-3 rounded-lg bg-[#F0F7FB] border border-[#BE123C]/30 text-[#BE123C] text-xs flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4 shrink-0" />
-                  <span>{formError}</span>
-                </div>
-              )}
-
-              {/* TIPE PLATFORM */}
-              <div>
-                <label className="block text-xs font-semibold text-foreground mb-2">
-                  Pilih Platform
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {(["discord", "telegram", "custom"] as const).map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setType(t)}
-                      className={`p-2.5 rounded-xl border text-xs font-semibold flex flex-col items-center gap-1.5 transition-all ${
-                        type === t
-                          ? "bg-[#0369A1]/30 border-[#0369A1] text-[#0369A1] shadow-sm"
-                          : "bg-white/5 border-white/10 text-secondary hover:bg-white/10"
+                  {actionStatus[ch.id]?.message && (
+                    <div
+                      role="status"
+                      className={`flex items-start gap-1.5 p-2.5 text-xs ${
+                        actionStatus[ch.id].ok ? "bg-[#F0FDF4] text-[#0F766E]" : "bg-[#FFF1F2] text-[#BE123C]"
                       }`}
                     >
-                      <Radio className="h-4 w-4" />
-                      <span>{TYPE_CONFIG[t].label}</span>
-                    </button>
-                  ))}
+                      {actionStatus[ch.id].ok ? (
+                        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                      ) : (
+                        <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                      )}
+                      <span className="min-w-0 break-words">{actionStatus[ch.id].message}</span>
+                    </div>
+                  )}
                 </div>
-                <p className="mt-2 text-[11px] text-secondary/80 font-sans">
-                  {TYPE_CONFIG[type].hint}
-                </p>
-              </div>
 
-              {/* CONFIG INPUTS */}
-              {type === "telegram" ? (
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-foreground mb-1">
-                      Telegram Bot Token
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Contoh: 123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
-                      value={botToken}
-                      onChange={(e) => setBotToken(e.target.value)}
-                      className={inputClass}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-foreground mb-1">
-                      Chat ID Penerima
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Contoh: 987654321"
-                      value={chatId}
-                      onChange={(e) => setChatId(e.target.value)}
-                      className={inputClass}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-xs font-semibold text-foreground mb-1">
-                    {type === "discord" ? "Discord Webhook URL" : "Endpoint URL (HTTPS)"}
-                  </label>
-                  <input
-                    type="url"
-                    required
-                    placeholder={TYPE_CONFIG[type].placeholderUrl}
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                    className={inputClass}
-                  />
-                </div>
-              )}
-
-              {/* KATEGORI EVENT NOTIFIKASI */}
-              <div>
-                <label className="block text-xs font-semibold text-foreground mb-2">
-                  Event yang Ingin Diterima
-                </label>
-                <div className="space-y-2">
-                  {AVAILABLE_CATEGORIES.map((cat) => {
-                    const active = categories.includes(cat.id);
-                    const Icon = cat.icon;
-                    return (
-                      <label
-                        key={cat.id}
-                        className={`p-3 rounded-xl border cursor-pointer transition-all flex items-start gap-3 ${
-                          active
-                            ? "bg-[#0369A1]/20 border-[#0369A1]/60 text-foreground"
-                            : "bg-[#F7FAFC] border-stroke text-secondary hover:bg-[#F0F7FB]"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={active}
-                          onChange={() => toggleCategory(cat.id)}
-                          className="mt-1 rounded text-[#0369A1] focus:ring-[#0369A1]"
-                        />
-                        <span className="flex-1">
-                          <span className="flex items-center gap-1.5 font-semibold text-xs text-foreground">
-                            <Icon className="h-3.5 w-3.5 text-[#0369A1]" />
-                            <span>{cat.label}</span>
-                          </span>
-                          <span className="block text-[11px] text-secondary mt-0.5 leading-relaxed">
-                            {cat.desc}
-                          </span>
-                        </span>
-                      </label>
-                    );
-                  })}
+                <div className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(5.25rem,1fr))] gap-2 border-t-2 border-dashed border-px-soft pt-4">
+                  <button type="button" onClick={() => openEditCategories(ch)} disabled={busyId === ch.id} className={`${ghostButtonClass} min-h-11 px-3 text-xs`}>
+                    <Radio className="h-3.5 w-3.5" aria-hidden="true" />
+                    Kategori
+                  </button>
+                  <button type="button" onClick={() => handleTest(ch.id)} disabled={busyId === ch.id} className={`${ghostButtonClass} min-h-11 px-3 text-xs`}>
+                    <Send className="h-3.5 w-3.5" aria-hidden="true" />
+                    Kirim tes
+                  </button>
+                  <button type="button" onClick={() => handleDelete(ch.id)} disabled={busyId === ch.id} className={`${ghostButtonClass} min-h-11 px-3 text-xs text-[#BE123C]`}>
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    Hapus
+                  </button>
                 </div>
               </div>
-
-              {/* ACTION BUTTONS */}
-              <div className="pt-3 border-t border-white/10 flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className={ghostButtonClass}
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving || atLimit}
-                  className={primaryButtonClass}
-                >
-                  {saving ? "Menyimpan..." : "Simpan Channel Webhook"}
-                </button>
-              </div>
-            </form>
+            ))}
           </div>
-        </div>
-      )}
+        )}
+
+        {channels.length > 0 && (
+          <div className="glass-card space-y-4 p-4 sm:p-5">
+            <div>
+              <h3 className="font-display text-sm font-semibold text-foreground">Coba kirim contoh</h3>
+              <p className="mt-0.5 text-xs leading-relaxed text-secondary">Lihat tampilan tiap jenis pengingat di channel kamu.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1">
+              {SIMULATIONS.map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => handleSimulate(id)}
+                  disabled={Boolean(triggering)}
+                  className={`${ghostButtonClass} min-h-11 px-3 text-xs`}
+                >
+                  <Icon className="h-3.5 w-3.5 text-[#0369A1]" aria-hidden="true" />
+                  {triggering === id ? "Mengirim..." : label}
+                </button>
+              ))}
+            </div>
+            {triggerStatus && (
+              <div role="status" className="flex items-start gap-2 bg-[#F0F7FB] p-3 text-xs text-[#0369A1]">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" aria-hidden="true" />
+                <span className="min-w-0 break-words">{triggerStatus}</span>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* Ubah kategori channel: panel samping (desktop) atau dari bawah (HP) */}
+      <SideSheet
+        open={editingChannelId !== null}
+        onClose={() => setEditingChannelId(null)}
+        eyebrow="Channel"
+        title="Ubah yang dikirim"
+        subtitle="Tambah atau kurangi jenis notifikasi tanpa mengubah data channel."
+        titleId="edit-category-title"
+        width="md"
+        footer={
+          <div className="grid grid-cols-2 gap-3 sm:flex sm:justify-end">
+            <button type="button" onClick={() => setEditingChannelId(null)} className={ghostButtonClass}>Batal</button>
+            <button type="submit" form="edit-category-form" disabled={saving} className={primaryButtonClass}>{saving ? "Menyimpan..." : "Simpan"}</button>
+          </div>
+        }
+      >
+        <form id="edit-category-form" onSubmit={handleEditCategories} className="space-y-4">
+          {formError && <div className="bg-[#FFF1F2] p-3 text-xs text-[#BE123C]" role="alert">{formError}</div>}
+          <CategoryPicker selected={editCategories} onToggle={toggleEditCategory} />
+        </form>
+      </SideSheet>
+
+      {/* Tambah channel baru */}
+      <SideSheet
+        open={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        eyebrow="Channel baru"
+        title="Hubungkan Discord atau Telegram"
+        subtitle={`Slot terpakai ${channels.length} dari ${MAX_CHANNELS}.`}
+        titleId="modal-title"
+        width="md"
+        footer={
+          <div className="grid grid-cols-2 gap-3 sm:flex sm:justify-end">
+            <button type="button" onClick={() => setIsModalOpen(false)} className={ghostButtonClass}>Batal</button>
+            <button type="submit" form="add-channel-form" disabled={saving || atLimit} className={primaryButtonClass}>{saving ? "Menyimpan..." : "Simpan"}</button>
+          </div>
+        }
+      >
+        <form id="add-channel-form" onSubmit={handleAdd} className="space-y-5">
+          {formError && (
+            <div className="flex items-start gap-2 bg-[#FFF1F2] p-3 text-xs text-[#BE123C]" role="alert">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <span className="min-w-0 break-words">{formError}</span>
+            </div>
+          )}
+
+          <fieldset>
+            <legend className="mb-2 block text-xs font-bold uppercase tracking-wider text-foreground">Platform</legend>
+            <div className="grid grid-cols-3 gap-2">
+              {(["discord", "telegram", "custom"] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setType(t)}
+                  aria-pressed={type === t}
+                  className={`flex min-h-16 flex-col items-center justify-center gap-1.5 px-2 text-xs font-bold transition-colors ${
+                    type === t
+                      ? "bg-[#0369A1] text-white shadow-[2px_2px_0_0_#072033]"
+                      : "bg-px-tint text-secondary hover:text-foreground"
+                  }`}
+                >
+                  <Radio className="h-4 w-4" aria-hidden="true" />
+                  <span>{t === "custom" ? "Endpoint" : TYPE_CONFIG[t].label.split(" ")[0]}</span>
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-[11px] leading-relaxed text-secondary">{TYPE_CONFIG[type].hint}</p>
+          </fieldset>
+
+          {type === "telegram" ? (
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="bot-token" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-foreground">Bot token</label>
+                <input id="bot-token" type="text" required autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ" value={botToken} onChange={(e) => setBotToken(e.target.value)} className={`${inputClass} min-h-12 text-base sm:text-sm`} />
+              </div>
+              <div>
+                <label htmlFor="chat-id" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-foreground">Chat ID</label>
+                <input id="chat-id" type="text" inputMode="numeric" required placeholder="987654321" value={chatId} onChange={(e) => setChatId(e.target.value)} className={`${inputClass} min-h-12 text-base sm:text-sm`} />
+              </div>
+            </div>
+          ) : (
+            <div>
+              <label htmlFor="channel-url" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-foreground">
+                {type === "discord" ? "Webhook URL Discord" : "URL endpoint (HTTPS)"}
+              </label>
+              <input id="channel-url" type="url" inputMode="url" required autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder={TYPE_CONFIG[type].placeholderUrl} value={url} onChange={(e) => setUrl(e.target.value)} className={`${inputClass} min-h-12 text-base sm:text-sm`} />
+            </div>
+          )}
+
+          <div>
+            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-foreground">Yang mau dikirim</p>
+            <CategoryPicker selected={categories} onToggle={toggleCategory} />
+          </div>
+        </form>
+      </SideSheet>
     </div>
+  );
+}
+
+const SIMULATIONS: { id: NotificationCategoryId; label: string; icon: typeof Clock }[] = [
+  { id: "matkul-besok", label: "Kuliah besok", icon: CalendarCheck },
+  { id: "quiz-tugas", label: "Tugas dan kuis", icon: BookOpen },
+  { id: "absen-kuliah", label: "Absen", icon: Clock },
+  { id: "nilai-keluar", label: "Nilai", icon: Award },
+  { id: "jadwal-ujian", label: "Jadwal ujian", icon: FileText },
+];
+
+/** Daftar jenis notifikasi dengan kotak centang (dipakai form tambah dan ubah channel). */
+function CategoryPicker({ selected, onToggle }: { selected: string[]; onToggle: (id: string) => void }) {
+  return (
+    <ul className="space-y-2.5">
+      {AVAILABLE_CATEGORIES.map((cat) => {
+        const on = selected.includes(cat.id);
+        const Icon = cat.icon;
+        return (
+          <li key={cat.id}>
+            <label
+              className={`flex min-h-14 cursor-pointer items-start gap-3 p-3 transition-colors ${
+                on ? "bg-px-highlight shadow-[inset_3px_0_0_#0369A1]" : "bg-white shadow-[0_-2px_0_0_#D9E5ED,0_2px_0_0_#D9E5ED,-2px_0_0_0_#D9E5ED,2px_0_0_0_#D9E5ED] hover:bg-[#F0F7FB]"
+              }`}
+            >
+              <input type="checkbox" checked={on} onChange={() => onToggle(cat.id)} className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer accent-[#0369A1]" />
+              <span className="min-w-0">
+                <span className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                  <Icon className="h-3.5 w-3.5 shrink-0 text-[#0369A1]" aria-hidden="true" />
+                  {cat.label}
+                </span>
+                <span className="mt-0.5 block text-[11px] leading-snug text-secondary">{cat.desc}</span>
+              </span>
+            </label>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

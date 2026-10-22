@@ -44,9 +44,8 @@ export async function apiFetch<T>(
       : null;
   const { json, ...rest } = init ?? {};
   const method = rest.method ?? (json !== undefined ? "POST" : "GET");
-  let res: Response;
-  try {
-    res = await fetch(`${base}${path}`, {
+  const request = () =>
+    fetch(`${base}${path}`, {
       ...rest,
       method,
       credentials: "include",
@@ -59,13 +58,19 @@ export async function apiFetch<T>(
       },
       body: json !== undefined ? JSON.stringify(json) : undefined,
     });
-  } catch {
-    throw new ApiError(
-      "NETWORK_ERROR",
-      "Tidak dapat menghubungi server API. Pastikan backend berjalan di " +
-        base,
-      0
-    );
+
+  // Jaringan HP sering putus sesaat: permintaan baca (GET) dicoba ulang dua kali sebelum dianggap gagal.
+  let res: Response | null = null;
+  for (let attempt = 0; attempt < (method === "GET" ? 3 : 1) && !res; attempt++) {
+    try {
+      res = await request();
+    } catch {
+      if (attempt === 2 || method !== "GET") break;
+      await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+    }
+  }
+  if (!res) {
+    throw new ApiError("NETWORK_ERROR", "Tidak bisa terhubung ke server. Cek koneksi internetmu lalu coba lagi.", 0);
   }
 
   let payload: EnvelopePayload | null = null;
@@ -121,8 +126,7 @@ export async function apiBlob(
   } catch {
     throw new ApiError(
       "NETWORK_ERROR",
-      "Tidak dapat menghubungi server API. Pastikan backend berjalan di " +
-        base,
+      "Tidak bisa terhubung ke server. Cek koneksi internetmu lalu coba lagi.",
       0
     );
   }
