@@ -465,7 +465,7 @@ async def dispatch_discord_webhook(post: dict[str, Any], webhook_url: str) -> bo
 
     payload = {
         "username": "UBSI News",
-        "avatar_url": "https://ubsi-api.muaraai.com/assets/images/brand-logos/logo_bsi.png",
+        "avatar_url": f"{settings.WEB_BASE_URL}/assets/images/brand-logos/logo_bsi.png",
         "embeds": [embed],
     }
     try:

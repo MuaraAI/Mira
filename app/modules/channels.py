@@ -258,7 +258,7 @@ async def trigger_reminder(request: Request, body: ReminderRequest):
         payload = {
             "title": f"Notifikasi Event: {category}",
             "description": f"Pemberitahuan perkuliahan UBSI untuk mahasiswa NIM {nim}.",
-            "link": "https://ubsi-api.muaraai.com/dashboard",
+            "link": f"{settings.WEB_BASE_URL}/dashboard",
         }
 
     from app.modules.news import (

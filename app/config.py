@@ -1,3 +1,4 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -39,6 +40,11 @@ class Settings(BaseSettings):
     DISCORD_WEBHOOK_URL: str = ""
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_CHAT_ID: str = ""
+
+    @field_validator("WEB_BASE_URL", mode="before")
+    @classmethod
+    def _strip_trailing_slash(cls, v: str) -> str:
+        return v.rstrip("/") if isinstance(v, str) else v
 
     model_config = SettingsConfigDict(
         env_file=".env",
