@@ -138,9 +138,6 @@ async def test_exams_endpoint_cached(monkeypatch):
     async def fake_fetch(path, nim, password):
         return html
 
-    monkeypatch.setenv("ELEARNING_NIM", "15260001")
-    monkeypatch.setenv("ELEARNING_PASS", "secret")
-
     with _mock_redis(), patch(
         "app.modules.elearning.pooled_elearning_client.fetch_page", fake_fetch
     ):
@@ -172,9 +169,6 @@ async def test_exam_schedule_endpoint(monkeypatch):
 
     async def fake_cross(url, nim, password):
         return sched
-
-    monkeypatch.setenv("ELEARNING_NIM", "15260001")
-    monkeypatch.setenv("ELEARNING_PASS", "secret")
 
     with _mock_redis(), patch(
         "app.modules.elearning.pooled_elearning_client.fetch_page", fake_dash
@@ -242,9 +236,6 @@ async def test_exam_schedule_type_her_khusus_valid(monkeypatch):
 
     async def fake_cross(url, nim, password):
         return (FIXTURES / "uk_schedule_active.html").read_text()
-
-    monkeypatch.setenv("ELEARNING_NIM", "15260001")
-    monkeypatch.setenv("ELEARNING_PASS", "secret")
 
     with _mock_redis(), patch(
         "app.modules.elearning.pooled_elearning_client.fetch_page", fake_dash

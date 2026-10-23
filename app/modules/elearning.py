@@ -663,8 +663,12 @@ def parse_exam_types(html: str) -> dict[str, Any]:
     seen: dict[str, dict[str, Any]] = {}
     for a in page.css('a[href*="/jadwal/"]'):
         href = a.attrib.get("href", "")
-        m = re.search(r"/jadwal/([A-Za-z0-9+/=_-]+)", href)
-        if not m:
+        # Ambil substring setelah /jadwal/ (bukan regex charclass): token upstream
+        # bisa ter-encode dengan karakter seperti % yang memotong charclass.
+        if "/jadwal/" not in href:
+            continue
+        token = href.split("/jadwal/", 1)[1].split("?", 1)[0].rstrip("/")
+        if not token:
             continue
         label = " ".join((a.get_all_text() or "").split())
         if not label:
@@ -674,7 +678,7 @@ def parse_exam_types(html: str) -> dict[str, Any]:
         # dedupe by KEY dan ambil token kemunculan pertama.
         if not key or key in seen:
             continue
-        seen[key] = {"key": key, "label": label, "token": m.group(1)}
+        seen[key] = {"key": key, "label": label, "token": token}
     if not seen:
         # Halaman login / struktur berubah: bukan empty state yang valid.
         raise ValueError("exam dashboard marker missing: tidak ada link /jadwal/")
