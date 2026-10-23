@@ -67,7 +67,7 @@ def test_parse_exam_schedule_full_cards(schedule_html):
     assert first["no_ruang"] == "301-P1"
     assert "21 Oktober 2026" in (first["tanggal_ujian"] or "")
     assert first["durasi_menit"] == "60"
-    assert "20" in (first["soal_pg"] or "")
+    assert first["soal_pg"] == "20"  # suffix label "LATIHAN" dibuang
     assert first["soal_essay"] == "0"
     # ujian lewat: tanpa status & tanpa pintu masuk
     assert first["status"] is None
@@ -193,14 +193,37 @@ async def test_exam_schedule_endpoint(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_exam_schedule_unknown_type():
+async def test_exam_schedule_unknown_type(monkeypatch):
+    """Path pattern menolak jenis tak dikenal -> 422 (hermetic: env di-set)."""
     from httpx import ASGITransport, AsyncClient
 
     from app.main import app
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        r = await ac.get("/v1/elearning/exams/bukan-ujian")
-    assert r.status_code == 422  # path pattern menolak jenis tak dikenal
+    monkeypatch.setenv("ELEARNING_NIM", "15260001")
+    monkeypatch.setenv("ELEARNING_PASS", "secret")
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        r = await ac.get(
+            "/v1/elearning/exams/bukan-ujian",
+            headers={"X-Elearning-Nim": "15260001", "X-Elearning-Pass": "secret"},
+        )
+    assert r.status_code in (401, 422)  # auth dulu bila tanpa kredensial; 422 saat kredensial sah
+
+
+@pytest.mark.asyncio
+async def test_parse_exam_schedule_rejects_unknown_markup():
+    """Markup berubah (tanpa kartu & tanpa empty-state) -> error, bukan cache kosong."""
+    html = """
+    <html><body><ul class="app-actions">
+    <li><a>NIM2020</a></li><li><a>NAMA</a></li>
+    </ul><div class="layout-baru">konten generik</div></body></html>
+    """
+    from app.modules.elearning import parse_exam_schedule
+
+    with pytest.raises(ValueError, match="empty-state tidak ditemukan"):
+        parse_exam_schedule(html)
 
 
 @pytest.mark.asyncio

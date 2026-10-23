@@ -727,9 +727,18 @@ def parse_exam_schedule(html: str) -> dict[str, Any]:
                 k, _, v = text.partition(":")
                 fields[k.replace("icon", "").strip().lower()] = v.strip()
 
-        action = plan.css("a.btn-success")
-        status_text = " ".join((action[0].get_all_text() or "").split()) if action else None
+        # Pintu masuk ujian identik dengan link /exercise-show/ (bukan gaya tombol:
+        # restyle upstream tidak boleh mengubah arti status).
+        enter_link = plan.css('a[href^="/exercise-show/"]')
+        status_text = " ".join((enter_link[0].get_all_text() or "").split()) if enter_link else None
         cetak = plan.css('a[href*="/cetak-ujian-pdf/"]')
+
+        def _digits(value: Optional[str]) -> Optional[str]:
+            if not value:
+                return value
+            m = re.match(r"\s*(\d+)", value)
+            return m.group(1) if m else value
+
         exams.append({
             "mata_kuliah": title.get_all_text().strip() if title else None,
             "waktu": " ".join((save.get_all_text() or "").split()) if save else None,
@@ -739,12 +748,19 @@ def parse_exam_schedule(html: str) -> dict[str, Any]:
             "sks": fields.get("sks"),
             "no_ruang": fields.get("no ruang"),
             "tanggal_ujian": fields.get("tanggal ujian"),
-            "durasi_menit": fields.get("waktu ujian"),
-            "soal_pg": fields.get("jumlah soal pg"),
-            "soal_essay": fields.get("jumlah soal essay"),
+            "durasi_menit": _digits(fields.get("waktu ujian")),
+            "soal_pg": _digits(fields.get("jumlah soal pg")),
+            "soal_essay": _digits(fields.get("jumlah soal essay")),
             "status": status_text,
-            "can_enter": bool(action),
+            "can_enter": bool(enter_link),
         })
+
+    # Empty-state valid HARUS terdeteksi positif: halaman kosong menampilkan
+    # "Jadwal Ujian Tidak Tersedia". Markup berubah -> error, bukan cache kosong.
+    page_text = page.get_all_text() or ""
+    valid_empty = "Jadwal Ujian Tidak Tersedia" in page_text
+    if not exams and not valid_empty:
+        raise ValueError("exam schedule marker missing: kartu dan empty-state tidak ditemukan")
 
     return {
         "identity": {
@@ -752,7 +768,7 @@ def parse_exam_schedule(html: str) -> dict[str, Any]:
             "nama": ident[1] if len(ident) > 1 else None,
         },
         "exams": exams,
-        "empty_marker": True,  # identitas terdeteksi = halaman valid walau tanpa kartu
+        "empty_marker": True,  # lolos pengecekan marker di atas
     }
 
 
@@ -1308,7 +1324,9 @@ class PooledElearningClient:
             resp = client.get_client().get(url)
             text = resp.content.decode("utf-8", errors="replace")
             if resp.status_code != 200:
-                raise ValueError(f"upstream status {resp.status_code} untuk {url.split('?')[0]}")
+                # Tanpa URL di pesan: exception ini masuk response 502, jangan
+                # bocorkan path + token jadwal ke klien.
+                raise ValueError(f"upstream status {resp.status_code}")
             return text
 
         try:
