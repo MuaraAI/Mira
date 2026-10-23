@@ -282,7 +282,14 @@ async def _absen_process_course(
     elearning_password: str, now_ts: float,
     by_kode: dict[str, dict[str, Any]], by_name: dict[str, dict[str, Any]],
 ) -> int:
-    from app.modules.elearning import inspect_session_status, parse_courses, pooled_elearning_client
+    from app.modules.elearning import (
+        _record_date,
+        extract_clean_token,
+        inspect_session_status,
+        parse_courses,
+        parse_presence_rekap,
+        pooled_elearning_client,
+    )
 
     redis = await _redis()
     sent_flag = 0
@@ -294,6 +301,27 @@ async def _absen_process_course(
         return 0
     html = await pooled_elearning_client.fetch_page(f"/absen-mhs/{token}", nim, elearning_password)
     session_open = bool(inspect_session_status(html).get("can_submit"))
+    if session_open:
+        # Form absen/komentar bisa tetap terrender WALAU user sudah absen ->
+        # jangan percaya can_submit mentah. Cek rekap AJAX: ada baris hadir
+        # bertanggal hari ini = sudah absen, hentikan pengingat permanen.
+        m_rekap = re.findall(r"rekap-side/([^\"'\s]+)", html)
+        if m_rekap:
+            rekap_tok = extract_clean_token(m_rekap[0])
+            raw_rekap = await pooled_elearning_client.fetch_page(
+                f"/rekap-side/{rekap_tok}", nim, elearning_password
+            )
+            today = datetime.fromtimestamp(now_ts, WIB).date()
+            for record in parse_presence_rekap(raw_rekap):
+                status_absen = (record.get("status_absen") or "").lower()
+                if (
+                    _record_date(record.get("tanggal", "")) == (today.year, today.month, today.day)
+                    and "hadir" in status_absen
+                    and "tidak" not in status_absen
+                ):
+                    # Sudah absen: tandai selesai, jangan ganggu lagi hari ini.
+                    await redis.set(key, json.dumps({**state, "done": True}), ex=86400)
+                    return 0
     action, new_state = absen_decision(state, session_open, now_ts)
     if action == "remind":
         nama = str(course.get("nama") or "Kuliah").strip()

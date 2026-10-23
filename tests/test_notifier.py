@@ -237,3 +237,62 @@ async def test_absen_does_not_touch_mybest_outside_class_hours(monkeypatch):
     monkeypatch.setattr("app.modules.elearning.pooled_elearning_client.fetch_page", fetch)
     assert await notifier._send_absen_reminders("1", SCHEDULE, "pw", at(11, 0)) == 0
     fetch.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_absen_notification_suppressed_when_rekap_says_present(monkeypatch):
+    """Bug lapangan: form absen masih terrender walau sudah absen -> notif
+    'Belum absen' terus menuduh. Rekap AJAX yang harus jadi sumber kebenaran."""
+    store: dict[str, str] = {}
+
+    class FakeRedis:
+        async def get(self, key):
+            return store.get(key)
+
+        async def set(self, key, value, ex=None, nx=False):
+            store[key] = value
+            return True
+
+    async def fake_redis():
+        return FakeRedis()
+
+    class FakeMyBest:
+        async def fetch_page(self, path, nim, password):
+            if path == "/sch":
+                return "<sch/>"
+            if path.startswith("/absen-mhs/"):
+                # Form masih terbuka (can_submit=True) DAN link rekap AJAX ada.
+                return '<absen/><a href="/rekap-side/rekapTok">x</a>'
+            if path.startswith("/rekap-side/"):
+                # Rekap: sudah hadir HARI INI (tanggal dihitung dari clock mock).
+                from datetime import datetime, timezone, timedelta
+
+                wib = timezone(timedelta(hours=7))
+                today = datetime.fromtimestamp(1_000_000.0, wib).date().isoformat()
+                return (
+                    '{"data": [{"tgl_ajar_masuk": "' + today + '", '
+                    '"status_hadir": "<b>Hadir</b>", "pertemuan": "5", "id": "r1"}]}'
+                )
+            raise AssertionError(f"path tak terduga: {path}")
+
+    mybest = FakeMyBest()
+    deliver = AsyncMock(return_value=1)
+    monkeypatch.setattr(notifier, "_redis", fake_redis)
+    monkeypatch.setattr(notifier, "deliver", deliver)
+    monkeypatch.setattr("app.modules.elearning.pooled_elearning_client", mybest)
+    monkeypatch.setattr("app.modules.elearning.parse_courses", lambda html: [{"kode": "207", "nama": "LOGIKA", "token_absen": "tok"}])
+    monkeypatch.setattr("app.modules.elearning.inspect_session_status", lambda html: {"can_submit": True})
+
+    clock = {"t": 1_000_000.0}
+    monkeypatch.setattr(notifier.time, "time", lambda: clock["t"])
+
+    during = at(8, 0)
+    assert await notifier._send_absen_reminders("1", SCHEDULE, "pw", during) == 0
+    deliver.assert_not_awaited()  # sudah absen: tidak ada notif menuduh
+
+    # State done: siklus berikutnya tidak menyentuh MyBest lagi.
+    clock["t"] += 600
+    assert await notifier._send_absen_reminders("1", SCHEDULE, "pw", during) == 0
+    assert '"done": true' in store.get(
+        "ubsi:notify:absen:1:2026-10-21:207:07:30 - 10:00", ""
+    ) or any('"done": true' in v for v in store.values())
