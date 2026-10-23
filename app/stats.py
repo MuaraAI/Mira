@@ -69,27 +69,37 @@ async def _sum_requests(client: Any, days: int) -> int:
     return total
 
 
-async def _avg_requests(client: Any, days: int) -> int:
-    total = await _sum_requests(client, days)
-    return round(total / days)
-
-
-async def _avg_daily_users(client: Any, days: int) -> int:
-    total = 0
-    for offset in range(days):
-        count = await client.scard(f"{_PREFIX}users:{_day(offset)}")
-        total += int(count or 0)
-    return round(total / days)
-
-
 async def get_public_stats() -> dict[str, Any]:
     try:
         client = await cache.get_client()
-        users: dict[str, int] = {}
+
+        # 1. Hitung hari aktif riil dari key tanggal yang tercatat di Redis
+        all_req_keys = sorted(await client.keys(f"{_PREFIX}requests:20*"))
+        req_vals = [int(await client.get(k) or 0) for k in all_req_keys]
+        total_requests_all = sum(req_vals)
+        active_days = max(1, len([v for v in req_vals if v > 0]))
+
+        all_user_keys = sorted(await client.keys(f"{_PREFIX}users:20*"))
+        daily_user_counts = [await client.scard(k) for k in all_user_keys]
+        total_users_all = len(await client.sunion(all_user_keys)) if all_user_keys else 0
+
+        # 2. Pengguna (rolling window + rata-rata harian riil + total unik all-time)
+        users: dict[str, Any] = {}
         for label, days in (("active_24h", 1), ("active_7d", 7), ("active_30d", 30)):
             keys = [f"{_PREFIX}users:{_day(offset)}" for offset in range(days)]
             members = await client.sunion(keys) if keys else set()
             users[label] = len(members)
+        users["average_per_day"] = round(sum(daily_user_counts) / active_days)
+        users["total_all_time"] = total_users_all
+
+        # 3. Request (rolling window + rata-rata harian riil + total all-time)
+        requests_data = {
+            "total_24h": await _sum_requests(client, 1),
+            "total_7d": await _sum_requests(client, 7),
+            "total_30d": await _sum_requests(client, 30),
+            "average_per_day": round(total_requests_all / active_days),
+            "total_all_time": total_requests_all,
+        }
 
         branches: list[dict[str, Any]] = []
         programs: list[dict[str, Any]] = []
@@ -110,19 +120,7 @@ async def get_public_stats() -> dict[str, Any]:
             "status": "operational",
             "period": "rolling_30_days",
             "users": users,
-            "requests": {
-                "total_24h": await _sum_requests(client, 1),
-                "total_7d": await _sum_requests(client, 7),
-                "total_30d": await _sum_requests(client, 30),
-            },
-            "averages": {
-                "requests_per_day": await _avg_requests(client, 30),
-                "active_users_per_day": await _avg_daily_users(client, 30),
-            },
-            "totals": {
-                "requests_all_time": int(await client.get(f"{_PREFIX}requests:all") or 0),
-                "users_all_time": len(await client.smembers(f"{_PREFIX}users:all") or set()),
-            },
+            "requests": requests_data,
             "branches": branches,
             "programs": programs,
             "updated_at": datetime.now(timezone.utc).isoformat(),

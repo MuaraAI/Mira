@@ -27,17 +27,22 @@ async def test_public_stats_has_averages_and_all_time_totals():
             return {"a", "b"}
 
         async def keys(self, pattern):
+            if "requests:20" in pattern:
+                return ["ubsi:stats:requests:2026-10-21", "ubsi:stats:requests:2026-10-22"]
+            if "users:20" in pattern:
+                return ["ubsi:stats:users:2026-10-21", "ubsi:stats:users:2026-10-22"]
             return []
 
         async def sunion(self, *keys):
-            return set()
+            return {"user1", "user2"}
 
     from unittest.mock import patch
 
     with patch("app.cache.cache.get_client", return_value=FakeRedis()):
         data = await get_public_stats()
 
-    assert data["averages"]["requests_per_day"] == 100  # setiap hari 100 req
-    assert data["averages"]["active_users_per_day"] == 5
-    assert data["totals"]["requests_all_time"] == 100
-    assert data["totals"]["users_all_time"] == 2
+    # Rata-rata dan total all-time berada langsung di dalam 'users' dan 'requests'
+    assert data["users"]["average_per_day"] == 5
+    assert data["users"]["total_all_time"] == 2
+    assert data["requests"]["average_per_day"] == 100
+    assert data["requests"]["total_all_time"] == 200
