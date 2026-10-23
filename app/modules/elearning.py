@@ -653,6 +653,107 @@ def parse_quiz(html: str) -> list[dict[str, Any]]:
             })
     return quizzes
 
+def parse_exam_types(html: str) -> dict[str, Any]:
+    """Peta jenis ujian dari dashboard ujiankampusa (halaman /halaman-ujian MyBest).
+
+    Sidebar dan Quick Timetable memuat set link yang sama -> dedupe by token.
+    Token Laravel encrypted dirender fresh per halaman; simpan apa adanya.
+    """
+    page = Adaptor(html)
+    seen: dict[str, dict[str, Any]] = {}
+    for a in page.css('a[href*="/jadwal/"]'):
+        href = a.attrib.get("href", "")
+        m = re.search(r"/jadwal/([A-Za-z0-9+/=_-]+)", href)
+        if not m:
+            continue
+        label = " ".join((a.get_all_text() or "").split())
+        if not label:
+            continue
+        key = _exam_type_key(label)
+        # Token dirender berbeda per lokasi link (sidebar vs quick-tile), jadi
+        # dedupe by KEY dan ambil token kemunculan pertama.
+        if not key or key in seen:
+            continue
+        seen[key] = {"key": key, "label": label, "token": m.group(1)}
+    if not seen:
+        # Halaman login / struktur berubah: bukan empty state yang valid.
+        raise ValueError("exam dashboard marker missing: tidak ada link /jadwal/")
+    return {"types": list(seen.values())}
+
+
+_EXAM_TYPE_KEYS = {
+    "latihan": "latihan",
+    "uts": "uts",
+    "uas": "uas",
+    "uts pengganti": "uts-pengganti",
+    "uas pengganti": "uas-pengganti",
+    "her": "her",
+    "her pengganti": "her-pengganti",
+    "her khusus": "her-khusus",
+}
+
+
+def _exam_type_key(label: str) -> Optional[str]:
+    norm = label.lower().replace("jadwal", "").strip()
+    return _EXAM_TYPE_KEYS.get(norm)
+
+
+def parse_exam_schedule(html: str) -> dict[str, Any]:
+    """Jadwal ujian satu jenis dari halaman /jadwal/{token} ujiankampusa.
+
+    Kartu ujian (div.pricing-plan) hanya dirender saat ada jadwal; di luar itu
+    halaman tetap valid dengan identitas mahasiswa (marker empty-state).
+    URL masuk ujian SENGAJA tidak diekspos: verifikasi geolocation/IP hanya
+    jalan di browser resmi, dan kita tidak ingin jadi pintu otomatisasi ujian.
+    """
+    page = Adaptor(html)
+    ident = [a.get_all_text().strip() for a in page.css("ul.app-actions li a")]
+    ident = [x for x in ident if x]
+    if len(ident) < 2:
+        raise ValueError("exam schedule marker missing: identitas mahasiswa tidak ditemukan")
+
+    exams: list[dict[str, Any]] = []
+    for plan in page.css("div.pricing-plan"):
+        titles = plan.css(".pricing-title")
+        saves = plan.css(".pricing-save")
+        title = titles[0] if titles else None
+        save = saves[0] if saves else None
+        fields: dict[str, str] = {}
+        for h5 in plan.css("h5"):
+            text = " ".join((h5.get_all_text() or "").split())
+            if ":" in text:
+                k, _, v = text.partition(":")
+                fields[k.replace("icon", "").strip().lower()] = v.strip()
+
+        action = plan.css("a.btn-success")
+        status_text = " ".join((action[0].get_all_text() or "").split()) if action else None
+        cetak = plan.css('a[href*="/cetak-ujian-pdf/"]')
+        exams.append({
+            "mata_kuliah": title.get_all_text().strip() if title else None,
+            "waktu": " ".join((save.get_all_text() or "").split()) if save else None,
+            "kode_dosen": fields.get("kode dosen"),
+            "kode_mtk": fields.get("kode mtk"),
+            "jenis_mtk": fields.get("jenis mtk"),
+            "sks": fields.get("sks"),
+            "no_ruang": fields.get("no ruang"),
+            "tanggal_ujian": fields.get("tanggal ujian"),
+            "durasi_menit": fields.get("waktu ujian"),
+            "soal_pg": fields.get("jumlah soal pg"),
+            "soal_essay": fields.get("jumlah soal essay"),
+            "status": status_text,
+            "can_enter": bool(action),
+        })
+
+    return {
+        "identity": {
+            "nim": ident[0] if len(ident) > 0 else None,
+            "nama": ident[1] if len(ident) > 1 else None,
+        },
+        "exams": exams,
+        "empty_marker": True,  # identitas terdeteksi = halaman valid walau tanpa kartu
+    }
+
+
 def inspect_session_status(html: str) -> dict[str, Any]:
     """Inspeksi status kelas dan informasi ruang dari halaman /absen-mhs/{token}."""
     page = Adaptor(html)
@@ -1178,6 +1279,31 @@ class PooledElearningClient:
                 self._pool.invalidate(nim)
             raise
 
+    async def fetch_cross_host(self, url: str, nim: str, password: str) -> str:
+        """Ambil halaman di host turunan MyBest (mis. ujiankampusa.bsi.ac.id).
+
+        Sesi dashboard /halaman-ujian dipastikan hidup dulu supaya redirect chain
+        SSO (/authenticate?token=...) menyetel cookie host tujuan; request berikutnya
+        memakai httpx Client yang sama sehingga cookie ikut.
+        """
+        client = self._pool.get(nim)
+
+        def _fetch_once() -> str:
+            client.fetch_page("/halaman-ujian", nim, password)  # SSO handshake
+            resp = client.get_client().get(url)
+            text = resp.content.decode("utf-8", errors="replace")
+            if resp.status_code != 200:
+                raise ValueError(f"upstream status {resp.status_code} untuk {url.split('?')[0]}")
+            return text
+
+        try:
+            return await retry_async(_fetch_once, attempts=2, base_delay=1.0)
+        except HTTPException as exc:
+            detail = getattr(exc, "detail", None)
+            if isinstance(detail, dict) and detail.get("code") == "AUTH_EXPIRED":
+                self._pool.invalidate(nim)
+            raise
+
     async def post_page(
         self,
         path: str,
@@ -1486,6 +1612,58 @@ async def get_quiz(creds: tuple[str, str] = Depends(require_elearning_creds)):
         parse=parse_quiz,
         ttl=settings.TTL_ASSIGNMENTS,
         cache_params={"nim": nim},
+    )
+
+
+# Ujian Semester (ujiankampusa.bsi.ac.id via SSO /halaman-ujian)
+
+async def fetch_exam_schedule(nim: str, password: str, exam_type: str) -> str:
+    """SSO ke ujiankampusa lalu ambil halaman /jadwal/{token} untuk satu jenis ujian."""
+    dash = await pooled_elearning_client.fetch_page("/halaman-ujian", nim, password)
+    types = parse_exam_types(dash)
+    token = next((t["token"] for t in types["types"] if t["key"] == exam_type), None)
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=error_response(
+                code="EXAM_TYPE_NOT_FOUND",
+                message=f"Jenis ujian '{exam_type}' tidak tersedia.",
+                module="elearning",
+            ),
+        )
+    return await pooled_elearning_client.fetch_cross_host(
+        f"https://ujiankampusa.bsi.ac.id/jadwal/{token}", nim, password
+    )
+
+
+@router.get("/exams")
+async def get_exams(creds: tuple[str, str] = Depends(require_elearning_creds)):
+    """Daftar jenis ujian semester yang tersedia (token SSO fresh per render)."""
+    nim, password = creds
+    return await cached_endpoint(
+        module="elearning",
+        name="exams",
+        fetch=lambda: pooled_elearning_client.fetch_page("/halaman-ujian", nim, password),
+        parse=parse_exam_types,
+        ttl=120,  # token encrypted berumur pendek: jangan disajikan basi
+        cache_params={"nim": nim},
+    )
+
+
+@router.get("/exams/{exam_type}")
+async def get_exam_schedule(
+    exam_type: str = Path(pattern=r"^(latihan|uts|uas|uts-pengganti|uas-pengganti|her|her-pengganti|her-khusus)$"),
+    creds: tuple[str, str] = Depends(require_elearning_creds),
+):
+    """Jadwal ujian satu jenis dari ujiankampusa (kartu muncul saat ada jadwal)."""
+    nim, password = creds
+    return await cached_endpoint(
+        module="elearning",
+        name="exam_schedule",
+        fetch=lambda: fetch_exam_schedule(nim, password, exam_type),
+        parse=parse_exam_schedule,
+        ttl=60,
+        cache_params={"nim": nim, "type": exam_type},
     )
 
 # Rekap Nilai Tugas & Kuis (Per Pertemuan)
