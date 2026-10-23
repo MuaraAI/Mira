@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 from zoneinfo import ZoneInfo
 
@@ -337,3 +338,87 @@ async def test_existing_pwa_subscribers_get_new_kelas_mulai_category_once(tmp_pa
     await set_categories("1", ["berita-kampus"])
     init_pwa_db()
     assert set(await list_categories("1")) == {"berita-kampus"}
+
+
+class _NxRedis:
+    """Redis mini dengan SET NX asli: klaim kedua harus gagal."""
+
+    def __init__(self):
+        self.kv: dict = {}
+
+    async def get(self, key):
+        return self.kv.get(key)
+
+    async def set(self, key, value=None, nx=False, ex=None):
+        if nx and key in self.kv:
+            return False
+        self.kv[key] = value
+        return True
+
+    async def delete(self, *keys):
+        for k in keys:
+            self.kv.pop(k, None)
+
+    async def incr(self, key):
+        self.kv[key] = self.kv.get(key, 0) + 1
+        return self.kv[key]
+
+
+QUIZ_CATEGORY = {"id": 21, "nim": "15260767", "type": "custom", "categories": ["quiz-tugas"], "config": {"url": "https://example.com/webhook"}}
+
+
+def _quiz_fetch_factory(exercise_html):
+    async def fake_fetch(path, nim, password):
+        if path == "/exercise":
+            return exercise_html
+        if path == "/sch":
+            return (Path(__file__).parent / "fixtures" / "el_sch.html").read_text()
+        return "<html></html>"  # halaman tugas lain: 0 tugas
+
+    return fake_fetch
+
+
+@pytest.mark.asyncio
+async def test_user_notification_dispatches_new_quiz(monkeypatch):
+    from unittest.mock import patch
+
+    from app.modules.news import _produce_user_category
+
+    exercise = (Path(__file__).parent / "fixtures" / "el_exercise.html").read_text()
+
+    with (
+        patch("app.modules.news.list_active_by_category", new=AsyncMock(return_value=[QUIZ_CATEGORY])),
+        patch("app.modules.news.session_store.get_credentials_for_nim", new=AsyncMock(return_value=("15260767", "sv", "el"))),
+        patch("app.modules.elearning.pooled_elearning_client.fetch_page", side_effect=_quiz_fetch_factory(exercise)),
+        patch("app.modules.news.dispatch_webhook_notification", new=AsyncMock(return_value=True)) as dispatch,
+        patch("app.modules.news.cache.get_client", return_value=_NxRedis()),
+    ):
+        sent = await _produce_user_category("quiz-tugas")
+
+    assert sent == 1
+    payload = dispatch.call_args[0][0]
+    assert payload["category"] == "quiz-tugas"
+    assert payload["title"].startswith("Kuis Baru")
+    assert payload["link"].endswith("/dashboard/kuis")
+
+
+@pytest.mark.asyncio
+async def test_known_quiz_is_not_renotified(monkeypatch):
+    from unittest.mock import patch
+
+    from app.modules.news import _produce_user_category
+
+    exercise = (Path(__file__).parent / "fixtures" / "el_exercise.html").read_text()
+    redis = _NxRedis()
+
+    with (
+        patch("app.modules.news.list_active_by_category", new=AsyncMock(return_value=[QUIZ_CATEGORY])),
+        patch("app.modules.news.session_store.get_credentials_for_nim", new=AsyncMock(return_value=("15260767", "sv", "el"))),
+        patch("app.modules.elearning.pooled_elearning_client.fetch_page", side_effect=_quiz_fetch_factory(exercise)),
+        patch("app.modules.news.dispatch_webhook_notification", new=AsyncMock(return_value=True)) as dispatch,
+        patch("app.modules.news.cache.get_client", return_value=redis),
+    ):
+        assert await _produce_user_category("quiz-tugas") == 1
+        assert await _produce_user_category("quiz-tugas") == 0  # kuis yang sama: tidak dikirim ulang
+
+    assert dispatch.await_count == 1

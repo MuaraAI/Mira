@@ -1,0 +1,266 @@
+"""Offline tests untuk endpoint ujian semester (ujiankampusa SSO).
+
+Parser murni dites dari fixture; router dites dengan mock fetch tanpa jaringan.
+"""
+from pathlib import Path
+
+import pytest
+
+from app.modules.elearning import parse_exam_schedule, parse_exam_types
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+@pytest.fixture
+def dashboard_html() -> str:
+    return (FIXTURES / "uk_dashboard.html").read_text()
+
+
+@pytest.fixture
+def schedule_html() -> str:
+    return (FIXTURES / "uk_schedule_active.html").read_text()
+
+
+@pytest.fixture
+def empty_html() -> str:
+    return (FIXTURES / "uk_schedule_empty.html").read_text()
+
+
+# ---------- parser: dashboard ----------
+
+
+def test_parse_exam_types_returns_eight_unique(dashboard_html):
+    data = parse_exam_types(dashboard_html)
+    keys = [t["key"] for t in data["types"]]
+    # sidebar + quick-tile merender set link dua kali dengan token berbeda
+    assert len(keys) == len(set(keys)) == 8
+    assert set(keys) == {
+        "latihan", "uts", "uas", "uts-pengganti", "uas-pengganti",
+        "her", "her-pengganti", "her-khusus",
+    }
+    # token ada di level parser (internal) tapi endpoint /exams yang membuangnya
+    assert all(t["token"].startswith("eyJ") for t in data["types"])
+
+
+def test_parse_exam_types_rejects_login_page():
+    with pytest.raises(ValueError):
+        parse_exam_types("<html><body><form action='/login'></form></body></html>")
+
+
+# ---------- parser: jadwal ----------
+
+
+def test_parse_exam_schedule_full_cards(schedule_html):
+    data = parse_exam_schedule(schedule_html)
+    assert data["identity"]["nim"] == "15260001"
+    assert data["identity"]["nama"] == "MAHASISWA UJI"
+    assert data["empty_marker"] is True
+
+    assert len(data["exams"]) == 2
+    first = data["exams"][0]
+    assert first["mata_kuliah"] == "LOGIKA DAN ALGORITMA"
+    assert first["waktu"] == "Rabu - 08:20-09:20"
+    assert first["kode_dosen"] == "ERX"
+    assert first["kode_mtk"] == "207"
+    assert first["jenis_mtk"] == "PG ONLINE"
+    assert first["sks"] == "4"
+    assert first["no_ruang"] == "301-P1"
+    assert "21 Oktober 2026" in (first["tanggal_ujian"] or "")
+    assert first["durasi_menit"] == "60"
+    assert first["soal_pg"] == "20"  # suffix label "LATIHAN" dibuang
+    assert first["soal_essay"] == "0"
+    # ujian lewat: tanpa status & tanpa pintu masuk
+    assert first["status"] is None
+    assert first["can_enter"] is False
+
+    ongoing = data["exams"][1]
+    assert ongoing["mata_kuliah"] == "PENGANTAR TEKNOLOGI INFORMASI DAN KOMUNIKASI"
+    assert ongoing["status"] == "Sedang Berlangsung"
+    assert ongoing["can_enter"] is True
+
+
+def test_parse_exam_schedule_empty_state_is_valid(empty_html):
+    data = parse_exam_schedule(empty_html)
+    assert data["exams"] == []
+    assert data["empty_marker"] is True
+    assert data["identity"]["nim"] == "15260001"
+
+
+# ---------- router ----------
+
+
+@pytest.fixture(autouse=True)
+def reset_clients():
+    from app.cache import cache
+    from app.limiter import limiter
+
+    cache._client = None
+    limiter._client = None
+    yield
+    cache._client = None
+    limiter._client = None
+
+
+def _mock_redis(store: dict | None = None):
+    """AsyncMock redis dengan in-memory store: get/set benar-benar menyimpan.
+
+    Dipakai untuk membuktikan cache-hit kedua (panggilan kedua cached=True).
+    """
+    from unittest.mock import AsyncMock, patch
+
+    store = store if store is not None else {}
+    mock = AsyncMock()
+    mock.store = store
+
+    async def _get(key):
+        return store.get(key)
+
+    async def _set(key, value, ex=None):
+        store[key] = value
+        return True
+
+    mock.get.side_effect = _get
+    mock.set.side_effect = _set
+    mock.incr.return_value = 1
+    return patch("redis.asyncio.from_url", return_value=mock)
+
+
+@pytest.mark.asyncio
+async def test_exams_endpoint_cached(monkeypatch):
+    from unittest.mock import patch
+
+    from httpx import ASGITransport, AsyncClient
+
+    from app.main import app
+
+    html = (FIXTURES / "uk_dashboard.html").read_text()
+
+    async def fake_fetch(path, nim, password):
+        return html
+
+    with _mock_redis(), patch(
+        "app.modules.elearning.pooled_elearning_client.fetch_page", fake_fetch
+    ):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            r1 = await ac.get("/v1/elearning/exams")
+            r2 = await ac.get("/v1/elearning/exams")
+
+    assert r1.status_code == 200
+    keys = {t["key"] for t in r1.json()["data"]["types"]}
+    assert keys >= {"latihan", "uts"}
+    assert all("token" not in t for t in r1.json()["data"]["types"])  # token internal
+    assert r2.status_code == 200
+    assert r2.json()["cached"] is True  # served from cache, no upstream refetch
+
+
+@pytest.mark.asyncio
+async def test_exam_schedule_endpoint(monkeypatch):
+    from unittest.mock import patch
+
+    from httpx import ASGITransport, AsyncClient
+
+    from app.main import app
+
+    dash = (FIXTURES / "uk_dashboard.html").read_text()
+    sched = (FIXTURES / "uk_schedule_active.html").read_text()
+
+    async def fake_dash(path, nim, password):
+        return dash
+
+    async def fake_cross(url, nim, password):
+        return sched
+
+    with _mock_redis(), patch(
+        "app.modules.elearning.pooled_elearning_client.fetch_page", fake_dash
+    ), patch(
+        "app.modules.elearning.pooled_elearning_client.fetch_cross_host", fake_cross
+    ):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            r = await ac.get("/v1/elearning/exams/latihan")
+
+    assert r.status_code == 200
+    body = r.json()["data"]
+    assert body["identity"]["nim"] == "15260001"
+    assert len(body["exams"]) == 2
+    # keamanan: URL pintu masuk ujian tidak boleh bocor ke klien
+    assert "ujiankampusa" not in r.text
+
+
+@pytest.mark.asyncio
+async def test_exam_schedule_unknown_type(monkeypatch):
+    """Path pattern menolak jenis tak dikenal -> 422 (hermetic: env di-set)."""
+    from httpx import ASGITransport, AsyncClient
+
+    from app.main import app
+
+    monkeypatch.setenv("ELEARNING_NIM", "15260001")
+    monkeypatch.setenv("ELEARNING_PASS", "secret")
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        r = await ac.get(
+            "/v1/elearning/exams/bukan-ujian",
+            headers={"X-Elearning-Nim": "15260001", "X-Elearning-Pass": "secret"},
+        )
+    assert r.status_code in (401, 422)  # auth dulu bila tanpa kredensial; 422 saat kredensial sah
+
+
+@pytest.mark.asyncio
+async def test_parse_exam_schedule_rejects_unknown_markup():
+    """Markup berubah (tanpa kartu & tanpa empty-state) -> error, bukan cache kosong."""
+    html = """
+    <html><body><ul class="app-actions">
+    <li><a>NIM2020</a></li><li><a>NAMA</a></li>
+    </ul><div class="layout-baru">konten generik</div></body></html>
+    """
+    from app.modules.elearning import parse_exam_schedule
+
+    with pytest.raises(ValueError, match="empty-state tidak ditemukan"):
+        parse_exam_schedule(html)
+
+
+@pytest.mark.asyncio
+async def test_exam_schedule_type_her_khusus_valid(monkeypatch):
+    """Jenis valid yang ada di fixture harus 200 (regresi untuk allowlist jenis)."""
+    from unittest.mock import patch
+
+    from httpx import ASGITransport, AsyncClient
+
+    from app.main import app
+
+    dash = (FIXTURES / "uk_dashboard.html").read_text()
+
+    async def fake_dash(path, nim, password):
+        return dash
+
+    async def fake_cross(url, nim, password):
+        return (FIXTURES / "uk_schedule_active.html").read_text()
+
+    with _mock_redis(), patch(
+        "app.modules.elearning.pooled_elearning_client.fetch_page", fake_dash
+    ), patch(
+        "app.modules.elearning.pooled_elearning_client.fetch_cross_host", fake_cross
+    ):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            r = await ac.get("/v1/elearning/exams/her-khusus")
+    assert r.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_fetch_cross_host_rejects_foreign_host(monkeypatch):
+    """Allowlist host: URL selain ujiankampusa.bsi.ac.id ditolak sebelum request."""
+    from unittest.mock import MagicMock
+
+    from fastapi import HTTPException
+
+    from app.modules.elearning import PooledElearningClient
+
+    pooled = PooledElearningClient()
+    fake_client = MagicMock()
+    monkeypatch.setattr(pooled._pool, "get", lambda nim: fake_client)
+
+    with pytest.raises(HTTPException) as exc:
+        await pooled.fetch_cross_host("https://evil.example.com/steal", "15260001", "pw")
+    assert exc.value.status_code == 400
+    fake_client.fetch_page.assert_not_called()  # SSO handshake tidak pernah terjadi

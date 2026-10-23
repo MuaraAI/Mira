@@ -135,6 +135,8 @@ Seluruh modul mata kuliah di MyBest diidentifikasi menggunakan **token terenkrip
 | `ubsi_get_materials` | `token?`, `session_token?`, `api_key?` | Unduh berkas materi resmi: paket arsip ZIP Silabus, RPS, RTM, Slide, dan Modul Lab per mata kuliah. |
 | `ubsi_get_quiz` | `session_token?`, `api_key?` | Jadwal kuis latihan dan ujian online MyBest (paket, periode mulai/selesai, status aksi). |
 | `ubsi_get_quiz_questions` | `token?`, `quiz_url?`, `session_token?`, `api_key?` | Pratinjau butir soal kuis pilihan ganda, sisa waktu hitung mundur, dan opsi jawaban (A, B, C, D). |
+| `ubsi_get_exams` | `session_token?`, `api_key?` | Daftar jenis ujian semester Ujian Online BSI (latihan, UTS, UAS, pengganti, HER). |
+| `ubsi_get_exam_schedule` | `exam_type`, `session_token?`, `api_key?` | Jadwal ujian satu jenis dari Ujian Online BSI: mata kuliah, ruang, tanggal, durasi, jumlah soal, status berlangsung. |
 | `ubsi_submit_quiz_answer` | `id_soal`, `data_jawab`, `csrf_token?`, `session_token?`, `api_key?` | **[WRITE]** Kirim pilihan jawaban satu butir soal kuis secara aman. |
 | `ubsi_get_grades_recap` | `token?`, `session_token?`, `api_key?` | Rekapitulasi nilai tugas & kuis per pertemuan dosen beserta catatan komentar feedback. |
 | `ubsi_get_course_grades` | `course_id`, `session_token?`, `api_key?` | Rincian nilai tugas satu mata kuliah spesifik. |

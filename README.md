@@ -180,6 +180,7 @@ Semua endpoint bisnis menggunakan prefix `/v1/`:
 - `GET /v1/elearning/grades` — Rekapitulasi nilai tugas & kuis per pertemuan.
 - `GET /v1/elearning/quiz` & `GET /v1/elearning/quiz/questions` — Jadwal & soal kuis aktif.
 - `POST /v1/elearning/quiz/answer` — Kirim jawaban kuis (A/B/C/D).
+- `GET /v1/elearning/exams` & `GET /v1/elearning/exams/{exam_type}` — Jenis & jadwal ujian semester dari Ujian Online BSI (ujiankampusa) via SSO MyBest.
 
 ### 5. Perpustakaan & Publikasi Kampus
 - `GET /v1/elibrary/search?q=&opsi=buku&page=1` — Pencarian katalog OPAC perpustakaan UBSI.

@@ -526,6 +526,36 @@ async def ubsi_get_quiz(session_token: Optional[str] = None, api_key: Optional[s
 
 
 @server.tool(
+    name="ubsi_get_exams",
+    description="Daftar jenis ujian semester yang tersedia di Ujian Online BSI: latihan, UTS, UAS, pengganti, dan HER.",
+)
+async def ubsi_get_exams(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
+    res = await _api_get("/v1/elearning/exams", session_token=session_token, api_key=api_key)
+    return json.dumps(res, ensure_ascii=False, indent=2)
+
+
+@server.tool(
+    name="ubsi_get_exam_schedule",
+    description="Jadwal ujian satu jenis dari Ujian Online BSI (pilih: latihan, uts, uas, uts-pengganti, uas-pengganti, her, her-pengganti, her-khusus). Memuat mata kuliah, ruang, tanggal, durasi, jumlah soal, dan status berlangsung.",
+)
+async def ubsi_get_exam_schedule(
+    exam_type: str,
+    session_token: Optional[str] = None,
+    api_key: Optional[str] = None,
+) -> str:
+    allowed = {"latihan", "uts", "uas", "uts-pengganti", "uas-pengganti", "her", "her-pengganti", "her-khusus"}
+    if exam_type not in allowed:
+        return json.dumps(
+            {"success": False, "error": {"code": "EXAM_TYPE_NOT_FOUND", "message": f"Jenis ujian '{exam_type}' tidak dikenal. Pilih dari: {', '.join(sorted(allowed))}"}},
+            ensure_ascii=False,
+        )
+    res = await _api_get(
+        f"/v1/elearning/exams/{exam_type}", session_token=session_token, api_key=api_key
+    )
+    return json.dumps(res, ensure_ascii=False, indent=2)
+
+
+@server.tool(
     name="ubsi_get_quiz_questions",
     description="Ambil daftar soal kuis, hitung mundur waktu ujian, dan opsi pilihan ganda A, B, C, D.",
 )

@@ -1,0 +1,592 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+	<!-- Required meta tags -->
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+	<!-- Meta -->
+	<meta name="description" content="Responsive Bootstrap4 Dashboard Template">
+	<meta name="author" content="ParkerThemes">
+	<meta name="csrf-token" content="G0pk3fCCmhfwih7nipcGP41BVzisIILeQbgzbCJp">
+	<link rel="shortcut icon" href="https://ujiankampusa.bsi.ac.id/assets/img/ubsi.png" />
+	<!-- Title -->
+	<title>My Best</title>
+
+
+	<!-- *************
+			************ Common Css Files *************
+		************ -->
+	<link rel="stylesheet" href="https://ujiankampusa.bsi.ac.id/leaflet/leaflet.css" />
+<style>
+    .button-lokasi {
+        position: relative;
+        transition: all 0.3s ease-in-out;
+        box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.2);
+        padding-block: 0.5rem;
+        padding-inline: 1.25rem;
+        background-color: rgb(0 107 179);
+        border-radius: 9999px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffff;
+        gap: 10px;
+        font-weight: bold;
+        border: 3px solid #ffffff4d;
+        outline: none;
+        overflow: hidden;
+        font-size: 15px;
+    }
+
+    .icon {
+        width: 24px;
+        height: 24px;
+        transition: all 0.3s ease-in-out;
+    }
+
+    .button-lokasi:hover {
+        transform: scale(1.05);
+        border-color: #fff9;
+    }
+
+    .button-lokasi:hover .icon {
+        transform: translate(4px);
+    }
+
+    .button-lokasi:hover::before {
+        animation: shine 1.5s ease-out infinite;
+    }
+
+    .button-lokasi::before {
+        content: "";
+        position: absolute;
+        width: 100px;
+        height: 100%;
+        background-image: linear-gradient(120deg,
+                rgba(255, 255, 255, 0) 30%,
+                rgba(255, 255, 255, 0.8),
+                rgba(255, 255, 255, 0) 70%);
+        top: 0;
+        left: -100px;
+        opacity: 0.6;
+    }
+
+    @keyframes shine {
+        0% {
+            left: -100px;
+        }
+
+        60% {
+            left: 100%;
+        }
+
+        to {
+            left: 100%;
+        }
+    }
+</style>
+
+	<!-- Bootstrap css -->
+	<link rel="stylesheet" href="https://ujiankampusa.bsi.ac.id/assets/css/bootstrap.min.css">
+	<link rel="stylesheet" href="https://ujiankampusa.bsi.ac.id/assets/dist/sweetalert2.min.css">
+	<link rel="stylesheet" href="https://ujiankampusa.bsi.ac.id/assets/dist/sweetalert2.css">
+
+	<!-- Icomoon Font Icons css -->
+	<link rel="stylesheet" href="https://ujiankampusa.bsi.ac.id/assets/fonts/style.css">
+
+	<link href="https://ujiankampusa.bsi.ac.id/assets/summernote/summernote.min.css" rel="stylesheet">
+	<!-- Main css -->
+	<link rel="stylesheet" href="https://ujiankampusa.bsi.ac.id/assets/css/main.css">
+	<link rel="stylesheet" href="https://ujiankampusa.bsi.ac.id/css/ujian.css">
+	<!-- Data Tables -->
+	<link rel="stylesheet" href="https://ujiankampusa.bsi.ac.id/assets/vendor/datatables/dataTables.bs4.css" />
+	<link rel="stylesheet" href="https://ujiankampusa.bsi.ac.id/assets/vendor/datatables/dataTables.bs4-custom.css" />
+	<link rel="stylesheet" href="https://ujiankampusa.bsi.ac.id/assets/vendor/datatables/buttons.bs.css" />
+
+	<!-- DateRange css -->
+	<link rel="stylesheet" href="https://ujiankampusa.bsi.ac.id/assets/vendor/daterange/daterange.css" />
+
+</head>
+
+<body>
+
+	<!-- Loading starts -->
+	<div id="loading-wrapper">
+		<div class="spinner-border" role="status">
+			<span class="sr-only">Loading...</span>
+		</div>
+	</div>
+	<!-- Loading ends -->
+
+
+	<!-- *************
+			************ Header section start *************
+		************* -->
+
+	<!-- Header start -->
+	<header class="header">
+		<div class="logo-wrapper">
+			<a href="index.html" class="logo">
+				<img src="https://ujiankampusa.bsi.ac.id/assets/img/ubsi.png" alt="Wafi Admin Dashboard" />
+			</a>
+			<a href="#" class="quick-links-btn" data-toggle="tooltip" data-placement="right" title=""
+				data-original-title="Quick Links">
+				<i class="icon-menu1"></i>
+			</a>
+		</div>
+	</header>
+	<!-- Header end -->
+
+	<!-- Screen overlay start -->
+	<div class="screen-overlay"></div>
+	<!-- Screen overlay end -->
+
+	<!-- Quicklinks box start -->
+	<div class="quick-links-box">
+		<div class="quick-links-header">
+			Quick Links
+			<a href="#" class="quick-links-box-close">
+				<i class="icon-circle-with-cross"></i>
+			</a>
+		</div>
+
+		<div class="quick-links-wrapper">
+    <div class="fullHeight">
+        <div class="quick-links-body">
+            <div class="container-fluid p-0">
+                <div class="row less-gutters">
+                    <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-12">
+                        <a href="https://ujiankampusa.bsi.ac.id/dashboard" class="quick-tile">
+                            <i class="icon-home"></i>
+                            Dashboard
+                        </a>
+                    </div>
+                    <!-- <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-12">
+                        <a href="https://ujiankampusa.bsi.ac.id/profile" class="quick-tile blue">
+                            <i class="icon-account_circle"></i>
+                            Profile
+                        </a>
+                    </div> -->
+                    <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-12">
+                        <a href="https://ujiankampusa.bsi.ac.id/jadwal/eyJpdiI6InA4Y3UyUWFzVXB3Y0dIUUVFdXRyT2c9PSIsInZhbHVlIjoiZytIUVNFQUhWT0VTZ244WFBXSTVjdz09IiwibWFjIjoiYmYxNDM5Mjg2Y2Y0NjYyYjIxNDdmNzJiODk0ZGQ4NGYxMWJmNjJjNWRmZGVkYzkxMDhhZmNjNmI1ZjU3ZjMzNCIsInRhZyI6IiJ9" class="quick-tile secondary">
+                            <i class="icon-calendar1"></i>
+                            Jadwal LATIHAN
+                        </a>
+                    </div>
+                    <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-12">
+                        <a href="https://ujiankampusa.bsi.ac.id/jadwal/eyJpdiI6InNFb2JlTVBHaUZDZDkvZjNYUGFWYVE9PSIsInZhbHVlIjoic2QvVHBvcFdJcURuaWJnMSthTVlGQT09IiwibWFjIjoiMzUyYmRiYjc5ZTViNmQzMjg3NmIxZjA5NTcwNjM2NzZlYTdjMmUzZGU3NWIzNWYzNWViODFiNGZjNDNlNWI4ZCIsInRhZyI6IiJ9" class="quick-tile secondary">
+                            <i class="icon-calendar1"></i>
+                            Jadwal UTS
+                        </a>
+                    </div>
+                    <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-12">
+                        <a href="https://ujiankampusa.bsi.ac.id/jadwal/eyJpdiI6IldKOWxERE5UTjE5dUZMV0tkQ1FzM0E9PSIsInZhbHVlIjoib1hvSHlOYzJRR0JyRTg5MHNlaW42UT09IiwibWFjIjoiY2EyOTE3NDU1OGQ0MDAzODU2YTIyMzQ3M2Y3MDhlNzQ3Zjg1MDhhMDhhY2U2ZjM1MjEzNWU1NGMzOGE3MWUzMCIsInRhZyI6IiJ9" class="quick-tile blue">
+                            <i class="icon-calendar"></i>
+                            Jadwal UAS
+                        </a>
+                    </div>
+                    <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-12">
+                        <a href="https://ujiankampusa.bsi.ac.id/jadwal/eyJpdiI6ImN5aGUwVUVLR1ZRTUNYdlRiMFFnRmc9PSIsInZhbHVlIjoiZkVNR1BnUWN6S2loUXF2dEFCNFUzUT09IiwibWFjIjoiZTMxOWU2YjIwYjhjNGQ3MzAyNTZhMWQ4YWI0YmRkMzMyYzdjNzIxYzJjYjQ5NjdmNWZiMTQzNGJhZThiZDM0MSIsInRhZyI6IiJ9"
+                            class="quick-tile secondary">
+                            <i class="icon-attachment"></i>
+                            Jadwal UTS Pengganti
+                        </a>
+                    </div>
+                    <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-12">
+                        <a href="https://ujiankampusa.bsi.ac.id/jadwal/eyJpdiI6ImlsQzBuVW5GeS85elVNQkFZSmVPUlE9PSIsInZhbHVlIjoiWkRKS0lxaHprKzMxVjkxWERkRW5jUT09IiwibWFjIjoiNThhNGUzODQ4ODVkY2M1N2U3NThiMmNiZmI4ODFjODZkNTQwYmRlNGFkMzhkYzhhZDA0ODE2YzYwYWRmZjUzZSIsInRhZyI6IiJ9" class="quick-tile blue">
+                            <i class="icon-attachment1"></i>
+                            Jadwal UAS Pengganti
+                        </a>
+                    </div>
+                    <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-12">
+                        <a href="https://ujiankampusa.bsi.ac.id/jadwal/eyJpdiI6IjZTZFNCc2N4bDJ0ejJPUlRSKzIzVmc9PSIsInZhbHVlIjoieWR1VUZGK3pIZkZJdHFhVGprUS9Ddz09IiwibWFjIjoiNzdiM2Y5YjI0Y2RjOWE4NTA2ZDI4NjIyYjQzNjliNGI2NjFlZTI2YWNlZTM3NGU4N2NmZjQ1ZjhkMjA4MTRjZCIsInRhZyI6IiJ9" class="quick-tile blue">
+                            <i class="icon-attachment1"></i>
+                            HER
+                        </a>
+                    </div>
+                    <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-12">
+                        <a href="https://ujiankampusa.bsi.ac.id/jadwal/eyJpdiI6IjFTaWYxNG5lQjFiYUsrdEJvUkNKMUE9PSIsInZhbHVlIjoiVWYrVkNlOUtpQTIvQUJHdkZLbExpZz09IiwibWFjIjoiY2FjZTE2ZDczMzg3NDA5NGQ0YmM4ZjY5M2NmNGNhNzJhM2ZmZjEzYzY1MjcwNzdlZGVjMTU5MzlmZGYwNDE3ZCIsInRhZyI6IiJ9" class="quick-tile blue">
+                            <i class="icon-attachment1"></i>
+                            HER PENGGANTI
+                        </a>
+                    </div>
+                    <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-12">
+                        <a href="https://ujiankampusa.bsi.ac.id/jadwal/eyJpdiI6IkJtZmVXOUJrbzN3YU95VkVnOTBXR2c9PSIsInZhbHVlIjoiVmpnV2dSK0l4YVJjazlUQmt1N2NLdz09IiwibWFjIjoiYWJlMTYxYjNmMDU3NzkxMGIzZjI0YjgxNTE2M2ZhYTQyMmIwOGRlMTIwNTU2ZDI1M2M3MTNlMmVkNGQ3MWEyZSIsInRhZyI6IiJ9" class="quick-tile blue">
+                            <i class="icon-attachment1"></i>
+                            HER KHUSUS
+                        </a>
+                    </div>
+                    
+                    <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-12">
+                        <a href="#" class="quick-tile white" onclick="document.getElementById('logout-form').submit();">
+                            <i class="icon-lock2"></i> Logout
+                            <form id="logout-form" action="https://ujiankampusa.bsi.ac.id/logout" method="POST" style="display: none;">
+                                <input type="hidden" name="_token" value="G0pk3fCCmhfwih7nipcGP41BVzisIILeQbgzbCJp" autocomplete="off">                            </form>
+                        </a>
+
+                    </div>
+                    
+                </div>
+                
+            </div>
+        </div>
+    </div>
+</div>	</div>
+	<!-- Quicklinks box end -->
+
+	<!-- Quick settings start -->
+	<!-- Quick settings end -->
+
+	<!-- *************
+			************ Header section end *************
+		************* -->
+
+	<!-- Container fluid start -->
+	<div class="container-fluid">
+
+		<!-- Navigation start -->
+		<!-- Navigation end -->
+
+		<!-- *************
+				************ Main container start *************
+			************* -->
+		<div class="main-container">
+
+			<!-- Page header start -->
+			<div class="page-header">
+				<ol class="breadcrumb">
+					<li class="breadcrumb-item active">Universitas Bina Sarana Informatika | Ujian Online</li>
+				</ol>
+
+				<ul class="app-actions">
+					<li>
+						<a href="#" id="datetime" data-original-title="Print">
+							<i class="icon-print"></i>
+						</a>
+
+					</li>
+					<li>
+						<a href="#">
+							<i class="icon-tag" style="margin-right: 10px;"></i>15260001
+						</a>
+					</li>
+					<li>
+						<a href="#">
+							<i class="icon-user" style="margin-right: 10px;"></i>MAHASISWA UJI
+						</a>
+					</li>
+					<li>
+						<a href="#">
+							<i class="icon-location_city" style="margin-right: 10px;"></i> 15.1A.01
+						</a>
+					</li>
+					<li>
+						<a href="#">
+							<i class="icon-flash" style="margin-right: 10px;"></i> 203.0.113.77
+						</a>
+					</li>
+				</ul>
+			</div>
+			<!-- Page header end -->
+
+			<!-- Content wrapper start -->
+			<div class="content-wrapper">
+				<!-- Row starts -->
+				<div class="row gutters">
+					<!-- Row start -->
+					<div class="col-xl-4 col-lg-6 col-md-6 col-sm-6 col-12">
+    <div class="card h-280 agenda-bg">
+        <div class="card-body">
+            <div class="agenda">
+                <div class="todays-date">
+                    <h5>Jadwal - <span class="date" id="todays-date"></span></h5>
+                </div>
+                <ul class="agenda-list">
+                                                            <li>
+                        <span class="bullet">&nbsp;</span>
+                        <div class="details">
+                            <p>PENGANTAR TEKNOLOGI INFORMASI DAN KOMUNIKASI(LATIHAN) </p>
+                            <small>09:10-10:10</small>
+                        </div>
+                    </li>
+                                        
+
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="col-xl-4 col-lg-6 col-md-6 col-sm-6 col-12" style="display: none;">
+    <!-- Section lokasi sedang dinonaktifkan -->
+    <div class="card h-250">
+        <div class="card-header">
+            <div class="card-title">Izin Lokasi</div>
+        </div>
+        <div class="card-body pb-0 m-auto px-3">
+            <center>
+                <button id="locationButton" class="button-lokasi" onclick="getLocation()">
+                    Cek Lokasi
+                    <svg fill="#ffffff" version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg"
+                        xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 395.71 395.71" xml:space="preserve">
+                        <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+                        <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+                        <g id="SVGRepo_iconCarrier">
+                            <g>
+                                <path
+                                    d="M197.849,0C122.131,0,60.531,61.609,60.531,137.329c0,72.887,124.591,243.177,129.896,250.388l4.951,6.738 c0.579,0.792,1.501,1.255,2.471,1.255c0.985,0,1.901-0.463,2.486-1.255l4.948-6.738c5.308-7.211,129.896-177.501,129.896-250.388 C335.179,61.609,273.569,0,197.849,0z M197.849,88.138c27.13,0,49.191,22.062,49.191,49.191c0,27.115-22.062,49.191-49.191,49.191 c-27.114,0-49.191-22.076-49.191-49.191C148.658,110.2,170.734,88.138,197.849,88.138z">
+                                </path>
+                            </g>
+                        </g>
+                    </svg>
+                </button>
+            </center>
+            <h6 class="mt-4">Untuk melanjutkan, silakan klik 'Allow' ketika diminta untuk memberikan akses lokasi Anda.
+            </h6>
+        </div>
+    </div>
+</div>
+<div class="col-xl-4 col-lg-4 col-md-6 col-sm-6 col-12">
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Quick Timetable</div>
+        </div>
+        <div class="card-body">
+            <div class="customScroll5">
+                <div class="quick-analytics">
+                    <a href="https://ujiankampusa.bsi.ac.id/jadwal/eyJpdiI6ImZnS1JVYkRNTFJTMzJnN2ZndFRmb0E9PSIsInZhbHVlIjoiOUlqcWVTTTVlc1o1K0wyRThSSnBsdz09IiwibWFjIjoiNzU0YTNlYTQ4YzNkMDdiOGE4MjQ0NjkxNzRjNjIzODQ4ZjMxM2Q3OWI4OWI4ZWVjNDUwYjc2ZmFmMWNhYTkxYSIsInRhZyI6IiJ9">
+                        <i class="icon-round-brush"></i> Jadwal LATIHAN
+                    </a>
+                    <a href="https://ujiankampusa.bsi.ac.id/jadwal/eyJpdiI6IjZ4WGUrZVFuZmdYcnFlQnE2eWE4dGc9PSIsInZhbHVlIjoidHovRFV0RmJTdHhtTjRxNnR1bTZWdz09IiwibWFjIjoiYjZiYWQ2NThmNjlkMDgzMTgzMzU4YjkwNDM1NTNmNTg2OTU0NDIwYjRmYmJjOWU2NDhlYzEzOWYyNTVjOTU1OCIsInRhZyI6IiJ9">
+                        <i class="icon-date_range"></i> Jadwal UTS
+                    </a>
+                    <a href="https://ujiankampusa.bsi.ac.id/jadwal/eyJpdiI6IkdLbHpsejcyb2cyM0ZXWlA3cXFvRGc9PSIsInZhbHVlIjoiYTA0aTE3S2pqVS8yZGx0QlovVmQyQT09IiwibWFjIjoiZDljNjAzNDQ3YmE0ZGJmMmQ2ODVhYThmMjBmYzBhZDNjYzJjODU5ZDE5N2U3ZTdhMzk0ZmI1MmU0OTk3MDBiNSIsInRhZyI6IiJ9">
+                        <i class="icon-insert_invitation"></i> Jadwal UAS
+                    </a>
+                    <a href="https://ujiankampusa.bsi.ac.id/jadwal/eyJpdiI6IjZvazNYNmsxVUdTTlRreUxLZHlzWnc9PSIsInZhbHVlIjoiYjhJVk4wRWp4M3JNQWYrbE9FOHFBQT09IiwibWFjIjoiNjg5M2JiNmYxYmI5Y2NkZWFjYmM2OWFjY2ZmOWIzNWQ0ZDNiM2M3NTYxMWMxMTI1MTA4YjhkNmEwYWVkMmI3MSIsInRhZyI6IiJ9">
+                        <i class="icon-event_available"></i> Jadwal UTS Pengganti
+                    </a>
+                    <a href="https://ujiankampusa.bsi.ac.id/jadwal/eyJpdiI6IjFEb212YmZPOWFubUxWRzJrWXNpV2c9PSIsInZhbHVlIjoiMkVpei8rKzVldThmeE43cmtKRm5MQT09IiwibWFjIjoiNzY4Y2YzZmU0MWJmN2NiYmZhN2E1NzBmNjE5YjZlYzNlYmJhZjhmOTBkNjUyYTg2NjQ2MjRiZWMyZmVhODg5YiIsInRhZyI6IiJ9">
+                        <i class="icon-event_note"></i> Jadwal UAS Pengganti
+                    </a>
+                    <a href="https://ujiankampusa.bsi.ac.id/jadwal/eyJpdiI6Ink5bllWWC9zZk92WUtsMzlyeEd3VEE9PSIsInZhbHVlIjoiU29wZXhmb2VWYkU1ZU4yVUVoVm9yQT09IiwibWFjIjoiZjhlMjEzM2Q5MzYzYTI2ODQ0YWE2YTQ3NWI0YTE0ODVjMTZlN2UwODQ2NDM3MTcxYTUwYzcyZjdmMWY3MmMyMCIsInRhZyI6IiJ9">
+                        <i class="icon-event_note"></i> Jadwal HER
+                    </a>
+                    <a href="https://ujiankampusa.bsi.ac.id/jadwal/eyJpdiI6IjF2eXBtZEI1dGVxLzRTNkszOFhIS3c9PSIsInZhbHVlIjoiWmlGdTQ1TTFCZ3NkM2srWEdUbzU1dz09IiwibWFjIjoiY2IzMTA5MTQ0NjgxMjYxYWMwNDMxZjUzY2JlZTAwZDU2MDFkYmQ1MjdhY2MyZTRlMzRlYmIwNWVjNmMyNTlmOSIsInRhZyI6IiJ9">
+                        <i class="icon-event_available"></i> Jadwal HER Pengganti
+                    </a>
+                    <a href="https://ujiankampusa.bsi.ac.id/jadwal/eyJpdiI6ImNhU3BESGZQUXdNMCtSSHdzd0J2TEE9PSIsInZhbHVlIjoiUjZuVGdPYkpQdW1zMkF4Y2pMUnFvUT09IiwibWFjIjoiN2YyNjcwMjA1Nzg1OTU4OGZkYmFmYWMzYjE3MTE0ODg5MmEyZDhhOGY4ZWQxODhkNjY4NGY2YjY0ZWFlMzk1MiIsInRhZyI6IiJ9">
+                        <i class="icon-event_available"></i> Jadwal HER Khusus
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+					<!-- Row ends -->
+				</div>
+				<!-- Row end -->
+			</div>
+			<!-- Content wrapper end -->
+
+		</div>
+		<!-- *************
+				************ Main container end *************
+			************* -->
+
+		<!-- Footer start -->
+		<!-- Footer end -->
+
+		<footer class="main-footer">© Ruang Ujian Online - Universitas Bina Sarana Informatika 2024</footer>
+	</div>
+	<!-- Container fluid end -->
+
+	<!-- *************
+			************ Required JavaScript Files *************
+		************* -->
+	<!-- Required jQuery first, then Bootstrap Bundle JS -->
+	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+	<script src="https://ujiankampusa.bsi.ac.id/js/jquery-ui.min.js"></script>
+	<script src="https://ujiankampusa.bsi.ac.id/assets/js/jquery.min.js"></script>
+	<script src="https://ujiankampusa.bsi.ac.id/assets/js/bootstrap.bundle.min.js"></script>
+	<script src="https://ujiankampusa.bsi.ac.id/assets/js/moment.js"></script>
+	<script type="text/javascript" src="https://ujiankampusa.bsi.ac.id/assets/js/jquery.expander.js"></script>
+	<!-- *************
+			************ Vendor Js Files *************
+		************* -->
+	<!-- Slimscroll JS -->
+	<script src="https://ujiankampusa.bsi.ac.id/assets/vendor/slimscroll/slimscroll.min.js"></script>
+	<script src="https://ujiankampusa.bsi.ac.id/assets/vendor/slimscroll/custom-scrollbar.js"></script>
+	<!-- Daterange -->
+	<script src="https://ujiankampusa.bsi.ac.id/assets/vendor/daterange/daterange.js"></script>
+	<script src="https://ujiankampusa.bsi.ac.id/assets/vendor/daterange/custom-daterange.js"></script>
+	<!-- Custom Data tables -->
+	<script src="https://ujiankampusa.bsi.ac.id/assets/vendor/datatables/custom/custom-datatables.js"></script>
+	<script src="https://ujiankampusa.bsi.ac.id/assets/vendor/datatables/custom/fixedHeader.js"></script>
+	<!-- Data Tables -->
+	<script src="https://ujiankampusa.bsi.ac.id/assets/vendor/datatables/dataTables.min.js"></script>
+	<script src="https://ujiankampusa.bsi.ac.id/assets/vendor/datatables/dataTables.bootstrap.min.js"></script>
+	<script src="https://ujiankampusa.bsi.ac.id/assets/js/main.js"></script>
+	<script src="https://ujiankampusa.bsi.ac.id/assets/dist/sweetalert2.min.js"></script>
+	<script src="https://ujiankampusa.bsi.ac.id/assets/dist/script.js"></script>
+	<script src="https://ujiankampusa.bsi.ac.id/js/jquery-right.js"></script>
+
+	<!-- summernote -->
+	<script src="https://ujiankampusa.bsi.ac.id/assets/summernote/summernote.min.js"></script>
+	<script src="https://ujiankampusa.bsi.ac.id/leaflet/leaflet.js"></script>
+<script>
+    // Script peta sedang dinonaktifkan - cek apakah element map ada sebelum membuat peta
+    var mapElement = document.getElementById('map');
+    if (mapElement) {
+        // Membuat peta dan mengatur titik tengahnya
+        var map = L.map('map').setView([-6.1151397, 106.6063305], 13);
+
+        // Menambahkan 'tile layer' ke peta
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Menambahkan marker ke peta
+        L.marker([-6.1151397, 106.6063305]).addTo(map)
+            .bindPopup('Lokasi anda saat ini yang terekam pada sistem')
+            .openPopup();
+    }
+</script>
+<script>
+    function getLocation() {
+        // Fitur penyimpanan lokasi sedang dinonaktifkan
+        Swal.fire("Informasi", "Fitur penyimpanan lokasi sedang dinonaktifkan untuk saat ini.", "info");
+        return false;
+
+        // Code di bawah ini dinonaktifkan sementara
+        /*
+        var locationButton = document.getElementById('locationButton');
+        locationButton.disabled = true;
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                sendPositionToServer(position);
+                locationButton.disabled = false; // Enable the button again after getting location
+            }, function(error) {
+                showError(error);
+                locationButton.disabled = false; // Enable the button again if there is an error
+            });
+        } else {
+            alert("Geolocation is not supported by this browser.");
+            locationButton.disabled = false; // Enable the button again if geolocation is not supported
+        }
+        */
+    }
+
+    function sendPositionToServer(position) {
+        var latitude = position.coords.latitude;
+        var longitude = position.coords.longitude;
+        var locationButton = document.getElementById('locationButton');
+        locationButton.disabled = true; // Disable the button while sending data
+        // Menggunakan AJAX untuk mengirim data ke server
+        fetch('/api/save-location', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({
+                    latitude: latitude,
+                    longitude: longitude
+                })
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                }
+                throw new Error('Network response was not ok.');
+            })
+            .then(data => {
+                if (data.success) {
+                    // Menggunakan SweetAlert untuk alert sukses
+                    Swal.fire("Sukses!", data.message, "success");
+                } else {
+                    // Menggunakan SweetAlert untuk alert gagal
+                    Swal.fire("Gagal!", "Validasi lokasi gagal.", "error");
+                    locationButton.disabled = false;
+                }
+            })
+            .catch((error) => {
+                // Menggunakan SweetAlert untuk alert error
+                Swal.fire("Error!", "Terjadi kesalahan saat mengirim lokasi ke server.", "error");
+                locationButton.disabled = false;
+            });
+    }
+
+    function showError(error) {
+        switch (error.code) {
+            case error.PERMISSION_DENIED:
+
+                Swal.fire("Peringatan!", "Pengguna menolak permintaan untuk mendapatkan lokasi GPS.", "warning");
+                // alert("User denied the request for Geolocation.");
+                break;
+            case error.POSITION_UNAVAILABLE:
+                Swal.fire("Gagal!", "Informasi lokasi tidak tersedia.", "error");
+                // alert("Location information is unavailable.");
+                break;
+            case error.TIMEOUT:
+                Swal.fire("Gagal!", "Permintaan untuk mendapatkan lokasi pengguna telah melewati batas waktu.", "error");
+                // alert("The request to get user location timed out.");
+                break;
+            case error.UNKNOWN_ERROR:
+                Swal.fire("Gagal!", "Terjadi kesalahan yang tidak diketahui.", "error");
+                // alert("An unknown error occurred.");
+                break;
+        }
+    }
+</script>
+	<script>
+		document.addEventListener('DOMContentLoaded', function() {
+			function disableSelection(element) {
+				if (typeof element.onselectstart !== 'undefined') {
+					element.onselectstart = function() {
+						return false;
+					}; // Menonaktifkan seleksi
+				}
+				element.style.userSelect = 'none'; // CSS standar untuk menonaktifkan seleksi teks
+				element.style.webkitUserSelect = 'none'; // Safari
+				element.style.msUserSelect = 'none'; // Internet Explorer
+				element.setAttribute('unselectable', 'on'); // Untuk elemen tertentu di browser lama
+			}
+
+			disableSelection(document.body); // Menonaktifkan seleksi di seluruh body, kecuali form/input
+
+		});
+
+
+		function updateDateTime() {
+			var now = new Date();
+			var date = now.getDate();
+			var month = now.getMonth();
+			var year = now.getFullYear();
+			var hours = now.getHours();
+			var minutes = now.getMinutes();
+			var seconds = now.getSeconds();
+
+			// Daftar nama bulan dalam Bahasa Indonesia
+			var months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+
+			// Format menit dan detik untuk menampilkan dua digit
+			minutes = minutes < 10 ? '0' + minutes : minutes;
+			seconds = seconds < 10 ? '0' + seconds : seconds;
+
+			var datetime = (date < 10 ? '0' + date : date) + " " + months[month] + " " + year + " - " + hours + ":" + minutes + ":" + seconds;
+
+			document.getElementById("datetime").innerHTML = datetime;
+		}
+
+		// Memperbarui waktu setiap detik
+		setInterval(updateDateTime, 1000);
+
+		// Memanggil fungsi pertama kali untuk inisialisasi
+		updateDateTime();
+	</script>
+</body>
+
+</html>
