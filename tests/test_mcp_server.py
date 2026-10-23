@@ -55,7 +55,7 @@ async def test_mcp_tool_listing():
     assert "ubsi_get_certificates" in tool_names
     assert "ubsi_get_lecturers" in tool_names
     assert "ubsi_get_api_docs" in tool_names
-    assert len(tool_names) == 38
+    assert len(tool_names) == 40
 
 def test_mcp_context_credentials_override_empty_tool_args():
     ctx = MagicMock()
@@ -386,7 +386,7 @@ async def test_mcp_presence_and_quiz_write_tools():
     assert parsed_docs["success"] is True
     assert "endpoints" in parsed_docs["data"]
     assert "mcp" in parsed_docs["data"]
-    assert parsed_docs["data"]["mcp"]["total_tools"] == 38
+    assert parsed_docs["data"]["mcp"]["total_tools"] == 40
 
     res_docs_cat = await ubsi_get_api_docs(category="elearning")
     parsed_docs_cat = json.loads(res_docs_cat)

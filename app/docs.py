@@ -421,7 +421,7 @@ API_DOCS_DATA: dict[str, Any] = {
     "mcp": {
         "server_url": "https://api.muaraai.com/v1/ubsi-api/mcp",
         "transport": "streamable-http",
-        "total_tools": 38,
+        "total_tools": 40,
         "tools": [
             # SIAKAD
             {"name": "ubsi_get_profile", "category": "siakad", "description": "Biodata lengkap mahasiswa, kelas, prodi, dan status akademik."},
@@ -447,6 +447,8 @@ API_DOCS_DATA: dict[str, Any] = {
             {"name": "ubsi_get_materials", "category": "elearning", "description": "Unduh berkas arsip ZIP silabus, modul, slide, RPS, RTM."},
             {"name": "ubsi_get_quiz", "category": "elearning", "description": "Jadwal kuis latihan dan ujian online MyBest."},
             {"name": "ubsi_get_quiz_questions", "category": "elearning", "description": "Pratinjau butir soal kuis pilihan ganda dan opsi jawaban."},
+            {"name": "ubsi_get_exams", "category": "elearning", "description": "Daftar jenis ujian semester Ujian Online BSI (latihan, UTS, UAS, pengganti, HER)."},
+            {"name": "ubsi_get_exam_schedule", "category": "elearning", "description": "Jadwal ujian satu jenis dari Ujian Online BSI: mata kuliah, ruang, tanggal, durasi, jumlah soal, status berlangsung."},
             {"name": "ubsi_submit_quiz_answer", "category": "elearning", "description": "Kirim jawaban butir soal kuis ke MyBest."},
             {"name": "ubsi_get_grades_recap", "category": "elearning", "description": "Rekap nilai tugas & kuis per pertemuan dosen."},
             {"name": "ubsi_get_course_grades", "category": "elearning", "description": "Rincian nilai tugas satu mata kuliah spesifik."},
