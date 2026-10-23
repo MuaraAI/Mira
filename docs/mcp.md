@@ -1,4 +1,4 @@
-# Model Context Protocol (MCP) Server Reference — UBSI API
+# Model Context Protocol (MCP) Server Reference — Mira (sebelumnya UBSI API)
 
 Universal Model Context Protocol (MCP) Server untuk ekosistem akademik Universitas Bina Sarana Informatika (UBSI). Memungkinkan AI Coding Agent (**Claude Code**, **Cursor**, **Codex CLI**, **Hermes Agent**, **OpenCode**, dan **Claude Desktop**) berinteraksi secara aman dan terenkripsi dengan 6 layanan kampus UBSI.
 
@@ -10,12 +10,14 @@ Universal Model Context Protocol (MCP) Server untuk ekosistem akademik Universit
 - **Transport**: **Streamable HTTP** (rekomendasi produksi), SSE (*Server-Sent Events*), dan Stdio (local debugging).
 - **Endpoint URL Resmi**:
   ```text
+  https://api.muaraai.com/v1/mira/mcp
+  # Alias kompatibilitas mundur:
   https://api.muaraai.com/v1/ubsi-api/mcp
   ```
 - **Port Produksi Lokal (VPS)**: `127.0.0.1:8350/mcp`
-- **Total Tools Aktif**: **38 Tools Akademik** (Read & Write).
+- **Total Tools Aktif**: **80 Tools** (40 fungsi akademik dalam 2 namespace: `mira_*` sebagai nama primer dan `ubsi_*` sebagai legacy alias).
 - **Keamanan & Isolasi**:
-  - Multi-tenant berbasis **Personal API Key** (`muara_ubsi_<hex>`) atau **Session Token** (Redis AES-256-GCM).
+  - Multi-tenant berbasis **Personal API Key** (`muara_mira_<hex>` atau legacy `muara_ubsi_<hex>`) atau **Session Token** (Redis AES-256-GCM).
   - Setiap agent hanya memiliki akses ke akun mahasiswa yang sesuai dengan key-nya.
   - Zero hardcoded passwords; kredensial kampus tidak pernah diekspos ke model AI.
 
@@ -26,13 +28,13 @@ Universal Model Context Protocol (MCP) Server untuk ekosistem akademik Universit
 Setiap permintaan ke endpoint MCP wajib menyertakan token autentikasi melalui header HTTP:
 
 ```http
-Authorization: Bearer muara_ubsi_YOUR_PERSONAL_KEY
+Authorization: Bearer muara_..._KEY
 ```
 
 > **Cara Mendapatkan Personal API Key**:
-> 1. Masuk ke dashboard resmi di [ubsi-api.muaraai.com](https://ubsi-api.muaraai.com).
+> 1. Masuk ke dashboard resmi di [mira.muaraai.com](https://mira.muaraai.com).
 > 2. Buka menu **Personal API Keys** (`/dashboard/keys`).
-> 3. Klik tombol **Buat API Key Baru** (format `muara_ubsi_***`). Kunci ini berlaku mandiri tanpa mengekspos kata sandi kampus.
+> 3. Klik tombol **Buat API Key Baru** (format `muara_mira_***`). Kunci ini berlaku mandiri tanpa mengekspos kata sandi kampus. Kunci lama (`muara_ubsi_***`) tetap didukung sepenuhnya.
 
 ---
 

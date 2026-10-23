@@ -24,38 +24,24 @@ from app.mcp_server import (
 async def test_mcp_tool_listing():
     tools = await server.list_tools()
     tool_names = {t.name for t in tools}
-    assert "ubsi_whoami" in tool_names
-    assert "ubsi_get_schedule" in tool_names
-    assert "ubsi_get_grades" in tool_names
-    assert "ubsi_get_profile" in tool_names
-    assert "ubsi_get_khs" in tool_names
-    assert "ubsi_get_krs" in tool_names
-    assert "ubsi_get_uts" in tool_names
-    assert "ubsi_get_courses" in tool_names
-    assert "ubsi_get_presence" in tool_names
-    assert "ubsi_submit_presence" in tool_names
-    assert "ubsi_get_quiz" in tool_names
-    assert "ubsi_get_quiz_questions" in tool_names
-    assert "ubsi_submit_quiz_answer" in tool_names
-    assert "ubsi_list_channels" in tool_names
-    assert "ubsi_trigger_reminder" in tool_names
-    assert "ubsi_get_course_grades" in tool_names
-    assert "ubsi_upload_assignment" in tool_names
-    assert "ubsi_submit_assignment" in tool_names
-    assert "ubsi_get_discussions" in tool_names
-    assert "ubsi_get_discussion_comments" in tool_names
-    assert "ubsi_submit_discussion_comment" in tool_names
-    assert "ubsi_create_discussion" in tool_names
-    assert "ubsi_get_elearning_profile" in tool_names
-    assert "ubsi_get_makeup_classes" in tool_names
-    assert "ubsi_get_elearning_guides" in tool_names
-    assert "ubsi_get_uas" in tool_names
-    assert "ubsi_get_academic_calendar" in tool_names
-    assert "ubsi_get_prodi_contacts" in tool_names
-    assert "ubsi_get_certificates" in tool_names
-    assert "ubsi_get_lecturers" in tool_names
-    assert "ubsi_get_api_docs" in tool_names
-    assert len(tool_names) == 40
+    # Dual registration: 40 tools * 2 = 80 tools total
+    assert len(tool_names) == 80
+
+    # Pastikan kedua namespace (mira_* dan ubsi_*) terdaftar lengkap
+    core_suffixes = [
+        "whoami", "get_schedule", "get_grades", "get_profile", "get_khs", "get_krs",
+        "get_uts", "get_courses", "get_presence", "submit_presence", "get_quiz",
+        "get_quiz_questions", "submit_quiz_answer", "list_channels", "trigger_reminder",
+        "get_course_grades", "upload_assignment", "submit_assignment", "get_discussions",
+        "get_discussion_comments", "submit_discussion_comment", "create_discussion",
+        "get_elearning_profile", "get_makeup_classes", "get_elearning_guides", "get_uas",
+        "get_academic_calendar", "get_prodi_contacts", "get_certificates", "get_lecturers",
+        "get_api_docs", "get_materials", "get_assignments", "search_library", "get_news",
+        "get_repository", "get_dashboard", "get_grades_recap", "get_exams", "get_exam_schedule",
+    ]
+    for s in core_suffixes:
+        assert f"mira_{s}" in tool_names, f"mira_{s} harus terdaftar di MCP server"
+        assert f"ubsi_{s}" in tool_names, f"ubsi_{s} harus terdaftar sebagai alias di MCP server"
 
 def test_mcp_context_credentials_override_empty_tool_args():
     ctx = MagicMock()
@@ -84,14 +70,26 @@ async def test_mcp_call_tool_propagates_headers_to_all_tools():
         assert called_headers["X-API-Key"] == "muara_ubsi_propagated_test_key_12345678"
         assert called_headers["Authorization"] == "Bearer muara_ubsi_propagated_test_key_12345678"
 
+    # Uji pemanggilan menggunakan nama baru mira_whoami
+    with patch("httpx.AsyncClient.get", return_value=mock_resp) as mock_get_mira:
+        res_mira = await server._tool_manager.call_tool("mira_whoami", {}, ctx)
+        data_mira = json.loads(res_mira)
+        assert data_mira["success"] is True
+        called_headers_mira = mock_get_mira.call_args[1]["headers"]
+        assert called_headers_mira["X-API-Key"] == "muara_ubsi_propagated_test_key_12345678"
 
-def test_mcp_credential_headers_isolation():
+
+def test_mcp_credential_headers_isolation(monkeypatch):
     # 1. Session token isolation
     h_sess = _build_headers(session_token="my_custom_session_token_123")
     assert h_sess["Authorization"] == "Bearer my_custom_session_token_123"
     assert "ubsi_session=my_custom_session_token_123" in h_sess["Cookie"]
 
-    # 2. Personal API Key (muara_ubsi_...)
+    # 2. Personal API Key (muara_mira_ & muara_ubsi_)
+    h_mira = _build_headers(api_key="muara_mira_abcdef1234567890")
+    assert h_mira["Authorization"] == "Bearer muara_mira_abcdef1234567890"
+    assert h_mira["X-API-Key"] == "muara_mira_abcdef1234567890"
+
     h_personal = _build_headers(api_key="muara_ubsi_abcdef1234567890")
     assert h_personal["Authorization"] == "Bearer muara_ubsi_abcdef1234567890"
     assert h_personal["X-API-Key"] == "muara_ubsi_abcdef1234567890"
@@ -101,8 +99,21 @@ def test_mcp_credential_headers_isolation():
     assert h_master["X-API-Key"] == "master_secret_key_456"
     assert h_master["Authorization"] == "Bearer master_secret_key_456"
 
-    # 4. Unexpanded template literals should be stripped to empty
-    h_literal = _build_headers(api_key="${UBSI_API_KEY}", session_token="${UBSI_SESSION_TOKEN}")
+    # 4. Fallback environment variables (MIRA_* prioritas di atas UBSI_*)
+    monkeypatch.setenv("MIRA_API_KEY", "muara_mira_from_env_12345")
+    monkeypatch.delenv("UBSI_API_KEY", raising=False)
+    h_env_mira = _build_headers()
+    assert h_env_mira["X-API-Key"] == "muara_mira_from_env_12345"
+
+    monkeypatch.setenv("MIRA_SESSION_TOKEN", "sess_from_mira_env")
+    monkeypatch.delenv("MIRA_API_KEY", raising=False)
+    h_env_sess = _build_headers()
+    assert h_env_sess["Authorization"] == "Bearer sess_from_mira_env"
+
+    # 5. Unexpanded template literals should be stripped to empty
+    monkeypatch.delenv("MIRA_API_KEY", raising=False)
+    monkeypatch.delenv("MIRA_SESSION_TOKEN", raising=False)
+    h_literal = _build_headers(api_key="${MIRA_API_KEY}", session_token="${MIRA_SESSION_TOKEN}")
     assert "Authorization" not in h_literal
     assert "X-API-Key" not in h_literal
     assert "Cookie" not in h_literal
@@ -386,7 +397,7 @@ async def test_mcp_presence_and_quiz_write_tools():
     assert parsed_docs["success"] is True
     assert "endpoints" in parsed_docs["data"]
     assert "mcp" in parsed_docs["data"]
-    assert parsed_docs["data"]["mcp"]["total_tools"] == 40
+    assert parsed_docs["data"]["mcp"]["total_tools"] == 80
 
     res_docs_cat = await ubsi_get_api_docs(category="elearning")
     parsed_docs_cat = json.loads(res_docs_cat)

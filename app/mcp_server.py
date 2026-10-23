@@ -43,10 +43,39 @@ def _resolve_credentials(
 
 
 server = MCPServer(
-    name="ubsi-mcp",
+    name="mira-mcp",
     version="2.0.0",
-    description="Universal API aggregator dan otomasi akademik untuk 6 layanan digital Universitas Bina Sarana Informatika (UBSI).",
+    description="Universal API aggregator dan otomasi akademik untuk 6 layanan digital Universitas Bina Sarana Informatika (Mira / UBSI).",
 )
+
+def _register_dual_tool(
+    name: str | None = None,
+    title: str | None = None,
+    description: str | None = None,
+    **kwargs: Any,
+) -> Any:
+    """Register tool with primary name (mira_*) and backward-compatible alias (ubsi_*)."""
+    def decorator(fn: Any) -> Any:
+        tool_name = name or fn.__name__
+        if tool_name.startswith("mira_"):
+            mira_name = tool_name
+            legacy_name = "ubsi_" + tool_name[5:]
+        elif tool_name.startswith("ubsi_"):
+            mira_name = "mira_" + tool_name[5:]
+            legacy_name = tool_name
+        else:
+            mira_name = tool_name
+            legacy_name = None
+
+        server.add_tool(fn, name=mira_name, title=title, description=description, **kwargs)
+        if legacy_name:
+            alias_desc = f"[Legacy Alias: gunakan {mira_name}] {description or ''}".strip()
+            server.add_tool(fn, name=legacy_name, title=title, description=alias_desc, **kwargs)
+        return fn
+
+    return decorator
+
+server.tool = _register_dual_tool
 
 _orig_call_tool = server._tool_manager.call_tool
 
@@ -68,7 +97,7 @@ server._tool_manager.call_tool = _hooked_call_tool
 
 
 def _get_base_url() -> str:
-    url = os.getenv("UBSI_API_URL", "https://api.muaraai.com/v1/ubsi-api")
+    url = os.getenv("MIRA_API_URL") or os.getenv("UBSI_API_URL", "https://api.muaraai.com/v1/mira")
     return url.rstrip("/")
 
 
@@ -83,10 +112,10 @@ def _build_headers(
         session_token = session_token or cs
 
     headers: dict[str, str] = {"Content-Type": "application/json"}
-    k = api_key or os.getenv("UBSI_API_KEY", "")
-    s = session_token or os.getenv("UBSI_SESSION_TOKEN", "")
+    k = api_key or os.getenv("MIRA_API_KEY") or os.getenv("UBSI_API_KEY", "")
+    s = session_token or os.getenv("MIRA_SESSION_TOKEN") or os.getenv("UBSI_SESSION_TOKEN", "")
 
-    # Abaikan literal template yang belum diekspansi (misal: ${UBSI_API_KEY})
+    # Abaikan literal template yang belum diekspansi (misal: ${MIRA_API_KEY} atau ${UBSI_API_KEY})
     if k.startswith("${") and k.endswith("}"):
         k = ""
     if s.startswith("${") and s.endswith("}"):
@@ -714,10 +743,16 @@ async def ubsi_get_api_docs(
     return json.dumps({"success": True, "data": res}, ensure_ascii=False, indent=2)
 
 
+# Export mira_* module-level function aliases for all ubsi_* functions
+for _sym in list(globals().keys()):
+    if _sym.startswith("ubsi_") and callable(globals()[_sym]):
+        globals()["mira_" + _sym[5:]] = globals()[_sym]
+
+
 def main():
     """Jalankan server MCP melalui transport stdio, streamable-http, atau sse."""
     import argparse
-    parser = argparse.ArgumentParser(description="UBSI API MCP Server")
+    parser = argparse.ArgumentParser(description="Mira / UBSI API MCP Server")
     parser.add_argument("--transport", choices=["stdio", "streamable-http", "sse"], default="stdio")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8350)
@@ -728,8 +763,17 @@ def main():
         from mcp.server.transport_security import TransportSecuritySettings
         sec = TransportSecuritySettings(
             enable_dns_rebinding_protection=True,
-            allowed_hosts=["127.0.0.1", "127.0.0.1:*", "localhost", "localhost:*", "api.muaraai.com", "api.muaraai.com:*"],
-            allowed_origins=["https://ubsi-api.muaraai.com", "http://localhost:3000", "http://127.0.0.1:3000"],
+            allowed_hosts=[
+                "127.0.0.1", "127.0.0.1:*", "localhost", "localhost:*",
+                "api.muaraai.com", "api.muaraai.com:*",
+                "mcp.muaraai.com", "mcp.muaraai.com:*",
+            ],
+            allowed_origins=[
+                "https://mira.muaraai.com",
+                "https://ubsi-api.muaraai.com",
+                "http://localhost:3000",
+                "http://127.0.0.1:3000",
+            ],
         )
         server.run(
             transport="streamable-http",

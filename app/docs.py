@@ -436,7 +436,8 @@ API_DOCS_DATA: dict[str, Any] = {
         "server_url": "https://api.muaraai.com/v1/mira/mcp",
         "legacy_server_url": "https://api.muaraai.com/v1/ubsi-api/mcp",
         "transport": "streamable-http",
-        "total_tools": 40,
+        "total_tools": 80,
+        "tools_note": "Tersedia 40 fungsi akademik dalam 2 namespace: mira_* (primer) dan ubsi_* (legacy alias).",
         "tools": [
             # SIAKAD
             {"name": "ubsi_get_profile", "category": "siakad", "description": "Biodata lengkap mahasiswa, kelas, prodi, dan status akademik."},
