@@ -59,7 +59,7 @@ export function isIosNotInstalled(): boolean {
 export function getPushBlocker(): string | null {
   if (typeof window === "undefined") return null;
   if (isIosNotInstalled()) {
-    return "Di iPhone/iPad, buka menu Bagikan lalu pilih Tambahkan ke Layar Utama, kemudian buka UBSI-API dari ikon itu untuk mengaktifkan notifikasi.";
+    return "Di iPhone/iPad, buka menu Bagikan lalu pilih Tambahkan ke Layar Utama, kemudian buka Mira dari ikon itu untuk mengaktifkan notifikasi.";
   }
   if (!isPushSupported()) return "Browser ini belum mendukung notifikasi push. Coba Chrome, Edge, Firefox, atau Safari terbaru.";
   if (getNotificationPermission() === "denied") {

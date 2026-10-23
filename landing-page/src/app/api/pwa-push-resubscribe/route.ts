@@ -39,8 +39,8 @@ export async function POST(request: NextRequest) {
       Cookie: cookie,
       // Backend ambient cookie auth hanya menerima dari dashboard resmi
       "X-Requested-With": "dashboard",
-      Origin: "https://ubsi-api.muaraai.com",
-      Referer: "https://ubsi-api.muaraai.com/dashboard/notifikasi",
+      Origin: request.nextUrl.origin || "https://mira.muaraai.com",
+      Referer: `${request.nextUrl.origin || "https://mira.muaraai.com"}/dashboard/notifikasi`,
     },
     body: JSON.stringify(body),
     cache: "no-store",

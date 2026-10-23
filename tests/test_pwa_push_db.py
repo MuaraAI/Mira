@@ -108,3 +108,50 @@ async def test_app_lifespan_creates_pwa_table(tmp_path, monkeypatch):
     conn.close()
     assert "pwa_push_subscriptions" in tables
     assert "pwa_push_categories" in tables
+
+
+@pytest.mark.asyncio
+async def test_add_subscription_deactivates_stale_device_on_domain_migration():
+    nim = "15260767"
+    device_name = "Chrome on Android"
+
+    # 1. User mendaftar dari origin lama (ubsi-api.muaraai.com)
+    id1 = await add_subscription(
+        nim=nim,
+        endpoint="https://fcm.googleapis.com/fcm/send/old-endpoint-token-1",
+        p256dh="key1",
+        auth="auth1",
+        device_name=device_name,
+    )
+    assert id1 > 0
+
+    active_subs = await get_active_subscriptions_for_nim(nim)
+    assert len(active_subs) == 1
+    assert active_subs[0]["endpoint"] == "https://fcm.googleapis.com/fcm/send/old-endpoint-token-1"
+
+    # 2. User migrasi ke origin baru (mira.muaraai.com) pada perangkat yang sama
+    # Browser menerbitkan endpoint baru untuk origin baru
+    id2 = await add_subscription(
+        nim=nim,
+        endpoint="https://fcm.googleapis.com/fcm/send/new-endpoint-token-2",
+        p256dh="key2",
+        auth="auth2",
+        device_name=device_name,
+    )
+    assert id2 > 0
+
+    # Endpoint lama harus dinonaktifkan (is_active = 0) agar tidak terjadi push duplikat
+    active_subs_after = await get_active_subscriptions_for_nim(nim)
+    assert len(active_subs_after) == 1
+    assert active_subs_after[0]["endpoint"] == "https://fcm.googleapis.com/fcm/send/new-endpoint-token-2"
+
+    # Perangkat berbeda (misal PC Windows) tetap aktif berdampingan
+    await add_subscription(
+        nim=nim,
+        endpoint="https://fcm.googleapis.com/fcm/send/pc-endpoint",
+        p256dh="key_pc",
+        auth="auth_pc",
+        device_name="Firefox on Windows",
+    )
+    both_active = await get_active_subscriptions_for_nim(nim)
+    assert len(both_active) == 2
