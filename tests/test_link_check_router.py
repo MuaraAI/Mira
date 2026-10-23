@@ -10,7 +10,7 @@ from app.main import app
 @pytest.mark.asyncio
 async def test_link_check_requires_authentication():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test", headers={"_skip_auto_auth": "1"}) as client:
-        response = await client.post("/v1/tools/link-check", json={"urls": ["https://github.com/MuaraAI/UBSI-API"]})
+        response = await client.post("/v1/tools/link-check", json={"urls": ["https://github.com/MuaraAI/Mira"]})
     assert response.status_code in (401, 403)
 
 

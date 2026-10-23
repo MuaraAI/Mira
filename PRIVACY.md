@@ -1,7 +1,7 @@
 # Privacy Policy
 
 **Effective date:** October 18, 2026
-**Applies to:** UBSI API (`MuaraAI/UBSI-API`), its hosted dashboard at `ubsi-api.muaraai.com`, and its API gateway at `api.muaraai.com`.
+**Applies to:** UBSI API (`MuaraAI/Mira`), its hosted dashboard at `ubsi-api.muaraai.com`, and its API gateway at `api.muaraai.com`.
 
 This project is an unofficial, community-built student tool. This policy explains, in plain terms, what data the service touches, where it lives, how it is protected, and how you can delete it.
 
@@ -59,4 +59,4 @@ This is an independent student project. It is not affiliated with, endorsed by, 
 
 ## 8. Contact
 
-Questions or privacy requests (including full data deletion) can be raised via a GitHub issue on `MuaraAI/UBSI-API` or by contacting the maintainers listed in `README.md`.
+Questions or privacy requests (including full data deletion) can be raised via a GitHub issue on `MuaraAI/Mira` or by contacting the maintainers listed in `README.md`.

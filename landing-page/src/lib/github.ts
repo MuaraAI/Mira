@@ -1,4 +1,4 @@
-const REPOSITORY_URL = "https://api.github.com/repos/MuaraAI/UBSI-API";
+const REPOSITORY_URL = "https://api.github.com/repos/MuaraAI/Mira";
 
 export async function getRepositoryStars(): Promise<number | null> {
   try {

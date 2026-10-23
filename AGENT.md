@@ -1,6 +1,6 @@
 # AGENT.md — AI Coding Agent Guide & Project Manual
 
-Selamat datang di repositori **UBSI API** (`MuaraAI/UBSI-API`). Dokumen ini adalah panduan resmi operasional, arsitektur, dan konvensi kerja bagi seluruh AI Coding Agent (Hermes, Claude Code, Cursor, Codex, Copilot, dll.) dan pengembang yang berkontribusi pada proyek ini.
+Selamat datang di repositori **UBSI API** (`MuaraAI/Mira`). Dokumen ini adalah panduan resmi operasional, arsitektur, dan konvensi kerja bagi seluruh AI Coding Agent (Hermes, Claude Code, Cursor, Codex, Copilot, dll.) dan pengembang yang berkontribusi pada proyek ini.
 
 ---
 
@@ -8,7 +8,7 @@ Selamat datang di repositori **UBSI API** (`MuaraAI/UBSI-API`). Dokumen ini adal
 
 * **Nama Proyek:** UBSI API
 * **Deskripsi:** Unofficial REST API Aggregator untuk 6 layanan kampus Universitas Bina Sarana Informatika (SIAKAD, Elearning MyBest, Perpustakaan, Berita Resmi, Repository EPrints, dan E-Journal OJS).
-* **Repositori Resmi:** [https://github.com/MuaraAI/UBSI-API](https://github.com/MuaraAI/UBSI-API) (Organisasi: `MuaraAI`, Public)
+* **Repositori Resmi:** [https://github.com/MuaraAI/Mira](https://github.com/MuaraAI/Mira) (Organisasi: `MuaraAI`, Public)
 * **Lisensi:** MIT License
 * **Core Team & Maintainers:**
   - **Yuken Velino** ([@Curzyori](https://github.com/Curzyori)) — Lead Developer & Creator (Informatika, FTI UBSI)
@@ -91,9 +91,9 @@ Dilarang keras melakukan direct commit dan direct push ke branch `main`! Setiap 
    Gunakan GitHub CLI (`gh pr create`) atau web GitHub untuk membuka PR, sertakan ringkasan perubahan dan bukti pengujian. Tunggu review/konfirmasi sebelum merge.
 
 ### Alur B: Kontributor Eksternal (Open Source)
-1. **Fork Repositori:** Fork `MuaraAI/UBSI-API` ke akun personal GitHub kontributor.
+1. **Fork Repositori:** Fork `MuaraAI/Mira` ke akun personal GitHub kontributor.
 2. **Kembangkan di Branch Fork:** Kerjakan perubahan pada branch di repositori fork.
-3. **Buka Cross-Repo Pull Request:** Buat PR dari branch fork ke `MuaraAI/UBSI-API:main`.
+3. **Buka Cross-Repo Pull Request:** Buat PR dari branch fork ke `MuaraAI/Mira:main`.
 
 ---
 

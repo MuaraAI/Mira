@@ -35,9 +35,9 @@ def test_drive_folder_docs_and_github():
     sheet = parse_share_link(f"https://docs.google.com/spreadsheets/d/{FID}/edit#gid=0")
     assert sheet["kind"] == "sheets"
 
-    repo = parse_share_link("https://github.com/MuaraAI/UBSI-API/tree/main/app")
-    assert repo["kind"] == "repo" and repo["id"] == "MuaraAI/UBSI-API"
-    assert repo["normalized_url"] == "https://github.com/MuaraAI/UBSI-API"
+    repo = parse_share_link("https://github.com/MuaraAI/Mira/tree/main/app")
+    assert repo["kind"] == "repo" and repo["id"] == "MuaraAI/Mira"
+    assert repo["normalized_url"] == "https://github.com/MuaraAI/Mira"
     assert repo["preview_url"] is None  # GitHub melarang di-embed
 
 
@@ -112,8 +112,8 @@ async def test_unsupported_host_is_never_fetched():
 
 @pytest.mark.asyncio
 async def test_github_repo_public_and_missing():
-    async with client_for(lambda r: httpx.Response(200, html="<title>MuaraAI/UBSI-API</title>")) as client:
-        assert (await check_link("https://github.com/MuaraAI/UBSI-API", client))["access"] == "public"
+    async with client_for(lambda r: httpx.Response(200, html="<title>MuaraAI/Mira</title>")) as client:
+        assert (await check_link("https://github.com/MuaraAI/Mira", client))["access"] == "public"
     async with client_for(lambda r: httpx.Response(404)) as client:
         assert (await check_link("https://github.com/MuaraAI/rahasia", client))["access"] == "missing"
 

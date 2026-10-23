@@ -1,20 +1,21 @@
-<h1 align="center">UBSI API</h1>
+<h1 align="center">Mira</h1>
 
 <p align="center">
-  <strong>REST API Aggregator &amp; Model Context Protocol (MCP) Server untuk Enam Layanan Digital Universitas Bina Sarana Informatika</strong><br />
+  <strong>Satu Tempat untuk Seluruh Layanan Kampus UBSI</strong><br />
+  Dashboard mahasiswa SIAKAD &amp; MyBest dengan REST API dan MCP Server di baliknya<br />
   SIAKAD (students.bsi.ac.id) · MyBest LMS · Perpustakaan OPAC · Berita Resmi · Repository EPrints · E-Journal OJS
 </p>
 
 <div align="center">
 
-  <a href="https://ubsi-api.muaraai.com"><img src="https://img.shields.io/badge/website-ubsi--api.muaraai.com-0369A1?style=flat-square" alt="Website" /></a>
-  <a href="https://github.com/MuaraAI/UBSI-API/blob/main/LICENSE"><img src="https://img.shields.io/github/license/MuaraAI/UBSI-API?style=flat-square&color=374151" alt="License" /></a>
+  <a href="https://mira.muaraai.com"><img src="https://img.shields.io/badge/website-mira.muaraai.com-0369A1?style=flat-square" alt="Website" /></a>
+  <a href="https://github.com/MuaraAI/Mira/blob/main/LICENSE"><img src="https://img.shields.io/github/license/MuaraAI/Mira?style=flat-square&color=374151" alt="License" /></a>
   <img src="https://img.shields.io/badge/python-3.12%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python" />
   <img src="https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI" />
   <img src="https://img.shields.io/badge/Next.js-15%20App%20Router-000000?style=flat-square&logo=nextdotjs&logoColor=white" alt="Next.js" />
   <img src="https://img.shields.io/badge/Redis-AES--256--GCM-DC382D?style=flat-square&logo=redis&logoColor=white" alt="Redis" />
   <img src="https://img.shields.io/badge/tests-181%20lulus-0F766E?style=flat-square" alt="Tests" />
-  <a href="https://github.com/MuaraAI/UBSI-API/releases"><img src="https://img.shields.io/badge/release-v2.0.0%20stable-0369A1?style=flat-square" alt="Release" /></a>
+  <a href="https://github.com/MuaraAI/Mira/releases"><img src="https://img.shields.io/badge/release-v2.0.0%20stable-0369A1?style=flat-square" alt="Release" /></a>
 
 </div>
 
@@ -34,7 +35,7 @@ Proyek ini dirintis, dibangun, dan dirawat secara independen oleh tiga mahasiswa
       <br />
       <a href="https://github.com/Curzyori">@Curzyori</a>
       <br /><br />
-      <a href="https://github.com/MuaraAI/UBSI-API/commits?author=Curzyori">
+      <a href="https://github.com/MuaraAI/Mira/commits?author=Curzyori">
         <img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.github.com%2Frepos%2FMuaraAI%2FUBSI-API%2Fcontributors&query=%24%5B0%5D.contributions&label=commits&color=2DD4BF&logo=git" alt="Commits" />
       </a>
       <br /><br />
@@ -51,7 +52,7 @@ Proyek ini dirintis, dibangun, dan dirawat secara independen oleh tiga mahasiswa
       <br />
       <a href="https://github.com/MyKineID">@MyKineID</a>
       <br /><br />
-      <a href="https://github.com/MuaraAI/UBSI-API/commits?author=MyKineID">
+      <a href="https://github.com/MuaraAI/Mira/commits?author=MyKineID">
         <img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.github.com%2Frepos%2FMuaraAI%2FUBSI-API%2Fcontributors&query=%24%5B1%5D.contributions&label=commits&color=2DD4BF&logo=git" alt="Commits" />
       </a>
       <br /><br />
@@ -68,7 +69,7 @@ Proyek ini dirintis, dibangun, dan dirawat secara independen oleh tiga mahasiswa
       <br />
       <a href="https://github.com/Seeyaa77">@Seeyaa77</a>
       <br /><br />
-      <a href="https://github.com/MuaraAI/UBSI-API/commits?author=Seeyaa77">
+      <a href="https://github.com/MuaraAI/Mira/commits?author=Seeyaa77">
         <img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.github.com%2Frepos%2FMuaraAI%2FUBSI-API%2Fcontributors&query=%24%5B2%5D.contributions&label=commits&color=2DD4BF&logo=git" alt="Commits" />
       </a>
       <br /><br />
@@ -342,7 +343,7 @@ Jika Anda ingin menjalankan server backend dan frontend sendiri di localhost ata
 #### 1. Kloning dan Instalasi
 
 ```bash
-git clone https://github.com/MuaraAI/UBSI-API.git
+git clone https://github.com/MuaraAI/Mira.git
 cd UBSI-API
 
 # Menyiapkan virtual environment Python 3.12 via uv

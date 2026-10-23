@@ -4,7 +4,7 @@ Official landing page and student dashboard for UBSI API (`ubsi-api.muaraai.com`
 
 ## What It Is
 
-A standalone frontend client in the `/landing-page` subdirectory of the monorepo `MuaraAI/UBSI-API`. It presents the capabilities, architecture, interactive request examples, and contributor information for the UBSI API aggregator.
+A standalone frontend client in the `/landing-page` subdirectory of the monorepo `MuaraAI/Mira`. It presents the capabilities, architecture, interactive request examples, and contributor information for the UBSI API aggregator.
 
 - **Theme**: Muara AI Deep Water design tokens (navy `#0A1220`, surface `#111C2E`, teal accent `#2DD4BF`).
 - **Typography**: Self-hosted Space Grotesk, Inter, and JetBrains Mono (`.woff2`) loaded via `next/font/local`. Zero external font CDN requests.
@@ -50,7 +50,7 @@ cp .env.example .env.local
 
 This application is designed for native deployment on Vercel:
 
-1. Import the `MuaraAI/UBSI-API` repository into Vercel.
+1. Import the `MuaraAI/Mira` repository into Vercel.
 2. Set **Root Directory** to `landing-page`.
 3. Framework preset will automatically detect **Next.js**.
 4. Set `NEXT_PUBLIC_API_URL` in the project Environment Variables dashboard (e.g. `https://api.muaraai.com/v1/ubsi-api`).
@@ -62,6 +62,6 @@ Design tokens, color contrast proofs, spacing scales, and accessibility rules ar
 
 ## Related Links
 
-- [Backend API Repository](https://github.com/MuaraAI/UBSI-API)
+- [Backend API Repository](https://github.com/MuaraAI/Mira)
 - [API Documentation](https://ubsi-api.muaraai.com/docs)
 - [License (MIT)](../LICENSE)

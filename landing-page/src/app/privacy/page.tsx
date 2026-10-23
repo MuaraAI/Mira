@@ -142,12 +142,12 @@ export default function PrivacyPage() {
               </a>{" "}
               atau issue di repo{" "}
               <a
-                href="https://github.com/MuaraAI/UBSI-API"
+                href="https://github.com/MuaraAI/Mira"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-[#0369A1] font-semibold hover:underline"
               >
-                github.com/MuaraAI/UBSI-API
+                github.com/MuaraAI/Mira
               </a>
               .
             </p>
