@@ -1,20 +1,20 @@
-# UBSI API: Web Landing Page & Dashboard
+# Mira: Web Landing Page & Dashboard
 
-Official landing page and student dashboard for UBSI API (`ubsi-api.muaraai.com`), built with Next.js 15, React 19, and Tailwind CSS.
+Official frontend client for Mira (`mira.muaraai.com`), built with Next.js 15, React 19, TypeScript, and Tailwind CSS.
 
 ## What It Is
 
-A standalone frontend client in the `/landing-page` subdirectory of the monorepo `MuaraAI/Mira`. It presents the capabilities, architecture, interactive request examples, and contributor information for the UBSI API aggregator.
+A standalone Progressive Web App (PWA) and dashboard in the `/landing-page` subdirectory of the monorepo `MuaraAI/Mira`. It provides students with unified access to 6 campus services (SIAKAD, MyBest LMS, Ujian Online, Perpustakaan OPAC, Berita Resmi, and Repository Riset), personal API key management, and native Web Push notifications.
 
-- **Theme**: Muara AI Deep Water design tokens (navy `#0A1220`, surface `#111C2E`, teal accent `#2DD4BF`).
+- **Design System**: Muara AI Semi Pixel-Art Light design tokens (canvas `#F7FAFC`, surface `#FFFFFF`, border `#CFE2EE`, text `#072033`, accent `#0369A1` WCAG AAA).
 - **Typography**: Self-hosted Space Grotesk, Inter, and JetBrains Mono (`.woff2`) loaded via `next/font/local`. Zero external font CDN requests.
-- **Motion**: 3D CSS Pyramid Loader on the Hero section respecting `prefers-reduced-motion`.
-- **Integrations**: Real-time GitHub stars & contributor commit counters, client-side health probe, dynamic Edge OpenGraph image generation (`@vercel/og`), and Schema.org JSON-LD structured data.
+- **PWA Features**: Service Worker (`public/sw.js`) with RFC 8291 Web Push notifications (VAPID), offline fallback, and install prompts.
+- **Performance**: SWR client-side RAM caching (0ms tab transitions), automatic background revalidation (60s), and silent re-authentication.
 
 ## Quick Start
 
 ### Prerequisites
-- Node.js 18.18+ (tested on Node 26)
+- Node.js 18.18+ (tested on Node 22/26)
 - npm 10+
 
 ### Installation & Development
@@ -44,24 +44,19 @@ cp .env.example .env.local
 
 | Variable | Required | Description |
 |---|---|---|
-| `NEXT_PUBLIC_API_URL` | Required | Active UBSI API backend URL (e.g. `http://127.0.0.1:8300` or `https://api.muaraai.com/v1/ubsi-api`). Required for dashboard and login operations. |
+| `NEXT_PUBLIC_API_URL` | Required | Active Mira backend URL (e.g. `http://127.0.0.1:8300` or `https://api.muaraai.com/v1/mira`). |
 
 ## Deployment on Vercel
 
-This application is designed for native deployment on Vercel:
-
-1. Import the `MuaraAI/Mira` repository into Vercel.
-2. Set **Root Directory** to `landing-page`.
-3. Framework preset will automatically detect **Next.js**.
-4. Set `NEXT_PUBLIC_API_URL` in the project Environment Variables dashboard (e.g. `https://api.muaraai.com/v1/ubsi-api`).
-5. Deploy.
-
-## Design Reference
-
-Design tokens, color contrast proofs, spacing scales, and accessibility rules are specified in [DESIGN.md](DESIGN.md).
+This application is configured for continuous deployment on Vercel:
+- **Production Domain**: `mira.muaraai.com`
+- **Redirect Domain**: `ubsi-api.muaraai.com` (HTTP 307 redirect to `mira.muaraai.com`)
+- **Root Directory**: `landing-page`
+- **Framework Preset**: Next.js
 
 ## Related Links
 
-- [Backend API Repository](https://github.com/MuaraAI/Mira)
-- [API Documentation](https://ubsi-api.muaraai.com/docs)
+- [Root Repository](https://github.com/MuaraAI/Mira)
+- [Design Specification](DESIGN.md)
+- [API Documentation](https://api.muaraai.com/v1/mira/v1/docs)
 - [License (MIT)](../LICENSE)
