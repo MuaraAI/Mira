@@ -428,6 +428,16 @@ Securely downloads lecturer uploaded lecture module or slides from MyBest storag
 Retrieves active online quizzes and practice exam schedules.
 - **Cache TTL**: 10 minutes (600 seconds)
 
+### `GET /v1/elearning/exams`
+Lists the exam types available on the BSI Online Exam portal (ujiankampusa): `latihan`, `uts`, `uas`, `uts-pengganti`, `uas-pengganti`, `her`, `her-pengganti`, `her-khusus`. Internal SSO tokens are resolved server-side and never exposed.
+- **Cache TTL**: 2 minutes (120 seconds)
+
+### `GET /v1/elearning/exams/{exam_type}`
+Exam schedule for one exam type from the BSI Online Exam portal. Each card includes course name, day and time window, lecturer code, course code, room, exam date, duration, question counts, and a live status (`Sedang Berlangsung`) with `can_enter`.
+- **Path Parameter**: `exam_type` = `latihan | uts | uas | uts-pengganti | uas-pengganti | her | her-pengganti | her-khusus`
+- **Cache TTL**: 1 minute (60 seconds)
+- **Note**: the exam entry URL is intentionally never exposed; entering an exam requires the official browser flow (geolocation + IP verification).
+
 ### `GET /v1/elearning/quiz/questions`
 Retrieves exam questions, countdown timer, CSRF token, and multiple-choice options (A, B, C, D).
 - **Query Parameters**: `token` (optional), `quiz_url` (optional)

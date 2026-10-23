@@ -226,6 +226,19 @@ API_DOCS_DATA: dict[str, Any] = {
                 "description": "Jadwal kuis latihan dan ujian online MyBest aktif (paket, periode, status).",
             },
             {
+                "path": "/v1/elearning/exams",
+                "method": "GET",
+                "auth": "Session / API Key",
+                "description": "Daftar jenis ujian semester Ujian Online BSI (latihan, UTS, UAS, pengganti, HER).",
+            },
+            {
+                "path": "/v1/elearning/exams/{exam_type}",
+                "method": "GET",
+                "auth": "Session / API Key",
+                "params": {"exam_type": "latihan | uts | uas | uts-pengganti | uas-pengganti | her | her-pengganti | her-khusus"},
+                "description": "Jadwal ujian satu jenis dari Ujian Online BSI: mata kuliah, ruang, tanggal, durasi, jumlah soal, dan status berlangsung. URL masuk ujian sengaja tidak diekspos.",
+            },
+            {
                 "path": "/v1/elearning/quiz/questions",
                 "method": "GET",
                 "auth": "Session / API Key",
