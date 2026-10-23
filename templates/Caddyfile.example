@@ -15,28 +15,6 @@
     }
 }
 
-# Muara AI MCP Gateway
-mcp.muaraai.com {
-    import security_headers
-    handle_path /v1/mira/mcp* {
-        rewrite * /mcp{path}
-        reverse_proxy 127.0.0.1:8350
-    }
-    handle_path /v1/mira* {
-        rewrite * /mcp{path}
-        reverse_proxy 127.0.0.1:8350
-    }
-    handle_path /v1/ubsi-api/mcp* {
-        rewrite * /mcp{path}
-        reverse_proxy 127.0.0.1:8350
-    }
-    handle_path /v1/ubsi-api* {
-        rewrite * /mcp{path}
-        reverse_proxy 127.0.0.1:8350
-    }
-    reverse_proxy 127.0.0.1:8350
-}
-
 api.muaraai.com {
     import security_headers
 

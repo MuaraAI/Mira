@@ -100,77 +100,77 @@ http_headers = { "Authorization" = "Bearer muara_ubsi_YOUR_KEY" }
 
 ---
 
-## 4. Katalog Lengkap 37 Tools Akademik
+## 4. Katalog Lengkap 80 Tools Akademik (40 Fungsi Primer & 40 Alias)
 
-### Kategori A: SIAKAD (students.bsi.ac.id) — 13 Tools
+Setiap tool akademik didaftarkan dalam dua nama: nama primer `mira_*` (rekomendasi baru) dan alias `ubsi_*` (kompatibilitas mundur). Parameter dan perilaku keduanya identik.
 
-| Nama Tool | Parameter | Deskripsi & Kegunaan |
-|---|---|---|
-| `ubsi_get_profile` | `session_token?`, `api_key?` | Biodata lengkap mahasiswa: NIM, nama, prodi, kelas, semester aktif, kampus cabang, dosen PA. |
-| `ubsi_get_schedule` | `session_token?`, `api_key?` | Jadwal kuliah semester berjalan: hari, jam, ruang, SKS, kode dosen, kelompok praktikum. |
-| `ubsi_get_grades` | `session_token?`, `api_key?` | Transkrip Nilai Murni SIAKAD: Absen 20%, Tugas 25%, UTS 25%, UAS 30%, Total, dan Grade huruf. |
-| `ubsi_get_khs` | `session_token?`, `api_key?` | Kartu Hasil Studi per semester: IPK kumulatif, total mutu poin, total SKS lulus. |
-| `ubsi_get_krs` | `session_token?`, `api_key?` | Kartu Rencana Studi aktif: daftar mata kuliah terdaftar dan kelompok ujian. |
-| `ubsi_get_uts` | `session_token?`, `api_key?` | Jadwal ruang UTS online dan tautan Google Drive soal ujian offline UTS. |
-| `ubsi_get_uas` | `session_token?`, `api_key?` | Jadwal ruang UAS online dan tautan Google Drive soal ujian offline UAS. |
-| `ubsi_get_academic_calendar` | `session_token?`, `api_key?` | Tautan berkas resmi PDF Kalender Akademik tahun ajaran berjalan. |
-| `ubsi_get_prodi_contacts` | `session_token?`, `api_key?` | Direktori 51 kontak email resmi Dekan Fakultas dan Ketua Program Studi (Kaprodi) seluruh kampus UBSI. |
-| `ubsi_get_certificates` | `session_token?`, `api_key?` | Data sertifikat resmi kegiatan, pelatihan, Course, dan TOEFL mahasiswa. |
-| `ubsi_get_lecturers` | `search?`, `session_token?`, `api_key?` | Cari direktori 1.350+ dosen BSI berdasarkan inisial kode dosen atau nama pengampu. |
-| `ubsi_get_announcements` | `session_token?`, `api_key?` | 10 surat edaran resmi Rektorat terbaru (format berkas PDF). |
-| `ubsi_get_dashboard` | `session_token?`, `api_key?` | Agregasi paralel 4 modul SIAKAD (Jadwal + Nilai + Berita + Edaran) dalam satu panggilan cepat. |
+### Kategori A: SIAKAD (students.bsi.ac.id) — 12 Fungsi
 
----
-
-### Kategori B: Elearning MyBest (elearning.bsi.ac.id) — 17 Tools
-
-Seluruh modul mata kuliah di MyBest diidentifikasi menggunakan **token terenkripsi Laravel** yang selalu diawali dengan `eyJ...`. Token ini didapatkan secara otomatis dari tool `ubsi_get_courses`.
-
-| Nama Tool | Parameter | Deskripsi & Kegunaan |
-|---|---|---|
-| `ubsi_get_courses` | `session_token?`, `api_key?` | Daftar kartu mata kuliah aktif beserta token aksi: `token_absen`, `token_learning`, `token_assignment`, dan `token_diskusi`. |
-| `ubsi_get_assignments` | `token?`, `session_token?`, `api_key?` | Daftar tugas aktif dan riwayat submission. Parameter `token` (opsional) menggunakan `token_assignment` (`eyJ...`). |
-| `ubsi_submit_assignment` | `token_send`, `link_tugas`, `session_token?`, `api_key?` | **[WRITE]** Kumpulkan / perbarui link tugas (Google Drive / GitHub) ke lembar pengerjaan MyBest. `token_send` diawali `eyJ...`. |
-| `ubsi_upload_assignment` | `token_tugas`, `filename`, `file_base64`, `catatan?`, `session_token?`, `api_key?` | **[WRITE]** Unggah berkas tugas mandiri dalam format base64 (maks 10MB decoded). |
-| `ubsi_get_presence` | `token?`, `session_token?`, `api_key?` | Rekap kehadiran real-time dan riwayat presensi DataTables AJAX (tanggal, BAP, dosen, rangkuman materi). |
-| `ubsi_submit_presence` | `token?`, `session_token?`, `api_key?` | **[WRITE]** Kirim presensi kehadiran (*Absen Masuk*) pada sesi kelas yang sedang membuka presensi. |
-| `ubsi_get_materials` | `token?`, `session_token?`, `api_key?` | Unduh berkas materi resmi: paket arsip ZIP Silabus, RPS, RTM, Slide, dan Modul Lab per mata kuliah. |
-| `ubsi_get_quiz` | `session_token?`, `api_key?` | Jadwal kuis latihan dan ujian online MyBest (paket, periode mulai/selesai, status aksi). |
-| `ubsi_get_quiz_questions` | `token?`, `quiz_url?`, `session_token?`, `api_key?` | Pratinjau butir soal kuis pilihan ganda, sisa waktu hitung mundur, dan opsi jawaban (A, B, C, D). |
-| `ubsi_get_exams` | `session_token?`, `api_key?` | Daftar jenis ujian semester Ujian Online BSI (latihan, UTS, UAS, pengganti, HER). |
-| `ubsi_get_exam_schedule` | `exam_type`, `session_token?`, `api_key?` | Jadwal ujian satu jenis dari Ujian Online BSI: mata kuliah, ruang, tanggal, durasi, jumlah soal, status berlangsung. |
-| `ubsi_submit_quiz_answer` | `id_soal`, `data_jawab`, `csrf_token?`, `session_token?`, `api_key?` | **[WRITE]** Kirim pilihan jawaban satu butir soal kuis secara aman. |
-| `ubsi_get_grades_recap` | `token?`, `session_token?`, `api_key?` | Rekapitulasi nilai tugas & kuis per pertemuan dosen beserta catatan komentar feedback. |
-| `ubsi_get_course_grades` | `course_id`, `session_token?`, `api_key?` | Rincian nilai tugas satu mata kuliah spesifik. |
-| `ubsi_get_discussions` | `token`, `session_token?`, `api_key?` | Daftar topik forum diskusi per mata kuliah (judul, instruksi tugas dosen, tanggal, jumlah balasan). `token` adalah `token_diskusi` (`eyJ...`). |
-| `ubsi_get_discussion_comments` | `token`, `session_token?`, `api_key?` | Baca thread seluruh komentar dan tanggapan mahasiswa/dosen. `token` adalah `token_komentar` (`eyJ...`). |
-| `ubsi_submit_discussion_comment` | `token_komentar`, `id_chat`, `komentar`, `session_token?`, `api_key?` | **[WRITE]** Balas atau jawab diskusi forum dosen langsung dari AI Agent atas nama mahasiswa. |
-| `ubsi_create_discussion` | `token_course`, `judul`, `chat`, `session_token?`, `api_key?` | **[WRITE]** Buat topik forum diskusi baru pada mata kuliah. |
-| `ubsi_get_elearning_profile` | `session_token?`, `api_key?` | Data profil dan kontak email akun MyBest mahasiswa. |
-| `ubsi_get_makeup_classes` | `session_token?`, `api_key?` | Jadwal kuliah pengganti (make-up classes) yang terdaftar di MyBest. |
-| `ubsi_get_elearning_guides` | `session_token?`, `api_key?` | Tautan berkas PDF buku panduan resmi MyBest, Ujian Online, dan Kuis Mahasiswa. |
+| Nama Tool Primer | Alias Legacy | Parameter | Deskripsi & Kegunaan |
+|---|---|---|---|
+| `mira_get_profile` | `ubsi_get_profile` | `session_token?`, `api_key?` | Biodata lengkap mahasiswa: NIM, nama, prodi, kelas, semester aktif, kampus cabang, dosen PA. |
+| `mira_get_schedule` | `ubsi_get_schedule` | `session_token?`, `api_key?` | Jadwal kuliah semester berjalan: hari, jam, ruang, SKS, kode dosen, kelompok praktikum. |
+| `mira_get_grades` | `ubsi_get_grades` | `session_token?`, `api_key?` | Transkrip Nilai Murni SIAKAD: Absen 20%, Tugas 25%, UTS 25%, UAS 30%, Total, dan Grade huruf. |
+| `mira_get_khs` | `ubsi_get_khs` | `session_token?`, `api_key?` | Kartu Hasil Studi per semester: IPK kumulatif, total mutu poin, total SKS lulus. |
+| `mira_get_krs` | `ubsi_get_krs` | `session_token?`, `api_key?` | Kartu Rencana Studi aktif: daftar mata kuliah terdaftar dan kelompok ujian. |
+| `mira_get_uts` | `ubsi_get_uts` | `session_token?`, `api_key?` | Jadwal ruang UTS online dan tautan Google Drive soal ujian offline UTS. |
+| `mira_get_uas` | `ubsi_get_uas` | `session_token?`, `api_key?` | Jadwal ruang UAS online dan tautan Google Drive soal ujian offline UAS. |
+| `mira_get_academic_calendar` | `ubsi_get_academic_calendar` | `session_token?`, `api_key?` | Tautan berkas resmi PDF Kalender Akademik tahun ajaran berjalan. |
+| `mira_get_prodi_contacts` | `ubsi_get_prodi_contacts` | `session_token?`, `api_key?` | Direktori 51 kontak email resmi Dekan Fakultas dan Ketua Program Studi (Kaprodi) seluruh kampus UBSI. |
+| `mira_get_certificates` | `ubsi_get_certificates` | `session_token?`, `api_key?` | Data sertifikat resmi kegiatan, pelatihan, Course, dan TOEFL mahasiswa. |
+| `mira_get_lecturers` | `ubsi_get_lecturers` | `search?`, `session_token?`, `api_key?` | Cari direktori 1.350+ dosen BSI berdasarkan inisial kode dosen atau nama pengampu. |
+| `mira_get_dashboard` | `ubsi_get_dashboard` | `session_token?`, `api_key?` | Agregasi paralel 3 modul SIAKAD (Jadwal + Nilai + Berita) dalam satu panggilan cepat. |
 
 ---
 
-### Kategori C: Publikasi, Perpustakaan, & Berita — 4 Tools
+### Kategori B: Elearning MyBest (elearning.bsi.ac.id) — 21 Fungsi
 
-| Nama Tool | Parameter | Deskripsi & Kegunaan |
-|---|---|---|
-| `ubsi_search_library` | `q`, `opsi?`, `page?` | Cari buku di katalog OPAC perpustakaan UBSI (cek stok fisik & nomor rak cabang). |
-| `ubsi_get_news` | `limit?` | Berita resmi kampus real-time via WordPress JSON REST API. |
-| `ubsi_get_repository` | `limit?` | Riset, skripsi, dan publikasi ilmiah EPrints UBSI terbaru. |
-| `ubsi_get_ejournal` | - | Direktori 23 jurnal ilmiah resmi UBSI melalui jalur bypass OAI. |
+Seluruh modul mata kuliah di MyBest diidentifikasi menggunakan **token terenkripsi Laravel** yang selalu diawali dengan `eyJ...`. Token ini didapatkan secara otomatis dari tool `mira_get_courses` / `ubsi_get_courses`.
+
+| Nama Tool Primer | Alias Legacy | Parameter | Deskripsi & Kegunaan |
+|---|---|---|---|
+| `mira_get_courses` | `ubsi_get_courses` | `session_token?`, `api_key?` | Daftar kartu mata kuliah aktif beserta token aksi: `token_absen`, `token_learning`, `token_assignment`, dan `token_diskusi`. |
+| `mira_get_assignments` | `ubsi_get_assignments` | `token?`, `session_token?`, `api_key?` | Daftar tugas aktif dan riwayat submission. Parameter `token` (opsional) menggunakan `token_assignment` (`eyJ...`). |
+| `mira_submit_assignment` | `ubsi_submit_assignment` | `token_send`, `link_tugas`, `session_token?`, `api_key?` | **[WRITE]** Kumpulkan / perbarui link tugas (Google Drive / GitHub) ke lembar pengerjaan MyBest. `token_send` diawali `eyJ...`. |
+| `mira_upload_assignment` | `ubsi_upload_assignment` | `token_tugas`, `filename`, `file_base64`, `catatan?`, `session_token?`, `api_key?` | **[WRITE]** Unggah berkas tugas mandiri dalam format base64 (maks 10MB decoded). |
+| `mira_get_presence` | `ubsi_get_presence` | `token?`, `session_token?`, `api_key?` | Rekap kehadiran real-time dan riwayat presensi DataTables AJAX (tanggal, BAP, dosen, rangkuman materi). |
+| `mira_submit_presence` | `ubsi_submit_presence` | `token?`, `session_token?`, `api_key?` | **[WRITE]** Kirim presensi kehadiran (*Absen Masuk*) pada sesi kelas yang sedang membuka presensi. |
+| `mira_get_materials` | `ubsi_get_materials` | `token?`, `session_token?`, `api_key?` | Unduh berkas materi resmi: paket arsip ZIP Silabus, RPS, RTM, Slide, dan Modul Lab per mata kuliah. |
+| `mira_get_quiz` | `ubsi_get_quiz` | `session_token?`, `api_key?` | Jadwal kuis latihan dan ujian online MyBest (paket, periode mulai/selesai, status aksi). |
+| `mira_get_quiz_questions` | `ubsi_get_quiz_questions` | `token?`, `quiz_url?`, `session_token?`, `api_key?` | Pratinjau butir soal kuis pilihan ganda, sisa waktu hitung mundur, dan opsi jawaban (A, B, C, D). |
+| `mira_get_exams` | `ubsi_get_exams` | `session_token?`, `api_key?` | Daftar jenis ujian semester Ujian Online BSI (latihan, UTS, UAS, pengganti, HER). |
+| `mira_get_exam_schedule` | `ubsi_get_exam_schedule` | `exam_type`, `session_token?`, `api_key?` | Jadwal ujian satu jenis dari Ujian Online BSI: mata kuliah, ruang, tanggal, durasi, jumlah soal, status berlangsung. |
+| `mira_submit_quiz_answer` | `ubsi_submit_quiz_answer` | `id_soal`, `data_jawab`, `csrf_token?`, `session_token?`, `api_key?` | **[WRITE]** Kirim pilihan jawaban satu butir soal kuis secara aman. |
+| `mira_get_grades_recap` | `ubsi_get_grades_recap` | `token?`, `session_token?`, `api_key?` | Rekapitulasi nilai tugas & kuis per pertemuan dosen beserta catatan komentar feedback. |
+| `mira_get_course_grades` | `ubsi_get_course_grades` | `course_id`, `session_token?`, `api_key?` | Rincian nilai tugas satu mata kuliah spesifik. |
+| `mira_get_discussions` | `ubsi_get_discussions` | `token`, `session_token?`, `api_key?` | Daftar topik forum diskusi per mata kuliah (judul, instruksi tugas dosen, tanggal, jumlah balasan). `token` adalah `token_diskusi` (`eyJ...`). |
+| `mira_get_discussion_comments` | `ubsi_get_discussion_comments` | `token`, `session_token?`, `api_key?` | Baca thread seluruh komentar dan tanggapan mahasiswa/dosen. `token` adalah `token_komentar` (`eyJ...`). |
+| `mira_submit_discussion_comment` | `ubsi_submit_discussion_comment` | `token_komentar`, `id_chat`, `komentar`, `session_token?`, `api_key?` | **[WRITE]** Balas atau jawab diskusi forum dosen langsung dari AI Agent atas nama mahasiswa. |
+| `mira_create_discussion` | `ubsi_create_discussion` | `token_course`, `judul`, `chat`, `session_token?`, `api_key?` | **[WRITE]** Buat topik forum diskusi baru pada mata kuliah. |
+| `mira_get_elearning_profile` | `ubsi_get_elearning_profile` | `session_token?`, `api_key?` | Data profil dan kontak email akun MyBest mahasiswa. |
+| `mira_get_makeup_classes` | `ubsi_get_makeup_classes` | `session_token?`, `api_key?` | Jadwal kuliah pengganti (make-up classes) yang terdaftar di MyBest. |
+| `mira_get_elearning_guides` | `ubsi_get_elearning_guides` | `session_token?`, `api_key?` | Tautan berkas PDF buku panduan resmi MyBest, Ujian Online, dan Kuis Mahasiswa. |
 
 ---
 
-### Kategori D: Notifikasi & Sistem — 4 Tools
+### Kategori C: Publikasi, Perpustakaan, & Berita — 3 Fungsi
 
-| Nama Tool | Parameter | Deskripsi & Kegunaan |
-|---|---|---|
-| `ubsi_list_channels` | `session_token?`, `api_key?` | Daftar channel notifikasi webhook aktif milik mahasiswa (Discord/Telegram). |
-| `ubsi_trigger_reminder` | `category`, `session_token?`, `api_key?` | Memicu pengiriman pengingat manual (`matkul-besok` atau `quiz-tugas`). |
-| `ubsi_whoami` | `session_token?`, `api_key?` | Cek status identitas kredensial API Key yang sedang aktif digunakan. |
-| `ubsi_get_api_docs` | `category?`, `session_token?`, `api_key?` | Kamus dokumentasi lengkap seluruh endpoint REST API dan MCP tools UBSI API beserta skema parameter. |
+| Nama Tool Primer | Alias Legacy | Parameter | Deskripsi & Kegunaan |
+|---|---|---|---|
+| `mira_search_library` | `ubsi_search_library` | `query?`, `category?`, `page?` | Cari buku di katalog OPAC perpustakaan UBSI (cek stok fisik & nomor rak cabang). |
+| `mira_get_news` | `ubsi_get_news` | `search?`, `page?`, `per_page?` | Berita resmi kampus real-time via WordPress JSON REST API. |
+| `mira_get_repository` | `ubsi_get_repository` | `query?`, `page?` | Riset, skripsi, dan publikasi ilmiah EPrints UBSI terbaru. |
+
+---
+
+### Kategori D: Notifikasi & Sistem — 4 Fungsi
+
+| Nama Tool Primer | Alias Legacy | Parameter | Deskripsi & Kegunaan |
+|---|---|---|---|
+| `mira_list_channels` | `ubsi_list_channels` | `session_token?`, `api_key?` | Daftar channel notifikasi webhook aktif milik mahasiswa (Discord/Telegram). |
+| `mira_trigger_reminder` | `ubsi_trigger_reminder` | `category`, `session_token?`, `api_key?` | Memicu pengiriman pengingat manual (`matkul-besok` atau `quiz-tugas`). |
+| `mira_whoami` | `ubsi_whoami` | `session_token?`, `api_key?` | Cek status identitas kredensial API Key yang sedang aktif digunakan. |
+| `mira_get_api_docs` | `ubsi_get_api_docs` | `category?`, `session_token?`, `api_key?` | Ambil kamus dokumentasi lengkap endpoint REST API dan MCP tools. |
 
 ---
 

@@ -451,7 +451,6 @@ API_DOCS_DATA: dict[str, Any] = {
             {"name": "ubsi_get_prodi_contacts", "category": "siakad", "description": "51 kontak email resmi Dekan dan Kaprodi seluruh kampus UBSI."},
             {"name": "ubsi_get_certificates", "category": "siakad", "description": "Daftar sertifikat Course, TOEFL, dan kegiatan mahasiswa."},
             {"name": "ubsi_get_lecturers", "category": "siakad", "description": "Direktori 1.350+ dosen BSI dan inisial kode dosen."},
-            {"name": "ubsi_get_announcements", "category": "siakad", "description": "10 surat edaran resmi Rektorat terbaru (format PDF)."},
             {"name": "ubsi_get_dashboard", "category": "siakad", "description": "Ringkasan paralel cepat: jadwal + nilai + berita + pengumuman."},
             # ELEARNING
             {"name": "ubsi_get_courses", "category": "elearning", "description": "Daftar mata kuliah aktif dan token aksi 'eyJ...'."},
@@ -479,7 +478,6 @@ API_DOCS_DATA: dict[str, Any] = {
             {"name": "ubsi_search_library", "category": "library", "description": "Pencarian katalog OPAC perpustakaan UBSI dan stok rak."},
             {"name": "ubsi_get_news", "category": "news", "description": "Berita resmi kampus UBSI via WordPress REST API."},
             {"name": "ubsi_get_repository", "category": "repository", "description": "Publikasi karya ilmiah dan skripsi EPrints UBSI."},
-            {"name": "ubsi_get_ejournal", "category": "ejournal", "description": "Katalog 23 jurnal ilmiah resmi UBSI via OAI."},
             # NOTIFIKASI & SISTEM
             {"name": "ubsi_list_channels", "category": "channels", "description": "Daftar channel webhook notifikasi Discord/Telegram."},
             {"name": "ubsi_trigger_reminder", "category": "channels", "description": "Trigger pengingat jadwal kuliah atau tugas instan."},

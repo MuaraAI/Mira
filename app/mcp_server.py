@@ -766,7 +766,6 @@ def main():
             allowed_hosts=[
                 "127.0.0.1", "127.0.0.1:*", "localhost", "localhost:*",
                 "api.muaraai.com", "api.muaraai.com:*",
-                "mcp.muaraai.com", "mcp.muaraai.com:*",
             ],
             allowed_origins=[
                 "https://mira.muaraai.com",

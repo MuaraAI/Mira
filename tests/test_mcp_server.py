@@ -404,3 +404,42 @@ async def test_mcp_presence_and_quiz_write_tools():
     assert parsed_docs_cat["success"] is True
     assert "elearning" in parsed_docs_cat["data"]["endpoints"]
 
+
+@pytest.mark.asyncio
+async def test_mcp_dual_execution_all_80_tools():
+    """Memverifikasi bahwa seluruh 80 tools (40 mira_* dan 40 ubsi_*) dapat dieksekusi tanpa error."""
+    dummy_args = {
+        "upload_assignment": {"token_tugas": "tok", "filename": "tugas.pdf", "file_base64": "YQ=="},
+        "submit_assignment": {"token_send": "tok", "link_tugas": "https://github.com/test"},
+        "get_course_grades": {"course_id": "123"},
+        "get_discussions": {"token": "tok"},
+        "get_discussion_comments": {"token": "tok"},
+        "submit_discussion_comment": {"token_komentar": "tok", "id_chat": "1", "komentar": "halo"},
+        "create_discussion": {"token_course": "tok", "judul": "Judul", "chat": "Konten"},
+        "trigger_reminder": {"category": "matkul-besok"},
+        "get_exam_schedule": {"exam_type": "uts"},
+        "submit_quiz_answer": {"id_soal": "1", "data_jawab": "A"},
+        "search_library": {"query": "python"},
+    }
+
+    mock_resp = AsyncMock()
+    mock_resp.status_code = 200
+    mock_resp.json = MagicMock(return_value={"success": True, "data": {}})
+
+    ctx = MagicMock()
+    ctx.headers = {"authorization": "Bearer test_sess"}
+
+    with patch("httpx.AsyncClient.get", return_value=mock_resp), \
+         patch("httpx.AsyncClient.post", return_value=mock_resp):
+        tools = await server.list_tools()
+        assert len(tools) == 80
+        for t in tools:
+            args = {}
+            for k, v in dummy_args.items():
+                if t.name.endswith(k):
+                    args = dict(v)
+                    break
+            res = await server._tool_manager.call_tool(t.name, args, ctx)
+            data = json.loads(res)
+            assert data["success"] is True, f"Tool {t.name} gagal dieksekusi: {res}"
+
