@@ -242,6 +242,7 @@ export default function PresensiPage() {
       <div>
         <PageHeader title="Presensi Perkuliahan" />
         <EmptyState
+          mascot="/maskot/mura-presensi.png"
           title="Belum ada mata kuliah aktif di MyBest."
           description="Pastikan KRS semester ini sudah terdaftar di MyBest."
         />

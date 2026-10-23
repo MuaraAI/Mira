@@ -246,6 +246,7 @@ export default function MateriPage() {
       ) : materiDosen.length === 0 ? (
         <div className="space-y-3">
           <EmptyState
+            mascot="/maskot/mura-buku-tumpuk.png"
             title="Belum ada berkas materi tambahan dari dosen."
             description="Dosen belum mengunggah materi untuk mata kuliah ini di MyBest."
           />

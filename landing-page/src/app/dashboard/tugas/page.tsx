@@ -400,6 +400,7 @@ export default function TugasPage() {
 
       {rows.length === 0 ? (
         <EmptyState
+          mascot="/maskot/mura-tugas-done.png"
           title={
             filter === "pending" && failedCourses.length > 0
               ? "Belum bisa memastikan tugas yang tertunda."

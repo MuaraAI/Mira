@@ -146,6 +146,7 @@ export default function PerpustakaanPage() {
         <ErrorState error={searchApi.error} onRetry={searchApi.reload} />
       ) : items.length === 0 ? (
         <EmptyState
+          mascot="/maskot/mura-buku-tumpuk.png"
           title="Tidak ada buku yang cocok."
           description="Coba kata kunci lain atau ganti kategori."
         />

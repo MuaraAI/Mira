@@ -9,9 +9,6 @@ interface PublicStats {
   branches?: { name: string; active_users_30d: number }[];
 }
 
-/** Label ramah kode cabang internal (fallback: kode mentah). */
-const BRANCH_LABELS: Record<string, string> = { "30": "Pontianak" };
-
 function formatId(n: number): string {
   return new Intl.NumberFormat("id-ID").format(n);
 }
@@ -50,8 +47,7 @@ export function StatsSection() {
   const users = data?.users?.total_all_time;
   const avg = data?.users?.average_per_day;
   const requests = data?.requests?.total_all_time;
-  const branch = data?.branches?.[0]?.name;
-  const branchLabel = branch ? BRANCH_LABELS[branch] ?? branch : null;
+  const branchesCount = data?.branches?.length || 0;
 
   return (
     <section id="stats" className="border-b-2 border-px-soft bg-surface-alt/60 scroll-mt-28" aria-labelledby="stats-title">
@@ -84,9 +80,9 @@ export function StatsSection() {
               </dd>
             </div>
             <div className="px-card bg-white p-5 sm:p-6">
-              <dt className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-secondary">Mahasiswa cabang UBSI</dt>
+              <dt className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-secondary">Total cabang UBSI</dt>
               <dd className="mt-3 font-display text-4xl font-bold text-foreground sm:text-5xl">
-                {branchLabel ?? "-"}
+                <CountUp value={branchesCount} />
               </dd>
             </div>
           </dl>

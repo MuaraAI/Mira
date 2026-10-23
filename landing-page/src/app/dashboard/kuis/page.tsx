@@ -274,6 +274,7 @@ export default function KuisPage() {
       {/* Main Quizzes List */}
       {filtered.length === 0 ? (
         <EmptyState
+          mascot="/maskot/mura-kuis.png"
           title={
             searchQuery
               ? "Tidak ada kuis yang sesuai dengan pencarian."

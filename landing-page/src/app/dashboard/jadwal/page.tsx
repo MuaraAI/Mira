@@ -182,6 +182,7 @@ export default function JadwalPage() {
       <div>
         <PageHeader title="Jadwal Kuliah" />
         <EmptyState
+          mascot="/maskot/mura-empty.png"
           title="Belum ada jadwal kuliah terdaftar."
           description="Pastikan kamu sudah isi KRS di SIAKAD."
         />

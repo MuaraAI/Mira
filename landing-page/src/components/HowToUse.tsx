@@ -2,19 +2,19 @@ import Image from "next/image";
 
 const STEPS = [
   {
-    mascot: "/maskot/mura-presensi.png",
-    title: "Login pakai akun kampus",
-    text: "Masuk dengan NIM dan password SIAKAD/MyBest kamu. Nggak perlu daftar baru, gak perlu verifikasi aneh-aneh.",
+    mascot: "/maskot/mura-empty.png",
+    title: "Masuk pakai akun kampus",
+    text: "Gunakan NIM dan password SIAKAD atau MyBest kamu. Langsung terhubung tanpa perlu registrasi ulang.",
   },
   {
     mascot: "/maskot/mura-tugas-done.png",
-    title: "Semuanya langsung kebuka",
-    text: "Jadwal, absen, tugas, ujian, sampai nilai, tampil rapi di satu dashboard. Kumpulin tugas langsung dari HP.",
+    title: "Pantau tugas & kuis beres",
+    text: "Cek tenggat tugas, kerjakan kuis, dan kumpulkan lembar tugas perkuliahan langsung dari satu tempat.",
   },
   {
-    mascot: "/maskot/mura-offline.png",
-    title: "Pasang di HP biar ada pengingat",
-    text: "Tekan Download App, izinkan notifikasi, dan Mura bakal ingetin pas ada kelas mulai, absen dibuka, atau tugas mau deadline.",
+    mascot: "/maskot/mura-presensi.png",
+    title: "Presensi & notifikasi di HP",
+    text: "Lakukan presensi kehadiran perkuliahan dan terima notifikasi pengingat sebelum kelas dimulai langsung di ponselmu.",
   },
 ];
 

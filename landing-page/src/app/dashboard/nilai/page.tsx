@@ -487,6 +487,7 @@ export default function NilaiPage() {
             <ErrorState error={elearningApi.error} onRetry={elearningApi.reload} />
           ) : !elearningApi.data || elearningApi.data.total_tugas === 0 ? (
             <EmptyState
+              mascot="/maskot/mura-nilai.png"
               title="Belum ada riwayat tugas yang dinilai."
               description="Nilai tugas muncul di sini setelah kamu kumpulin tugas dan dosen selesai menilai."
             />
