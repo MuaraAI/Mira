@@ -88,7 +88,7 @@ motion:
 
 ---
 
-# UBSI API — Design Specification (Semi Pixel-Art)
+# Mira — Design Specification (Semi Pixel-Art)
 
 > Synced with the Muara AI web (muaraai.com, `src/app/globals.css`). The palette
 > below is unchanged; the shape language is pixel art: square corners, 2px stepped

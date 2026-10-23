@@ -114,7 +114,7 @@ export default function DashboardShell({
         </main>
 
         <footer className="py-4 px-6 text-center font-mono text-[11px] text-secondary border-t-2 border-dashed border-px-soft hidden lg:block">
-          UBSI API bukan aplikasi resmi UBSI. Data diambil dari SIAKAD dan MyBest.
+          Mira bukan aplikasi resmi UBSI. Data diambil dari SIAKAD dan MyBest.
         </footer>
       </div>
     </div>

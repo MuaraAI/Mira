@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: "Kebijakan Privasi",
   description:
     "Bagaimana Mira memproses, mengenkripsi, dan menghapus data akademik Anda: AES-256-GCM, zero telemetry, dan kontrol penghapusan penuh di tangan Anda.",
-  alternates: { canonical: "https://ubsi-api.muaraai.com/privacy" },
+  alternates: { canonical: "https://mira.muaraai.com/privacy" },
 };
 
 const SECTIONS: { title: string; body: string[] }[] = [
@@ -75,7 +75,7 @@ export default function PrivacyPage() {
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3">
             <Monogram className="w-7 h-7" />
-            <span className="font-display font-bold text-sm text-foreground">UBSI API</span>
+            <span className="font-display font-bold text-sm text-foreground">Mira</span>
           </Link>
           <Link
             href="/login"
@@ -94,8 +94,8 @@ export default function PrivacyPage() {
           Kebijakan Privasi
         </h1>
         <p className="mt-2 text-sm text-secondary">
-          Berlaku sejak 18 Oktober 2026. Mencakup UBSI API, dashboard di
-          ubsi-api.muaraai.com, dan gateway API di api.muaraai.com.
+          Berlaku sejak 18 Oktober 2026. Mencakup Mira, dashboard di
+          mira.muaraai.com, dan gateway API di api.muaraai.com.
         </p>
 
         <div className="mt-8 space-y-8">

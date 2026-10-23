@@ -6,28 +6,28 @@ export const metadata: Metadata = {
   title: "DMCA dan Hak Kekayaan Intelektual",
   description:
     "Pemberitahuan hak cipta, kekayaan intelektual, dan prosedur notice and takedown untuk proyek Mira.",
-  alternates: { canonical: "https://ubsi-api.muaraai.com/dmca" },
+  alternates: { canonical: "https://mira.muaraai.com/dmca" },
 };
 
 const SECTIONS = [
   {
     title: "1. Ruang Lingkup",
     body: [
-      "UBSI API adalah proyek perangkat lunak independen untuk membantu pengguna yang berwenang mengakses layanan akademik melalui dashboard, REST API, dan MCP.",
+      "Mira adalah proyek perangkat lunak independen untuk membantu pengguna yang berwenang mengakses layanan akademik melalui dashboard, REST API, dan MCP.",
       "Halaman ini menjelaskan cara menyampaikan keberatan terkait hak cipta, merek, materi akademik, atau kebijakan institusi yang dikaitkan dengan proyek ini.",
     ],
   },
   {
     title: "2. Materi Pihak Ketiga",
     body: [
-      "UBSI API tidak bermaksud mengklaim kepemilikan atas nama, merek, tampilan portal, materi kuliah, silabus, publikasi, atau data akademik milik Universitas Bina Sarana Informatika dan pemegang hak terkait.",
+      "Mira tidak bermaksud mengklaim kepemilikan atas nama, merek, tampilan portal, materi kuliah, silabus, publikasi, atau data akademik milik Universitas Bina Sarana Informatika dan pemegang hak terkait.",
       "Layanan ini tidak menyediakan katalog publik sebagai pengganti sumber resmi, dan pengguna tetap harus menghormati ketentuan penggunaan serta hak pemilik sumber data.",
     ],
   },
   {
     title: "3. Pemberitahuan Pelanggaran",
     body: [
-      "Jika Anda adalah pemilik hak atau perwakilan resmi dan meyakini bahwa repositori, situs, atau fitur UBSI API melanggar hak Anda, kirimkan pemberitahuan tertulis agar kami dapat meninjaunya.",
+      "Jika Anda adalah pemilik hak atau perwakilan resmi dan meyakini bahwa repositori, situs, atau fitur Mira melanggar hak Anda, kirimkan pemberitahuan tertulis agar kami dapat meninjaunya.",
       "Pemberitahuan harus menjelaskan karya yang dipersoalkan, lokasi atau URL yang relevan, alasan keberatan, identitas dan kewenangan pengirim, serta alamat kontak yang bisa digunakan untuk verifikasi.",
       "Jangan kirim password kampus, Personal API Key, token sesi, atau data akademik mahasiswa dalam pemberitahuan.",
     ],
@@ -55,7 +55,7 @@ export default function DmcaPage() {
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4 sm:px-6">
           <Link href="/" className="flex items-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0369A1] focus-visible:ring-offset-2">
             <Monogram className="h-7 w-7" />
-            <span className="font-display text-sm font-bold text-foreground">UBSI API</span>
+            <span className="font-display text-sm font-bold text-foreground">Mira</span>
           </Link>
           <Link href="/login" className="text-xs font-semibold text-[#0369A1] hover:underline">Masuk ke Dashboard</Link>
         </div>
@@ -64,7 +64,7 @@ export default function DmcaPage() {
       <main id="main-content" className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
         <p className="font-mono text-xs font-bold uppercase tracking-widest text-[#0369A1]">Legal</p>
         <h1 className="mt-1 font-display text-3xl font-bold tracking-tight text-foreground">DMCA dan Hak Kekayaan Intelektual</h1>
-        <p className="mt-2 text-sm text-secondary">Prosedur pemberitahuan hak cipta, kekayaan intelektual, dan kebijakan institusi untuk UBSI API.</p>
+        <p className="mt-2 text-sm text-secondary">Prosedur pemberitahuan hak cipta, kekayaan intelektual, dan kebijakan institusi untuk Mira.</p>
 
         <div className="mt-8 space-y-8">
           {SECTIONS.map((section) => (

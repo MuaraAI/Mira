@@ -356,7 +356,7 @@ export default function LoginPage() {
       <header className="relative z-10 mx-auto flex w-full max-w-md items-center justify-between px-4 pt-5 sm:pt-8">
         <Link href="/" className="group inline-flex min-h-11 items-center gap-2 font-mono text-xs font-semibold text-secondary transition-colors hover:text-[#0369A1]">
           <ArrowLeft className="h-4 w-4 transition-transform duration-200 group-hover:-translate-x-0.5" aria-hidden="true" />
-          UBSI API
+          Mira
         </Link>
         <span className="inline-flex items-center gap-1.5 font-mono text-[11px] font-semibold text-[#0F766E]">
           <span className="h-1.5 w-1.5 bg-[#0F766E]" aria-hidden="true" />

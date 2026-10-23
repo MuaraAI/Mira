@@ -98,7 +98,7 @@ export function DashboardSidebar({
           </span>
           <div className="flex flex-col">
             <span className="font-display font-bold text-base tracking-tight text-foreground">
-              UBSI API
+              Mira
             </span>
           </div>
         </Link>

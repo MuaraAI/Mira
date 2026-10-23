@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /*
- * UBSI API: Semi Pixel-Art theme, synced with the Muara AI web (muaraai.com).
+ * Mira: Semi Pixel-Art theme, synced with the Muara AI web (muaraai.com).
  * Stepped corners are drawn with 4 hard box-shadows (no blur), elevation is a hard
  * offset drop, corners are square, motion stays smooth. See DESIGN.md.
  */

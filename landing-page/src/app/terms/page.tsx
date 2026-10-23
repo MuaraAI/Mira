@@ -6,14 +6,14 @@ export const metadata: Metadata = {
   title: "Syarat dan Ketentuan Layanan",
   description:
     "Aturan penggunaan Mira: hanya data milik sendiri, dilarang otomasi akademik terlarang, batas rate limit, dan hak kami untuk membatasi akun yang menyalahgunakan layanan.",
-  alternates: { canonical: "https://ubsi-api.muaraai.com/terms" },
+  alternates: { canonical: "https://mira.muaraai.com/terms" },
 };
 
 const SECTIONS: { title: string; body: string[] }[] = [
   {
     title: "1. Penerimaan Ketentuan",
     body: [
-      "Dengan membuat akun, login, atau memakai dashboard dan API UBSI API, Anda setuju pada seluruh ketentuan di halaman ini serta Kebijakan Privasi kami.",
+      "Dengan membuat akun, login, atau memakai dashboard dan API Mira, Anda setuju pada seluruh ketentuan di halaman ini serta Kebijakan Privasi kami.",
       "Layanan ini disediakan gratis untuk kalangan mahasiswa UBSI sebagai proyek komunitas Muara AI.",
     ],
   },
@@ -73,7 +73,7 @@ export default function TermsPage() {
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3">
             <Monogram className="w-7 h-7" />
-            <span className="font-display font-bold text-sm text-foreground">UBSI API</span>
+            <span className="font-display font-bold text-sm text-foreground">Mira</span>
           </Link>
           <Link
             href="/login"

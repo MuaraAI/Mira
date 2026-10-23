@@ -60,7 +60,7 @@ export function DashboardMobileNav({ nim }: { nim?: string | null }) {
           </span>
           <div className="flex flex-col">
             <span className="font-display font-bold text-sm tracking-tight text-foreground">
-              UBSI API
+              Mira
             </span>
           </div>
         </Link>

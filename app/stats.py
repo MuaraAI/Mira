@@ -116,7 +116,7 @@ async def get_public_stats() -> dict[str, Any]:
             output.sort(key=lambda item: item["active_users_30d"], reverse=True)
 
         return {
-            "service": "UBSI API",
+            "service": "Mira API",
             "status": "operational",
             "period": "rolling_30_days",
             "users": users,
@@ -126,4 +126,4 @@ async def get_public_stats() -> dict[str, Any]:
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
     except Exception:
-        return {"service": "UBSI API", "status": "operational", "users": {}, "requests": {}, "branches": [], "programs": []}
+        return {"service": "Mira API", "status": "operational", "users": {}, "requests": {}, "branches": [], "programs": []}
