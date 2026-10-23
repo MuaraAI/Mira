@@ -73,11 +73,11 @@ def setup_test_env(tmp_path, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_api_key_lifecycle_direct():
-    # 1. Create Key
+    # 1. Create Key (New keys should use muara_mira_ prefix)
     key_info = await create_api_key("15260767", "Bot Discord", "pass_sv2", "pass_el")
     assert key_info["nim"] == "15260767"
     assert key_info["name"] == "Bot Discord"
-    assert key_info["key"].startswith("muara_ubsi_")
+    assert key_info["key"].startswith("muara_mira_")
     plain_key = key_info["key"]
 
     # Pastikan password kampus TIDAK disimpan plaintext di Redis
@@ -94,7 +94,7 @@ async def test_api_key_lifecycle_direct():
     assert len(keys) == 1
     assert keys[0]["id"] == key_info["id"]
     assert "key" not in keys[0]  # Plain key never returned in list
-    assert keys[0]["prefix"].startswith("muara_ubsi_")
+    assert keys[0]["prefix"].startswith("muara_mira_")
 
     # 3. Resolve Key
     resolved = await resolve_api_key(plain_key)
@@ -103,8 +103,11 @@ async def test_api_key_lifecycle_direct():
     assert resolved["studentv2_pass"] == "pass_sv2"
     assert resolved["elearning_pass"] == "pass_el"
 
-    # 4. Resolve Invalid Key
-    assert await resolve_api_key("muara_ubsi_invalid_random_string_12345") is None
+    # 4. Resolve Legacy Key format (muara_ubsi_)
+    legacy_key = "muara_ubsi_" + "a" * 40
+    # Invalid random hex will return None because not in DB, but doesn't crash regex
+    assert await resolve_api_key(legacy_key) is None
+    assert await resolve_api_key("muara_mira_invalid_random_string_12345") is None
     assert await resolve_api_key("not_muara_prefix") is None
 
     # 5. Revoke Key
@@ -191,7 +194,7 @@ async def test_api_key_endpoints_async():
         assert res_create.status_code == 200
         created_data = res_create.json()["data"]
         plain_key = created_data["key"]
-        assert plain_key.startswith("muara_ubsi_")
+        assert plain_key.startswith("muara_mira_")
         key_id = created_data["id"]
 
         # 4. Access endpoint using Personal API Key (Bearer)

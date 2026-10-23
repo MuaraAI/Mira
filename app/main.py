@@ -158,11 +158,11 @@ async def api_key_auth_middleware(request: Request, call_next):
     api_key = raw_api_key.strip() if raw_api_key else ""
     cookie_token = request.cookies.get("ubsi_session", "")
 
-    # 3b. Personal API Key check (prefix: muara_ubsi_)
+    # 3b. Personal API Key check (prefix: muara_mira_ or legacy muara_ubsi_)
     candidate_api_key = ""
-    if bearer_token.startswith("muara_ubsi_"):
+    if bearer_token.startswith(("muara_mira_", "muara_ubsi_")):
         candidate_api_key = bearer_token
-    elif api_key.startswith("muara_ubsi_"):
+    elif api_key.startswith(("muara_mira_", "muara_ubsi_")):
         candidate_api_key = api_key
 
     if candidate_api_key:

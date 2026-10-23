@@ -21,7 +21,7 @@ from app.cache import cache
 from app.config import settings
 
 _MAX_KEYS_PER_NIM = 5
-_KEY_PREFIX = "muara_ubsi_"
+_KEY_PREFIX = "muara_mira_"
 _REDIS_KEY_TTL = 86400  # 24 jam cache di Redis
 
 _SCHEMA = """
@@ -356,7 +356,7 @@ def _sync_resolve_api_key(
 
 
 async def resolve_api_key(plain_key: str) -> Optional[dict[str, Any]]:
-    if not plain_key or not re.fullmatch(r"muara_ubsi_[0-9a-f]{40}", plain_key):
+    if not plain_key or not re.fullmatch(r"muara_(?:mira|ubsi)_[0-9a-f]{40}", plain_key):
         return None
 
     key_hash = _hash_key(plain_key)

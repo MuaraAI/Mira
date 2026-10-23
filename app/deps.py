@@ -31,7 +31,7 @@ def require_studentv2_creds(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail=error_response(
             code="UNAUTHORIZED",
-            message="Kredensial SIAKAD belum diatur (wajib login via dashboard session atau sertakan Personal API Key muara_ubsi_***)",
+            message="Kredensial SIAKAD belum diatur (wajib login via dashboard session atau sertakan Personal API Key muara_mira_***)",
             module="studentv2"
         )
     )
@@ -63,7 +63,7 @@ def require_elearning_creds(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail=error_response(
             code="UNAUTHORIZED",
-            message="Kredensial Elearning belum diatur (wajib login via dashboard session atau sertakan Personal API Key muara_ubsi_***)",
+            message="Kredensial Elearning belum diatur (wajib login via dashboard session atau sertakan Personal API Key muara_mira_***)",
             module="elearning"
         )
     )
