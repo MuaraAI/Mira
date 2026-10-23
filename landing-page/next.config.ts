@@ -18,6 +18,21 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [
+          {
+            type: "host",
+            value: "ubsi-api.muaraai.com",
+          },
+        ],
+        destination: "https://mira.muaraai.com/:path*",
+        permanent: true, // HTTP 308 Permanent Redirect
+      },
+    ];
+  },
 };
 
 export default nextConfig;
