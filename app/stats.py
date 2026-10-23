@@ -32,10 +32,15 @@ async def record_request(module: str, nim: str | None = None) -> None:
         module_key = f"{_PREFIX}requests:{module}:{day}"
         await client.incr(module_key)
         await client.expire(module_key, _RETENTION_SECONDS)
+        # Counter all-time permanen (tanpa expire): untuk total kumulatif publik.
+        await client.incr(f"{_PREFIX}requests:all")
         if nim:
+            user_id = _identity(nim)
             user_key = f"{_PREFIX}users:{day}"
-            await client.sadd(user_key, _identity(nim))
+            await client.sadd(user_key, user_id)
             await client.expire(user_key, _RETENTION_SECONDS)
+            # Set unik all-time permanen (isi HMAC, bukan NIM mentah).
+            await client.sadd(f"{_PREFIX}users:all", user_id)
     except Exception:
         pass
 
@@ -62,6 +67,19 @@ async def _sum_requests(client: Any, days: int) -> int:
         value = await client.get(f"{_PREFIX}requests:{_day(offset)}")
         total += int(value or 0)
     return total
+
+
+async def _avg_requests(client: Any, days: int) -> int:
+    total = await _sum_requests(client, days)
+    return round(total / days)
+
+
+async def _avg_daily_users(client: Any, days: int) -> int:
+    total = 0
+    for offset in range(days):
+        count = await client.scard(f"{_PREFIX}users:{_day(offset)}")
+        total += int(count or 0)
+    return round(total / days)
 
 
 async def get_public_stats() -> dict[str, Any]:
@@ -96,6 +114,14 @@ async def get_public_stats() -> dict[str, Any]:
                 "total_24h": await _sum_requests(client, 1),
                 "total_7d": await _sum_requests(client, 7),
                 "total_30d": await _sum_requests(client, 30),
+            },
+            "averages": {
+                "requests_per_day": await _avg_requests(client, 30),
+                "active_users_per_day": await _avg_daily_users(client, 30),
+            },
+            "totals": {
+                "requests_all_time": int(await client.get(f"{_PREFIX}requests:all") or 0),
+                "users_all_time": len(await client.smembers(f"{_PREFIX}users:all") or set()),
             },
             "branches": branches,
             "programs": programs,
