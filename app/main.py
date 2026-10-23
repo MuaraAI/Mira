@@ -209,6 +209,7 @@ async def api_key_auth_middleware(request: Request, call_next):
             pass
 
     allowed_set = {o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip() and o.strip() != "*"}
+    allowed_set.add("https://mira.muaraai.com")
     allowed_set.add("https://ubsi-api.muaraai.com")
     allowed_set.add("http://localhost:3000")
     is_dashboard_request = (
@@ -311,7 +312,7 @@ async def rate_limiting_middleware(request: Request, call_next):
 # CORS Middleware added after HTTP middlewares so it wraps outermost
 origins = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip() and o.strip() != "*"]
 if not origins:
-    origins = ["https://ubsi-api.muaraai.com", "http://localhost:3000"]
+    origins = ["https://mira.muaraai.com", "https://ubsi-api.muaraai.com", "http://localhost:3000"]
 # Credentialed cookies must never be combined with wildcard origin reflection.
 
 app.add_middleware(

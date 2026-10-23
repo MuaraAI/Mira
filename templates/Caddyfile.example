@@ -15,10 +15,58 @@
     }
 }
 
+# Muara AI MCP Gateway
+mcp.muaraai.com {
+    import security_headers
+    handle_path /v1/mira/mcp* {
+        rewrite * /mcp{path}
+        reverse_proxy 127.0.0.1:8350
+    }
+    handle_path /v1/mira* {
+        rewrite * /mcp{path}
+        reverse_proxy 127.0.0.1:8350
+    }
+    handle_path /v1/ubsi-api/mcp* {
+        rewrite * /mcp{path}
+        reverse_proxy 127.0.0.1:8350
+    }
+    handle_path /v1/ubsi-api* {
+        rewrite * /mcp{path}
+        reverse_proxy 127.0.0.1:8350
+    }
+    reverse_proxy 127.0.0.1:8350
+}
+
 api.muaraai.com {
     import security_headers
 
-    # Project: UBSI API docs & openapi
+    # Project: Mira API (Twin Gateway /v1/mira/* -> port 8300 / 8350)
+    handle_path /v1/mira/docs* {
+        rewrite * /docs{path}
+        reverse_proxy 127.0.0.1:8300
+    }
+    handle_path /v1/mira/openapi.json* {
+        rewrite * /openapi.json
+        reverse_proxy 127.0.0.1:8300
+    }
+    handle_path /v1/mira/health* {
+        rewrite * /health
+        reverse_proxy 127.0.0.1:8300
+    }
+    handle_path /v1/mira/v1/* {
+        rewrite * /v1{path}
+        reverse_proxy 127.0.0.1:8300
+    }
+    handle_path /v1/mira/mcp* {
+        rewrite * /mcp{path}
+        reverse_proxy 127.0.0.1:8350
+    }
+    handle_path /v1/mira/* {
+        rewrite * /v1{path}
+        reverse_proxy 127.0.0.1:8300
+    }
+
+    # Project: UBSI API (Legacy Alias /v1/ubsi-api/*)
     handle_path /v1/ubsi-api/docs* {
         rewrite * /docs{path}
         reverse_proxy 127.0.0.1:8300
@@ -31,14 +79,14 @@ api.muaraai.com {
         rewrite * /health
         reverse_proxy 127.0.0.1:8300
     }
-
-    # Project: UBSI API /v1/ubsi-api/v1/* -> /v1/*
     handle_path /v1/ubsi-api/v1/* {
         rewrite * /v1{path}
         reverse_proxy 127.0.0.1:8300
     }
-
-    # Project: UBSI API /v1/ubsi-api/* -> /v1/*
+    handle_path /v1/ubsi-api/mcp* {
+        rewrite * /mcp{path}
+        reverse_proxy 127.0.0.1:8350
+    }
     handle_path /v1/ubsi-api/* {
         rewrite * /v1{path}
         reverse_proxy 127.0.0.1:8300

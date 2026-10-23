@@ -228,7 +228,7 @@ async def _send_class_alerts(nim: str, schedule: list[dict[str, Any]], current: 
         title, body = class_alert_text(course, stage, minutes)
         try:
             delivered = await deliver(
-                nim, CATEGORY_CLASS, title, body, "https://ubsi-api.muaraai.com/dashboard/jadwal",
+                nim, CATEGORY_CLASS, title, body, f"{settings.WEB_BASE_URL}/dashboard/jadwal",
                 tag=f"kelas-{course.get('kode')}", ttl=600,
             )
         except Exception:
@@ -328,7 +328,7 @@ async def _absen_process_course(
         count = int(new_state.get("sent", 1))
         title = f"Belum absen: {nama}" if count > 1 else f"Absen sudah dibuka: {nama}"
         body = "Kamu belum presensi. Segera absen sebelum sesi ditutup." if count > 1 else "Sesi presensi dibuka di MyBest. Tekan untuk absen sekarang."
-        link = "https://ubsi-api.muaraai.com/dashboard/presensi?" + _query({"kode": course.get("kode", ""), "mk": nama})
+        link = f"{settings.WEB_BASE_URL}/dashboard/presensi?" + _query({"kode": course.get("kode", ""), "mk": nama})
         delivered = await deliver(nim, CATEGORY_ABSEN, title, body, link, tag=f"absen-{course.get('kode')}", ttl=900)
         if not delivered:
             # Tak ada tujuan yang menerima: jangan hitung sebagai pengingat terkirim.

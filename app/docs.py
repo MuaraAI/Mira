@@ -2,12 +2,13 @@ from typing import Any, Optional
 
 API_DOCS_DATA: dict[str, Any] = {
     "info": {
-        "title": "UBSI API & Universal MCP Server",
+        "title": "Mira API & Universal MCP Server (sebelumnya UBSI-API)",
         "version": "2.0.0",
         "description": "Unified Unofficial REST API Aggregator & Model Context Protocol (MCP) Server for Universitas Bina Sarana Informatika digital services.",
-        "base_url": "https://api.muaraai.com/v1/ubsi-api",
-        "mcp_url": "https://api.muaraai.com/v1/ubsi-api/mcp",
-        "web_dashboard": "https://ubsi-api.muaraai.com",
+        "base_url": "https://api.muaraai.com/v1/mira",
+        "legacy_base_url": "https://api.muaraai.com/v1/ubsi-api",
+        "mcp_url": "https://api.muaraai.com/v1/mira/mcp",
+        "web_dashboard": "https://mira.muaraai.com",
         "auth_methods": [
             {
                 "type": "Personal API Key",
@@ -432,7 +433,8 @@ API_DOCS_DATA: dict[str, Any] = {
         ],
     },
     "mcp": {
-        "server_url": "https://api.muaraai.com/v1/ubsi-api/mcp",
+        "server_url": "https://api.muaraai.com/v1/mira/mcp",
+        "legacy_server_url": "https://api.muaraai.com/v1/ubsi-api/mcp",
         "transport": "streamable-http",
         "total_tools": 40,
         "tools": [

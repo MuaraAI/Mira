@@ -14,6 +14,7 @@ from app.channels_db import (
     set_channel_active,
     update_channel_categories,
 )
+from app.config import settings
 from app.envelope import error_response, success_response
 
 router = APIRouter(prefix="/v1/channels", tags=["channels"])
@@ -159,18 +160,18 @@ async def test_channel(channel_id: int, request: Request):
     try:
         if channel_type == "discord":
             ok = await dispatch_discord_webhook(
-                {"title": "Tes Channel Muara AI", "description": "Channel notifikasi aktif.", "link": "https://ubsi-api.muaraai.com"},
+                {"title": "Tes Channel Muara AI", "description": "Channel notifikasi aktif.", "link": settings.WEB_BASE_URL},
                 config["url"],
             )
         elif channel_type == "telegram":
             ok = await dispatch_telegram_message(
-                {"title": "Tes Channel Muara AI", "description": "Channel notifikasi aktif.", "link": "https://ubsi-api.muaraai.com"},
+                {"title": "Tes Channel Muara AI", "description": "Channel notifikasi aktif.", "link": settings.WEB_BASE_URL},
                 config["bot_token"],
                 config["chat_id"],
             )
         else:
             ok = await dispatch_webhook_notification(
-                {"title": "Tes Channel Muara AI", "description": "Channel notifikasi aktif.", "link": "https://ubsi-api.muaraai.com"},
+                {"title": "Tes Channel Muara AI", "description": "Channel notifikasi aktif.", "link": settings.WEB_BASE_URL},
                 config["url"],
                 event="channel.test",
             )
@@ -221,37 +222,37 @@ async def trigger_reminder(request: Request, body: ReminderRequest):
         payload = {
             "title": "Pengingat Kuliah Esok Hari - SIAKAD UBSI",
             "description": "Halo! Besok ada jadwal perkuliahan aktif. Siapkan perlengkapan, modul materi, dan hadir tepat waktu di ruang kelas.",
-            "link": "https://ubsi-api.muaraai.com/dashboard/jadwal",
+            "link": f"{settings.WEB_BASE_URL}/dashboard/jadwal",
         }
     elif category in ("quiz-tugas", "tugas-baru"):
         payload = {
             "title": "Pengingat Tugas & Kuis - MyBest Elearning",
             "description": "Periksa pertemuan aktif di portal MyBest. Pastikan tugas mingguan dan kuis telah disubmit sebelum tenggat waktu.",
-            "link": "https://ubsi-api.muaraai.com/dashboard/tugas",
+            "link": f"{settings.WEB_BASE_URL}/dashboard/tugas",
         }
     elif category == "absen-kuliah":
         payload = {
             "title": "Sesi Presensi Perkuliahan Dibuka - MyBest",
             "description": "Sesi absensi perkuliahan telah dibuka. Silakan lakukan presensi kehadiran sekarang di portal MyBest.",
-            "link": "https://ubsi-api.muaraai.com/dashboard/presensi",
+            "link": f"{settings.WEB_BASE_URL}/dashboard/presensi",
         }
     elif category == "kelas-mulai":
         payload = {
             "title": "Kuliah 15 menit lagi (contoh pengingat)",
             "description": "Pengingat seperti ini dikirim otomatis 15 menit sebelum kelas mulai dan saat kelas dimulai.",
-            "link": "https://ubsi-api.muaraai.com/dashboard/jadwal",
+            "link": f"{settings.WEB_BASE_URL}/dashboard/jadwal",
         }
     elif category == "nilai-keluar":
         payload = {
             "title": "Pemberitahuan Nilai & KHS Semester - SIAKAD",
             "description": "Pembaruan nilai mata kuliah dan Kartu Hasil Studi (KHS) telah dipublikasikan di SIAKAD UBSI.",
-            "link": "https://ubsi-api.muaraai.com/dashboard/nilai",
+            "link": f"{settings.WEB_BASE_URL}/dashboard/nilai",
         }
     elif category == "jadwal-ujian":
         payload = {
             "title": "Pengingat Jadwal & Ruang Ujian - SIAKAD",
             "description": "Informasi jadwal ruang ujian semester (UTS / UAS) telah dirilis. Periksa jadwal dan persiapan ujian Anda.",
-            "link": "https://ubsi-api.muaraai.com/dashboard/ujian",
+            "link": f"{settings.WEB_BASE_URL}/dashboard/ujian",
         }
     else:
         payload = {

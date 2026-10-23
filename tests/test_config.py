@@ -31,9 +31,11 @@ def test_security_config_defaults(monkeypatch):
     monkeypatch.delenv("API_KEY", raising=False)
     monkeypatch.delenv("ALLOWED_ORIGINS", raising=False)
     monkeypatch.delenv("TRUSTED_PROXIES", raising=False)
+    monkeypatch.delenv("WEB_BASE_URL", raising=False)
     cfg = Settings(_env_file=None)
     assert cfg.API_KEY == ""
-    assert cfg.ALLOWED_ORIGINS == "https://ubsi-api.muaraai.com,http://localhost:3000"
+    assert cfg.ALLOWED_ORIGINS == "https://mira.muaraai.com,https://ubsi-api.muaraai.com,http://localhost:3000"
+    assert cfg.WEB_BASE_URL == "https://mira.muaraai.com"
     assert cfg.TRUSTED_PROXIES == "127.0.0.1"
 
 def test_session_and_root_path_settings(monkeypatch):

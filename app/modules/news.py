@@ -222,7 +222,7 @@ def build_schedule_notification(
         "category": "matkul-besok",
         "title": f"Jadwal Kuliah Besok: {tomorrow}",
         "description": "\n".join(lines),
-        "link": "https://ubsi-api.muaraai.com/dashboard/jadwal",
+        "link": f"{settings.WEB_BASE_URL}/dashboard/jadwal",
     }
 
 
@@ -284,7 +284,7 @@ async def _produce_user_category(
                         "category": category,
                         "title": f"Pengumuman SIAKAD: {latest['title']}",
                         "description": "Ada pengumuman akademik baru di SIAKAD UBSI.",
-                        "link": latest.get("pdf_url") or "https://ubsi-api.muaraai.com/dashboard/berita",
+                        "link": latest.get("pdf_url") or f"{settings.WEB_BASE_URL}/dashboard/berita",
                     }
             elif category in ("quiz-tugas", "tugas-baru"):
                 from app.modules.elearning import parse_assignments, parse_courses, parse_quiz, pooled_elearning_client
@@ -322,14 +322,14 @@ async def _produce_user_category(
                         "category": category,
                         "title": f"Kuis Baru ({len(new_quizzes)})",
                         "description": f"Kuis baru di MyBest: {names}{more}. Kerjakan sebelum waktu ujiannya berakhir.",
-                        "link": "https://ubsi-api.muaraai.com/dashboard/kuis",
+                        "link": f"{settings.WEB_BASE_URL}/dashboard/kuis",
                     }
                 elif task_count:
                     payload = {
                         "category": category,
                         "title": "Tugas dan kuis MyBest tersedia",
                         "description": f"Tersedia {task_count} tugas di MyBest. Periksa dashboard sebelum tenggat.",
-                        "link": "https://ubsi-api.muaraai.com/dashboard/tugas",
+                        "link": f"{settings.WEB_BASE_URL}/dashboard/tugas",
                     }
             elif category == "nilai-keluar":
                 from app.modules.studentv2 import parse_grades
@@ -342,7 +342,7 @@ async def _produce_user_category(
                         "category": category,
                         "title": f"Nilai Dirilis: {target['nama']}",
                         "description": f"Nilai akhir mata kuliah {target['nama']} ({target['kode']}) telah dirilis di SIAKAD: Grade {target['grade']} (Total: {target.get('total')}).",
-                        "link": "https://ubsi-api.muaraai.com/dashboard/nilai",
+                        "link": f"{settings.WEB_BASE_URL}/dashboard/nilai",
                     }
             elif category == "jadwal-ujian":
                 from app.modules.studentv2 import parse_uts, parse_uas
@@ -355,14 +355,14 @@ async def _produce_user_category(
                         "category": category,
                         "title": "Jadwal & Ruang UTS Telah Diumumkan",
                         "description": "Informasi jadwal ruang ujian tengah semester (UTS) telah dirilis di SIAKAD. Periksa jadwal dan persiapan ujian Anda.",
-                        "link": "https://ubsi-api.muaraai.com/dashboard/ujian",
+                        "link": f"{settings.WEB_BASE_URL}/dashboard/ujian",
                     }
                 elif uas.get("jadwal_online_url") or uas.get("soal_offline_url"):
                     payload = {
                         "category": category,
                         "title": "Jadwal & Ruang UAS Telah Diumumkan",
                         "description": "Informasi jadwal ruang ujian akhir semester (UAS) telah dirilis di SIAKAD. Periksa jadwal dan persiapan ujian Anda.",
-                        "link": "https://ubsi-api.muaraai.com/dashboard/ujian",
+                        "link": f"{settings.WEB_BASE_URL}/dashboard/ujian",
                     }
             if not payload:
                 continue
