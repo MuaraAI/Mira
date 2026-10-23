@@ -6,16 +6,16 @@ export const SITE_NAME = "Mira";
 export const SITE_TAGLINE = "Satu Tempat untuk Seluruh Layanan Kampus UBSI";
 export const SITE_TITLE = `${SITE_NAME}: ${SITE_TAGLINE}`;
 export const SITE_DESCRIPTION =
-  "Jadwal, absen, tugas, ujian, materi, hingga perpustakaan. Seluruh ekosistem kampus terhubung serba cepat tanpa perlu login berulang ke banyak website.";
+  "Satu akses terpadu untuk 6 layanan kampus UBSI: SIAKAD, MyBest, Ujian Online, Perpustakaan OPAC, Berita Kampus, dan Repository Riset. Terhubung serba cepat tanpa perlu login berulang.";
 
 export const FAQ: { q: string; a: string }[] = [
   {
     q: "Ini apa sih?",
-    a: "Mira adalah dashboard buat cek jadwal, tugas, absen, nilai, dan info kuliah lainnya dari SIAKAD (students.bsi.ac.id) dan MyBest (elearning.bsi.ac.id) di satu tempat. Proyek independen non-komersial dari komunitas Muara AI, bukan aplikasi resmi UBSI.",
+    a: "Mira adalah platform terpadu untuk mengakses 6 layanan kampus UBSI sekaligus: SIAKAD (students.bsi.ac.id), MyBest Elearning (elearning.bsi.ac.id), Ujian Online (ujiankampusa.bsi.ac.id), Perpustakaan OPAC (elibrary.bsi.ac.id), Berita Resmi (news.bsi.ac.id), dan Repository Skripsi/Riset (repository.bsi.ac.id) di satu tempat. Proyek independen non-komersial dari komunitas Muara AI, bukan aplikasi resmi UBSI.",
   },
   {
     q: "Bisa dipakai buat apa aja?",
-    a: "Lihat jadwal kuliah, tugas dan deadline, absen, bahan ajar (bisa dilihat dan diringkas otomatis), kuis dan ujian, nilai dan KHS, KRS, kartu ujian, berita kampus, dan cari buku di perpustakaan. Ada juga pengingat kelas, absen, dan tugas lewat notifikasi HP, Discord, atau Telegram.",
+    a: "Lihat jadwal kuliah, presensi kehadiran, tugas dan deadline, kuis dan ujian online, bahan ajar dosen, nilai dan KHS/KRS, berita kampus, cari buku fisik di perpustakaan, hingga eksplorasi repositori skripsi. Ada juga pengingat otomatis ke notifikasi HP, Discord, atau Telegram.",
   },
   {
     q: "Gratis nggak?",

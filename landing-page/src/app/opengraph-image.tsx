@@ -67,7 +67,7 @@ export default async function Image() {
             Satu Tempat untuk Seluruh Layanan Kampus UBSI.
           </span>
           <span style={{ color: "#3B5A70", fontSize: "24px", lineHeight: 1.4 }}>
-            SIAKAD dan MyBest: jadwal, absen, tugas, ujian, nilai, dan notifikasi ke HP.
+            Satu akses 6 layanan: SIAKAD, MyBest, Ujian Online, Perpustakaan, Berita, & Repository.
           </span>
         </div>
 

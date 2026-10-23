@@ -4,12 +4,12 @@ import { InstallAppButton } from "./InstallAppButton";
 import { StatsBadge } from "./StatsBadge";
 
 const features = [
-  { icon: CalendarDays, title: "Jadwal kuliah", text: "Kelas hari ini dan besok, lengkap dengan ruang dan dosennya." },
-  { icon: CheckSquare, title: "Tugas", text: "Deadline, soal, dan kumpulin link langsung dari sini." },
-  { icon: UserCheck, title: "Absen", text: "Absen dari dashboard, statusnya update sendiri." },
-  { icon: BookOpen, title: "Bahan ajar", text: "Materi dosen bisa dilihat dan diringkas otomatis." },
-  { icon: GraduationCap, title: "Nilai dan KHS", text: "IPK, nilai per mata kuliah, KRS, dan kartu ujian." },
-  { icon: BellRing, title: "Pengingat", text: "Notifikasi kelas, absen, dan tugas ke HP, Discord, atau Telegram." },
+  { icon: CalendarDays, title: "SIAKAD: Jadwal Kuliah", text: "Jadwal mingguan, ruang, nama dosen pengampu, dan kalender akademik." },
+  { icon: CheckSquare, title: "MyBest: Tugas & Kuis", text: "Deadline tugas, unduh soal, kumpulkan lembar tugas, dan pantau kuis aktif." },
+  { icon: UserCheck, title: "Presensi Real-time", text: "Presensi kehadiran perkuliahan dengan verifikasi rekap otomatis dari server." },
+  { icon: GraduationCap, title: "Ujian Online & Nilai", text: "Jadwal ujian kampus (Latihan, UTS, UAS), kartu ujian, KHS, dan IPK semester." },
+  { icon: BookOpen, title: "Perpustakaan & Repository", text: "Pencarian katalog buku fisik OPAC perpustakaan, materi dosen, dan repositori skripsi." },
+  { icon: BellRing, title: "Notifikasi Pengingat", text: "Pengingat kelas, presensi, dan deadline tugas langsung ke layar HP, Discord, atau Telegram." },
 ];
 
 export function Hero() {
@@ -28,8 +28,17 @@ export function Hero() {
             </span>
           </h1>
           <p className="mt-6 max-w-xl text-base leading-8 text-secondary sm:text-lg">
-            Login pakai akun SIAKAD dan MyBest kamu, semuanya langsung kelihatan. Nggak perlu lagi bolak-balik buka dua web kampus.
+            Satu akses langsung untuk 6 layanan kampus: SIAKAD, MyBest, Ujian Online, Perpustakaan, Berita Resmi, dan Repository Riset. Nggak perlu lagi buka banyak website terpisah.
           </p>
+
+          <div className="mt-4 flex flex-wrap gap-2 text-xs font-mono font-semibold text-secondary" aria-label="6 Layanan Terintegrasi">
+            <span className="border border-px-soft bg-white px-2.5 py-1">SIAKAD</span>
+            <span className="border border-px-soft bg-white px-2.5 py-1">MyBest LMS</span>
+            <span className="border border-px-soft bg-white px-2.5 py-1">Ujian Online</span>
+            <span className="border border-px-soft bg-white px-2.5 py-1">Perpustakaan</span>
+            <span className="border border-px-soft bg-white px-2.5 py-1">Berita Kampus</span>
+            <span className="border border-px-soft bg-white px-2.5 py-1">Repository Riset</span>
+          </div>
 
           <div className="mt-8 grid grid-cols-1 gap-4 min-[400px]:grid-cols-2 sm:flex sm:flex-wrap">
             <Link href="/login" className="px-btn inline-flex min-h-11 items-center justify-center gap-2 px-5 py-3 text-sm font-bold">
