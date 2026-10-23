@@ -51,8 +51,8 @@ interface MaterialItem {
 export default function MateriPage() {
   useEffect(() => preloadPdfjs(), []);
   const coursesApi = useApi<CourseItem[]>("/v1/elearning/courses");
-  // Jadwal SIAKAD dipakai sebagai cadangan kode dosen bila kartu MyBest tidak mencantumkannya.
-  const scheduleApi = useApi<{ kode: string; nama: string; kode_dosen?: string }[]>("/v1/studentv2/schedule");
+  // Jadwal SIAKAD dipakai untuk hari kuliah + cadangan kode dosen bila kartu MyBest tidak mencantumkannya.
+  const scheduleApi = useApi<{ kode: string; nama: string; hari?: string; kode_dosen?: string }[]>("/v1/studentv2/schedule");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [view, setView] = useState<"dosen" | "resmi">("dosen");
   const [preview, setPreview] = useState<{ url: string; title: string; subtitle?: string } | null>(null);
@@ -74,7 +74,30 @@ export default function MateriPage() {
     }
   }
 
-  const courses = useMemo(() => coursesApi.data ?? [], [coursesApi.data]);
+  const coursesRaw = useMemo(() => coursesApi.data ?? [], [coursesApi.data]);
+  // Prioritaskan mata kuliah hari ini (pola sama dengan Presensi): jadwal SIAKAD
+  // dipakai untuk memetakan kode -> hari, lalu urutkan circular day-distance.
+  const hariByKode = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const row of scheduleApi.data ?? []) {
+      if (row.kode && row.hari) {
+        map.set(String(row.kode), String(row.hari).toLowerCase().trim());
+      }
+    }
+    return map;
+  }, [scheduleApi.data]);
+
+  const courses = useMemo(() => {
+    const DAY_ORDER = ["senin", "selasa", "rabu", "kamis", "jumat", "sabtu", "minggu"];
+    const todayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1; // Senin = 0
+    const distance = (course: CourseItem): number => {
+      const hari = hariByKode.get(String(course.kode ?? "")) ?? hariByKode.get(course.nama.toLowerCase().trim());
+      if (!hari) return 99;
+      const idx = DAY_ORDER.indexOf(hari);
+      return idx === -1 ? 99 : (idx - todayIdx + 7) % 7;
+    };
+    return [...coursesRaw].sort((a, b) => distance(a) - distance(b));
+  }, [coursesRaw, hariByKode]);
   const activeCourse = courses.find((c) => (c.id || c.kode || c.nama) === selectedKey) ?? courses[0] ?? null;
   const token = activeCourse?.token_learning;
 
