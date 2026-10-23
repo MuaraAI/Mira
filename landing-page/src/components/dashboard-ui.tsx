@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { ApiError } from "@/lib/api";
 
 export const inputClass =
@@ -57,9 +58,19 @@ export function ErrorState({
   );
 }
 
-export function EmptyState({ title, description }: { title: string; description?: string }) {
+export function EmptyState({ title, description, mascot }: { title: string; description?: string; mascot?: string }) {
   return (
     <div className="glass-card p-8 text-center" role="status" aria-live="polite">
+      {mascot && (
+        <Image
+          src={mascot}
+          alt=""
+          width={110}
+          height={110}
+          className="mx-auto mb-3 object-contain"
+          aria-hidden="true"
+        />
+      )}
       <p className="text-sm font-bold text-foreground">{title}</p>
       {description && <p className="mt-1 text-sm text-secondary">{description}</p>}
     </div>

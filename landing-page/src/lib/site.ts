@@ -1,17 +1,17 @@
 import { API_DOCS_URL, GITHUB_URL, MCP_URL } from "@/lib/public-links";
 
 /** Identitas situs: satu sumber untuk metadata, JSON-LD, robots, sitemap, dan llms.txt. */
-export const SITE_URL = "https://ubsi-api.muaraai.com";
-export const SITE_NAME = "UBSI-API Muara";
-export const SITE_TAGLINE = "Dashboard Jadwal, Tugas, Absen, dan Nilai UBSI";
+export const SITE_URL = "https://mira.muaraai.com";
+export const SITE_NAME = "Mira";
+export const SITE_TAGLINE = "Satu Tempat untuk Seluruh Layanan Kampus UBSI";
 export const SITE_TITLE = `${SITE_NAME}: ${SITE_TAGLINE}`;
 export const SITE_DESCRIPTION =
-  "Cek jadwal kuliah, tugas, absen, nilai, dan KRS UBSI dari SIAKAD dan MyBest di satu dashboard. Ada juga REST API dan MCP buat developer. Gratis dan open source dari Muara AI.";
+  "Jadwal, absen, tugas, ujian, materi, hingga perpustakaan. Seluruh ekosistem kampus terhubung serba cepat tanpa perlu login berulang ke banyak website.";
 
 export const FAQ: { q: string; a: string }[] = [
   {
     q: "Ini apa sih?",
-    a: "UBSI-API Muara adalah dashboard buat cek jadwal, tugas, absen, nilai, dan info kuliah lainnya dari SIAKAD (students.bsi.ac.id) dan MyBest (elearning.bsi.ac.id) di satu tempat. Ada juga REST API dan server MCP buat developer. Ini proyek independen non-komersial dari komunitas Muara AI, bukan aplikasi resmi UBSI.",
+    a: "Mira adalah dashboard buat cek jadwal, tugas, absen, nilai, dan info kuliah lainnya dari SIAKAD (students.bsi.ac.id) dan MyBest (elearning.bsi.ac.id) di satu tempat. Proyek independen non-komersial dari komunitas Muara AI, bukan aplikasi resmi UBSI.",
   },
   {
     q: "Bisa dipakai buat apa aja?",
@@ -19,7 +19,7 @@ export const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Gratis nggak?",
-    a: "Gratis. Kodenya juga open source (lisensi MIT) di github.com/MuaraAI/UBSI-API.",
+    a: "Gratis. Kodenya juga open source (lisensi MIT) di github.com/MuaraAI/Mira.",
   },
   {
     q: "Password kampusku aman?",

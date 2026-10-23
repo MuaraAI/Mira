@@ -5,7 +5,7 @@ import { Monogram } from "@/components/Monogram";
 export const metadata: Metadata = {
   title: "Syarat dan Ketentuan Layanan",
   description:
-    "Aturan penggunaan UBSI-API Muara: hanya data milik sendiri, dilarang otomasi akademik terlarang, batas rate limit, dan hak kami untuk membatasi akun yang menyalahgunakan layanan.",
+    "Aturan penggunaan Mira: hanya data milik sendiri, dilarang otomasi akademik terlarang, batas rate limit, dan hak kami untuk membatasi akun yang menyalahgunakan layanan.",
   alternates: { canonical: "https://ubsi-api.muaraai.com/terms" },
 };
 

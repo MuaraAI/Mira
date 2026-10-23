@@ -8,13 +8,15 @@ import { lockScroll } from "@/lib/scroll-lock";
 
 const NAV_LINKS = [
   { href: "#fitur", label: "Fitur" },
-  { href: "#developer", label: "Developer" },
+  { href: "#cara-pakai", label: "Cara Pakai" },
+  { href: "#stats", label: "Mira dalam Angka" },
   { href: "#faq", label: "FAQ" },
 ];
 
 const MOBILE_LINKS = [
   { href: "#fitur", label: "Fitur", external: false },
-  { href: "#developer", label: "Developer", external: false },
+  { href: "#cara-pakai", label: "Cara Pakai", external: false },
+  { href: "#stats", label: "Mira dalam Angka", external: false },
   { href: "#faq", label: "FAQ", external: false },
   { href: API_DOCS_URL, label: "API Docs", external: true },
   { href: GITHUB_URL, label: "GitHub", external: true },
@@ -183,7 +185,7 @@ export function Navbar({ starsCount }: { starsCount: number | null }) {
             <Monogram className="h-7 w-7 transition-transform duration-300 group-hover:scale-110" />
           </span>
           <span className="flex flex-col">
-            <span className="nav-brand-text font-display text-base font-bold tracking-tight text-foreground">UBSI API</span>
+            <span className="nav-brand-text font-display text-base font-bold tracking-tight text-foreground">Mira</span>
             <span className="-mt-0.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[#0369A1]">Muara AI</span>
           </span>
         </Link>
@@ -194,9 +196,6 @@ export function Navbar({ starsCount }: { starsCount: number | null }) {
               {link.label}
             </a>
           ))}
-          <a href={API_DOCS_URL} target="_blank" rel="noopener noreferrer" className="nav-link px-3 py-1.5 transition-colors duration-200 hover:text-foreground">
-            Dokumentasi
-          </a>
         </nav>
 
         <div className="flex items-center gap-3">
@@ -205,7 +204,7 @@ export function Navbar({ starsCount }: { starsCount: number | null }) {
             target="_blank"
             rel="noopener noreferrer"
             className="px-btn-ghost hidden min-h-9 items-center gap-2 px-3 py-1.5 font-mono text-xs font-semibold [--px-off:3px] sm:inline-flex"
-            aria-label="Buka repository UBSI API di GitHub"
+            aria-label="Buka repository Mira di GitHub"
           >
             <GithubIcon />
             GitHub{starsCount !== null ? ` · ${starsCount} stars` : ""}

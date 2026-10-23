@@ -109,12 +109,9 @@ export const viewport: Viewport = {
 };
 
 const SEARCH_TITLE_KEYWORDS = [
-  "UBSI-API Muara",
-  "UBSI API",
-  "API UBSI",
-  "API SIAKAD UBSI",
-  "API MyBest UBSI",
-  "MCP UBSI",
+  "Mira UBSI",
+  "Mira Mahasiswa",
+  "UBSI-API",
   "dashboard mahasiswa UBSI",
   "jadwal kuliah UBSI",
   "nilai KHS UBSI",
@@ -124,8 +121,6 @@ const SEARCH_TITLE_KEYWORDS = [
   "BSI SIAKAD",
   "Elearning MyBest UBSI",
   "Muara AI",
-  "REST API kampus",
-  "Model Context Protocol",
 ];
 
 export const metadata: Metadata = {
@@ -133,7 +128,7 @@ export const metadata: Metadata = {
   applicationName: SITE_NAME,
   appleWebApp: {
     capable: true,
-    title: "UBSI-API",
+    title: "Mira",
     statusBarStyle: "default",
   },
   formatDetection: { telephone: false },
@@ -217,20 +212,19 @@ export default function RootLayout({
         "@id": siteId,
         url: SITE_URL,
         name: SITE_NAME,
-        alternateName: ["UBSI API", "UBSI-API", "UBSI API Muara"],
+        alternateName: ["Mira UBSI", "UBSI API", "UBSI-API", "UBSI API Muara"],
         description: SITE_DESCRIPTION,
         inLanguage: "id-ID",
         publisher: { "@id": orgId },
       },
       {
-        "@type": ["SoftwareApplication", "WebAPI"],
+        "@type": ["WebApplication", "EducationalApplication"],
         "@id": appId,
         name: SITE_NAME,
         alternateName: ["UBSI API", "UBSI-API"],
         url: SITE_URL,
         description: SITE_DESCRIPTION,
         applicationCategory: "EducationalApplication",
-        applicationSubCategory: "DeveloperApplication",
         operatingSystem: "Web, Android, iOS (PWA)",
         inLanguage: "id-ID",
         isAccessibleForFree: true,
@@ -238,8 +232,6 @@ export default function RootLayout({
         codeRepository: GITHUB_URL,
         featureList: [
           "Dashboard akademik UBSI: jadwal, tugas, presensi, materi, kuis, nilai KHS, KRS, kartu ujian",
-          "REST API publik dengan Personal API Key",
-          "Server MCP untuk AI agent",
           "Notifikasi push PWA",
         ],
         offers: { "@type": "Offer", price: "0", priceCurrency: "IDR" },

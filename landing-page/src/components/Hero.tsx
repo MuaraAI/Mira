@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BellRing, BookOpen, CalendarDays, CheckSquare, GraduationCap, UserCheck } from "lucide-react";
-import { API_DOCS_URL } from "@/lib/public-links";
+import { InstallAppButton } from "./InstallAppButton";
+import { StatsBadge } from "./StatsBadge";
 
 const features = [
   { icon: CalendarDays, title: "Jadwal kuliah", text: "Kelas hari ini dan besok, lengkap dengan ruang dan dosennya." },
@@ -35,15 +36,10 @@ export function Hero() {
               Masuk ke Dashboard
               <span aria-hidden="true">→</span>
             </Link>
-            <a
-              href={API_DOCS_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-btn-ghost inline-flex min-h-11 items-center justify-center px-5 py-3 text-sm font-semibold"
-            >
-              Lihat API Docs
-            </a>
+            <InstallAppButton className="px-btn-ghost inline-flex min-h-11 items-center justify-center px-5 py-3 text-sm font-semibold" />
           </div>
+
+          <StatsBadge />
 
           <p className="mt-6 max-w-md text-sm leading-6 text-secondary">
             Gratis dan open source. Proyek independen dari Muara AI, bukan aplikasi resmi UBSI.

@@ -5,7 +5,7 @@ import { Monogram } from "@/components/Monogram";
 export const metadata: Metadata = {
   title: "Kebijakan Privasi",
   description:
-    "Bagaimana UBSI-API Muara memproses, mengenkripsi, dan menghapus data akademik Anda: AES-256-GCM, zero telemetry, dan kontrol penghapusan penuh di tangan Anda.",
+    "Bagaimana Mira memproses, mengenkripsi, dan menghapus data akademik Anda: AES-256-GCM, zero telemetry, dan kontrol penghapusan penuh di tangan Anda.",
   alternates: { canonical: "https://ubsi-api.muaraai.com/privacy" },
 };
 

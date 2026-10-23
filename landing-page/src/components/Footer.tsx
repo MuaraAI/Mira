@@ -48,10 +48,10 @@ export function Footer() {
           <div className="col-span-2 md:col-span-1">
             <div className="flex items-center gap-3">
               <span className="px-frame flex h-11 w-11 items-center justify-center overflow-hidden bg-white [--px-line:#CFE2EE]">
-                <Image src="/logo/logo.png" alt="Logo UBSI API" width={40} height={40} className="h-9 w-9" />
+                <Image src="/logo/logo.png" alt="Logo Mira" width={40} height={40} className="h-9 w-9" />
               </span>
               <div>
-                <p className="font-display text-base font-bold text-foreground">UBSI API</p>
+                <p className="font-display text-base font-bold text-foreground">Mira</p>
                 <p className="font-mono text-xs text-secondary">by Muara AI</p>
               </div>
             </div>
@@ -59,7 +59,7 @@ export function Footer() {
               Proyek independen non-komersial dari komunitas Muara AI. Bukan aplikasi resmi UBSI.</p>
           </div>
 
-          <nav aria-label="Produk UBSI API" className="text-sm">
+          <nav aria-label="Produk Mira" className="text-sm">
             <ColumnTitle>Produk</ColumnTitle>
             <ul className="space-y-1">
               <li><Link href="/login" className={LINK_CLASS}><Marker />Dashboard mahasiswa</Link></li>
@@ -85,7 +85,7 @@ export function Footer() {
 
         <div className="mx-auto mt-10 flex max-w-7xl flex-col gap-3 border-t-2 border-dashed border-px-soft pt-5 font-mono text-[11px] text-secondary sm:flex-row sm:items-center sm:justify-between">
           <p>MIT License | Muara AI 2026</p>
-          <a href="https://github.com/MuaraAI/UBSI-API/releases" target="_blank" rel="noopener noreferrer" className="group inline-flex items-center gap-1.5 font-semibold text-foreground transition-colors hover:text-[#0369A1]">
+          <a href="https://github.com/MuaraAI/Mira/releases" target="_blank" rel="noopener noreferrer" className="group inline-flex items-center gap-1.5 font-semibold text-foreground transition-colors hover:text-[#0369A1]">
             <Marker />
             Lihat rilis di GitHub
           </a>

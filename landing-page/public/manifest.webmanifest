@@ -1,6 +1,6 @@
 {
-  "name": "UBSI-API Muara",
-  "short_name": "UBSI-API",
+  "name": "Mira: Kampus UBSI",
+  "short_name": "Mira",
   "id": "/dashboard",
   "description": "Jadwal, tugas, absen, dan nilai kuliah UBSI di satu tempat.",
   "lang": "id-ID",

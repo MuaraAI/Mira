@@ -1,6 +1,7 @@
 import { Navbar } from "@/components/Navbar";
 import { Hero } from "@/components/Hero";
-import { DeveloperSection } from "@/components/DeveloperSection";
+import { HowToUse } from "@/components/HowToUse";
+import { StatsSection } from "@/components/StatsSection";
 import { Faq } from "@/components/Faq";
 import { Footer } from "@/components/Footer";
 import { getRepositoryStars } from "@/lib/github";
@@ -13,7 +14,8 @@ export default async function Home() {
       <Navbar starsCount={stars} />
       <main id="main-content" className="flex-1">
         <Hero />
-        <DeveloperSection />
+        <HowToUse />
+        <StatsSection />
         <Faq />
       </main>
       <Footer />
