@@ -1,6 +1,6 @@
-"""Personal API Key Engine untuk Mahasiswa UBSI.
+"""Personal API Key Engine untuk Mahasiswa UBSI / Mira.
 
-Format: muara_ubsi_<40_hex_chars>
+Format: muara_mira_<40_hex_chars> (atau legacy muara_ubsi_<40_hex_chars>)
 Kredensial disimpan terenkripsi (Fernet AES-128-CBC + HMAC) menggunakan
 kunci yang diturunkan dari master API_KEY server. Tidak ada password kampus
 yang disimpan secara plaintext di database.

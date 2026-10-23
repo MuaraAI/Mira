@@ -46,7 +46,7 @@ API_DOCS_DATA: dict[str, Any] = {
                 "path": "/v1/auth/keys",
                 "method": "POST",
                 "auth": "Session Token",
-                "description": "Terbitkan Personal API Key baru (format muara_ubsi_***) untuk AI Agent.",
+                "description": "Terbitkan Personal API Key baru (format muara_mira_*** atau legacy muara_ubsi_***) untuk AI Agent.",
                 "payload": {"name": "string"},
             },
             {
