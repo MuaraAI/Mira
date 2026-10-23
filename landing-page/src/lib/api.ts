@@ -213,7 +213,9 @@ export function useApi<T>(
 ) {
   const ttl = options?.ttlMs ?? DEFAULT_TTL_MS;
   const skipCache = options?.skipCache ?? false;
-  const refreshMs = options?.refreshMs ?? null;
+  // Default: silent-refresh tiap 60 detik (real-time ringan) — stop saat tab
+  // hidden, langsung refresh saat tab kembali. Halaman presensi override sendiri.
+  const refreshMs = options?.refreshMs !== undefined ? options.refreshMs : 60_000;
 
   const [state, setState] = useState<ApiState<T>>(() => {
     if (!path) {
