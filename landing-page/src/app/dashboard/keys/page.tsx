@@ -38,14 +38,14 @@ interface ApiKeyItem {
 
 const MAX_KEYS = 5;
 
-const MCP_URL = "https://api.muaraai.com/v1/ubsi-api/mcp";
+const MCP_URL = "https://api.muaraai.com/v1/mira/mcp";
 
 const MCP_SNIPPETS: { id: string; label: string; hint: string; code: string }[] = [
   {
     id: "claude-code",
     label: "Claude Code",
     hint: "Jalankan sekali di terminal, lalu restart sesi Claude Code.",
-    code: `claude mcp add --transport http ubsi-academic \\\n  ${MCP_URL} \\\n  --header "Authorization: Bearer muara_ubsi_YOUR_KEY"`,
+    code: `claude mcp add --transport http mira-academic \\\n  ${MCP_URL} \\\n  --header "Authorization: Bearer muara_mira_YOUR_KEY"`,
   },
   {
     id: "cursor",
@@ -54,9 +54,9 @@ const MCP_SNIPPETS: { id: string; label: string; hint: string; code: string }[] 
     code: JSON.stringify(
       {
         mcpServers: {
-          "ubsi-academic": {
+          "mira-academic": {
             url: MCP_URL,
-            headers: { Authorization: "Bearer muara_ubsi_YOUR_KEY" },
+            headers: { Authorization: "Bearer muara_mira_YOUR_KEY" },
           },
         },
       },
@@ -68,21 +68,21 @@ const MCP_SNIPPETS: { id: string; label: string; hint: string; code: string }[] 
     id: "codex",
     label: "Codex CLI",
     hint: "Tambahkan ke ~/.codex/config.toml.",
-    code: `[mcp_servers.ubsi-academic]\nurl = "${MCP_URL}"\nhttp_headers = { "Authorization" = "Bearer muara_ubsi_YOUR_KEY" }`,
+    code: `[mcp_servers.mira-academic]\nurl = "${MCP_URL}"\nhttp_headers = { "Authorization" = "Bearer muara_mira_YOUR_KEY" }`,
   },
   {
     id: "hermes",
     label: "Hermes Agent",
     hint: "Tambahkan ke blok mcp_servers di ~/.hermes/config.yaml.",
-    code: `mcp_servers:\n  ubsi-academic:\n    url: ${MCP_URL}\n    headers:\n      Authorization: "Bearer muara_ubsi_YOUR_KEY"`,
+    code: `mcp_servers:\n  mira-academic:\n    url: ${MCP_URL}\n    headers:\n      Authorization: "Bearer muara_mira_YOUR_KEY"`,
   },
 ];
 
-const MCP_AGENT_PROMPT = `Server MCP UBSI: https://api.muaraai.com/v1/ubsi-api/mcp
-API Base URL: https://api.muaraai.com/v1/ubsi-api
+const MCP_AGENT_PROMPT = `Server MCP Mira: https://api.muaraai.com/v1/mira/mcp
+API Base URL: https://api.muaraai.com/v1/mira
 
 Kamu adalah asisten akademik pribadi mahasiswa UBSI yang terhubung ke server MCP di atas.
-Gunakan tools MCP "ubsi-*" yang tersedia (jadwal kuliah, nilai & KHS, KRS, kartu ujian,
+Gunakan tools MCP "mira-*" yang tersedia (jadwal kuliah, nilai & KHS, KRS, kartu ujian,
 tugas perkuliahan, presensi kehadiran, bahan ajar 5 kategori berkas, berita resmi, perpustakaan OPAC)
 untuk menjawab kebutuhan akademik saya dengan data real-time langsung dari akun saya sendiri.
 Contoh: "Jadwal besok apa?", "Cek tugas yang belum dikumpul", "Berapa IPK gw?", "Cari buku algoritma".`;
@@ -353,8 +353,8 @@ export default function ApiKeysPage() {
               <div>
                 <p className="text-code-text/60 text-[11px] mb-1"># 1. Ambil Jadwal Kuliah kamu lewat cURL:</p>
                 <pre className="text-[#7DD3FC]">
-                  {`curl -H "Authorization: Bearer muara_ubsi_YOUR_KEY" \\
-  https://api.muaraai.com/v1/ubsi-api/v1/studentv2/schedule`}
+                  {`curl -H "Authorization: Bearer muara_mira_YOUR_KEY" \\
+  https://api.muaraai.com/v1/mira/v1/studentv2/schedule`}
                 </pre>
               </div>
               <div className="pt-2 border-t border-white/10">
@@ -362,8 +362,8 @@ export default function ApiKeysPage() {
                 <pre className="text-code-text/90">
 {`import requests
 
-headers = {"Authorization": "Bearer muara_ubsi_YOUR_KEY"}
-res = requests.get("https://api.muaraai.com/v1/ubsi-api/v1/studentv2/schedule", headers=headers)
+headers = {"Authorization": "Bearer muara_mira_YOUR_KEY"}
+res = requests.get("https://api.muaraai.com/v1/mira/v1/studentv2/schedule", headers=headers)
 print(res.json())`}
                 </pre>
               </div>
@@ -479,7 +479,7 @@ print(res.json())`}
             </div>
 
             <p className="text-[11px] text-secondary leading-relaxed">
-              Ganti <code className="font-mono text-[#0369A1]">muara_ubsi_YOUR_KEY</code> dengan Personal API Key kamu di atas.
+              Ganti <code className="font-mono text-[#0369A1]">muara_mira_YOUR_KEY</code> dengan Personal API Key kamu di atas.
               Kunci dikirim sebagai header HTTP saat agent memanggil tools, aman dan tidak disimpan server.
             </p>
           </>
