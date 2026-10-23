@@ -1,6 +1,6 @@
 {
   "name": "mira-web",
-  "version": "2.0.0",
+  "version": "2.5.0",
   "private": true,
   "scripts": {
     "postinstall": "node scripts/copy-pdf-worker.mjs",

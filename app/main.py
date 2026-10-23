@@ -117,9 +117,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         pass
 
 app = FastAPI(
-    title="UBSI API",
-    description="Private Unofficial API Aggregator for UBSI Services",
-    version="1.1.7",
+    title="Mira API",
+    description="Unofficial Modern Academic Operating System & REST API Aggregator for UBSI Services",
+    version="2.5.0",
     root_path=settings.ROOT_PATH,
     lifespan=lifespan
 )

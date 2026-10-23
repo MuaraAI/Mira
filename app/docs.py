@@ -3,7 +3,7 @@ from typing import Any, Optional
 API_DOCS_DATA: dict[str, Any] = {
     "info": {
         "title": "Mira API & Universal MCP Server (sebelumnya UBSI-API)",
-        "version": "2.0.0",
+        "version": "2.5.0",
         "description": "Unified Unofficial REST API Aggregator & Model Context Protocol (MCP) Server for Universitas Bina Sarana Informatika digital services.",
         "base_url": "https://api.muaraai.com/v1/mira",
         "legacy_base_url": "https://api.muaraai.com/v1/ubsi-api",

@@ -1,9 +1,9 @@
 ---
-name: ubsi-api
-version: 1.2.0
-description: Agent skill for consuming, extending, and operating the UBSI API (Unofficial BSI Campus Aggregator).
+name: mira
+version: 2.5.0
+description: Agent skill for consuming, extending, and operating Mira (Academic Operating System & REST API Aggregator for UBSI Services).
 metadata:
-  repository: https://github.com/MuaraAI/UBSI-API
+  repository: https://github.com/MuaraAI/Mira
   author: Yuken Velino (@Curzyori)
   nim: "15260767"
   class: 15.1C.30

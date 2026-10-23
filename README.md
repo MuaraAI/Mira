@@ -21,7 +21,7 @@
   <img src="https://img.shields.io/badge/Redis-AES--256--GCM-DC382D?style=flat-square&logo=redis&logoColor=white" alt="Redis" />
   <img src="https://img.shields.io/badge/tests-318%20passed%20(offline)-0F766E?style=flat-square" alt="Tests" />
   <a href="https://api.muaraai.com/v1/mira/mcp"><img src="https://img.shields.io/badge/MCP%20Server-80%20tools-7C3AED?style=flat-square" alt="MCP Server" /></a>
-  <a href="https://github.com/MuaraAI/Mira/releases"><img src="https://img.shields.io/badge/release-v2.2.0%20stable-0369A1?style=flat-square" alt="Release" /></a>
+  <a href="https://github.com/MuaraAI/Mira/releases"><img src="https://img.shields.io/badge/release-v2.5.0%20stable-0369A1?style=flat-square" alt="Release" /></a>
 
 </div>
 
