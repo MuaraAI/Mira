@@ -17,6 +17,7 @@ import {
   X,
   FileQuestion,
 } from "lucide-react";
+import { FocusDialog } from "@/components/FocusDialog";
 import { useApi, apiFetch } from "@/lib/api";
 import {
   EmptyState,
@@ -262,6 +263,7 @@ export default function KuisPage() {
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary" aria-hidden="true" />
             <input
               type="text"
+              aria-label="Cari berdasarkan paket kuis, kode mata kuliah, atau nama dosen"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Cari berdasarkan paket kuis, kode mata kuliah, atau nama dosen..."
@@ -435,10 +437,10 @@ export default function KuisPage() {
             aria-hidden="true"
           />
 
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="preview-quiz-title"
+          <FocusDialog
+            open={!!activeQuizForQuestions}
+            onClose={handleCloseQuestions}
+            labelledBy="preview-quiz-title"
             className="relative w-full max-w-2xl max-h-[85vh] bg-white rounded-lg shadow-2xl z-10 flex flex-col overflow-hidden border border-stroke"
           >
             {/* Modal Header */}
@@ -539,7 +541,7 @@ export default function KuisPage() {
                 </a>
               )}
             </div>
-          </div>
+          </FocusDialog>
         </div>
       )}
     </div>

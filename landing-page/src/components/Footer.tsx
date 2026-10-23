@@ -4,7 +4,7 @@ import { Github, Mail, MessageCircle, Instagram, Twitter } from "lucide-react";
 import { API_DOCS_URL, GITHUB_URL, MCP_URL } from "@/lib/public-links";
 
 const LINK_CLASS =
-  "group inline-flex min-h-8 items-center gap-1.5 text-secondary transition-colors duration-200 hover:text-[#0369A1]";
+  "group inline-flex min-h-11 items-center gap-1.5 text-secondary transition-colors duration-200 hover:text-[#0369A1]";
 
 function Marker() {
   return <span className="h-1.5 w-0 bg-[#0369A1] transition-all duration-200 ease-out group-hover:w-1.5" aria-hidden="true" />;

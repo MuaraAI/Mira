@@ -163,7 +163,7 @@ export async function unsubscribeCurrentDevice(): Promise<boolean> {
   const subscription = await getExistingSubscription();
   if (!subscription) return false;
   const endpoint = subscription.endpoint;
-  // Server dulu, lokal kemudian: kalau server gagal, jangan klaim sukses —
+  // Server dulu, lokal kemudian: kalau server gagal, jangan klaim sukses,
   // baris yatim akan terus dikirimi push sampai push service balas 410.
   const { devices } = await apiFetch<{
     devices: Array<{ id: number; endpoint: string }>;

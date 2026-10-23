@@ -365,7 +365,7 @@ export default function NilaiPage() {
                         <span
                           className={`inline-flex items-center justify-center w-7 h-7 rounded-full font-bold text-xs ${
                             item.nilai === "A"
-                              ? "bg-[#0F766E]/15 text-[#0F766E]"
+                              ? "bg-[#0F766E]/15 text-[#0D5F58]"
                               : item.nilai === "B"
                               ? "bg-[#0369A1]/15 text-[#0369A1]"
                               : item.nilai === "C"
@@ -458,7 +458,7 @@ export default function NilaiPage() {
                         <span
                           className={`inline-flex items-center justify-center w-7 h-7 rounded-full font-bold text-xs ${
                             g.grade === "A"
-                              ? "bg-[#0F766E]/15 text-[#0F766E]"
+                              ? "bg-[#0F766E]/15 text-[#0D5F58]"
                               : g.grade === "B"
                               ? "bg-[#0369A1]/15 text-[#0369A1]"
                               : g.grade === "C"
@@ -595,7 +595,7 @@ export default function NilaiPage() {
                                   <span
                                     className={`inline-flex items-center justify-center px-3 py-1 rounded-pill font-mono font-bold text-sm ${
                                       numericScore >= 80
-                                        ? "bg-[#0F766E]/15 text-[#0F766E] border border-[#0F766E]/20"
+                                        ? "bg-[#0F766E]/15 text-[#0D5F58] border border-[#0F766E]/20"
                                         : numericScore >= 70
                                         ? "bg-[#0369A1]/15 text-[#0369A1] border border-[#0369A1]/20"
                                         : "bg-[#9A3412]/15 text-[#9A3412] border border-[#9A3412]/20"

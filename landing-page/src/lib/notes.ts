@@ -71,7 +71,7 @@ export function parseNote(raw?: string | null): ParsedNote | null {
     const meeting = parts.length > 1 ? parts[0].match(/^(pertemuan|pert\.?|minggu)\s*(ke-?)?\s*\d+$/i) : null;
     if (meeting) {
       result.label = titleCase(parts[0]);
-      result.title = titleCase(parts.slice(1).join(" – "));
+      result.title = titleCase(parts.slice(1).join(": "));
     } else {
       result.title = titleCase(first);
     }
@@ -118,7 +118,7 @@ export function parseNote(raw?: string | null): ParsedNote | null {
 export function notePreview(raw?: string | null): string {
   const note = parseNote(raw);
   if (!note) return "";
-  const head = [note.label, note.title].filter(Boolean).join(" – ");
+  const head = [note.label, note.title].filter(Boolean).join(": ");
   return head || note.sections[0]?.items[0] || "";
 }
 

@@ -62,7 +62,7 @@ export function StatsSection() {
         {typeof users !== "number" ? null : (
           <dl className="mt-10 grid grid-cols-1 gap-6 min-[480px]:grid-cols-2 lg:grid-cols-4">
             <div className="px-card bg-white p-5 sm:p-6">
-              <dt className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-secondary">Dipercaya mahasiswa</dt>
+              <dt className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-secondary">Digunakan mahasiswa</dt>
               <dd className="mt-3 font-display text-4xl font-bold text-foreground sm:text-5xl">
                 <CountUp value={users} />
               </dd>

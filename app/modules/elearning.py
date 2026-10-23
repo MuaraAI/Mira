@@ -2021,9 +2021,7 @@ async def post_quiz_answer(
     return success_response(data=result)
 
 
-# ============================================================================
 # Assignment File Upload & Download Operations
-# ============================================================================
 
 def is_safe_bsi_storage_url(url_str: str) -> bool:
     """Validasi URL file agar hanya mengunduh dari storage resmi kampus BSI (anti-SSRF)."""

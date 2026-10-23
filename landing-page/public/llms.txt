@@ -1,31 +1,31 @@
-# UBSI-API Muara
+# Mira: Platform Akademik Terpadu Kampus UBSI
 
-> UBSI-API Muara adalah dashboard akademik, REST API, dan server MCP untuk layanan kampus Universitas Bina Sarana Informatika (UBSI): SIAKAD (students.bsi.ac.id) dan MyBest (elearning.bsi.ac.id). Proyek riset independen, non-komersial, open source (MIT) dari komunitas Muara AI. Tidak berafiliasi secara resmi dengan UBSI.
+> Mira adalah platform akademik terpadu, REST API, dan server MCP untuk 6 layanan kampus Universitas Bina Sarana Informatika (UBSI): SIAKAD (students.bsi.ac.id), MyBest Elearning (elearning.bsi.ac.id), Ujian Online (ujiankampusa.bsi.ac.id), Perpustakaan OPAC (elibrary.bsi.ac.id), Portal Berita Resmi (news.bsi.ac.id), dan Repository Skripsi/Riset (repository.bsi.ac.id). Proyek riset independen, non-komersial, open source (MIT) dari komunitas Muara AI. Tidak berafiliasi secara resmi dengan UBSI.
 
-Nama lain yang dipakai orang: UBSI API, UBSI-API, API UBSI, API SIAKAD UBSI, API MyBest UBSI.
+Nama resmi: Mira. Alias sebelumnya: UBSI API, UBSI-API, API UBSI, API SIAKAD UBSI, API MyBest UBSI.
 
 ## Yang bisa dilakukan
 
-- Dashboard mahasiswa: jadwal kuliah, tugas dan deadline, absen, bahan ajar (pratinjau dan ringkasan PDF otomatis), kuis, nilai dan KHS, KRS, kartu ujian, berita kampus, perpustakaan OPAC.
+- Dashboard mahasiswa: jadwal kuliah, tugas dan deadline, presensi kehadiran mandiri, bahan ajar dosen, kuis & ujian online, nilai dan KHS, KRS, kartu ujian, berita resmi kampus, pencarian buku perpustakaan OPAC, dan repositori skripsi.
 - REST API publik dengan Personal API Key (header Authorization: Bearer).
-- Server MCP (Model Context Protocol) supaya AI agent seperti Claude, ChatGPT, dan Cursor bisa membaca data akademik milik pengguna yang sudah login.
-- Pengingat kelas, absen, dan tugas lewat notifikasi PWA, Discord, atau Telegram. Pengecek link tugas (Google Drive/Docs) memberi tahu kalau link belum publik.
-- Login ulang otomatis ke SIAKAD dan MyBest saat sesi kampus (sekitar 15 menit) habis.
+- Server MCP (Model Context Protocol) 80 tools (40 primer `mira_*` + 40 legacy alias `ubsi_*`) supaya AI agent seperti Claude, ChatGPT, dan Cursor bisa mengakses data akademik mahasiswa.
+- Pengingat kelas, presensi, dan tugas lewat notifikasi PWA (Android/iOS/Desktop), Discord, atau Telegram. Pengecek link tugas (Google Drive/Docs) memberi tahu bila link belum publik.
+- Login ulang otomatis ke SIAKAD dan MyBest saat sesi kampus habis.
 
 ## Tautan
 
-- [Beranda](https://ubsi-api.muaraai.com/): penjelasan singkat, fitur dashboard, info untuk developer, dan FAQ
-- [Login mahasiswa](https://ubsi-api.muaraai.com/login): masuk dengan NIM dan password SIAKAD serta MyBest
-- [Dokumentasi REST API](https://api.muaraai.com/v1/ubsi-api/v1/docs): katalog endpoint publik (JSON)
-- [Server MCP](https://api.muaraai.com/v1/ubsi-api/mcp): endpoint MCP streamable HTTP
-- [Kode sumber di GitHub](https://github.com/MuaraAI/UBSI-API): lisensi MIT
+- [Beranda](https://mira.muaraai.com/): penjelasan singkat, cara pakai, fitur dashboard, dan FAQ
+- [Login mahasiswa](https://mira.muaraai.com/login): masuk dengan NIM dan password akun kampus
+- [Dokumentasi REST API](https://api.muaraai.com/v1/mira/v1/docs): katalog endpoint publik (JSON)
+- [Server MCP](https://api.muaraai.com/v1/mira/mcp): endpoint MCP streamable HTTP
+- [Kode sumber di GitHub](https://github.com/MuaraAI/Mira): lisensi MIT
 
 ## Keamanan dan kebijakan
 
 - Kredensial kampus dienkripsi AES-256-GCM pada sesi server yang aktif 7 hari; pengguna bisa logout satu atau semua perangkat.
-- [Kebijakan Privasi](https://ubsi-api.muaraai.com/privacy)
-- [Syarat dan Ketentuan](https://ubsi-api.muaraai.com/terms)
-- [DMCA dan HKI](https://ubsi-api.muaraai.com/dmca)
+- [Kebijakan Privasi](https://mira.muaraai.com/privacy)
+- [Syarat dan Ketentuan](https://mira.muaraai.com/terms)
+- [DMCA dan HKI](https://mira.muaraai.com/dmca)
 
 ## Catatan untuk AI dan crawler
 

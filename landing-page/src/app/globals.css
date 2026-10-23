@@ -70,10 +70,8 @@ h1, h2, h3, h4, h5, h6 {
 html { scroll-behavior: smooth; }
 section[id] { scroll-margin-top: 96px; }
 
-/* ------------------------------------------------------------------ */
-/* Pixel primitives (same API as muaraai.com)                          */
-/* In @layer components so any utility on the element can override it. */
-/* ------------------------------------------------------------------ */
+/* Pixel primitives (same API as muaraai.com)
+ * In @layer components so any utility on the element can override it. */
 @layer components {
   .px-card, .px-frame, .px-chip, .px-icon, .px-btn, .px-btn-ghost,
   .glass-card, .glass-card-3d {
@@ -469,7 +467,7 @@ html { scrollbar-color: var(--px-water-mid) var(--px-tint); scrollbar-width: thi
 /* Segmented tabs: equal columns on phones, compact inline control on larger screens. */
 .px-seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; padding: 4px; background: var(--px-tint); box-shadow: 0 -2px 0 0 var(--px-line-soft), 0 2px 0 0 var(--px-line-soft), -2px 0 0 0 var(--px-line-soft), 2px 0 0 0 var(--px-line-soft); }
 @media (min-width: 640px) { .px-seg { display: inline-grid; grid-auto-columns: auto; align-self: flex-start; width: max-content; max-width: 100%; } }
-.px-seg-btn { min-height: 40px; padding: 6px 12px; font-family: var(--font-jetbrains-mono), ui-monospace, monospace; font-size: 12px; font-weight: 700; line-height: 1.25; color: var(--text-muted); transition: background-color .2s ease, color .2s ease, box-shadow .2s ease; }
+.px-seg-btn { min-height: 44px; padding: 6px 12px; font-family: var(--font-jetbrains-mono), ui-monospace, monospace; font-size: 12px; font-weight: 700; line-height: 1.25; color: var(--text-muted); transition: background-color .2s ease, color .2s ease, box-shadow .2s ease; }
 .px-seg-btn:hover { background: #fff; color: var(--text); }
 .px-seg-btn.px-seg-on, .px-seg-btn.px-seg-on:hover { background: #0369A1; color: #fff; box-shadow: 2px 2px 0 0 var(--px-ink); }
 

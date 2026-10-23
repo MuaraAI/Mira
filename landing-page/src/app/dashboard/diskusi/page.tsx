@@ -14,6 +14,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { apiFetch, useApi } from "@/lib/api";
+import { FocusDialog } from "@/components/FocusDialog";
 import {
   EmptyState,
   ErrorState,
@@ -408,10 +409,10 @@ export default function DiskusiPage() {
             aria-hidden="true"
           />
 
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="create-discussion-title"
+          <FocusDialog
+            open={isCreateModalOpen}
+            onClose={() => setIsCreateModalOpen(false)}
+            labelledBy="create-discussion-title"
             className="relative w-full max-w-lg bg-white rounded-lg shadow-2xl z-10 flex flex-col overflow-hidden border border-stroke"
           >
             <div className="flex items-center justify-between p-4 border-b border-stroke bg-[#F7FAFC]">
@@ -495,7 +496,7 @@ export default function DiskusiPage() {
                 </button>
               </div>
             </form>
-          </div>
+          </FocusDialog>
         </div>
       )}
     </div>

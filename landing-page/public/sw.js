@@ -50,14 +50,14 @@ self.addEventListener("push", (event) => {
   try {
     payload = event.data ? event.data.json() : {};
   } catch {
-    payload = { title: "UBSI API", body: event.data ? event.data.text() : "Notifikasi baru" };
+    payload = { title: "Mira", body: event.data ? event.data.text() : "Notifikasi baru" };
   }
-  const title = payload.title || "UBSI API";
+  const title = payload.title || "Mira";
   const options = {
     body: payload.body || "",
     icon: "/pwa/icon-192.png",
     badge: "/pwa/icon-192.png",
-    tag: payload.tag || "ubsi-general",
+    tag: payload.tag || "mira-general",
     renotify: true,
     vibrate: [120, 60, 120],
     timestamp: Date.now(),
@@ -69,7 +69,7 @@ self.addEventListener("push", (event) => {
 });
 
 // Browser merotasi endpoint push (rotasi kunci, kedaluwarsa): daftarkan ulang
-// ke server — endpoint subscribe di backend upsert sehingga idempoten.
+// ke server, endpoint subscribe di backend upsert sehingga idempoten.
 self.addEventListener("pushsubscriptionchange", (event) => {
   event.waitUntil(
     (async () => {

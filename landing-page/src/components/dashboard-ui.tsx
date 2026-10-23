@@ -4,7 +4,7 @@ import Image from "next/image";
 import { ApiError } from "@/lib/api";
 
 export const inputClass =
-  "px-input w-full px-4 py-2.5 text-sm text-foreground placeholder:text-secondary/60";
+  "px-input min-h-11 w-full px-4 py-2.5 text-base sm:text-sm text-foreground placeholder:text-secondary/60";
 
 export const primaryButtonClass =
   "px-btn inline-flex min-h-11 items-center justify-center gap-2 px-5 py-2.5 text-sm font-bold";

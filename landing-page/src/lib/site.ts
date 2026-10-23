@@ -6,7 +6,7 @@ export const SITE_NAME = "Mira";
 export const SITE_TAGLINE = "Satu Tempat untuk Seluruh Layanan Kampus UBSI";
 export const SITE_TITLE = `${SITE_NAME}: ${SITE_TAGLINE}`;
 export const SITE_DESCRIPTION =
-  "Satu akses terpadu untuk 6 layanan kampus UBSI: SIAKAD, MyBest, Ujian Online, Perpustakaan OPAC, Berita Kampus, dan Repository Riset. Terhubung serba cepat tanpa perlu login berulang.";
+  "Satu akses terpadu untuk 6 layanan kampus UBSI: SIAKAD, MyBest, Ujian Online, Perpustakaan OPAC, Berita Kampus, dan Repository Riset. Terhubung langsung tanpa perlu login berulang.";
 
 export const FAQ: { q: string; a: string }[] = [
   {

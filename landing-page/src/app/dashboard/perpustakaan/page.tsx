@@ -104,6 +104,7 @@ export default function PerpustakaanPage() {
             <Search className="w-4 h-4 text-secondary absolute left-3.5 top-1/2 -translate-y-1/2" aria-hidden="true" />
             <input
               type="search"
+              aria-label="Cari judul buku, topik, atau pengarang"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Cari judul buku, topik, pengarang (misal: Python, Jaringan, Akuntansi)..."
@@ -157,10 +158,13 @@ export default function PerpustakaanPage() {
             {items.map((b) => {
               const active = selectedBookId === b.id;
               return (
-                <div
+                <button
+                  type="button"
                   key={b.id}
                   onClick={() => handleSelectBook(b.id)}
-                  className={`glass-card p-4 sm:p-5 cursor-pointer transition-all ${
+                  aria-pressed={active}
+                  aria-label={`Lihat rincian buku ${b.title}`}
+                  className={`glass-card p-4 sm:p-5 w-full text-left transition-all ${
                     active
                       ? "border-[#0369A1] bg-[#F0F7FB]/60 shadow-sm"
                       : "hover:border-[#0369A1]/30 hover:bg-[#F0F7FB]/30"
@@ -181,14 +185,11 @@ export default function PerpustakaanPage() {
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      className="text-xs font-semibold text-[#0369A1] hover:underline shrink-0"
-                    >
+                    <span className="text-xs font-semibold text-[#0369A1] shrink-0">
                       {active ? "Dipilih" : "Rincian"}
-                    </button>
+                    </span>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>

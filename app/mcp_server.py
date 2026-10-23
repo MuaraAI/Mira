@@ -206,9 +206,7 @@ async def _api_post(
         }
 
 
-# ============================================================================
 # Tools: Sistem & Autentikasi
-# ============================================================================
 
 @server.tool(
     name="ubsi_whoami",
@@ -219,9 +217,7 @@ async def ubsi_whoami(session_token: Optional[str] = None, api_key: Optional[str
     return json.dumps(res, ensure_ascii=False, indent=2)
 
 
-# ============================================================================
 # Tools: StudentV2 (SIAKAD)
-# ============================================================================
 
 @server.tool(
     name="ubsi_get_schedule",
@@ -336,9 +332,7 @@ async def ubsi_get_dashboard(session_token: Optional[str] = None, api_key: Optio
     return json.dumps(res, ensure_ascii=False, indent=2)
 
 
-# ============================================================================
-# Tools: Elearning (MyBest LMS) — Read & Write
-# ============================================================================
+# Tools: Elearning (MyBest LMS) - Read & Write
 
 @server.tool(
     name="ubsi_get_courses",
@@ -621,9 +615,7 @@ async def ubsi_submit_quiz_answer(
     return json.dumps(res, ensure_ascii=False, indent=2)
 
 
-# ============================================================================
 # Tools: Perpustakaan, Berita, & Publikasi Ilmiah
-# ============================================================================
 
 @server.tool(
     name="ubsi_get_news",
@@ -662,9 +654,7 @@ async def ubsi_get_repository(query: Optional[str] = None, api_key: Optional[str
     return json.dumps(res, ensure_ascii=False, indent=2)
 
 
-# ============================================================================
 # Tools: Webhook Notifikasi & Pengingat Kuliah
-# ============================================================================
 
 @server.tool(
     name="ubsi_list_channels",

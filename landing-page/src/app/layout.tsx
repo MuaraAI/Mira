@@ -142,6 +142,7 @@ export const metadata: Metadata = {
   authors: [
     { name: "Yuken Velino", url: "https://github.com/Curzyori" },
     { name: "Verzio", url: "https://github.com/MyKineID" },
+    { name: "Muhammad Raffli Aldiansyah", url: "https://github.com/Seeyaa77" },
     { name: "Muara AI", url: "https://github.com/MuaraAI" },
   ],
   creator: "Muara AI",
@@ -249,6 +250,7 @@ export default function RootLayout({
         author: [
           { "@type": "Person", name: "Yuken Velino", url: "https://github.com/Curzyori" },
           { "@type": "Person", name: "Verzio", url: "https://github.com/MyKineID" },
+          { "@type": "Person", name: "Muhammad Raffli Aldiansyah", url: "https://github.com/Seeyaa77" },
         ],
         publisher: { "@id": orgId },
       },
@@ -268,7 +270,7 @@ export default function RootLayout({
       <body className="bg-background text-foreground antialiased min-h-screen font-sans">
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-accent focus:text-white focus:font-semibold focus:shadow-float focus:outline-none"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-accent focus:text-white focus:font-semibold focus:shadow-float focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#0369A1]"
         >
           Langsung ke konten utama
         </a>

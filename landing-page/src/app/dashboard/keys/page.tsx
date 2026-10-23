@@ -281,7 +281,7 @@ export default function ApiKeysPage() {
                           minute: "2-digit",
                         })
                       ) : (
-                        <span className="text-secondary/60">Belum pernah</span>
+                        <span className="text-secondary">Belum pernah</span>
                       )}
                     </td>
                     <td data-label="AKSI" className="py-3 px-4 text-right">
@@ -510,7 +510,7 @@ print(res.json())`}
                   setIsModalOpen(false);
                   setCreatedKey(null);
                 }}
-                className="p-1 rounded-lg text-secondary hover:text-foreground hover:bg-white/10 transition-colors"
+                className="flex h-11 w-11 items-center justify-center rounded-lg text-secondary hover:text-foreground hover:bg-black/5 transition-colors"
                 aria-label="Tutup"
               >
                 <X className="h-5 w-5" />
@@ -611,7 +611,7 @@ print(res.json())`}
                     disabled={saving || atLimit}
                     className={primaryButtonClass}
                   >
-                    {saving ? "Membuat Kunci..." : "Generate Key"}
+                    {saving ? "Membuat Kunci..." : "Buat API Key"}
                   </button>
                 </div>
               </form>

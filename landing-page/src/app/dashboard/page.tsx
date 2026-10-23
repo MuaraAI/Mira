@@ -405,15 +405,15 @@ export default function DashboardOverviewPage() {
 
                 <div className="mt-4 pt-3 border-t-2 border-dashed border-px-soft grid grid-cols-2 gap-2 text-xs text-secondary">
                   <div>
-                    <span className="block text-[10px] font-mono uppercase text-secondary/70">Waktu:</span>
+                    <span className="block text-[10px] font-mono uppercase text-secondary font-semibold">Waktu:</span>
                     <span className="font-semibold text-foreground">{s.jam}</span>
                   </div>
                   <div className="min-w-0">
-                    <span className="block text-[10px] font-mono uppercase text-secondary/70">Ruang:</span>
+                    <span className="block text-[10px] font-mono uppercase text-secondary font-semibold">Ruang:</span>
                     <span className="font-semibold text-foreground break-words block">{s.ruang || "-"}</span>
                   </div>
                   <div className="col-span-2 min-w-0">
-                    <span className="block text-[10px] font-mono uppercase text-secondary/70">Dosen:</span>
+                    <span className="block text-[10px] font-mono uppercase text-secondary font-semibold">Dosen:</span>
                     <DosenInfo kode={s.kode_dosen} />
                   </div>
                 </div>

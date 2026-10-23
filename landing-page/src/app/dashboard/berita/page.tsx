@@ -271,10 +271,11 @@ export default function BeritaPage() {
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-secondary" />
                   <input
                     type="text"
+                    aria-label="Cari program studi atau nama pejabat"
                     value={searchProdi}
                     onChange={(e) => setSearchProdi(e.target.value)}
                     placeholder="Cari prodi atau nama..."
-                    className={`${inputClass} pl-8 py-1.5 text-xs`}
+                    className={`${inputClass} pl-8 py-2 min-h-11 text-base sm:text-xs`}
                   />
                 </div>
               </div>

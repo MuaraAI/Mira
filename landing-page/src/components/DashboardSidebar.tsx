@@ -66,7 +66,7 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    title: "Pengaturan & Dev",
+    title: "Pengaturan & Integrasi",
     items: [
       { href: "/dashboard/keys", label: "Personal API Keys", icon: KeyRound },
       { href: "/dashboard/notifikasi", label: "Notifikasi Webhook", icon: BellRing },
@@ -124,7 +124,7 @@ export function DashboardSidebar({
                       href={href}
                       onClick={onItemClick}
                       aria-current={active ? "page" : undefined}
-                      className={`flex min-h-10 items-center justify-between gap-2.5 px-3 py-2 font-mono text-xs font-medium transition-[background-color,color,box-shadow] duration-200 ${
+                      className={`flex min-h-11 lg:min-h-10 items-center justify-between gap-2.5 px-3 py-2 font-mono text-xs font-medium transition-[background-color,color,box-shadow] duration-200 ${
                         active
                           ? "bg-px-highlight text-foreground font-semibold shadow-[inset_3px_0_0_#0369A1]"
                           : "text-secondary hover:text-foreground hover:bg-[#F0F7FB] hover:shadow-[inset_3px_0_0_#9CC6E0]"

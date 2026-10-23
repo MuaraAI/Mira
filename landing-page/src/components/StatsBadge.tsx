@@ -25,7 +25,7 @@ export function StatsBadge() {
 
   return (
     <p className="mt-6 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs font-semibold text-secondary" aria-label="Statistik pengguna terkini">
-      <span>Dipercaya {formatId(users)} mahasiswa</span>
+      <span>Digunakan oleh {formatId(users)} mahasiswa</span>
       {branchesCount > 0 && <span aria-hidden="true">·</span>}
       {branchesCount > 0 && <span>{branchesCount} cabang UBSI</span>}
       {typeof avg === "number" && avg > 0 && (

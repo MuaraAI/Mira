@@ -89,14 +89,13 @@ export default function DashboardShell({
             <Link
               href="/dashboard/sesi"
               aria-label="Pengaturan sesi dan logout"
-              className="px-frame flex h-9 w-9 items-center justify-center bg-white text-rose-700 transition-colors [--px-line:#FDA4AF] hover:bg-rose-50"
+              className="px-frame flex h-11 w-11 items-center justify-center bg-white text-rose-700 transition-colors [--px-line:#FDA4AF] hover:bg-rose-50"
             >
               <LogOut className="w-4 h-4" aria-hidden="true" />
             </Link>
           </div>
         </header>
 
-        {/* Content View */}
         <main
           id="main-content"
           className="dashboard-main flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 lg:pb-8"

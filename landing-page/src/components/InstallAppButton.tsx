@@ -37,7 +37,7 @@ export function InstallAppButton({ className }: { className?: string }) {
 
   return (
     <button type="button" onClick={handleClick} className={className}>
-      Download App (Android/iOS)
+      Pasang Aplikasi (PWA)
     </button>
   );
 }
