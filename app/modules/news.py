@@ -267,6 +267,7 @@ async def _produce_user_category(
         _, student_password, elearning_password = credentials
         try:
             payload = None
+            claimed_quiz_ids: list[str] = []
             if category == "matkul-besok":
                 h1_slot = _h1_slot()
                 if h1_slot is None:
@@ -287,6 +288,8 @@ async def _produce_user_category(
                     }
             elif category in ("quiz-tugas", "tugas-baru"):
                 from app.modules.elearning import parse_assignments, parse_courses, parse_quiz, pooled_elearning_client
+                from app.notifier import _claim, _release
+
                 # quiz-tugas dan tugas-baru baca halaman sama: fetch sekali per siklus per NIM
                 if assignment_fetch_cache is not None and nim in assignment_fetch_cache:
                     raw_quiz, raw_assignments = assignment_fetch_cache[nim]
@@ -296,17 +299,36 @@ async def _produce_user_category(
                     if assignment_fetch_cache is not None:
                         assignment_fetch_cache[nim] = (raw_quiz, raw_assignments)
                 quiz_items = parse_quiz(raw_quiz)
+                # Kuis BARU per item (id = hash paket:waktu), bukan agregat jumlah:
+                # agregat salah dua arah (kuis baru + lama hilang = angka sama -> diam).
+                new_quizzes: list[dict[str, Any]] = []
+                for q in quiz_items:
+                    qid = q.get("id")
+                    if not qid:
+                        continue
+                    if await _claim(f"ubsi:notify:quizseen:{nim}:{qid}", 7 * 24 * 3600):
+                        claimed_quiz_ids.append(qid)
+                        new_quizzes.append(q)
                 task_count = 0
                 for course in parse_courses(raw_assignments):
                     token_assignment = course.get("token_assignment")
                     if token_assignment:
                         task_html = await pooled_elearning_client.fetch_page(f"/assignment/{token_assignment}", nim, elearning_password)
                         task_count += len(parse_assignments(task_html).get("tasks", []))
-                if quiz_items or task_count:
+                if new_quizzes:
+                    names = ", ".join(str(q.get("paket")) for q in new_quizzes[:3])
+                    more = f" +{len(new_quizzes) - 3} lainnya" if len(new_quizzes) > 3 else ""
+                    payload = {
+                        "category": category,
+                        "title": f"Kuis Baru ({len(new_quizzes)})",
+                        "description": f"Kuis baru di MyBest: {names}{more}. Kerjakan sebelum waktu ujiannya berakhir.",
+                        "link": "https://ubsi-api.muaraai.com/dashboard/kuis",
+                    }
+                elif task_count:
                     payload = {
                         "category": category,
                         "title": "Tugas dan kuis MyBest tersedia",
-                        "description": f"Tersedia {task_count} tugas dan {len(quiz_items)} kuis di MyBest. Periksa dashboard sebelum tenggat.",
+                        "description": f"Tersedia {task_count} tugas di MyBest. Periksa dashboard sebelum tenggat.",
                         "link": "https://ubsi-api.muaraai.com/dashboard/tugas",
                     }
             elif category == "nilai-keluar":
@@ -369,6 +391,8 @@ async def _produce_user_category(
             except Exception:
                 await _release(dedupe_key)
                 await _release(content_key)
+                for qid in claimed_quiz_ids:
+                    await _release(f"ubsi:notify:quizseen:{nim}:{qid}")
                 raise
             if delivered:
                 sent += 1
@@ -376,6 +400,8 @@ async def _produce_user_category(
                 # Gagal total: lepas klaim supaya slot berikutnya bisa mencoba lagi
                 await _release(dedupe_key)
                 await _release(content_key)
+                for qid in claimed_quiz_ids:
+                    await _release(f"ubsi:notify:quizseen:{nim}:{qid}")
         except Exception:
             logger.exception("User notification producer failed for NIM %s category %s", nim, category)
     return sent
