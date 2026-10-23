@@ -141,7 +141,7 @@ export const metadata: Metadata = {
   keywords: SEARCH_TITLE_KEYWORDS,
   authors: [
     { name: "Yuken Velino", url: "https://github.com/Curzyori" },
-    { name: "Verzio", url: "https://github.com/MyKineID" },
+    { name: "Verzio Yamanansyah", url: "https://github.com/MyKineID" },
     { name: "Muhammad Raffli Aldiansyah", url: "https://github.com/Seeyaa77" },
     { name: "Muara AI", url: "https://github.com/MuaraAI" },
   ],
@@ -249,7 +249,7 @@ export default function RootLayout({
         offers: { "@type": "Offer", price: "0", priceCurrency: "IDR" },
         author: [
           { "@type": "Person", name: "Yuken Velino", url: "https://github.com/Curzyori" },
-          { "@type": "Person", name: "Verzio", url: "https://github.com/MyKineID" },
+          { "@type": "Person", name: "Verzio Yamanansyah", url: "https://github.com/MyKineID" },
           { "@type": "Person", name: "Muhammad Raffli Aldiansyah", url: "https://github.com/Seeyaa77" },
         ],
         publisher: { "@id": orgId },

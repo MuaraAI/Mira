@@ -217,65 +217,76 @@ cd landing-page && npm run build
 
 ---
 
-## Tim Pengembang
+## Tim Pengembang &amp; Kontributor
 
-Proyek ini dirintis, dikembangkan, dan dirawat secara independen oleh mahasiswa Program Studi Informatika Fakultas Teknik &amp; Informatika Universitas Bina Sarana Informatika Kampus Kota Pontianak:
+Mira dikembangkan dan dirawat secara independen oleh komunitas **[Muara AI](https://github.com/MuaraAI)** bersama 3 core developer mahasiswa Informatika UBSI Kampus Kota Pontianak:
 
-<table>
+<div align="center">
+<table width="100%">
   <tr>
-    <td align="center" width="33%">
+    <td align="center" width="33%" valign="top">
+      <br />
       <a href="https://github.com/Curzyori">
         <img src="https://github.com/Curzyori.png" width="96" height="96" alt="Yuken Velino" style="border-radius:50%;" /><br />
         <b>Yuken Velino</b>
       </a>
       <br />
-      <a href="https://github.com/Curzyori">@Curzyori</a>
+      <a href="https://github.com/Curzyori"><code>@Curzyori</code></a>
       <br /><br />
       <a href="https://github.com/MuaraAI/Mira/commits?author=Curzyori">
-        <img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.github.com%2Frepos%2FMuaraAI%2FMira%2Fcontributors&query=%24%5B0%5D.contributions&label=commits&color=0369A1&logo=git" alt="Commits" />
+        <img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.github.com%2Frepos%2FMuaraAI%2FMira%2Fcontributors&query=%24%5B0%5D.contributions&label=commits&color=0369A1&logo=github" alt="Commits" />
       </a>
       <br /><br />
-      <sub><b>Lead Developer &amp; Creator</b><br />
-      NIM 15260767 · Informatika (S1)<br />
+      <b>Founder | Backend</b><br />
+      <sub>NIM 15260767 · Informatika (S1)<br />
       Kelas 15.1C.30 · Semester 1<br />
       FTI · UBSI Kota Pontianak</sub>
+      <br /><br />
     </td>
-    <td align="center" width="33%">
+    <td align="center" width="33%" valign="top">
+      <br />
       <a href="https://github.com/MyKineID">
-        <img src="https://github.com/MyKineID.png" width="96" height="96" alt="Verzio" style="border-radius:50%;" /><br />
-        <b>Verzio</b>
+        <img src="https://github.com/MyKineID.png" width="96" height="96" alt="Verzio Yamanansyah" style="border-radius:50%;" /><br />
+        <b>Verzio Yamanansyah</b>
       </a>
       <br />
-      <a href="https://github.com/MyKineID">@MyKineID</a>
+      <a href="https://github.com/MyKineID"><code>@MyKineID</code></a>
       <br /><br />
       <a href="https://github.com/MuaraAI/Mira/commits?author=MyKineID">
-        <img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.github.com%2Frepos%2FMuaraAI%2FMira%2Fcontributors&query=%24%5B1%5D.contributions&label=commits&color=0369A1&logo=git" alt="Commits" />
+        <img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.github.com%2Frepos%2FMuaraAI%2FMira%2Fcontributors&query=%24%5B1%5D.contributions&label=commits&color=0369A1&logo=github" alt="Commits" />
       </a>
       <br /><br />
-      <sub><b>Core Contributor</b><br />
-      NIM 15260225 · Informatika (S1)<br />
+      <b>Co-Founder | Frontend</b><br />
+      <sub>NIM 15260225 · Informatika (S1)<br />
       Kelas 15.1B.30 · Semester 1<br />
       FTI · UBSI Kota Pontianak</sub>
+      <br /><br />
     </td>
-    <td align="center" width="33%">
+    <td align="center" width="33%" valign="top">
+      <br />
       <a href="https://github.com/Seeyaa77">
         <img src="https://github.com/Seeyaa77.png" width="96" height="96" alt="M Raffli Aldiansyah" style="border-radius:50%;" /><br />
         <b>M Raffli Aldiansyah</b>
       </a>
       <br />
-      <a href="https://github.com/Seeyaa77">@Seeyaa77</a>
+      <a href="https://github.com/Seeyaa77"><code>@Seeyaa77</code></a>
       <br /><br />
       <a href="https://github.com/MuaraAI/Mira/commits?author=Seeyaa77">
-        <img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.github.com%2Frepos%2FMuaraAI%2FMira%2Fcontributors&query=%24%5B2%5D.contributions&label=commits&color=0369A1&logo=git" alt="Commits" />
+        <img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.github.com%2Frepos%2FMuaraAI%2FMira%2Fcontributors&query=%24%5B3%5D.contributions&label=commits&color=0369A1&logo=github" alt="Commits" />
       </a>
       <br /><br />
-      <sub><b>Core Contributor</b><br />
-      NIM 15260161 · Informatika (S1)<br />
+      <b>Co-Founder | Hacker</b><br />
+      <sub>NIM 15260161 · Informatika (S1)<br />
       Kelas 15.1A.30 · Semester 1<br />
       FTI · UBSI Kota Pontianak</sub>
+      <br /><br />
     </td>
   </tr>
 </table>
+</div>
+
+> **Tertarik ikut berkontribusi?**  
+> Repositori ini terbuka bagi seluruh mahasiswa UBSI dan pengembang open source. Baca panduan kontribusi, konvensi commit, dan alur pull request di **[CONTRIBUTING.md](CONTRIBUTING.md)**.
 
 ---
 
