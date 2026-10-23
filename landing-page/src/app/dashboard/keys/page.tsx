@@ -78,14 +78,31 @@ const MCP_SNIPPETS: { id: string; label: string; hint: string; code: string }[] 
   },
 ];
 
-const MCP_AGENT_PROMPT = `Server MCP Mira: https://api.muaraai.com/v1/mira/mcp
-API Base URL: https://api.muaraai.com/v1/mira
+const MCP_AGENT_PROMPT = `Tolong pasang dan integrasikan Model Context Protocol (MCP) server akademik kampus UBSI (Mira) ke lingkungan kerja kamu saat ini.
 
-Kamu adalah asisten akademik pribadi mahasiswa UBSI yang terhubung ke server MCP di atas.
-Gunakan tools MCP "mira-*" yang tersedia (jadwal kuliah, nilai & KHS, KRS, kartu ujian,
-tugas perkuliahan, presensi kehadiran, bahan ajar 5 kategori berkas, berita resmi, perpustakaan OPAC)
-untuk menjawab kebutuhan akademik saya dengan data real-time langsung dari akun saya sendiri.
-Contoh: "Jadwal besok apa?", "Cek tugas yang belum dikumpul", "Berapa IPK gw?", "Cari buku algoritma".`;
+1. Setup Koneksi MCP:
+- Nama server: mira-academic
+- URL Endpoint: https://api.muaraai.com/v1/mira/mcp (Transport: Streamable HTTP)
+- Header Otentikasi: Authorization: Bearer <MASUKKAN_PERSONAL_API_KEY_KAMU>
+- Silakan pasang konfigurasi ini ke config MCP yang sesuai dengan tool yang kamu gunakan:
+  * Claude Code: Jalankan \`claude mcp add --transport http mira-academic https://api.muaraai.com/v1/mira/mcp --header "Authorization: Bearer <KEY>"\`
+  * Cursor: Tambahkan ke file \`.cursor/mcp.json\`
+  * Hermes Agent: Tambahkan ke blok \`mcp_servers\` di \`~/.hermes/config.yaml\`
+  * Codex CLI: Tambahkan ke blok \`[mcp_servers.mira-academic]\` di \`~/.codex/config.toml\`
+
+2. Dokumentasikan ke Memory Project:
+Catat aturan dan kapabilitas Mira Academic OS ini ke dalam file panduan context kamu (seperti \`AGENTS.md\`, \`CLAUDE.md\`, atau \`SOUL.md\`):
+- Peran: Asisten akademik cerdas untuk mahasiswa UBSI berbasis data real-time akun kampus sendiri.
+- Cakupan 6 Layanan Kampus:
+  * SIAKAD: Jadwal kuliah mingguan, rekap Nilai Murni, KHS semester, KRS, dan kartu ujian.
+  * MyBest LMS: Mata kuliah aktif, pelacak tugas & deadline, presensi kehadiran mandiri, unduh materi kuliah, dan kuis.
+  * Ujian Online: Jadwal ujian semester dan kartu peserta via SSO MyBest.
+  * Perpustakaan OPAC: Pencarian katalog buku fisik & stok cabang.
+  * Berita Kampus: Pengumuman dan warta resmi universitas.
+  * Repository: Arsip skripsi dan publikasi riset kampus.
+- Konvensi Tools: Seluruh fungsi akademik menggunakan namespace tools \`mira_*\` (seperti \`mira_get_schedule\`, \`mira_get_assignments\`, \`mira_get_courses\`, \`mira_get_grades\`, dll.).
+
+Setelah terpasang, konfirmasikan bahwa koneksi MCP sudah siap dan bantu saya memeriksa jadwal kuliah atau tugas hari ini.`;
 
 export default function ApiKeysPage() {
   const { data, loading, error, reload } = useApi<{ keys: ApiKeyItem[]; total: number }>(
@@ -119,8 +136,12 @@ export default function ApiKeysPage() {
   if (loading) return <LoadingState label="Memuat Personal API Key" />;
   if (error) return <ErrorState error={error} onRetry={reload} />;
 
-  const keys = data?.keys ?? [];
+  const keys = data?.keys || [];
   const atLimit = keys.length >= MAX_KEYS;
+
+  const activePrompt = createdKey
+    ? MCP_AGENT_PROMPT.replace("<MASUKKAN_PERSONAL_API_KEY_KAMU>", createdKey)
+    : MCP_AGENT_PROMPT;
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -393,7 +414,7 @@ print(res.json())`}
                 </div>
                 <button
                   type="button"
-                  onClick={() => handleCopyBlock(MCP_AGENT_PROMPT, "agent-prompt")}
+                  onClick={() => handleCopyBlock(activePrompt, "agent-prompt")}
                   className={`${primaryButtonClass} text-xs py-1.5 px-3 shrink-0 self-start sm:self-auto`}
                   aria-label="Salin prompt untuk agent"
                 >
@@ -411,7 +432,7 @@ print(res.json())`}
                 </button>
               </div>
               <div className="bg-[#131B26] p-3.5 rounded-lg border border-white/10 font-mono text-[11px] leading-relaxed text-[#7DD3FC] overflow-x-auto whitespace-pre-wrap">
-                {MCP_AGENT_PROMPT}
+                {activePrompt}
               </div>
             </div>
 
