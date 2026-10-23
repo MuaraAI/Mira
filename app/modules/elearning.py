@@ -678,6 +678,8 @@ def parse_exam_types(html: str) -> dict[str, Any]:
     if not seen:
         # Halaman login / struktur berubah: bukan empty state yang valid.
         raise ValueError("exam dashboard marker missing: tidak ada link /jadwal/")
+    # Token dipakai internal oleh fetch_exam_schedule; endpoint /exams
+    # membuangnya sebelum menulis response (lihat get_exams).
     return {"types": list(seen.values())}
 
 
@@ -1285,7 +1287,20 @@ class PooledElearningClient:
         Sesi dashboard /halaman-ujian dipastikan hidup dulu supaya redirect chain
         SSO (/authenticate?token=...) menyetel cookie host tujuan; request berikutnya
         memakai httpx Client yang sama sehingga cookie ikut.
+
+        Allowlist host wajib: request ini membawa cookie sesi login, jadi satu
+        caller salah dengan URL bebas = SSRF + exfiltrasi cookie.
         """
+        parsed = httpx.URL(url)
+        if parsed.host not in ("ujiankampusa.bsi.ac.id",) or parsed.scheme != "https":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_response(
+                    code="INVALID_PATH",
+                    message="URL host ujian tidak diizinkan",
+                    module="elearning",
+                ),
+            )
         client = self._pool.get(nim)
 
         def _fetch_once() -> str:
@@ -1638,9 +1653,9 @@ async def fetch_exam_schedule(nim: str, password: str, exam_type: str) -> str:
 
 @router.get("/exams")
 async def get_exams(creds: tuple[str, str] = Depends(require_elearning_creds)):
-    """Daftar jenis ujian semester yang tersedia (token SSO fresh per render)."""
+    """Daftar jenis ujian semester yang tersedia (token SSO dipakai internal saja)."""
     nim, password = creds
-    return await cached_endpoint(
+    res = await cached_endpoint(
         module="elearning",
         name="exams",
         fetch=lambda: pooled_elearning_client.fetch_page("/halaman-ujian", nim, password),
@@ -1648,6 +1663,11 @@ async def get_exams(creds: tuple[str, str] = Depends(require_elearning_creds)):
         ttl=120,  # token encrypted berumur pendek: jangan disajikan basi
         cache_params={"nim": nim},
     )
+    # Token SSO internal: klien cukup tahu key + label untuk memilih jenis.
+    res["data"]["types"] = [
+        {"key": t["key"], "label": t["label"]} for t in res["data"]["types"]
+    ]
+    return res
 
 
 @router.get("/exams/{exam_type}")

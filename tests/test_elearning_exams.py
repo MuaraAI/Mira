@@ -38,8 +38,8 @@ def test_parse_exam_types_returns_eight_unique(dashboard_html):
         "latihan", "uts", "uas", "uts-pengganti", "uas-pengganti",
         "her", "her-pengganti", "her-khusus",
     }
-    for t in data["types"]:
-        assert t["token"].startswith("eyJ")
+    # token ada di level parser (internal) tapi endpoint /exams yang membuangnya
+    assert all(t["token"].startswith("eyJ") for t in data["types"])
 
 
 def test_parse_exam_types_rejects_login_page():
@@ -151,6 +151,7 @@ async def test_exams_endpoint_cached(monkeypatch):
     assert r1.status_code == 200
     keys = {t["key"] for t in r1.json()["data"]["types"]}
     assert keys >= {"latihan", "uts"}
+    assert all("token" not in t for t in r1.json()["data"]["types"])  # token internal
     assert r2.status_code == 200
     assert r2.json()["cached"] is True  # served from cache, no upstream refetch
 
@@ -200,3 +201,52 @@ async def test_exam_schedule_unknown_type():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         r = await ac.get("/v1/elearning/exams/bukan-ujian")
     assert r.status_code == 422  # path pattern menolak jenis tak dikenal
+
+
+@pytest.mark.asyncio
+async def test_exam_schedule_type_her_khusus_valid(monkeypatch):
+    """Jenis valid yang ada di fixture harus 200 (regresi untuk allowlist jenis)."""
+    from unittest.mock import patch
+
+    from httpx import ASGITransport, AsyncClient
+
+    from app.main import app
+
+    dash = (FIXTURES / "uk_dashboard.html").read_text()
+
+    async def fake_dash(path, nim, password):
+        return dash
+
+    async def fake_cross(url, nim, password):
+        return (FIXTURES / "uk_schedule_active.html").read_text()
+
+    monkeypatch.setenv("ELEARNING_NIM", "15260001")
+    monkeypatch.setenv("ELEARNING_PASS", "secret")
+
+    with _mock_redis(), patch(
+        "app.modules.elearning.pooled_elearning_client.fetch_page", fake_dash
+    ), patch(
+        "app.modules.elearning.pooled_elearning_client.fetch_cross_host", fake_cross
+    ):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            r = await ac.get("/v1/elearning/exams/her-khusus")
+    assert r.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_fetch_cross_host_rejects_foreign_host(monkeypatch):
+    """Allowlist host: URL selain ujiankampusa.bsi.ac.id ditolak sebelum request."""
+    from unittest.mock import MagicMock
+
+    from fastapi import HTTPException
+
+    from app.modules.elearning import PooledElearningClient
+
+    pooled = PooledElearningClient()
+    fake_client = MagicMock()
+    monkeypatch.setattr(pooled._pool, "get", lambda nim: fake_client)
+
+    with pytest.raises(HTTPException) as exc:
+        await pooled.fetch_cross_host("https://evil.example.com/steal", "15260001", "pw")
+    assert exc.value.status_code == 400
+    fake_client.fetch_page.assert_not_called()  # SSO handshake tidak pernah terjadi
