@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { Analytics } from "@vercel/analytics/react";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
-import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL, GITHUB_URL } from "@/lib/site";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_TITLE, SITE_URL, GITHUB_URL } from "@/lib/site";
 import "./globals.css";
 
 const spaceGrotesk = localFont({
@@ -176,11 +176,22 @@ export const metadata: Metadata = {
     siteName: SITE_NAME,
     locale: "id_ID",
     type: "website",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: `${SITE_NAME}: ${SITE_TAGLINE}`,
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
+    site: "@MuaraAI",
+    creator: "@MuaraAI",
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
+    images: ["/opengraph-image"],
   },
 };
 
@@ -204,7 +215,7 @@ export default function RootLayout({
           "https://github.com/MuaraAI",
           "https://x.com/MuaraAI",
           "https://www.instagram.com/muara.ai/",
-          "https://www.threads.com/@muara.ai",
+          "https://www.threads.net/@muara.ai",
         ],
       },
       {

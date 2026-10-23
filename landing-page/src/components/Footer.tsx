@@ -76,7 +76,7 @@ export function Footer() {
               <li><Link href="/terms" className={LINK_CLASS}><Marker />Syarat dan Ketentuan</Link></li>
               <li><Link href="/dmca" className={LINK_CLASS}><Marker />DMCA dan HKI</Link></li>
               <li><a href="mailto:admin@muaraai.com" className={`${LINK_CLASS} break-all`}><Marker /><Mail className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> admin@muaraai.com</a></li>
-              <li><a href="https://www.threads.com/@muara.ai" target="_blank" rel="noopener noreferrer" className={LINK_CLASS}><Marker /><MessageCircle className="h-3.5 w-3.5" aria-hidden="true" /> Threads</a></li>
+              <li><a href="https://www.threads.net/@muara.ai" target="_blank" rel="noopener noreferrer" className={LINK_CLASS}><Marker /><MessageCircle className="h-3.5 w-3.5" aria-hidden="true" /> Threads</a></li>
               <li><a href="https://www.instagram.com/muara.ai/" target="_blank" rel="noopener noreferrer" className={LINK_CLASS}><Marker /><Instagram className="h-3.5 w-3.5" aria-hidden="true" /> Instagram</a></li>
               <li><a href="https://x.com/MuaraAI" target="_blank" rel="noopener noreferrer" className={LINK_CLASS}><Marker /><Twitter className="h-3.5 w-3.5" aria-hidden="true" /> X</a></li>
             </ul>

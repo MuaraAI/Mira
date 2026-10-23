@@ -94,7 +94,7 @@ export default async function Image() {
               border: "1px solid #D9E5ED",
             }}
           >
-            Open Source / MIT
+            PWA Mobile & Desktop
           </div>
           <div
             style={{
@@ -106,7 +106,7 @@ export default async function Image() {
               border: "1px solid #D9E5ED",
             }}
           >
-            MIT License
+            Open Source (MIT)
           </div>
         </div>
       </div>
