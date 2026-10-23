@@ -146,7 +146,7 @@ async def subscribe_device(request: Request, body: SubscribeRequest):
 @router.get("/devices")
 async def list_devices(request: Request):
     nim = _require_session_nim(request)
-    devices = await list_subscriptions(nim)
+    devices = await list_subscriptions(nim, active_only=True)
     return success_response(data={"devices": devices, "total": len(devices)})
 
 

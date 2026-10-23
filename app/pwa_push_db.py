@@ -90,12 +90,13 @@ def _sync_add(nim: str, endpoint: str, p256dh: str, auth: str, device_name: str)
         # Nonaktifkan endpoint lama dari NIM dan device_name yang sama
         # (anti notifikasi duplikat saat browser migrasi origin, misal ubsi-api.muaraai.com -> mira.muaraai.com)
         clean_device = device_name.strip() if device_name else ""
-        if clean_device:
-            conn.execute(
-                "UPDATE pwa_push_subscriptions SET is_active = 0 "
-                "WHERE nim = ? AND device_name = ? AND endpoint != ?",
-                (nim, clean_device, endpoint),
-            )
+        if not clean_device:
+            clean_device = "Browser"
+        conn.execute(
+            "UPDATE pwa_push_subscriptions SET is_active = 0 "
+            "WHERE nim = ? AND device_name = ? COLLATE NOCASE AND endpoint != ?",
+            (nim, clean_device, endpoint),
+        )
 
         # Upsert atomik via ON CONFLICT: dua subscribe serentak tidak 500 IntegrityError.
         # Endpoint ikut pindah ke NIM terbaru (browser ganti akun dashboard).

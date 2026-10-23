@@ -77,6 +77,8 @@ self.addEventListener("pushsubscriptionchange", (event) => {
       const raw = event.newSubscription.toJSON();
       if (!raw.endpoint || !raw.keys || !raw.keys.p256dh || !raw.keys.auth) return;
       const base = new URL("/dashboard", self.location.origin).origin;
+      // Ambil device_name dari baris lama yang tersimpan di IndexedDB fallback
+      // (biarkan kosong -> backend memakai "Browser" untuk upsert & dedup).
       await fetch(base + "/api/pwa-push-resubscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
