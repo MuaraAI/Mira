@@ -39,9 +39,14 @@ def extract_client_ip(request: Request) -> str:
         cf_ip = request.headers.get("cf-connecting-ip")
         if cf_ip:
             return cf_ip.strip()
+        real_ip = request.headers.get("x-real-ip")
+        if real_ip:
+            return real_ip.strip()
         xff = request.headers.get("x-forwarded-for")
         if xff:
-            return xff.split(",")[0].strip()
+            # Hop paling kanan adalah IP yang ditambahkan proxy terpercaya;
+            # leftmost bisa di-spoof klien via header palsu.
+            return xff.split(",")[-1].strip()
 
     return client_host
 
@@ -211,7 +216,6 @@ async def api_key_auth_middleware(request: Request, call_next):
     allowed_set = {o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip() and o.strip() != "*"}
     allowed_set.add("https://mira.muaraai.com")
     allowed_set.add("https://ubsi-api.muaraai.com")
-    allowed_set.add("http://localhost:3000")
     is_dashboard_request = (
         request.headers.get("x-requested-with") == "dashboard"
         or (origin and (origin in allowed_set or "*" in settings.ALLOWED_ORIGINS))
@@ -312,7 +316,7 @@ async def rate_limiting_middleware(request: Request, call_next):
 # CORS Middleware added after HTTP middlewares so it wraps outermost
 origins = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip() and o.strip() != "*"]
 if not origins:
-    origins = ["https://mira.muaraai.com", "https://ubsi-api.muaraai.com", "http://localhost:3000"]
+    origins = ["https://mira.muaraai.com", "https://ubsi-api.muaraai.com"]
 # Credentialed cookies must never be combined with wildcard origin reflection.
 
 app.add_middleware(

@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://127.0.0.1:6379/2"
 
     API_KEY: str = ""
-    ALLOWED_ORIGINS: str = "https://mira.muaraai.com,https://ubsi-api.muaraai.com,http://localhost:3000"
+    ALLOWED_ORIGINS: str = "https://mira.muaraai.com,https://ubsi-api.muaraai.com"
     WEB_BASE_URL: str = "https://mira.muaraai.com"
     TRUSTED_PROXIES: str = "127.0.0.1"
     ROOT_PATH: str = ""

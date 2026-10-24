@@ -772,7 +772,25 @@ def main():
             transport_security=sec,
         )
     elif args.transport == "sse":
-        server.run(transport="sse", host=args.host, port=args.port)
+        from mcp.server.transport_security import TransportSecuritySettings
+
+        sec = TransportSecuritySettings(
+            enable_dns_rebinding_protection=True,
+            allowed_hosts=[
+                "127.0.0.1", "127.0.0.1:*", "localhost", "localhost:*",
+                "api.muaraai.com", "api.muaraai.com:*",
+            ],
+            allowed_origins=[
+                "https://mira.muaraai.com",
+                "https://ubsi-api.muaraai.com",
+            ],
+        )
+        server.run(
+            transport="sse",
+            host=args.host,
+            port=args.port,
+            transport_security=sec,
+        )
     else:
         server.run(transport="stdio")
 

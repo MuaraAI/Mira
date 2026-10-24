@@ -204,8 +204,15 @@ async def logout(request: Request):
         status_code=status.HTTP_200_OK,
         content=success_response(data={"message": "Logout berhasil"}),
     )
+    # Atribut harus identik dengan set_cookie agar semua browser engine menghapus cookie.
+    is_https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
     response.delete_cookie(
-        key="ubsi_session", domain=settings.SESSION_COOKIE_DOMAIN or None
+        key="ubsi_session",
+        path="/",
+        domain=settings.SESSION_COOKIE_DOMAIN or None,
+        secure=is_https,
+        httponly=True,
+        samesite="lax",
     )
     return response
 
@@ -230,8 +237,15 @@ async def logout_all(request: Request):
         status_code=status.HTTP_200_OK,
         content=success_response(data={"message": f"{removed} session diakhiri"}),
     )
+    # Atribut harus identik dengan set_cookie agar semua browser engine menghapus cookie.
+    is_https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
     response.delete_cookie(
-        key="ubsi_session", domain=settings.SESSION_COOKIE_DOMAIN or None
+        key="ubsi_session",
+        path="/",
+        domain=settings.SESSION_COOKIE_DOMAIN or None,
+        secure=is_https,
+        httponly=True,
+        samesite="lax",
     )
     return response
 

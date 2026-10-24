@@ -24,13 +24,29 @@ async def test_cors_options_preflight_bypasses_auth():
         base_url="http://test",
         headers={
             "_skip_auto_auth": "1",
-            "Origin": "http://localhost:3000",
+            "Origin": "https://mira.muaraai.com",
             "Access-Control-Request-Method": "GET",
         }
     ) as ac:
         res = await ac.options("/v1/news")
     assert res.status_code == 200
     assert "access-control-allow-origin" in res.headers
+
+
+@pytest.mark.asyncio
+async def test_cors_rejects_unlisted_origin():
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        headers={
+            "_skip_auto_auth": "1",
+            "Origin": "http://evil.example.com",
+            "Access-Control-Request-Method": "GET",
+        }
+    ) as ac:
+        res = await ac.options("/v1/news")
+    # Starlette menolak preflight origin asing dengan 400 dan tanpa allow-origin.
+    assert "access-control-allow-origin" not in res.headers
 
 @pytest.mark.asyncio
 async def test_missing_api_key_returns_401():

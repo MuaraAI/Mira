@@ -271,9 +271,17 @@ async def _send_absen_reminders(
 
     sent = 0
     for course, key, state in pending:
-        sent += await _absen_process_course(
-            nim, course, key, state, elearning_password, now_ts, by_kode, by_name
-        )
+        # Klaim atomik per kelas: cegah dua worker mengirim pengingat absen dobel
+        # saat siklus overlap atau trigger manual berjalan bersamaan.
+        if not await _claim(f"{key}:claim", 300):
+            continue
+        try:
+            sent += await _absen_process_course(
+                nim, course, key, state, elearning_password, now_ts, by_kode, by_name
+            )
+        except Exception:
+            await _release(f"{key}:claim")  # jangan biarkan kelas ini terkunci karena error
+            raise
     return sent
 
 

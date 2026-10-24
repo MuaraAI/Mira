@@ -73,16 +73,24 @@ async def _sum_requests(client: Any, days: int) -> int:
     return total
 
 
+async def _iter_keys(client: Any, pattern: str) -> list[str]:
+    # SCAN non-blocking: KEYS O(N) memblokir event loop Redis di traffic tinggi.
+    scan = getattr(client, "scan_iter", None)
+    if scan is not None:
+        return [key async for key in scan(match=pattern)]
+    return sorted(await client.keys(pattern))  # fallback FakeRedis test suite
+
+
 async def get_public_stats() -> dict[str, Any]:
     try:
         client = await cache.get_client()
 
         # 1. Hari aktif riil dari key tanggal yang masih tersimpan (retensi 35 hari).
-        all_req_keys = sorted(await client.keys(f"{_PREFIX}requests:20*"))
+        all_req_keys = await _iter_keys(client, f"{_PREFIX}requests:20*")
         req_vals = [int(await client.get(k) or 0) for k in all_req_keys]
         active_days = max(1, len([v for v in req_vals if v > 0]))
 
-        all_user_keys = sorted(await client.keys(f"{_PREFIX}users:20*"))
+        all_user_keys = await _iter_keys(client, f"{_PREFIX}users:20*")
         daily_user_counts = [await client.scard(k) for k in all_user_keys]
 
         # Total all-time memakai counter permanen agar tidak turun saat key harian kedaluwarsa.
@@ -125,7 +133,7 @@ async def get_public_stats() -> dict[str, Any]:
         branches: list[dict[str, Any]] = []
         programs: list[dict[str, Any]] = []
         for dimension, output in (("branch", branches), ("program", programs)):
-            keys = await client.keys(f"{_PREFIX}{dimension}:*:*")
+            keys = await _iter_keys(client, f"{_PREFIX}{dimension}:*:*")
             grouped: dict[str, set[str]] = {}
             for key in keys:
                 parts = key.split(":")
