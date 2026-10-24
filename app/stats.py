@@ -1,6 +1,7 @@
 """Privacy-preserving public usage counters backed by Redis."""
 from __future__ import annotations
 
+import functools
 import hashlib
 import hmac
 import time
@@ -34,9 +35,13 @@ def _day(offset: int = 0) -> str:
     return (datetime.now(timezone.utc).date() - timedelta(days=offset)).isoformat()
 
 
+@functools.lru_cache(maxsize=4)
+def _digest_key(secret: str) -> bytes:
+    return hashlib.sha256(secret.encode()).digest()
+
+
 def _identity(value: str) -> str:
-    digest_key = hashlib.sha256(settings.API_KEY.encode()).digest()
-    return hmac.new(digest_key, value.encode(), hashlib.sha256).hexdigest()
+    return hmac.new(_digest_key(settings.API_KEY), value.encode(), hashlib.sha256).hexdigest()
 
 
 async def record_request(module: str, nim: str | None = None) -> None:

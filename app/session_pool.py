@@ -1,42 +1,41 @@
 """Per-NIM session pool agar request antar user tidak saling menimpa sesi."""
 import asyncio
 import time
+from collections import OrderedDict
 from typing import Any
 
 
 class SessionPool:
-    """Pool sesi login per-NIM dengan TTL idle.
+    """Pool sesi login per-NIM dengan TTL idle dan batas kapasitas LRU O(1)."""
 
-    Sebelumnya satu singleton session dipakai semua request: kalau dua NIM
-    berbeda memanggil bersamaan, request kedua memakai sesi NIM pertama
-    sehingga data bisa salah orang. Pool ini menyimpan satu client per NIM
-    dan menutup sesi yang idle melewati TTL.
-    """
-
-    def __init__(self, factory, ttl_seconds: int = 600, max_sessions: int = 500):
+    def __init__(self, factory, ttl_seconds: int = 600, max_sessions: int = 150):
         self._factory = factory
         self._ttl = ttl_seconds
         self._max_sessions = max_sessions
-        self._sessions: dict[str, tuple[Any, float]] = {}
+        self._sessions: "OrderedDict[str, tuple[Any, float]]" = OrderedDict()
 
     def get(self, nim: str) -> Any:
         entry = self._sessions.get(nim)
+        now = time.monotonic()
         if entry is None:
             if len(self._sessions) >= self._max_sessions:
-                try:
-                    oldest_nim = min(self._sessions, key=lambda k: self._sessions[k][1])
+                if self._ttl > 0:
+                    stale = [k for k, (_, ts) in self._sessions.items() if now - ts > self._ttl]
+                    for k in stale:
+                        self.invalidate(k)
+                while len(self._sessions) >= self._max_sessions and self._sessions:
+                    oldest_nim = next(iter(self._sessions))
                     self.invalidate(oldest_nim)
-                except (ValueError, KeyError):
-                    pass
             try:
                 client = self._factory(nim)
             except TypeError:
                 client = self._factory()
-            self._sessions[nim] = (client, time.monotonic())
+            self._sessions[nim] = (client, now)
             return client
         client, _ = entry
-        # Perpanjang TTL tiap kali dipakai
-        self._sessions[nim] = (client, time.monotonic())
+        # Perpanjang TTL tiap kali dipakai & pindahkan ke ujung LRU (O(1))
+        self._sessions.move_to_end(nim)
+        self._sessions[nim] = (client, now)
         return client
 
     async def evict_idle(self) -> int:

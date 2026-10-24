@@ -344,7 +344,16 @@ class StudentV2Client(UpstreamSession):
 
     def get_client(self) -> httpx.Client:
         if self._client is None or self._client.is_closed:
-            self._client = httpx.Client(headers=self.HEADERS, follow_redirects=True, timeout=25.0, proxy=self._proxy)
+            from app.upstream_session import SHARED_HTTP_LIMITS, SHARED_SSL_CONTEXT
+
+            self._client = httpx.Client(
+                headers=self.HEADERS,
+                follow_redirects=True,
+                timeout=25.0,
+                proxy=self._proxy,
+                verify=SHARED_SSL_CONTEXT,
+                limits=SHARED_HTTP_LIMITS,
+            )
         return self._client
 
     def close(self) -> None:
@@ -672,11 +681,22 @@ async def get_lecturers(
     """Direktori seluruh dosen BSI beserta kode inisial dosen."""
     nim, password = creds
     norm_search = (search or "").strip()[:100]
-    return await cached_endpoint(
+    res = await cached_endpoint(
         module="studentv2",
         name="lecturers",
         fetch=lambda: studentv2_client.fetch_page("/mahasiswa/jadwal-mengajar", nim, password),
-        parse=lambda html: parse_lecturers(html, search=norm_search or None),
+        parse=lambda html: parse_lecturers(html, search=None),
         ttl=settings.TTL_LIBRARY,
-        cache_params={"nim": nim, "search": norm_search},
+        cache_params={"nim": nim},
     )
+    if norm_search and isinstance(res, dict) and isinstance(res.get("data"), list):
+        q = norm_search.lower()
+        res = {
+            **res,
+            "data": [
+                item
+                for item in res["data"]
+                if q in str(item.get("kode", "")).lower() or q in str(item.get("nama", "")).lower()
+            ],
+        }
+    return res

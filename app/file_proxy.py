@@ -101,14 +101,12 @@ async def fetch_public_file(info: dict[str, Any], client: httpx.AsyncClient) -> 
                 declared = int(response.headers.get("content-length", "0") or 0)
                 if declared > MAX_BYTES:
                     raise ProxyError("TOO_LARGE", "Berkas terlalu besar untuk dipratinjau (maksimal 25 MB).", 413)
-                chunks: list[bytes] = []
-                total = 0
+                buf = bytearray()
                 async for chunk in response.aiter_bytes():
-                    total += len(chunk)
-                    if total > MAX_BYTES:
+                    if len(buf) + len(chunk) > MAX_BYTES:
                         raise ProxyError("TOO_LARGE", "Berkas terlalu besar untuk dipratinjau (maksimal 25 MB).", 413)
-                    chunks.append(chunk)
-                return b"".join(chunks), content_type, _filename(response.headers, fallback_name)
+                    buf.extend(chunk)
+                return bytes(buf), content_type, _filename(response.headers, fallback_name)
         except httpx.HTTPError:
             raise ProxyError("UPSTREAM_ERROR", "Google belum bisa dihubungi. Coba lagi sebentar.", 502)
     raise ProxyError("UPSTREAM_ERROR", "Terlalu banyak pengalihan.", 502)
