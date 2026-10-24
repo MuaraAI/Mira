@@ -40,10 +40,100 @@ const TROPHY = fromRows([
   "................",
 ]);
 
+// Mahkota pixel: simbol badge Kartu KHS (IPK & Kumulatif).
+const CROWN = fromRows([
+  "................",
+  "..#....##....#..",
+  ".###..####..###.",
+  ".###..####..###.",
+  "..####.##.####..",
+  "..############..",
+  "..#.########.#..",
+  "..############..",
+  "...##########...",
+  "...##########...",
+  "....########....",
+  "...##########...",
+  "..############..",
+  "................",
+  "................",
+  "................",
+]);
+
+// Perisai bintang pixel: simbol badge Rincian Nilai Murni (Absen, Tugas, UTS, UAS).
+const SHIELD = fromRows([
+  "................",
+  "..############..",
+  ".##############.",
+  ".##....##....##.",
+  ".##...####...##.",
+  ".##.########.##.",
+  ".##...####...##.",
+  "..##..#..#..##..",
+  "..##........##..",
+  "...##......##...",
+  "....##....##....",
+  ".....##..##.....",
+  "......####......",
+  ".......##.......",
+  "................",
+  "................",
+]);
+
+// Petir pixel: simbol badge Nilai Tugas MyBest (Kecepatan & ketuntasan tugas).
+const BOLT = fromRows([
+  "................",
+  ".......######...",
+  "......######....",
+  ".....######.....",
+  "....######......",
+  "...###########..",
+  "..############..",
+  ".......######...",
+  "......######....",
+  ".....######.....",
+  "....#####.......",
+  "...####.........",
+  "..###...........",
+  ".##.............",
+  "................",
+  "................",
+]);
+
 export function PixelTrophy({ className = "h-4 w-4", ...rest }: { className?: string; "aria-hidden"?: boolean | "true" | "false" }) {
   return (
     <svg viewBox="0 0 16 16" className={className} fill="currentColor" shapeRendering="crispEdges" {...rest}>
       {TROPHY.map(({ x, y, w }) => (
+        <rect key={`${x}-${y}`} x={x} y={y} width={w} height={1} />
+      ))}
+    </svg>
+  );
+}
+
+export function PixelCrown({ className = "h-4 w-4", ...rest }: { className?: string; "aria-hidden"?: boolean | "true" | "false" }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className} fill="currentColor" shapeRendering="crispEdges" {...rest}>
+      {CROWN.map(({ x, y, w }) => (
+        <rect key={`${x}-${y}`} x={x} y={y} width={w} height={1} />
+      ))}
+    </svg>
+  );
+}
+
+export function PixelShield({ className = "h-4 w-4", ...rest }: { className?: string; "aria-hidden"?: boolean | "true" | "false" }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className} fill="currentColor" shapeRendering="crispEdges" {...rest}>
+      {SHIELD.map(({ x, y, w }) => (
+        <rect key={`${x}-${y}`} x={x} y={y} width={w} height={1} />
+      ))}
+    </svg>
+  );
+}
+
+export function PixelBolt({ className = "h-4 w-4", ...rest }: { className?: string; "aria-hidden"?: boolean | "true" | "false" }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className} fill="currentColor" shapeRendering="crispEdges" {...rest}>
+      {BOLT.map(({ x, y, w }) => (
         <rect key={`${x}-${y}`} x={x} y={y} width={w} height={1} />
       ))}
     </svg>
