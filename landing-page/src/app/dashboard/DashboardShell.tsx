@@ -8,6 +8,8 @@ import { ErrorState, LoadingState } from "@/components/dashboard-ui";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { DashboardMobileNav } from "@/components/DashboardMobileNav";
 import PwaPushBanner from "@/components/PwaPushBanner";
+import { DialogProvider } from "@/components/ConfirmDialog";
+import { useLogout } from "@/lib/logout";
 
 function getPageTitle(pathname: string): string {
   switch (pathname) {
@@ -27,6 +29,8 @@ function getPageTitle(pathname: string): string {
       return "Forum Diskusi Perkuliahan";
     case "/dashboard/nilai":
       return "Nilai & KHS";
+    case "/dashboard/flexing":
+      return "Flexing Nilai";
     case "/dashboard/krs":
       return "Kartu Rencana Studi (KRS)";
     case "/dashboard/ujian":
@@ -46,12 +50,17 @@ function getPageTitle(pathname: string): string {
   }
 }
 
-export default function DashboardShell({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function DashboardShell({ children }: { children: React.ReactNode }) {
+  return (
+    <DialogProvider>
+      <ShellLayout>{children}</ShellLayout>
+    </DialogProvider>
+  );
+}
+
+function ShellLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { logout, busy } = useLogout();
   const { authed, checking, error, reload, nim } = useRequireSession();
   const title = getPageTitle(pathname);
 
@@ -86,13 +95,15 @@ export default function DashboardShell({
               <span>Sesi aktif</span>
             </div>
 
-            <Link
-              href="/dashboard/sesi"
-              aria-label="Pengaturan sesi dan logout"
-              className="px-frame flex h-11 w-11 items-center justify-center bg-white text-rose-700 transition-colors [--px-line:#FDA4AF] hover:bg-rose-50"
+            <button
+              type="button"
+              onClick={() => logout("device")}
+              disabled={busy !== null}
+              className="px-frame flex h-10 items-center gap-2 bg-white px-3.5 font-mono text-xs font-bold text-[#BE123C] transition-colors [--px-line:#FDA4AF] hover:bg-[#FFF1F2] disabled:opacity-60"
             >
-              <LogOut className="w-4 h-4" aria-hidden="true" />
-            </Link>
+              <LogOut className="h-4 w-4" aria-hidden="true" />
+              <span>{busy ? "Keluar..." : "Keluar"}</span>
+            </button>
           </div>
         </header>
 

@@ -192,7 +192,7 @@ export function Navbar({ starsCount }: { starsCount: number | null }) {
 
         <nav aria-label="Navigasi utama" className="hidden items-center gap-1 text-sm font-medium text-secondary md:flex">
           {NAV_LINKS.map((link) => (
-            <a key={link.href} href={link.href} className="nav-link px-3 py-1.5 transition-colors duration-200 hover:text-foreground">
+            <a key={link.href} href={link.href} className="nav-link px-3 py-1.5 hover:text-foreground">
               {link.label}
             </a>
           ))}

@@ -47,8 +47,6 @@ export function DashboardMobileNav({ nim }: { nim?: string | null }) {
   const isActive = (href: string, exact?: boolean) => (exact ? pathname === href : pathname.startsWith(href));
   // "Lainnya" menyala saat halaman aktif bukan salah satu tab cepat, supaya posisi pengguna tetap jelas.
   const moreActive = !quickNav.some(({ href, exact }) => isActive(href, exact));
-  const itemBase =
-    "relative flex min-h-[56px] flex-col items-center justify-center gap-0.5 px-1 pt-1.5 pb-1 font-mono text-[10px] leading-tight transition-colors duration-200";
 
   return (
     <>
@@ -78,84 +76,84 @@ export function DashboardMobileNav({ nim }: { nim?: string | null }) {
       {/* Mobile Drawer (Slide-Over) */}
       {isOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
-          {/* Backdrop */}
           <div
             className="modal-backdrop fixed inset-0 bg-[#072033]/50 backdrop-blur-[2px]"
             onClick={() => setIsOpen(false)}
             aria-hidden="true"
           />
 
-          {/* Drawer Content */}
           <FocusDialog
             open={isOpen}
             onClose={() => setIsOpen(false)}
-            className="drawer-panel relative flex flex-col w-4/5 max-w-xs h-full bg-white shadow-[6px_0_0_0_#0369A1] z-10"
+            labelledBy="drawer-title"
+            className="drawer-panel relative z-10 flex h-full w-[82%] max-w-[300px] flex-col bg-white shadow-[2px_0_0_0_#163A55,6px_0_0_0_#0369A1]"
           >
-            {/* Close Button Header */}
-            <div className="flex items-center justify-between p-3 border-b-2 border-px-soft bg-px-tint">
-              <span className="font-display font-bold text-sm text-foreground">
-                Navigasi Menu
-              </span>
+            <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b-2 border-px-soft pl-4 pr-2">
+              <Link href="/dashboard" onClick={() => setIsOpen(false)} className="flex items-center gap-2.5">
+                <span className="px-frame flex h-8 w-8 items-center justify-center overflow-hidden bg-white [--px-line:#CFE2EE]">
+                  <Monogram className="h-6 w-6" />
+                </span>
+                <span id="drawer-title" className="font-display text-sm font-bold text-foreground">
+                  Menu Mira
+                </span>
+              </Link>
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
                 aria-label="Tutup menu"
-                className="px-frame min-w-[44px] min-h-[44px] flex items-center justify-center bg-white text-secondary [--px-line:#CFE2EE] hover:text-foreground"
+                className="flex h-11 w-11 items-center justify-center text-secondary transition-colors hover:bg-px-tint hover:text-foreground"
               >
-                <X className="w-5 h-5" aria-hidden="true" />
+                <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
 
-            {/* Sidebar View inside Drawer */}
-            <div className="flex-1 overflow-hidden">
-              <DashboardSidebar nim={nim} onItemClick={() => setIsOpen(false)} />
+            <div className="min-h-0 flex-1">
+              <DashboardSidebar
+                nim={nim}
+                showBrand={false}
+                hideHrefs={quickNav.map((item) => item.href)}
+                onItemClick={() => setIsOpen(false)}
+              />
             </div>
           </FocusDialog>
         </div>
       )}
 
       {/* Mobile Bottom Navigation Bar */}
-      <nav
-        aria-label="Navigasi cepat bawah"
-        className="dashboard-bottom-nav lg:hidden fixed bottom-0 inset-x-0 z-40 grid grid-cols-5 border-t-2 border-[#163A55] bg-white px-1 shadow-[0_-4px_0_0_#CFE2EE]"
-      >
-        {quickNav.map(({ href, label, icon: Icon, exact }) => {
-          const active = isActive(href, exact);
-          return (
-            <Link
-              key={href}
-              href={href}
-              aria-current={active ? "page" : undefined}
-              className={`${itemBase} ${active ? "font-bold text-[#0369A1]" : "text-secondary hover:text-foreground"}`}
-            >
-              <span
-                aria-hidden="true"
-                className={`absolute inset-x-3 top-0 h-[3px] transition-colors ${active ? "bg-[#0369A1]" : "bg-transparent"}`}
-              />
-              <span className={`flex h-7 w-12 items-center justify-center transition-colors ${active ? "bg-px-highlight" : ""}`}>
-                <Icon className="h-5 w-5" aria-hidden="true" />
-              </span>
-              <span>{label}</span>
-            </Link>
-          );
-        })}
+      <nav aria-label="Navigasi cepat bawah" className="dashboard-bottom-nav lg:hidden fixed inset-x-0 bottom-0 z-40">
+        <div className="grid grid-cols-5">
+          {quickNav.map(({ href, label, icon: Icon, exact }) => {
+            const active = isActive(href, exact);
+            return (
+              <Link
+                key={href}
+                href={href}
+                aria-current={active ? "page" : undefined}
+                className="bottom-nav-item"
+                data-active={active}
+              >
+                <span className="bottom-nav-icon" aria-hidden="true">
+                  <Icon className="h-[18px] w-[18px]" />
+                </span>
+                <span className="bottom-nav-label">{label}</span>
+              </Link>
+            );
+          })}
 
-        <button
-          type="button"
-          onClick={() => setIsOpen(true)}
-          aria-haspopup="dialog"
-          aria-expanded={isOpen}
-          className={`${itemBase} ${moreActive ? "font-bold text-[#0369A1]" : "text-secondary hover:text-foreground"}`}
-        >
-          <span
-            aria-hidden="true"
-            className={`absolute inset-x-3 top-0 h-[3px] transition-colors ${moreActive ? "bg-[#0369A1]" : "bg-transparent"}`}
-          />
-          <span className={`flex h-7 w-12 items-center justify-center transition-colors ${moreActive ? "bg-px-highlight" : ""}`}>
-            <Ellipsis className="h-5 w-5" aria-hidden="true" />
-          </span>
-          <span>Lainnya</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => setIsOpen(true)}
+            aria-haspopup="dialog"
+            aria-expanded={isOpen}
+            className="bottom-nav-item"
+            data-active={moreActive || isOpen}
+          >
+            <span className="bottom-nav-icon" aria-hidden="true">
+              <Ellipsis className="h-[18px] w-[18px]" />
+            </span>
+            <span className="bottom-nav-label">Lainnya</span>
+          </button>
+        </div>
       </nav>
     </>
   );

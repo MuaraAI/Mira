@@ -15,10 +15,12 @@ import {
   School,
   AlertTriangle,
   HelpCircle,
+  UserRound,
 } from "lucide-react";
 import { useApi } from "@/lib/api";
 import { findSubmission, formatShortDate, parseDeadline } from "@/lib/assignments";
 import { DosenInfo } from "@/components/DosenInfo";
+import { PixelTrophy } from "@/components/PixelIcons";
 import { splitProgram } from "@/lib/profile";
 import {
   EmptyState,
@@ -197,19 +199,22 @@ export default function DashboardOverviewPage() {
             </div>
           </div>
 
-          <div className="shrink-0 grid grid-cols-2 gap-3 sm:flex sm:items-center">
+          {/* HP: tombol utama selebar kartu, dua tombol lain berdampingan; teks selalu satu baris. */}
+          <div className="grid shrink-0 grid-cols-1 gap-3 min-[360px]:grid-cols-2 sm:flex sm:items-center">
             <Link
               href="/dashboard/jadwal"
-              className="inline-flex min-h-11 items-center justify-center gap-2 px-4 py-2 rounded-pill bg-[#0369A1] hover:bg-[#075985] text-white text-xs sm:text-sm font-semibold transition-all shadow-sm"
+              className="min-[360px]:col-span-2 inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap px-3 py-2 rounded-pill text-xs font-semibold transition-all sm:px-4 sm:text-sm bg-[#0369A1] text-white shadow-sm hover:bg-[#075985]"
             >
-              <CalendarDays className="w-4 h-4" aria-hidden="true" />
+              <CalendarDays className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span>Jadwal Lengkap</span>
             </Link>
-            <Link
-              href="/dashboard/sesi"
-              className="inline-flex min-h-11 items-center justify-center gap-2 px-4 py-2 rounded-pill border border-stroke bg-white hover:bg-[#F0F7FB] text-secondary hover:text-foreground text-xs sm:text-sm font-semibold transition-all"
-            >
+            <Link href="/dashboard/sesi" className="inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap px-3 py-2 rounded-pill text-xs font-semibold transition-all sm:px-4 sm:text-sm border border-stroke bg-white text-secondary hover:bg-[#F0F7FB] hover:text-foreground">
+              <UserRound className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span>Profil Saya</span>
+            </Link>
+            <Link href="/dashboard/flexing" className="inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap px-3 py-2 rounded-pill text-xs font-semibold transition-all sm:px-4 sm:text-sm border border-stroke bg-white text-secondary hover:bg-[#F0F7FB] hover:text-foreground">
+              <PixelTrophy className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>Flexing Nilai</span>
             </Link>
           </div>
         </div>

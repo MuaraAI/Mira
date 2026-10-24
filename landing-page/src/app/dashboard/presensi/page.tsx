@@ -23,6 +23,7 @@ import { resolveDosen } from "@/lib/courses";
 import { DosenInfo } from "@/components/DosenInfo";
 import { FormattedNote } from "@/components/FormattedNote";
 import { notePreview, sameNote } from "@/lib/notes";
+import { useDialog } from "@/components/ConfirmDialog";
 
 interface CourseItem {
   id: string;
@@ -98,6 +99,7 @@ const PHASE_COPY: Record<Phase, { chip: string; button: string }> = {
 const DAY_ORDER = ["minggu", "senin", "selasa", "rabu", "kamis", "jumat", "sabtu"];
 
 export default function PresensiPage() {
+  const { confirm } = useDialog();
   const coursesApi = useApi<CourseItem[]>("/v1/elearning/courses");
   // Cadangan kode dosen dari jadwal SIAKAD.
   const scheduleApi = useApi<{ kode: string; nama: string; kode_dosen?: string }[]>("/v1/studentv2/schedule");
@@ -209,7 +211,13 @@ export default function PresensiPage() {
   }, [token]);
 
   async function handleSubmitPresence() {
-    if (!token || !window.confirm(`Kirim presensi untuk ${activeCourse?.nama ?? "mata kuliah ini"} sekarang?`)) return;
+    if (!token) return;
+    const ok = await confirm({
+      title: "Kirim presensi sekarang?",
+      message: `Kehadiranmu untuk ${activeCourse?.nama ?? "mata kuliah ini"} akan dicatat di MyBest.`,
+      confirmLabel: "Kirim presensi",
+    });
+    if (!ok) return;
     setSubmitting(true);
     setSubmitMessage(null);
     setSubmitError(null);

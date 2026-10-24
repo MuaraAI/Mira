@@ -31,6 +31,7 @@ import {
   primaryButtonClass,
 } from "@/components/dashboard-ui";
 import { SideSheet } from "@/components/SideSheet";
+import { useDialog } from "@/components/ConfirmDialog";
 
 interface Channel {
   id: number;
@@ -75,6 +76,7 @@ const TYPE_CONFIG = {
 } as const;
 
 export default function NotifikasiPage() {
+  const { confirm } = useDialog();
   const { data, loading, error, reload } = useApi<{ channels: Channel[]; total: number }>(
     "/v1/channels"
   );
@@ -230,7 +232,13 @@ export default function NotifikasiPage() {
   }
 
   async function handleDelete(id: number) {
-    if (!window.confirm("Hapus channel notifikasi ini?")) return;
+    const ok = await confirm({
+      title: "Hapus channel notifikasi?",
+      message: "Mira berhenti mengirim notifikasi ke channel ini. Kamu bisa menambahkannya lagi kapan saja.",
+      confirmLabel: "Hapus",
+      tone: "danger",
+    });
+    if (!ok) return;
     setBusyId(id);
     setActionStatus((s) => ({ ...s, [id]: { ok: true, message: "" } }));
     try {

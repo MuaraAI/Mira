@@ -18,8 +18,11 @@ import {
   ShieldCheck,
   HelpCircle,
   MessageSquare,
+  LogOut,
 } from "lucide-react";
 import { Monogram } from "@/components/Monogram";
+import { useLogout } from "@/lib/logout";
+import { PixelTrophy } from "@/components/PixelIcons";
 
 export interface NavGroup {
   title: string;
@@ -54,6 +57,7 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
     title: "Akademik",
     items: [
       { href: "/dashboard/nilai", label: "Nilai & KHS", icon: GraduationCap },
+      { href: "/dashboard/flexing", label: "Flexing Nilai", icon: PixelTrophy },
       { href: "/dashboard/krs", label: "Kartu KRS", icon: FileSpreadsheet },
       { href: "/dashboard/ujian", label: "Kartu Ujian", icon: Award },
     ],
@@ -78,44 +82,49 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
 export function DashboardSidebar({
   nim,
   onItemClick,
+  showBrand = true,
+  hideHrefs = [],
 }: {
   nim?: string | null;
   onItemClick?: () => void;
+  /** Drawer mobile sudah punya header sendiri, jadi brand di sini disembunyikan. */
+  showBrand?: boolean;
+  /** Menu yang sudah ada di navbar bawah tidak perlu diulang di drawer "Lainnya". */
+  hideHrefs?: string[];
 }) {
   const pathname = usePathname();
+  const groups = DASHBOARD_NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => !hideHrefs.includes(item.href)),
+  })).filter((group) => group.items.length > 0);
+  const { logout, busy } = useLogout();
 
   return (
-    <aside className="flex flex-col h-full bg-white border-r-2 border-px-soft">
-      {/* Brand Header */}
-      <div className="flex h-16 items-center px-5 border-b-2 border-px-soft">
-        <Link
-          href="/dashboard"
-          onClick={onItemClick}
-          className="flex items-center gap-3 group"
-        >
-          <span className="px-frame flex h-9 w-9 items-center justify-center overflow-hidden bg-white [--px-line:#CFE2EE]">
-            <Monogram className="w-7 h-7 transition-transform duration-200 group-hover:scale-110" />
-          </span>
-          <div className="flex flex-col">
-            <span className="font-display font-bold text-base tracking-tight text-foreground">
-              Mira
+    <aside className="flex h-full flex-col bg-white lg:border-r-2 lg:border-px-soft">
+      {showBrand && (
+        <div className="flex h-16 shrink-0 items-center border-b-2 border-px-soft px-4">
+          <Link href="/dashboard" onClick={onItemClick} className="group flex items-center gap-2.5">
+            <span className="px-frame flex h-9 w-9 items-center justify-center overflow-hidden bg-white [--px-line:#CFE2EE]">
+              <Monogram className="h-7 w-7 transition-transform duration-200 group-hover:scale-110" />
             </span>
-          </div>
-        </Link>
-      </div>
+            <span className="flex flex-col">
+              <span className="font-display text-base font-bold leading-none tracking-tight text-foreground">Mira</span>
+              <span className="mt-1 font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-[#0369A1]">Muara AI</span>
+            </span>
+          </Link>
+        </div>
+      )}
 
-      {/* Nav List with Custom Scrollbar */}
-      <nav
-        aria-label="Navigasi sidebar utama"
-        className="scroll-slim flex-1 overflow-y-auto px-3 py-4 space-y-6"
-      >
-        {DASHBOARD_NAV_GROUPS.map((group) => (
+      <nav aria-label="Navigasi sidebar utama" className="scroll-slim flex-1 space-y-3 overflow-y-auto px-3 py-3">
+        {groups.map((group) => (
           <div key={group.title}>
-            <p className="flex items-center gap-2 px-3 mb-2 text-[10px] font-mono uppercase tracking-[0.18em] text-secondary font-bold">
-              <span className="h-1.5 w-1.5 bg-px-water" aria-hidden="true" />
-              {group.title}
-            </p>
-            <ul className="space-y-1">
+            {group.items.length > 1 && (
+              <p className="mb-0.5 flex items-center gap-2 px-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-secondary/80">
+                <span className="h-1.5 w-1.5 bg-px-water" aria-hidden="true" />
+                {group.title}
+              </p>
+            )}
+            <ul className="space-y-px">
               {group.items.map(({ href, label, icon: Icon, exact, badge }) => {
                 const active = exact ? pathname === href : pathname.startsWith(href);
                 return (
@@ -124,27 +133,16 @@ export function DashboardSidebar({
                       href={href}
                       onClick={onItemClick}
                       aria-current={active ? "page" : undefined}
-                      className={`flex min-h-11 lg:min-h-10 items-center justify-between gap-2.5 px-3 py-2 font-mono text-xs font-medium transition-[background-color,color,box-shadow] duration-200 ${
+                      className={`flex min-h-11 items-center gap-2.5 px-2.5 font-mono text-xs transition-[background-color,color,box-shadow] duration-200 lg:min-h-8 ${
                         active
-                          ? "bg-px-highlight text-foreground font-semibold shadow-[inset_3px_0_0_#0369A1]"
-                          : "text-secondary hover:text-foreground hover:bg-[#F0F7FB] hover:shadow-[inset_3px_0_0_#9CC6E0]"
+                          ? "bg-px-highlight font-semibold text-foreground shadow-[inset_3px_0_0_#0369A1]"
+                          : "font-medium text-secondary hover:bg-[#F0F7FB] hover:text-foreground hover:shadow-[inset_3px_0_0_#9CC6E0]"
                       }`}
                     >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <Icon
-                          className={`w-4 h-4 shrink-0 ${
-                            active ? "text-[#0369A1]" : "text-secondary"
-                          }`}
-                          aria-hidden="true"
-                        />
-                        <span className="truncate">{label}</span>
-                      </div>
+                      <Icon className={`h-4 w-4 shrink-0 ${active ? "text-[#0369A1]" : "text-secondary"}`} aria-hidden="true" />
+                      <span className="truncate">{label}</span>
                       {badge && (
-                        <span
-                          className="px-chip text-[10px] font-mono px-1.5 py-0.5 bg-white text-[#0369A1]"
-                        >
-                          {badge}
-                        </span>
+                        <span className="px-chip ml-auto bg-white px-1.5 py-0.5 font-mono text-[10px] text-[#0369A1]">{badge}</span>
                       )}
                     </Link>
                   </li>
@@ -155,27 +153,34 @@ export function DashboardSidebar({
         ))}
       </nav>
 
-      {/* Footer Info */}
-      <div className="p-4 border-t-2 border-dashed border-px-soft">
-        <div className="px-frame bg-surface-alt p-3 [--px-line:#CFE2EE]">
-        <div className="flex items-center justify-between text-xs">
-          <div className="flex flex-col min-w-0">
-            <span className="flex items-center gap-1.5 text-[10px] font-mono uppercase text-secondary font-bold">
-              <span className="h-1.5 w-1.5 bg-[#0F766E]" aria-hidden="true" />
-              Mahasiswa
-            </span>
-            <span className="font-mono font-semibold text-foreground truncate">
-              {nim ?? "-"}
-            </span>
-          </div>
+      <div className="shrink-0 border-t-2 border-px-soft p-3">
+        <div className="flex items-center gap-2.5">
           <Link
             href="/dashboard/sesi"
             onClick={onItemClick}
-            className="text-[11px] font-semibold text-[#0369A1] hover:underline shrink-0"
+            className="group flex min-h-11 min-w-0 flex-1 items-center gap-2.5 px-2 py-1.5 transition-colors hover:bg-[#F0F7FB]"
           >
-            Info Sesi
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center bg-[#072033] font-mono text-[11px] font-bold text-white shadow-[2px_2px_0_0_#0369A1]">
+              {(nim ?? "").slice(-2) || "--"}
+            </span>
+            <span className="flex min-w-0 flex-col">
+              <span className="flex items-center gap-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-secondary">
+                <span className="h-1.5 w-1.5 bg-[#0F766E]" aria-hidden="true" />
+                Mahasiswa
+              </span>
+              <span className="truncate font-mono text-xs font-semibold text-foreground group-hover:text-[#0369A1]">{nim ?? "-"}</span>
+            </span>
           </Link>
-        </div>
+          <button
+            type="button"
+            onClick={() => logout("device")}
+            disabled={busy !== null}
+            aria-label="Keluar dari Mira"
+            title="Keluar"
+            className="px-frame flex h-11 w-11 shrink-0 items-center justify-center bg-white text-[#BE123C] [--px-line:#FDA4AF] hover:bg-[#FFF1F2] disabled:opacity-60"
+          >
+            <LogOut className="h-4 w-4" aria-hidden="true" />
+          </button>
         </div>
       </div>
     </aside>

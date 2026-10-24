@@ -25,6 +25,7 @@ import {
   inputClass,
   primaryButtonClass,
 } from "@/components/dashboard-ui";
+import { useDialog } from "@/components/ConfirmDialog";
 
 interface ApiKeyItem {
   id: number;
@@ -105,6 +106,7 @@ Catat aturan dan kapabilitas Mira Academic OS ini ke dalam file panduan context 
 Setelah terpasang, konfirmasikan bahwa koneksi MCP sudah siap dan bantu saya memeriksa jadwal kuliah atau tugas hari ini.`;
 
 export default function ApiKeysPage() {
+  const { confirm, notify } = useDialog();
   const { data, loading, error, reload } = useApi<{ keys: ApiKeyItem[]; total: number }>(
     "/v1/auth/keys"
   );
@@ -171,9 +173,13 @@ export default function ApiKeysPage() {
   }
 
   async function handleRevoke(id: number) {
-    if (!window.confirm("Cabut (revoke) API Key ini? Script/bot yang menggunakan key ini tidak akan dapat mengakses API lagi.")) {
-      return;
-    }
+    const ok = await confirm({
+      title: "Cabut API Key ini?",
+      message: "Script atau bot yang memakai key ini langsung kehilangan akses ke API. Tindakan ini tidak bisa dibatalkan.",
+      confirmLabel: "Cabut key",
+      tone: "danger",
+    });
+    if (!ok) return;
 
     setRevokingId(id);
     try {
@@ -181,7 +187,7 @@ export default function ApiKeysPage() {
       clearApiCache("/v1/auth/keys");
       reload();
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : "Gagal mencabut API Key.");
+      notify(err instanceof ApiError ? err.message : "Gagal mencabut API Key.");
     } finally {
       setRevokingId(null);
     }
