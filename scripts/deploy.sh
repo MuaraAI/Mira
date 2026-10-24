@@ -30,13 +30,14 @@ rsync -avz --delete \
     ./ "${VPS_HOST}:${REMOTE_DIR}/"
 
 # Sync .env if present locally and absent remotely
-if [ -f .env ]; then
-    echo "Syncing .env to VPS..."
+if [ -f .env ] && ! ssh "${VPS_HOST}" "test -f '${REMOTE_DIR}/.env'"; then
+    echo "Syncing .env to VPS (initial setup)..."
     rsync -avz .env "${VPS_HOST}:${REMOTE_DIR}/.env"
     ssh "${VPS_HOST}" "chmod 600 '${REMOTE_DIR}/.env'"
 fi
 
 echo "=== 4. Setting up Python venv & installing dependencies on VPS ==="
+RELEASE_STAMP="$(git rev-parse --short HEAD 2>/dev/null || echo unknown) $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ssh "${VPS_HOST}" "
     if [ ! -d '${REMOTE_VENV}' ]; then
         echo 'Creating virtualenv with Python 3.12 via uv...'
@@ -44,14 +45,12 @@ ssh "${VPS_HOST}" "
     fi
     echo 'Installing / updating requirements...'
     uv pip install --python '${REMOTE_VENV}/bin/python' -r '${REMOTE_DIR}/requirements.txt'
-    printf '%s\n' "$(git rev-parse --short HEAD 2>/dev/null || echo unknown) $(date -u +%Y-%m-%dT%H:%M:%SZ)" > '${REMOTE_DIR}/RELEASE'
+    printf '%s\n' '${RELEASE_STAMP}' > '${REMOTE_DIR}/RELEASE'
 "
 
 echo "=== 5. Installing log rotation and restarting service with PM2 ==="
-scp -q templates/ubsi-api-logrotate "${VPS_HOST}:/tmp/ubsi-api-logrotate"
 ssh "${VPS_HOST}" "
-    sudo install -m 644 /tmp/ubsi-api-logrotate /etc/logrotate.d/ubsi-api
-    rm -f /tmp/ubsi-api-logrotate
+    sudo install -m 644 '${REMOTE_DIR}/templates/ubsi-api-logrotate' /etc/logrotate.d/ubsi-api
     sudo logrotate -d /etc/logrotate.d/ubsi-api >/dev/null
     cd '${REMOTE_DIR}'
     pm2 startOrReload ecosystem.config.cjs 2>/dev/null || pm2 start ecosystem.config.cjs

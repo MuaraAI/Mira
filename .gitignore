@@ -16,3 +16,10 @@ docs/prd/
 audit-artifacts/
 .worktrees/
 /example/
+*.db
+*.sqlite
+*.sqlite3
+*.sqlite*
+*.pem
+*.key
+RELEASE

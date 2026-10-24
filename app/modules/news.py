@@ -431,7 +431,7 @@ async def dispatch_webhook_notification(
     post: dict[str, Any], webhook_url: str, event: str = "news.published"
 ) -> bool:
     """Kirim generic JSON payload ke custom webhook URL."""
-    if not is_safe_webhook_url(webhook_url):
+    if not await asyncio.to_thread(is_safe_webhook_url, webhook_url):
         logger.warning("Unsafe custom webhook URL blocked at dispatch: %s", webhook_url)
         return False
     payload = {
@@ -440,7 +440,7 @@ async def dispatch_webhook_notification(
         "data": post,
     }
     try:
-        async with httpx.AsyncClient(timeout=8.0) as client:
+        async with httpx.AsyncClient(timeout=8.0, follow_redirects=False) as client:
             res = await client.post(webhook_url, json=payload)
             return res.is_success
     except Exception:
@@ -707,7 +707,7 @@ async def test_news_webhook(
             )
         )
 
-    if target_url and not is_safe_webhook_url(target_url):
+    if target_url and not await asyncio.to_thread(is_safe_webhook_url, target_url):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=error_response(

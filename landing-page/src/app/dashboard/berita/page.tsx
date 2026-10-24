@@ -12,6 +12,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useApi } from "@/lib/api";
+import { safeExternalHref } from "@/lib/links";
 import {
   EmptyState,
   ErrorState,
@@ -145,7 +146,7 @@ export default function BeritaPage() {
               {news.map((item) => (
                 <li key={item.id}>
                   <a
-                    href={item.link}
+                    href={safeExternalHref(item.link) || "#"}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="glass-card block p-5 sm:p-6 hover:border-[#0369A1]/40 transition-all hover:bg-[#F0F7FB]/40"
@@ -203,7 +204,7 @@ export default function BeritaPage() {
                   </div>
 
                   <a
-                    href={item.pdf_url}
+                    href={safeExternalHref(item.pdf_url) || "#"}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex min-h-[38px] items-center gap-1.5 px-4 py-2 rounded-pill bg-[#0369A1] hover:bg-[#075985] text-white text-xs font-bold transition-all shrink-0 self-start sm:self-center"
@@ -237,9 +238,9 @@ export default function BeritaPage() {
                 </p>
               </div>
 
-              {calendar?.pdf_url ? (
+              {calendar?.pdf_url && safeExternalHref(calendar.pdf_url) ? (
                 <a
-                  href={calendar.pdf_url}
+                  href={safeExternalHref(calendar.pdf_url)!}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-pill bg-[#0F766E] hover:bg-[#115E59] text-white text-xs font-bold shadow-sm transition-all shrink-0"

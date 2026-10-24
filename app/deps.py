@@ -20,8 +20,17 @@ def require_studentv2_creds(
         if nim and pwd:
             return str(nim), str(pwd)
 
-    # Tier 2: Manual Developer Header Override (untuk pengujian & otomasi)
-    if request is not None and hasattr(request, "headers"):
+    # Tier 2: Manual Developer Header Override (hanya untuk Master Key atau direct test harness)
+    allow_header_override = (
+        request is not None
+        and hasattr(request, "headers")
+        and (
+            not hasattr(request, "state")
+            or not getattr(request.state, "_auth_ran", False)
+            or getattr(request.state, "is_master", False)
+        )
+    )
+    if allow_header_override:
         h_nim = request.headers.get("x-studentv2-nim") or request.headers.get("x-nim")
         h_pass = request.headers.get("x-studentv2-pass") or request.headers.get("x-pass")
         if h_nim and h_pass:
@@ -52,8 +61,17 @@ def require_elearning_creds(
         if nim and pwd:
             return str(nim), str(pwd)
 
-    # Tier 2: Manual Developer Header Override (untuk pengujian & otomasi)
-    if request is not None and hasattr(request, "headers"):
+    # Tier 2: Manual Developer Header Override (hanya untuk Master Key atau direct test harness)
+    allow_header_override = (
+        request is not None
+        and hasattr(request, "headers")
+        and (
+            not hasattr(request, "state")
+            or not getattr(request.state, "_auth_ran", False)
+            or getattr(request.state, "is_master", False)
+        )
+    )
+    if allow_header_override:
         h_nim = request.headers.get("x-elearning-nim") or request.headers.get("x-nim")
         h_pass = request.headers.get("x-elearning-pass") or request.headers.get("x-pass")
         if h_nim and h_pass:

@@ -141,6 +141,27 @@ app.include_router(pwa_push_router)
 app.include_router(links_router)
 app.include_router(stats_router)
 
+async def _reject_auth_failure(request: Request, code: str, message: str) -> JSONResponse:
+    client_ip = extract_client_ip(request)
+    if not await limiter.is_allowed(f"auth_fail:{client_ip}", limit=20):
+        return JSONResponse(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            content=error_response(
+                code="RATE_LIMIT_EXCEEDED",
+                message="Terlalu banyak percobaan autentikasi gagal. Coba lagi beberapa saat.",
+                module="limiter",
+            ),
+        )
+    return JSONResponse(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        content=error_response(
+            code=code,
+            message=message,
+            module="auth",
+        ),
+    )
+
+
 @app.middleware("http")
 async def api_key_auth_middleware(request: Request, call_next):
     if getattr(request.state, "_auth_ran", False):
@@ -182,13 +203,10 @@ async def api_key_auth_middleware(request: Request, call_next):
             request.state.elearning_pass = key_data["elearning_pass"]
             request.state.auth_type = "api_key"
             return await call_next(request)
-        return JSONResponse(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            content=error_response(
-                code="UNAUTHORIZED",
-                message="Akses ditolak: API Key tidak valid atau telah dinonaktifkan.",
-                module="auth",
-            ),
+        return await _reject_auth_failure(
+            request,
+            code="UNAUTHORIZED",
+            message="Akses ditolak: API Key tidak valid atau telah dinonaktifkan.",
         )
 
     # 3c. Session token (dashboard login BSI): Authorization Bearer ATAU cookie
@@ -218,8 +236,8 @@ async def api_key_auth_middleware(request: Request, call_next):
     allowed_set.add("https://ubsi-api.muaraai.com")
     is_dashboard_request = (
         request.headers.get("x-requested-with") == "dashboard"
-        or (origin and (origin in allowed_set or "*" in settings.ALLOWED_ORIGINS))
-        or (referer_origin and (referer_origin in allowed_set or "*" in settings.ALLOWED_ORIGINS))
+        or (origin and origin in allowed_set)
+        or (referer_origin and referer_origin in allowed_set)
     )
     effective_cookie_token = cookie_token if is_dashboard_request else ""
 
@@ -230,30 +248,24 @@ async def api_key_auth_middleware(request: Request, call_next):
         session_data = await session_store.resolve(session_token)
         if session_data:
             request.state.is_master = False
-            request.state.key_id = "session:" + session_token[:8]
+            request.state.key_id = f"session:{session_data['nim']}"
             request.state.nim = session_data["nim"]
             request.state.elearning_pass = session_data["elearning_pass"]
             request.state.studentv2_pass = session_data["studentv2_pass"]
             request.state.auth_type = "session"
             return await call_next(request)
-        return JSONResponse(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            content=error_response(
-                code="SESSION_EXPIRED",
-                message="Session kedaluwarsa. Silakan login kembali.",
-                module="auth",
-            ),
+        return await _reject_auth_failure(
+            request,
+            code="SESSION_EXPIRED",
+            message="Session kedaluwarsa. Silakan login kembali.",
         )
 
     # 3d. Master Key check via X-API-Key
     if not api_key:
-        return JSONResponse(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            content=error_response(
-                code="UNAUTHORIZED",
-                message="Akses ditolak: Header X-API-Key atau Authorization Bearer tidak valid",
-                module="auth",
-            ),
+        return await _reject_auth_failure(
+            request,
+            code="UNAUTHORIZED",
+            message="Akses ditolak: Header X-API-Key atau Authorization Bearer tidak valid",
         )
 
     configured_key = settings.API_KEY
@@ -263,13 +275,10 @@ async def api_key_auth_middleware(request: Request, call_next):
         request.state.auth_type = "master"
         return await call_next(request)
 
-    return JSONResponse(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        content=error_response(
-            code="UNAUTHORIZED",
-            message="Akses ditolak: Header X-API-Key tidak valid atau tidak disertakan",
-            module="auth",
-        ),
+    return await _reject_auth_failure(
+        request,
+        code="UNAUTHORIZED",
+        message="Akses ditolak: Header X-API-Key tidak valid atau tidak disertakan",
     )
 
 @app.middleware("http")
@@ -280,7 +289,12 @@ async def rate_limiting_middleware(request: Request, call_next):
             return await call_next(authorized_request)
         client_key = getattr(authorized_request.state, "key_id", None)
         is_write_route = authorized_request.method in {"POST", "PUT", "PATCH", "DELETE"} and (
-            "/elearning/presence" in path or "/elearning/assignments/" in path
+            "/elearning/presence" in path
+            or "/elearning/assignments/" in path
+            or "/elearning/quiz/answer" in path
+            or "/elearning/discussions" in path
+            or path.endswith("/test")
+            or path.endswith("/trigger-reminder")
         )
         if is_write_route:
             rate_identifier = f"write:{client_key or extract_client_ip(authorized_request)}"
@@ -297,8 +311,6 @@ async def rate_limiting_middleware(request: Request, call_next):
             return await call_next(authorized_request)
 
         rate_identifier = f"key:{client_key}" if client_key else extract_client_ip(authorized_request)
-        module = authorized_request.url.path.split("/")[2] if authorized_request.url.path.startswith("/v1/") else "other"
-        await record_request(module, getattr(authorized_request.state, "nim", None))
         if not await limiter.is_allowed(rate_identifier):
             return JSONResponse(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -308,6 +320,8 @@ async def rate_limiting_middleware(request: Request, call_next):
                     module="limiter",
                 ),
             )
+        module = authorized_request.url.path.split("/")[2] if authorized_request.url.path.startswith("/v1/") else "other"
+        await record_request(module, getattr(authorized_request.state, "nim", None))
         return await call_next(authorized_request)
 
     # Auth must resolve request.state before rate-limit identity/bypass checks.

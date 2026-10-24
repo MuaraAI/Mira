@@ -168,7 +168,7 @@ async def create_api_key(
     # Cache terenkripsi ke Redis agar lookup otentikasi super cepat (sub-1ms) tanpa plaintext leak
     try:
         client = await cache.get_client()
-        redis_key = f"ubsi:apikey:{res['...']}"
+        redis_key = f"ubsi:apikey:{res['key_hash']}"
         cache_data = json.dumps(
             {
                 "nim": res["nim"],

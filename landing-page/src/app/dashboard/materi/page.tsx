@@ -24,6 +24,7 @@ import { resolveDosen } from "@/lib/courses";
 import { DosenInfo } from "@/components/DosenInfo";
 import { FilePreviewSheet } from "@/components/FilePreviewSheet";
 import { preloadPdfjs } from "@/lib/pdf";
+import { safeExternalHref } from "@/lib/links";
 import { useDialog } from "@/components/ConfirmDialog";
 
 interface CourseItem {
@@ -297,7 +298,7 @@ export default function MateriPage() {
                     </span>
                   ) : (
                     <a
-                      href={m.file_url}
+                      href={safeExternalHref(m.file_url) || "#"}
                       target="_blank"
                       rel="noopener noreferrer"
                       aria-label={`Buka ${m.judul}`}

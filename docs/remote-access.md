@@ -24,8 +24,8 @@ Tempelkan ke berkas `.env`:
 # 1. Kunci akses utama (Wajib diisi di produksi)
 API_KEY=ubsi_sec_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
-# 2. Kebijakan Browser / CORS (Default: * — semua origin diizinkan)
-ALLOWED_ORIGINS=*
+# 2. Kebijakan Browser / CORS (Wajib daftar origin eksplisit, dilarang '*')
+ALLOWED_ORIGINS=https://mira.muaraai.com,https://ubsi-api.muaraai.com,http://localhost:3000
 
 # 3. IP Proxy Terpercaya untuk Real Client IP (Default: 127.0.0.1)
 TRUSTED_PROXIES=127.0.0.1
@@ -34,15 +34,14 @@ TRUSTED_PROXIES=127.0.0.1
 ### Rincian Fungsi Variabel:
 
 1. **`API_KEY` (Mandatory Authentication)**:
-   - Kunci gerbang utama. Semua endpoint non-health (`/v1/*`, `/metrics`, dll.) wajib menyertakan header `X-API-Key`.
+   - Kunci gerbang utama. Semua endpoint non-health (`/v1/*`, `/metrics`, dll.) wajib menyertakan header `X-API-Key` atau `Authorization: Bearer`.
    - UBSI API menerapkan *fail-fast startup*: jika `API_KEY` belum disetel di `.env`, aplikasi menolak berjalan demi mencegah kebocoran data pribadi ke publik.
 
 2. **`ALLOWED_ORIGINS` (Izin Browser / CORS Policy)**:
-   - Mengatur website atau dashboard frontend mana saja yang diizinkan memanggil API ini lewat JavaScript di browser.
-   - Nilai `*` (*wildcard*, default): Memungkinkan frontend web dari domain apa pun memanggil API. Tetap aman karena setiap request tetap harus menyertakan `X-API-Key` yang valid.
-   - Nilai spesifik: Jika ingin mengunci hanya untuk website dashboard tertentu, masukkan URL asal dipisahkan koma, contoh:
+   - Mengatur website atau dashboard frontend mana saja yang diizinkan memanggil API ini lewat JavaScript di browser dan menggunakan sesi cookie terotentikasi.
+   - **Penting:** Jangan gunakan `*` (*wildcard*). Selalu daftarkan domain frontend secara eksplisit dipisahkan koma, contoh:
      ```bash
-     ALLOWED_ORIGINS=https://dashboard.example.com,http://localhost:3000
+     ALLOWED_ORIGINS=https://mira.muaraai.com,http://localhost:3000
      ```
 
 3. **`TRUSTED_PROXIES` (Pencegahan Spoofing Real Client IP)**:

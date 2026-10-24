@@ -107,7 +107,11 @@ def _sync_add(nim: str, endpoint: str, p256dh: str, auth: str, device_name: str)
             "auth = excluded.auth, device_name = excluded.device_name, is_active = 1, last_used_at = datetime('now')",
             (nim, endpoint, p256dh, auth, device_name),
         )
-        new_id = int(cursor.lastrowid) if cursor.lastrowid is not None else 0
+        row = conn.execute(
+            "SELECT id FROM pwa_push_subscriptions WHERE endpoint = ?",
+            (endpoint,),
+        ).fetchone()
+        new_id = int(row["id"]) if row else (int(cursor.lastrowid) if cursor.lastrowid is not None else 0)
 
         # Seed kategori default HANYA untuk NIM yang belum punya preferensi sama sekali:
         # subscribe ulang tidak boleh menghidupkan kembali kategori yang dimatikan user.
@@ -152,7 +156,9 @@ async def add_subscription(nim: str, endpoint: str, p256dh: str, auth: str, devi
     return await run_in_threadpool(_sync_add, nim, endpoint, p256dh, auth, device_name)
 
 
-def _sync_list(nim: str, active_only: bool = False) -> list[dict[str, Any]]:
+def _sync_list(nim: str, active_only: bool = False, mask_endpoint: bool = False) -> list[dict[str, Any]]:
+    from app.channels_db import _mask_secret
+
     conn = _connect()
     try:
         query = "SELECT id, nim, endpoint, device_name, is_active, created_at FROM pwa_push_subscriptions WHERE nim = ?"
@@ -164,7 +170,7 @@ def _sync_list(nim: str, active_only: bool = False) -> list[dict[str, Any]]:
             {
                 "id": r["id"],
                 "device_name": r["device_name"],
-                "endpoint": r["endpoint"],
+                "endpoint": _mask_secret(r["endpoint"], 8, 6) if mask_endpoint else r["endpoint"],
                 "is_active": bool(r["is_active"]),
                 "created_at": r["created_at"],
             }
@@ -174,8 +180,10 @@ def _sync_list(nim: str, active_only: bool = False) -> list[dict[str, Any]]:
         conn.close()
 
 
-async def list_subscriptions(nim: str, active_only: bool = False) -> list[dict[str, Any]]:
-    return await run_in_threadpool(_sync_list, nim, active_only)
+async def list_subscriptions(
+    nim: str, active_only: bool = False, mask_endpoint: bool = False
+) -> list[dict[str, Any]]:
+    return await run_in_threadpool(_sync_list, nim, active_only, mask_endpoint)
 
 
 def _sync_remove(nim: str, device_id: int) -> bool:

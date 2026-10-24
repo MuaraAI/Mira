@@ -666,16 +666,17 @@ async def get_certificates(creds: tuple[str, str] = Depends(require_studentv2_cr
 
 @router.get("/lecturers")
 async def get_lecturers(
-    search: Optional[str] = Query(default=None, description="Pencarian kode atau nama dosen"),
+    search: Optional[str] = Query(default=None, max_length=100, description="Pencarian kode atau nama dosen"),
     creds: tuple[str, str] = Depends(require_studentv2_creds),
 ):
     """Direktori seluruh dosen BSI beserta kode inisial dosen."""
     nim, password = creds
+    norm_search = (search or "").strip()[:100]
     return await cached_endpoint(
         module="studentv2",
         name="lecturers",
         fetch=lambda: studentv2_client.fetch_page("/mahasiswa/jadwal-mengajar", nim, password),
-        parse=lambda html: parse_lecturers(html, search=search),
+        parse=lambda html: parse_lecturers(html, search=norm_search or None),
         ttl=settings.TTL_LIBRARY,
-        cache_params={"search": search or ""},
+        cache_params={"nim": nim, "search": norm_search},
     )

@@ -2024,11 +2024,11 @@ async def post_quiz_answer(
 # Assignment File Upload & Download Operations
 
 def is_safe_bsi_storage_url(url_str: str) -> bool:
-    """Validasi URL file agar hanya mengunduh dari storage resmi kampus BSI (anti-SSRF)."""
+    """Validasi URL file agar hanya mengunduh dari storage resmi kampus BSI via HTTPS (anti-SSRF)."""
     import urllib.parse
     try:
         p = urllib.parse.urlparse(url_str)
-        if p.scheme not in ("http", "https"):
+        if p.scheme != "https":
             return False
         hostname = (p.hostname or "").lower()
         if hostname not in ("elearning.bsi.ac.id", "students.bsi.ac.id", "news.bsi.ac.id", "repository.bsi.ac.id"):
@@ -2038,6 +2038,11 @@ def is_safe_bsi_storage_url(url_str: str) -> bool:
         return not p.query and not p.fragment
     except Exception:
         return False
+
+
+def _safe_header_filename(raw: Optional[str], fallback: str) -> str:
+    cleaned = re.sub(r'[\x00-\x1f\x7f"\\]+', "_", (raw or "").strip())
+    return cleaned[:180] or fallback
 
 
 async def submit_assignment_file(
@@ -2213,7 +2218,7 @@ async def _fetch_assignment_file(
                     module="elearning",
                 ),
             )
-        filename = file or "soal_tugas.pdf"
+        filename = _safe_header_filename(file, "soal_tugas.pdf")
         content_type = resp.headers.get("content-type", "application/pdf")
         return Response(
             content=resp.content,
@@ -2221,6 +2226,7 @@ async def _fetch_assignment_file(
             headers={
                 "Content-Disposition": f'attachment; filename="{filename}"',
                 "Access-Control-Expose-Headers": "Content-Disposition",
+                "X-Content-Type-Options": "nosniff",
             },
         )
 
@@ -2259,7 +2265,7 @@ async def _fetch_assignment_file(
                         module="elearning",
                     ),
                 )
-            filename = p_file or "soal_tugas.pdf"
+            filename = _safe_header_filename(p_file, "soal_tugas.pdf")
             content_type = resp.headers.get("content-type", "application/pdf")
             return Response(
                 content=resp.content,
@@ -2267,6 +2273,7 @@ async def _fetch_assignment_file(
                 headers={
                     "Content-Disposition": f'attachment; filename="{filename}"',
                     "Access-Control-Expose-Headers": "Content-Disposition",
+                    "X-Content-Type-Options": "nosniff",
                 },
             )
 
@@ -2291,7 +2298,7 @@ async def _fetch_assignment_file(
                     module="elearning",
                 ),
             )
-        filename = file_url.rstrip("/").split("/")[-1] or "berkas_tugas.pdf"
+        filename = _safe_header_filename(file_url.rstrip("/").split("/")[-1], "berkas_tugas.pdf")
         content_type = resp.headers.get("content-type", "application/octet-stream")
         return Response(
             content=resp.content,
@@ -2299,6 +2306,7 @@ async def _fetch_assignment_file(
             headers={
                 "Content-Disposition": f'attachment; filename="{filename}"',
                 "Access-Control-Expose-Headers": "Content-Disposition",
+                "X-Content-Type-Options": "nosniff",
             },
         )
     except HTTPException:
@@ -2351,7 +2359,7 @@ async def _fetch_material_file(
                     module="elearning",
                 ),
             )
-        filename = file or "materi_kuliah.pdf"
+        filename = _safe_header_filename(file, "materi_kuliah.pdf")
         content_type = resp.headers.get("content-type", "application/pdf")
         return Response(
             content=resp.content,
@@ -2359,6 +2367,7 @@ async def _fetch_material_file(
             headers={
                 "Content-Disposition": f'attachment; filename="{filename}"',
                 "Access-Control-Expose-Headers": "Content-Disposition",
+                "X-Content-Type-Options": "nosniff",
             },
         )
 
@@ -2389,7 +2398,7 @@ async def _fetch_material_file(
                 password=password,
             )
             if resp.status_code == 200:
-                filename = p_file or "materi_kuliah.pdf"
+                filename = _safe_header_filename(p_file, "materi_kuliah.pdf")
                 content_type = resp.headers.get("content-type", "application/pdf")
                 return Response(
                     content=resp.content,
@@ -2397,6 +2406,7 @@ async def _fetch_material_file(
                     headers={
                         "Content-Disposition": f'attachment; filename="{filename}"',
                         "Access-Control-Expose-Headers": "Content-Disposition",
+                        "X-Content-Type-Options": "nosniff",
                     },
                 )
 
@@ -2421,7 +2431,7 @@ async def _fetch_material_file(
                     module="elearning",
                 ),
             )
-        filename = file_url.rstrip("/").split("/")[-1] or "materi_kuliah.zip"
+        filename = _safe_header_filename(file_url.rstrip("/").split("/")[-1], "materi_kuliah.zip")
         content_type = resp.headers.get("content-type", "application/octet-stream")
         return Response(
             content=resp.content,
@@ -2429,6 +2439,7 @@ async def _fetch_material_file(
             headers={
                 "Content-Disposition": f'attachment; filename="{filename}"',
                 "Access-Control-Expose-Headers": "Content-Disposition",
+                "X-Content-Type-Options": "nosniff",
             },
         )
     except HTTPException:

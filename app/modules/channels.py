@@ -64,7 +64,9 @@ async def create_channel(request: Request, body: ChannelRequest):
     categories = body.categories
     config = body.config
 
-    valid, error_message = validate_channel_payload(channel_type, categories, config)
+    valid, error_message = await asyncio.to_thread(
+        validate_channel_payload, channel_type, categories, config
+    )
     if not valid:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
