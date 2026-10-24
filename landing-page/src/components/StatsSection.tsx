@@ -77,15 +77,53 @@ function StatCard({ label, value, live = false }: { label: string; value: number
   );
 }
 
-/** Section "Mira dalam Angka": statistik realtime dari /v1/stats (refresh 15 detik saat tab terlihat). */
+const PEAK_KEY = "mira_stats_peak";
+
+/**
+ * Total all-time hanya boleh naik. Kalau server sempat mengirim angka lebih kecil
+ * (mis. backend lama yang menghitung dari data 30 hari), tampilkan angka tertinggi
+ * yang pernah terlihat di perangkat ini.
+ */
+function useMonotonic(name: string, value: number | undefined): number | undefined {
+  const [peak, setPeak] = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(PEAK_KEY) || "{}")[name];
+      if (typeof stored === "number") setPeak(stored);
+    } catch {
+      /* localStorage tidak tersedia: cukup pakai nilai sesi ini */
+    }
+  }, [name]);
+
+  useEffect(() => {
+    if (typeof value !== "number") return;
+    setPeak((prev) => {
+      const next = Math.max(prev ?? 0, value);
+      try {
+        const all = JSON.parse(localStorage.getItem(PEAK_KEY) || "{}");
+        localStorage.setItem(PEAK_KEY, JSON.stringify({ ...all, [name]: next }));
+      } catch {
+        /* abaikan */
+      }
+      return next;
+    });
+  }, [name, value]);
+
+  return typeof value === "number" ? Math.max(peak ?? 0, value) : peak;
+}
+
+/** Section "Statistik": statistik realtime dari /v1/stats (refresh 15 detik saat tab terlihat). */
 export function StatsSection() {
   const { data } = useApi<PublicStats>("/v1/stats", { refreshMs: 15_000, ttlMs: 15_000 });
+  const totalUsers = useMonotonic("users", data?.users?.total_all_time);
+  const totalRequests = useMonotonic("requests", data?.requests?.total_all_time);
 
   return (
     <section id="stats" className="border-b-2 border-px-soft bg-surface-alt/60 scroll-mt-28" aria-labelledby="stats-title">
       <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
         <h2 id="stats-title" className="font-display text-3xl font-bold leading-tight tracking-[-0.03em] text-foreground sm:text-4xl">
-          Mira dalam angka
+          Statistik
         </h2>
         <p className="mt-4 max-w-lg text-base leading-7 text-secondary">
           Statistik realtime langsung dari server, diperbarui otomatis. Nggak ada angka karangan.
@@ -93,9 +131,9 @@ export function StatsSection() {
 
         {data && (
           <dl className="mt-10 grid grid-cols-1 gap-6 min-[480px]:grid-cols-2 lg:grid-cols-4">
-            <StatCard label="Total pengguna" value={data.users?.total_all_time} />
+            <StatCard label="Total pengguna" value={totalUsers} />
             <StatCard label="Sedang online" value={data.users?.online_now} live />
-            <StatCard label="Total request" value={data.requests?.total_all_time} />
+            <StatCard label="Total request" value={totalRequests} />
             <StatCard label="Request 24 jam" value={data.requests?.total_24h} />
           </dl>
         )}

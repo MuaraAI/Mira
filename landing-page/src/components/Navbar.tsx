@@ -9,14 +9,14 @@ import { lockScroll } from "@/lib/scroll-lock";
 const NAV_LINKS = [
   { href: "#fitur", label: "Fitur" },
   { href: "#cara-pakai", label: "Cara Pakai" },
-  { href: "#stats", label: "Mira dalam Angka" },
+  { href: "#stats", label: "Statistik" },
   { href: "#faq", label: "FAQ" },
 ];
 
 const MOBILE_LINKS = [
   { href: "#fitur", label: "Fitur", external: false },
   { href: "#cara-pakai", label: "Cara Pakai", external: false },
-  { href: "#stats", label: "Mira dalam Angka", external: false },
+  { href: "#stats", label: "Statistik", external: false },
   { href: "#faq", label: "FAQ", external: false },
   { href: API_DOCS_URL, label: "API Docs", external: true },
   { href: GITHUB_URL, label: "GitHub", external: true },
