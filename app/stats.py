@@ -14,6 +14,20 @@ _PREFIX = "ubsi:stats:"
 _RETENTION_SECONDS = 35 * 86400
 # Pengguna dianggap online bila ada request dalam jendela ini (dashboard polling tiap 60 detik).
 _ONLINE_WINDOW_SECONDS = 5 * 60
+_ALLOWED_STAT_MODULES = frozenset({
+    "studentv2",
+    "elearning",
+    "elibrary",
+    "news",
+    "repository",
+    "ejournal",
+    "auth",
+    "channels",
+    "notifications",
+    "tools",
+    "stats",
+    "docs",
+})
 
 
 def _day(offset: int = 0) -> str:
@@ -26,13 +40,14 @@ def _identity(value: str) -> str:
 
 
 async def record_request(module: str, nim: str | None = None) -> None:
+    safe_module = module if module in _ALLOWED_STAT_MODULES else "other"
     day = _day()
     try:
         client = await cache.get_client()
         request_key = f"{_PREFIX}requests:{day}"
         await client.incr(request_key)
         await client.expire(request_key, _RETENTION_SECONDS)
-        module_key = f"{_PREFIX}requests:{module}:{day}"
+        module_key = f"{_PREFIX}requests:{safe_module}:{day}"
         await client.incr(module_key)
         await client.expire(module_key, _RETENTION_SECONDS)
         # Counter all-time permanen (tanpa expire): untuk total kumulatif publik.

@@ -159,6 +159,20 @@ async function doSubscribe(): Promise<SubscribeResult> {
   });
 }
 
+export function matchesPushEndpoint(maskedOrRaw: string, rawEndpoint: string): boolean {
+  if (!maskedOrRaw || !rawEndpoint) return false;
+  if (maskedOrRaw === rawEndpoint) return true;
+  if (maskedOrRaw.endsWith("/***")) {
+    const prefix = maskedOrRaw.slice(0, -3);
+    return rawEndpoint.startsWith(prefix);
+  }
+  const idx = maskedOrRaw.indexOf("...");
+  if (idx === -1) return false;
+  const prefix = maskedOrRaw.slice(0, idx);
+  const suffix = maskedOrRaw.slice(idx + 3);
+  return Boolean(prefix && suffix && rawEndpoint.startsWith(prefix) && rawEndpoint.endsWith(suffix));
+}
+
 export async function unsubscribeCurrentDevice(): Promise<boolean> {
   const subscription = await getExistingSubscription();
   if (!subscription) return false;
@@ -168,7 +182,7 @@ export async function unsubscribeCurrentDevice(): Promise<boolean> {
   const { devices } = await apiFetch<{
     devices: Array<{ id: number; endpoint: string }>;
   }>("/v1/notifications/pwa/devices");
-  const mine = devices.find((d) => d.endpoint === endpoint);
+  const mine = devices.find((d) => matchesPushEndpoint(d.endpoint, endpoint));
   if (mine) {
     await apiFetch(`/v1/notifications/pwa/devices/${mine.id}`, { method: "DELETE" });
   }

@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ApiError, apiFetch, clearApiCache } from "@/lib/api";
+import { ApiError, apiFetch, clearApiCache, clearSessionToken } from "@/lib/api";
 import { useDialog } from "@/components/ConfirmDialog";
 
 type Scope = "device" | "all";
@@ -33,7 +33,7 @@ export function useLogout() {
       setBusy(scope);
       try {
         await apiFetch(scope === "all" ? "/v1/auth/logout_all" : "/v1/auth/logout", { method: "POST" });
-        localStorage.removeItem("ubsi_session_token");
+        clearSessionToken();
         clearApiCache();
         router.replace("/login");
       } catch (err) {

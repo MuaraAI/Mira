@@ -33,15 +33,35 @@ interface EnvelopePayload {
   error?: { code?: string; message?: string };
 }
 
+function readSessionToken(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const token = sessionStorage.getItem("ubsi_session_token");
+    if (token) return token;
+    const legacy = localStorage.getItem("ubsi_session_token");
+    if (legacy) {
+      sessionStorage.setItem("ubsi_session_token", legacy);
+      localStorage.removeItem("ubsi_session_token");
+      return legacy;
+    }
+  } catch {}
+  return null;
+}
+
+export function clearSessionToken(): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.removeItem("ubsi_session_token");
+    localStorage.removeItem("ubsi_session_token");
+  } catch {}
+}
+
 export async function apiFetch<T>(
   path: string,
   init?: Omit<RequestInit, "body"> & { json?: unknown }
 ): Promise<T> {
   const base = getApiBase();
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("ubsi_session_token")
-      : null;
+  const token = readSessionToken();
   const { json, ...rest } = init ?? {};
   const method = rest.method ?? (json !== undefined ? "POST" : "GET");
   const request = () =>
@@ -106,20 +126,25 @@ export async function apiBlob(
   options?: { etag?: string | null }
 ): Promise<BlobResult> {
   const base = getApiBase();
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("ubsi_session_token")
-      : null;
+  const token = readSessionToken();
   const fullUrl = path.startsWith("http") ? path : `${base}${path}`;
+  let isTrustedOrigin = !path.startsWith("http");
+  if (path.startsWith("http")) {
+    try {
+      isTrustedOrigin = new URL(fullUrl).origin === new URL(base).origin;
+    } catch {
+      isTrustedOrigin = false;
+    }
+  }
 
   let res: Response;
   try {
     res = await fetch(fullUrl, {
       method: "GET",
-      credentials: "include",
+      credentials: isTrustedOrigin ? "include" : "omit",
       headers: {
-        "X-Requested-With": "dashboard",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(isTrustedOrigin ? { "X-Requested-With": "dashboard" } : {}),
+        ...(isTrustedOrigin && token ? { Authorization: `Bearer ${token}` } : {}),
         ...(options?.etag ? { "If-None-Match": options.etag } : {}),
       },
     });
@@ -329,9 +354,7 @@ export function useRequireSession() {
     // dan backend secara eksplisit mengembalikan 401 Unauthorized / 403 Forbidden.
     if (!loading && error && (error.status === 401 || error.status === 403)) {
       clearApiCache();
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("ubsi_session_token");
-      }
+      clearSessionToken();
       router.replace("/login");
     }
   }, [loading, error, router]);

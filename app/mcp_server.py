@@ -17,6 +17,7 @@ import httpx
 from mcp.server.mcpserver import Context, MCPServer
 
 _current_mcp_context: ContextVar[Optional[Context]] = ContextVar("_current_mcp_context", default=None)
+_active_transport: str = "stdio"
 
 
 
@@ -112,8 +113,13 @@ def _build_headers(
         session_token = session_token or cs
 
     headers: dict[str, str] = {"Content-Type": "application/json"}
-    k = api_key or os.getenv("MIRA_API_KEY") or os.getenv("UBSI_API_KEY", "")
-    s = session_token or os.getenv("MIRA_SESSION_TOKEN") or os.getenv("UBSI_SESSION_TOKEN", "")
+    allow_env_fallback = (_active_transport == "stdio" and ctx is None)
+    if allow_env_fallback:
+        k = api_key or os.getenv("MIRA_API_KEY") or os.getenv("UBSI_API_KEY", "")
+        s = session_token or os.getenv("MIRA_SESSION_TOKEN") or os.getenv("UBSI_SESSION_TOKEN", "")
+    else:
+        k = api_key or ""
+        s = session_token or ""
 
     # Abaikan literal template yang belum diekspansi (misal: ${MIRA_API_KEY} atau ${UBSI_API_KEY})
     if k.startswith("${") and k.endswith("}"):
@@ -748,6 +754,8 @@ def main():
     parser.add_argument("--port", type=int, default=8350)
     parser.add_argument("--path", default="/mcp")
     args = parser.parse_args()
+    global _active_transport
+    _active_transport = args.transport
 
     if args.transport == "streamable-http":
         from mcp.server.transport_security import TransportSecuritySettings

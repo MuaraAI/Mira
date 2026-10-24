@@ -81,7 +81,10 @@ self.addEventListener("pushsubscriptionchange", (event) => {
       // (biarkan kosong -> backend memakai "Browser" untuk upsert & dedup).
       await fetch(base + "/api/pwa-push-resubscribe", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Requested-With": "sw",
+        },
         body: JSON.stringify({ endpoint: raw.endpoint, keys: raw.keys }),
       }).catch(() => undefined);
     })(),
@@ -91,7 +94,13 @@ self.addEventListener("pushsubscriptionchange", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const target = event.notification.data && event.notification.data.url ? event.notification.data.url : "/dashboard";
-  const targetUrl = new URL(target, self.location.origin).href;
+  let targetUrl = new URL("/dashboard", self.location.origin).href;
+  try {
+    const parsed = new URL(target, self.location.origin);
+    if (parsed.origin === self.location.origin) {
+      targetUrl = parsed.href;
+    }
+  } catch {}
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
       // Utamakan tab yang SUDAH di halaman target: jangan reload tab lain

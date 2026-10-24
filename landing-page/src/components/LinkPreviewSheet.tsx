@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Check, Copy, ExternalLink, Loader2 } from "lucide-react";
-import type { LinkCheck } from "@/lib/links";
+import { safeExternalHref, type LinkCheck } from "@/lib/links";
 import { useRemoteFile } from "@/lib/remote-file";
 import { ImageView, PreviewSkeleton, SummaryView, UpdatedNotice } from "@/components/FilePreviewSheet";
 import { PdfViewer } from "@/components/PdfViewer";
@@ -66,7 +66,7 @@ export function LinkPreviewSheet({ check, onClose }: { check: LinkCheck; onClose
     src = null;
   }
   const isFolder = check.kind === "folder";
-  const openUrl = check.normalized_url || check.url;
+  const openUrl = safeExternalHref(check.normalized_url || check.url) || "#";
 
   // Google kadang membiarkan iframe kosong tanpa memberi kabar: tawarkan jalan keluar setelah beberapa detik.
   useEffect(() => {
@@ -161,7 +161,7 @@ export function LinkPreviewSheet({ check, onClose }: { check: LinkCheck; onClose
                     src={src}
                     onLoad={() => setLoaded(true)}
                     className="absolute inset-0 h-full w-full border-0"
-                    sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-forms"
+                    sandbox="allow-scripts allow-same-origin allow-popups"
                     allow="fullscreen; autoplay"
                     allowFullScreen
                     referrerPolicy="no-referrer"

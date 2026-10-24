@@ -318,7 +318,10 @@ export default function LoginPage() {
       mark({ mybest: "done", session: "running" });
 
       if (res?.token && typeof window !== "undefined") {
-        localStorage.setItem("ubsi_session_token", res.token);
+        try {
+          sessionStorage.setItem("ubsi_session_token", res.token);
+          localStorage.removeItem("ubsi_session_token");
+        } catch {}
       }
       // Prime cache /v1/auth/me seketika agar saat redirect ke /dashboard,
       // useRequireSession() langsung 0ms (authed = true) tanpa tunggu roundtrip network lagi.

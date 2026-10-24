@@ -15,6 +15,26 @@ export async function POST(request: NextRequest) {
       { status: 500 },
     );
   }
+  if (request.headers.get("x-requested-with") !== "sw") {
+    return NextResponse.json(
+      { success: false, error: { code: "FORBIDDEN", message: "Hanya diizinkan dari Service Worker internal" } },
+      { status: 403 },
+    );
+  }
+  const secFetchSite = request.headers.get("sec-fetch-site");
+  if (secFetchSite && secFetchSite !== "same-origin") {
+    return NextResponse.json(
+      { success: false, error: { code: "FORBIDDEN", message: "Permintaan lintas origin ditolak" } },
+      { status: 403 },
+    );
+  }
+  const originHeader = request.headers.get("origin");
+  if (originHeader && originHeader !== request.nextUrl.origin) {
+    return NextResponse.json(
+      { success: false, error: { code: "FORBIDDEN", message: "Origin tidak cocok" } },
+      { status: 403 },
+    );
+  }
   const cookie = request.headers.get("cookie") ?? "";
   if (!cookie.includes("ubsi_session=")) {
     return NextResponse.json(
@@ -31,6 +51,24 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
+  const payloadObj = typeof body === "object" && body !== null ? (body as Record<string, unknown>) : null;
+  const keysObj =
+    payloadObj && typeof payloadObj.keys === "object" && payloadObj.keys !== null
+      ? (payloadObj.keys as Record<string, unknown>)
+      : null;
+  if (
+    !payloadObj ||
+    typeof payloadObj.endpoint !== "string" ||
+    !payloadObj.endpoint.startsWith("https://") ||
+    !keysObj ||
+    typeof keysObj.p256dh !== "string" ||
+    typeof keysObj.auth !== "string"
+  ) {
+    return NextResponse.json(
+      { success: false, error: { code: "VALIDATION_ERROR", message: "Payload push subscription tidak valid" } },
+      { status: 400 },
+    );
+  }
 
   const upstream = await fetch(`${API_BASE}/v1/notifications/pwa/subscribe`, {
     method: "POST",
@@ -42,7 +80,10 @@ export async function POST(request: NextRequest) {
       Origin: request.nextUrl.origin || "https://mira.muaraai.com",
       Referer: `${request.nextUrl.origin || "https://mira.muaraai.com"}/dashboard/notifikasi`,
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      endpoint: payloadObj.endpoint,
+      keys: { p256dh: keysObj.p256dh, auth: keysObj.auth },
+    }),
     cache: "no-store",
   });
 

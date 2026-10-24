@@ -12,6 +12,7 @@ login ulang sendiri tanpa user harus relogin di UBSI API:
    berbagi satu login ulang, bukan login bersamaan yang saling membatalkan
    token CSRF dan captcha satu sama lain.
 """
+import hashlib
 import re
 import threading
 import time
@@ -69,9 +70,14 @@ class UpstreamSession:
     def login(self, nim: str, password: str) -> bool:
         raise NotImplementedError
 
+    @staticmethod
+    def _hash_creds(nim: str, password: str) -> str:
+        return hashlib.sha256(f"{nim}:{password}".encode("utf-8")).hexdigest()
+
     def _init_upstream_session(self) -> None:
         self._session_lock = threading.RLock()
         self._login_at = 0.0
+        self._cred_hash: Optional[str] = None
 
     def _mark_logged_in(self) -> None:
         self._logged_in = True
@@ -81,18 +87,25 @@ class UpstreamSession:
         return bool(self._logged_in) and (time.monotonic() - self._login_at) < max_session_age()
 
     def ensure_session(self, nim: str, password: str, *, stale_since: Optional[float] = None) -> bool:
-        """Pastikan sesi upstream hidup; login ulang bila perlu.
+        """Pastikan sesi upstream hidup dan terikat pada kredensial yang sama; login ulang bila perlu.
 
         `stale_since` dipakai saat sebuah response terdeteksi logout: jika thread
         lain sudah login ulang setelah waktu itu, sesi barunya dipakai bersama.
         """
+        cred_hash = self._hash_creds(nim, password)
         with self._session_lock:
-            if self._session_is_fresh() and (stale_since is None or self._login_at > stale_since):
+            if (
+                self._session_is_fresh()
+                and self._cred_hash == cred_hash
+                and (stale_since is None or self._login_at > stale_since)
+            ):
                 return True
             self._logged_in = False
+            self._cred_hash = None
             self.get_client().cookies.clear()
             ok = bool(self.login(nim, password))
             if ok:
+                self._cred_hash = cred_hash
                 self._mark_logged_in()
             return ok
 

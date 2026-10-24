@@ -1,29 +1,31 @@
-# Security Policy
+# Security Policy (v2.5)
 
-## 1. Scope & Intended Use
+## 1. Scope & Architecture
 
-This software is an unofficial, personal automation tool designed strictly for private use by its owner to access their own academic data.
+UBSI API (`MuaraAI/Mira`) is an unofficial REST API aggregator, MCP server, and PWA student dashboard for Universitas Bina Sarana Informatika academic services.
 
-- **Localhost Core & Authenticated Ingress**: The underlying API server binds strictly to `127.0.0.1:8300` (zero open ingress ports to `0.0.0.0`). Remote access is supported exclusively through trusted reverse proxies (Caddy, Nginx) or Cloudflare Tunnel, guarded by mandatory `X-API-Key` authentication and rate limiting.
-- **Single-User Ownership**: This software must only be operated with credentials belonging to the individual running the instance. Never collect, store, or process credentials belonging to third parties.
+- **Localhost Core & Authenticated Ingress**: The API server binds strictly to `127.0.0.1:8300` (and MCP server to `127.0.0.1:8350`). Remote access is exposed only through trusted reverse proxies (Caddy, Nginx) or Cloudflare Tunnel, guarded by authentication and rate limiting.
+- **Per-NIM Multi-Tenant Isolation**: Each authenticated student session (`ubsi_session`), Personal API Key (`muara_mira_*`), and upstream campus scraper session (`SessionPool` + credential hash verification) is strictly isolated by NIM.
 
-## 2. Credential Security & Privacy
+## 2. Credential Security & Encryption at Rest
 
-- **Zero Hardcoded Secrets**: All student credentials (`STUDENTV2_NIM`, `STUDENTV2_PASS`, `ELEARNING_NIM`, `ELEARNING_PASS`) and the security access token (`API_KEY`) are loaded strictly from `.env` or system environment variables.
-- **Strict File Permissions**: Production `.env` files are enforced to mode `600` (`-rw-------`), preventing read access by unauthorized system users.
-- **Git Hygiene**: `.env` and local database/cache files are explicitly excluded via `.gitignore`. Never commit credentials to version control.
-- **No Remote Telemetry**: This project contains no third-party tracking, analytics, or remote data exfiltration mechanisms.
+- **Zero Hardcoded Secrets**: Master secret (`API_KEY`), VAPID keys, and environment configuration are loaded strictly from `.env` (mode `0600`) and excluded via `.gitignore`.
+- **Encrypted Session & Key Storage**:
+  - Dashboard sessions (`ubsi_session`) are stored in Redis with Fernet (AES-128-CBC + HMAC-SHA256) encryption derived via HKDF-SHA256 from `API_KEY`.
+  - Personal API Keys (`muara_mira_*`) are hashed with keyed BLAKE2b (`person=b"mira-key-v1"`) and their associated campus credentials are encrypted with HKDF-derived Fernet keys in SQLite (`0600`) and Redis cache.
+  - Notification webhook configurations (Discord, Telegram, Custom HTTPS) are encrypted at rest in SQLite (`0600`).
 
-## 3. Server Safety & Upstream Etika
+## 3. Server Safety, Anti-SSRF & Upstream Protection
 
-To ensure the university's upstream infrastructure is never overloaded or disrupted:
-- **Mandatory Authentication & Timing Attack Defense**: Remote endpoints require `X-API-Key` validated via `secrets.compare_digest()` in constant time.
-- **Real-IP Sliding Window Rate Limiting**: Capped at 60 requests/minute per client IP (resolved via trusted proxy headers).
-- **Tiered In-Memory/Redis Caching**: Prevents frequent requests to campus servers (schedules cached for 2 hours, grades for 30 minutes, tasks for 10 minutes) with Last-Known-Good offline fallback.
-- **Single-Flight Mutex**: Concurrent incoming requests for the same resource never trigger parallel scrapes against university systems.
-- **Human Jitter**: Paced request delays (0.8–1.5s) prevent automated burst traffic.
-- **Read-Only Operation**: Version 1 restricts operations to read-only retrieval, eliminating risk of unauthorized state changes.
+- **Authentication & Brute-Force Defense**:
+  - Constant-time master key comparison via `secrets.compare_digest()`.
+  - Sliding-window rate limiting on `/v1/auth/login` (5 attempts / 5 min per IP and per NIM) and on failed authentication attempts (20 / min per IP).
+  - Global rate limiting (60 req/min per identity/IP) and strict write-operation rate limiting (5 req/min for presence, assignments, quiz answers, discussions, and webhook tests).
+- **SSRF & Open Redirect Defenses**:
+  - Outbound webhooks, PWA push endpoints, and file downloads enforce HTTPS, hostname allowlists, and DNS/IP validation rejecting loopback, private, link-local, and cloud metadata addresses (`169.254.169.254`).
+- **Upstream Etiquette**:
+  - Two-tier Redis caching (Fresh + Last-Known-Good SWR), single-flight per-key mutexes, and human-like request pacing protect campus upstream servers from burst load.
 
 ## 4. Reporting Vulnerabilities
 
-If you discover a security vulnerability or sensitive information leakage within this repository, please report it directly to the maintainer via private communication rather than opening a public issue.
+If you discover a security vulnerability or credential exposure risk, please report it privately to the maintainers (`@Curzyori`, `@MyKineID`, `@Seeyaa77`) rather than opening a public issue.

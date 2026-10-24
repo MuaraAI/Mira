@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Check, CheckCircle2, Copy, ExternalLink, Eye, FileText, FolderOpen, Github, Link2, Loader2, RefreshCw } from "lucide-react";
-import { parseShareLink, type LinkCheck } from "@/lib/links";
+import { parseShareLink, safeExternalHref, type LinkCheck } from "@/lib/links";
 import { LinkAccessWarning } from "@/components/LinkAccessWarning";
 import { LinkPreviewSheet } from "@/components/LinkPreviewSheet";
 
@@ -65,7 +65,8 @@ export function LinkCard({
   const provider = check?.provider || local?.provider || "web";
   const label = check?.label || local?.label || "Tautan";
   const id = check?.id || local?.id || null;
-  const openUrl = check?.normalized_url || local?.normalizedUrl || url;
+  const rawOpenUrl = check?.normalized_url || local?.normalizedUrl || url;
+  const openUrl = safeExternalHref(rawOpenUrl) || "#";
   const title = check?.title || label;
   const canPreview = Boolean(check?.can_preview && check.access !== "private" && check.access !== "missing" && check.access !== "invalid");
   const danger = check?.access === "private" || check?.access === "missing";

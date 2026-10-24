@@ -127,6 +127,18 @@ export function parseShareLink(raw: string): ParsedLink | null {
   return base;
 }
 
+/** Pastikan URL eksternal hanya memakai skema http/https yang aman (mencegah javascript:/data:/vbscript:). */
+export function safeExternalHref(raw?: string | null): string | null {
+  if (!raw || typeof raw !== "string") return null;
+  try {
+    const parsed = new URL(raw.trim());
+    if (parsed.protocol === "https:" || parsed.protocol === "http:") {
+      return parsed.toString();
+    }
+  } catch {}
+  return null;
+}
+
 /** Link yang "dirapikan" bila dikenali (Drive/Docs/GitHub); selain itu dikembalikan apa adanya. */
 export function tidyLink(raw: string): string {
   const parsed = parseShareLink(raw);

@@ -10,6 +10,7 @@ import {
   getNotificationPermission,
   getPushBlocker,
   isPushSupported,
+  matchesPushEndpoint,
   sendTestPush,
   subscribeToPushNotifications,
   unsubscribeCurrentDevice,
@@ -112,7 +113,7 @@ export default function PwaPushDeviceSection() {
     });
     if (!ok) return;
     return run(async () => {
-      if (target && localEndpoint && target.endpoint === localEndpoint) {
+      if (target && localEndpoint && matchesPushEndpoint(target.endpoint, localEndpoint)) {
         // Device yang sedang dipakai: cabut subscription lokal JUGA, bukan cuma baris server.
         // Kalau cuma DELETE, browser tetap punya subscription dan tombol Aktifkan malah hilang.
         await unsubscribeCurrentDevice();
@@ -151,7 +152,7 @@ export default function PwaPushDeviceSection() {
   const supported = isPushSupported();
   // Server dan browser harus sinkron dua-duanya: subscription lokal tanpa baris server
   // berarti backend kehilangan barisnya (dihapus dari device lain / kuota penuh).
-  const serverSynced = hasLocalSub && !!localEndpoint && devices.some((d) => d.endpoint === localEndpoint);
+  const serverSynced = hasLocalSub && !!localEndpoint && devices.some((d) => matchesPushEndpoint(d.endpoint, localEndpoint));
   const statusLabel = hasLocalSub
     ? serverSynced
       ? "Perangkat ini aktif menerima notifikasi"

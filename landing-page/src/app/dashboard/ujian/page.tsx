@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Award, ExternalLink, FileText, CheckCircle2, AlertCircle } from "lucide-react";
 import { useApi } from "@/lib/api";
+import { safeExternalHref } from "@/lib/links";
 import {
   EmptyState,
   ErrorState,
@@ -90,9 +91,9 @@ export default function UjianPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 shrink-0">
-            {currentExam?.jadwal_online_url && (
+            {safeExternalHref(currentExam?.jadwal_online_url) && (
               <a
-                href={currentExam.jadwal_online_url}
+                href={safeExternalHref(currentExam?.jadwal_online_url)!}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-pill bg-[#0369A1] hover:bg-[#075985] text-white text-xs font-semibold shadow-sm transition-all"
@@ -101,9 +102,9 @@ export default function UjianPage() {
                 <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
               </a>
             )}
-            {currentExam?.soal_offline_url && (
+            {safeExternalHref(currentExam?.soal_offline_url) && (
               <a
-                href={currentExam.soal_offline_url}
+                href={safeExternalHref(currentExam?.soal_offline_url)!}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-pill border border-stroke bg-white hover:bg-[#F0F7FB] text-[#0369A1] text-xs font-semibold transition-all"
