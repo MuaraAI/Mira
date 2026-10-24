@@ -15,6 +15,7 @@ import {
   unsubscribeCurrentDevice,
 } from "@/lib/pwa-push";
 import { NOTIFICATION_CATEGORIES } from "@/lib/notification-categories";
+import { useDialog } from "@/components/ConfirmDialog";
 
 interface PushDevice {
   id: number;
@@ -25,6 +26,7 @@ interface PushDevice {
 }
 
 export default function PwaPushDeviceSection() {
+  const { confirm } = useDialog();
   const [devices, setDevices] = useState<PushDevice[]>([]);
   const [categories, setCategories] = useState<string[] | null>(null);
   const [blocker, setBlocker] = useState<string | null>(null);
@@ -100,12 +102,16 @@ export default function PwaPushDeviceSection() {
   const handleTest = () =>
     run(async () => (await sendTestPush()).message, "Gagal mengirim notifikasi uji coba.");
 
-  const handleDelete = (id: number) =>
-    run(async () => {
-      const target = devices.find((d) => d.id === id);
-      if (!window.confirm(`Hapus perangkat ${target?.device_name ?? "ini"}? Perangkat tersebut berhenti menerima notifikasi.`)) {
-        return "Penghapusan dibatalkan.";
-      }
+  const handleDelete = async (id: number) => {
+    const target = devices.find((d) => d.id === id);
+    const ok = await confirm({
+      title: `Hapus perangkat ${target?.device_name ?? "ini"}?`,
+      message: "Perangkat tersebut berhenti menerima notifikasi dari Mira.",
+      confirmLabel: "Hapus perangkat",
+      tone: "danger",
+    });
+    if (!ok) return;
+    return run(async () => {
       if (target && localEndpoint && target.endpoint === localEndpoint) {
         // Device yang sedang dipakai: cabut subscription lokal JUGA, bukan cuma baris server.
         // Kalau cuma DELETE, browser tetap punya subscription dan tombol Aktifkan malah hilang.
@@ -115,6 +121,7 @@ export default function PwaPushDeviceSection() {
       await apiFetch(`/v1/notifications/pwa/devices/${id}`, { method: "DELETE" });
       return "Perangkat dihapus.";
     }, "Gagal menghapus perangkat.");
+  };
 
   async function toggleCategory(id: string) {
     if (!categories) return;

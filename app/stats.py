@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -11,6 +12,8 @@ from app.config import settings
 
 _PREFIX = "ubsi:stats:"
 _RETENTION_SECONDS = 35 * 86400
+# Pengguna dianggap online bila ada request dalam jendela ini (dashboard polling tiap 60 detik).
+_ONLINE_WINDOW_SECONDS = 5 * 60
 
 
 def _day(offset: int = 0) -> str:
@@ -41,6 +44,7 @@ async def record_request(module: str, nim: str | None = None) -> None:
             await client.expire(user_key, _RETENTION_SECONDS)
             # Set unik all-time permanen (isi HMAC, bukan NIM mentah).
             await client.sadd(f"{_PREFIX}users:all", user_id)
+            await client.zadd(f"{_PREFIX}online", {user_id: time.time()})
     except Exception:
         pass
 
@@ -73,15 +77,31 @@ async def get_public_stats() -> dict[str, Any]:
     try:
         client = await cache.get_client()
 
-        # 1. Hitung hari aktif riil dari key tanggal yang tercatat di Redis
+        # 1. Hari aktif riil dari key tanggal yang masih tersimpan (retensi 35 hari).
         all_req_keys = sorted(await client.keys(f"{_PREFIX}requests:20*"))
         req_vals = [int(await client.get(k) or 0) for k in all_req_keys]
-        total_requests_all = sum(req_vals)
         active_days = max(1, len([v for v in req_vals if v > 0]))
 
         all_user_keys = sorted(await client.keys(f"{_PREFIX}users:20*"))
         daily_user_counts = [await client.scard(k) for k in all_user_keys]
-        total_users_all = len(await client.sunion(all_user_keys)) if all_user_keys else 0
+
+        # Total all-time memakai counter permanen agar tidak turun saat key harian kedaluwarsa.
+        # Counter dinaikkan ke jumlah harian bila tertinggal (data sebelum counter permanen ada).
+        all_requests_key = f"{_PREFIX}requests:all"
+        total_requests_all = int(await client.get(all_requests_key) or 0)
+        retained_requests = sum(req_vals)
+        if retained_requests > total_requests_all:
+            await client.incrby(all_requests_key, retained_requests - total_requests_all)
+            total_requests_all = retained_requests
+
+        all_users_key = f"{_PREFIX}users:all"
+        if all_user_keys:
+            await client.sunionstore(all_users_key, [all_users_key, *all_user_keys])
+        total_users_all = await client.scard(all_users_key)
+
+        online_key = f"{_PREFIX}online"
+        await client.zremrangebyscore(online_key, 0, time.time() - _ONLINE_WINDOW_SECONDS)
+        online_now = await client.zcard(online_key)
 
         # 2. Pengguna (rolling window + rata-rata harian riil + total unik all-time)
         users: dict[str, Any] = {}
@@ -91,6 +111,7 @@ async def get_public_stats() -> dict[str, Any]:
             users[label] = len(members)
         users["average_per_day"] = round(sum(daily_user_counts) / active_days)
         users["total_all_time"] = total_users_all
+        users["online_now"] = online_now
 
         # 3. Request (rolling window + rata-rata harian riil + total all-time)
         requests_data = {

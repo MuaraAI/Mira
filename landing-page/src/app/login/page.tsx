@@ -350,42 +350,97 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-background text-foreground">
-      <div className="grid-overlay" aria-hidden="true" />
-
-      <header className="relative z-10 mx-auto flex w-full max-w-md items-center justify-between px-4 pt-5 sm:pt-8">
-        <Link href="/" className="group inline-flex min-h-11 items-center gap-2 font-mono text-xs font-semibold text-secondary transition-colors hover:text-[#0369A1]">
+    <div className="flex min-h-[100dvh] bg-background text-foreground">
+      {/* Panel brand (desktop): pola sama dengan portal USRC, warna Mira. */}
+      <aside className="login-brand sticky top-0 hidden h-[100dvh] w-1/2 flex-col justify-between self-start overflow-hidden p-12 text-white lg:flex xl:p-16" aria-label="Tentang Mira">
+        <Link href="/" className="group inline-flex min-h-11 w-fit items-center gap-2 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-white/70 transition-colors hover:text-white">
           <ArrowLeft className="h-4 w-4 transition-transform duration-200 group-hover:-translate-x-0.5" aria-hidden="true" />
-          Mira
+          Kembali ke beranda
         </Link>
-        <span className="inline-flex items-center gap-1.5 font-mono text-[11px] font-semibold text-[#0F766E]">
-          <span className="h-1.5 w-1.5 bg-[#0F766E]" aria-hidden="true" />
-          AES-256
-        </span>
-      </header>
 
-      <main id="main-content" className="relative z-10 flex flex-1 items-start justify-center px-4 pb-10 pt-4 sm:items-center sm:py-10">
-        <div className="w-full max-w-md pr-[6px]">
-          <div className="px-card bg-white p-5 min-[400px]:p-6 sm:p-9">
-            <div className="flex items-center gap-3 mb-5 sm:mb-6">
-              <span className="px-frame flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden bg-white [--px-line:#CFE2EE]">
-                <Monogram className="w-9 h-9" />
+        <div className="relative">
+          <span className="inline-flex items-center gap-2 bg-[#FCD34D] px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[#072033] shadow-[3px_3px_0_0_#0369A1]">
+            <span className="h-1.5 w-1.5 bg-[#072033]" aria-hidden="true" />
+            Portal Mahasiswa
+          </span>
+          <p className="mt-8 font-display text-6xl font-bold uppercase leading-[0.95] tracking-[-0.04em] xl:text-7xl">
+            Jadwal.
+            <br />
+            Tugas.
+            <br />
+            <span className="text-[#FCD34D]">Satu pintu.</span>
+          </p>
+          <p className="mt-8 max-w-md font-mono text-sm leading-7 text-[#9CC6E0]">
+            Satu login untuk SIAKAD, MyBest, presensi, dan nilai. Password dicek langsung ke server kampus, lalu disimpan terenkripsi.
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-white/55">
+          <span>Mira · Muara AI · UBSI</span>
+          <span className="inline-flex items-center gap-1.5 text-[#5EEAD4]">
+            <span className="h-1.5 w-1.5 bg-[#5EEAD4]" aria-hidden="true" />
+            AES-256
+          </span>
+        </div>
+      </aside>
+
+      <div className="relative flex min-h-[100dvh] flex-1 flex-col lg:w-1/2">
+        <div className="grid-overlay" aria-hidden="true" />
+
+        <header className="relative z-10 mx-auto flex w-full max-w-md items-center justify-between px-4 pt-5 sm:pt-8 lg:hidden">
+          <Link href="/" className="group inline-flex min-h-11 items-center gap-2 font-mono text-xs font-semibold text-secondary transition-colors hover:text-[#0369A1]">
+            <ArrowLeft className="h-4 w-4 transition-transform duration-200 group-hover:-translate-x-0.5" aria-hidden="true" />
+            Beranda
+          </Link>
+          <span className="inline-flex items-center gap-1.5 font-mono text-[11px] font-semibold text-[#0F766E]">
+            <span className="h-1.5 w-1.5 bg-[#0F766E]" aria-hidden="true" />
+            AES-256
+          </span>
+        </header>
+
+        <main id="main-content" className="relative z-10 flex flex-1 items-start justify-center px-4 pb-10 pt-4 sm:items-center sm:py-10">
+          <div className="w-full max-w-md pr-[6px]">
+            <div className="mb-6 flex items-center gap-3 sm:mb-8">
+              <span className="px-frame flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden bg-white [--px-line:#CFE2EE]">
+                <Monogram className="h-10 w-10" />
               </span>
               <div className="min-w-0">
-                <h1 className="text-xl font-display font-bold tracking-tight">Login Mahasiswa</h1>
-                <p className="text-xs font-mono tracking-widest text-[#0369A1] font-bold uppercase">
-                  Pakai akun SIAKAD dan MyBest
-                </p>
+                <h1 className="font-display text-3xl font-bold uppercase leading-none tracking-[-0.03em] sm:text-4xl">
+                  Mira <span className="text-[#0369A1]">Portal</span>
+                </h1>
+                <p className="mt-1.5 text-sm text-secondary">Masuk pakai akun SIAKAD dan MyBest.</p>
               </div>
             </div>
 
+            <ol className="mb-4 grid grid-cols-2 gap-3" aria-label="Tahap login">
+              {[
+                { n: 1, label: "Akun kampus", on: phase === "form" },
+                { n: 2, label: "Verifikasi", on: phase === "checking" },
+              ].map((step) => (
+                <li
+                  key={step.n}
+                  aria-current={step.on ? "step" : undefined}
+                  className={`flex min-h-11 items-center gap-2.5 px-3 font-mono text-[11px] font-bold uppercase tracking-[0.14em] transition-colors ${
+                    step.on
+                      ? "bg-white text-foreground shadow-[0_-2px_0_0_#163A55,0_2px_0_0_#163A55,-2px_0_0_0_#163A55,2px_0_0_0_#163A55,4px_4px_0_0_#0369A1]"
+                      : "text-secondary/70 shadow-[inset_0_0_0_2px_#CFE2EE]"
+                  }`}
+                >
+                  <span className={`flex h-5 w-5 items-center justify-center text-[10px] ${step.on ? "bg-[#072033] text-white" : "shadow-[inset_0_0_0_2px_#CFE2EE]"}`}>
+                    {step.n}
+                  </span>
+                  {step.label}
+                </li>
+              ))}
+            </ol>
+
+            <div className="px-card bg-white p-5 [--px-drop:#0369A1] [--px-off:8px] min-[400px]:p-6 sm:p-8">
             {phase === "checking" ? (
               <LoginCheck nim={nim.trim()} steps={steps} startedAt={startedAt} finished={finished} error={error} onBack={backToForm} />
             ) : (
               <div className="login-form-in">
-                <p className="text-sm leading-relaxed text-secondary mb-6">
-                  Masuk pakai NIM dan password kampusmu. Passwordnya dicek langsung ke SIAKAD dan MyBest,
-                  lalu disimpan terenkripsi selama sesi aktif (7 hari) supaya kamu nggak perlu login ulang.
+                <p className="mb-6 text-sm leading-relaxed text-secondary">
+                  Password dicek langsung ke SIAKAD dan MyBest, lalu disimpan terenkripsi selama sesi aktif (7 hari) supaya kamu nggak perlu login ulang.
                 </p>
 
                 {error && (
@@ -486,13 +541,12 @@ export default function LoginPage() {
             )}
           </div>
 
-          <p className="mt-6 text-center text-xs text-secondary">
-            <a href="/" className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-foreground">
-              Kembali ke halaman utama
-            </a>
-          </p>
-        </div>
-      </main>
+            <p className="mt-6 text-center font-mono text-[11px] text-secondary">
+              Mira bukan aplikasi resmi UBSI.
+            </p>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

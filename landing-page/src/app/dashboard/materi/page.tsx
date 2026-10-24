@@ -24,6 +24,7 @@ import { resolveDosen } from "@/lib/courses";
 import { DosenInfo } from "@/components/DosenInfo";
 import { FilePreviewSheet } from "@/components/FilePreviewSheet";
 import { preloadPdfjs } from "@/lib/pdf";
+import { useDialog } from "@/components/ConfirmDialog";
 
 interface CourseItem {
   id: string;
@@ -49,6 +50,7 @@ interface MaterialItem {
 }
 
 export default function MateriPage() {
+  const { notify } = useDialog();
   useEffect(() => preloadPdfjs(), []);
   const coursesApi = useApi<CourseItem[]>("/v1/elearning/courses");
   // Jadwal SIAKAD dipakai untuk hari kuliah + cadangan kode dosen bila kartu MyBest tidak mencantumkannya.
@@ -68,7 +70,7 @@ export default function MateriPage() {
       const filename = `${(title || "materi").replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
       await apiDownload(url, filename);
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : "Gagal mengunduh berkas materi.");
+      notify(err instanceof ApiError ? err.message : "Gagal mengunduh berkas materi.");
     } finally {
       setDownloadingUrl(null);
     }
