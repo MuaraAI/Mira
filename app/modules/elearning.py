@@ -994,7 +994,16 @@ class ElearningClient(UpstreamSession):
 
     def get_client(self) -> httpx.Client:
         if self._client is None or self._client.is_closed:
-            self._client = httpx.Client(headers=self.HEADERS, follow_redirects=True, timeout=25.0, proxy=self._proxy)
+            from app.upstream_session import SHARED_HTTP_LIMITS, SHARED_SSL_CONTEXT
+
+            self._client = httpx.Client(
+                headers=self.HEADERS,
+                follow_redirects=True,
+                timeout=25.0,
+                proxy=self._proxy,
+                verify=SHARED_SSL_CONTEXT,
+                limits=SHARED_HTTP_LIMITS,
+            )
         return self._client
 
     def close(self) -> None:
@@ -1727,28 +1736,8 @@ async def _build_grades(
         assignment_res = await get_assignments(token=token, creds=(nim, password))
         submissions = assignment_res["data"]["submissions"]
     else:
-        courses_res = await get_courses((nim, password))
-        courses = courses_res["data"]
-
-        async def _subs_for(course: dict[str, Any]) -> list[dict[str, Any]]:
-            t = course.get("token_assignment")
-            if not t:
-                return []
-            res = await get_assignments(token=t, creds=(nim, password))
-            subs = res["data"]["submissions"]
-            for s in subs:
-                s.setdefault("kode", course.get("kode") or "-")
-                s["mata_kuliah"] = course.get("nama") or ""
-            return subs
-
-        gathered = await asyncio.gather(
-            *(_subs_for(c) for c in courses), return_exceptions=True
-        )
-        submissions: list[dict[str, Any]] = []
-        for item in gathered:
-            if isinstance(item, BaseException):
-                continue
-            submissions.extend(item)
+        assignment_res = await get_assignments(token=None, creds=(nim, password))
+        submissions = assignment_res["data"]["submissions"]
 
     return summarize_grades(submissions, quizzes)
 
@@ -2082,6 +2071,23 @@ async def submit_assignment_file(
     }
 
 
+_UPLOAD_SEMAPHORE = asyncio.Semaphore(2)
+_MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024
+
+
+def _ensure_download_within_limit(resp: Any) -> None:
+    content = getattr(resp, "content", b"")
+    if isinstance(content, (bytes, bytearray)) and len(content) > _MAX_DOWNLOAD_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=error_response(
+                code="FILE_TOO_LARGE",
+                message="Ukuran berkas melampaui batas maksimum 20 MB",
+                module="elearning",
+            ),
+        )
+
+
 class UploadAssignmentPayload(BaseModel):
     token_tugas: str = Field(..., pattern=r"^[A-Za-z0-9+/=_-]+$", description="Token tugas dari /assignments atau /courses")
     filename: str = Field(..., pattern=r"^[A-Za-z0-9_.-]+$", description="Nama file (contoh: tugas_p5_15260767.zip / .pdf)")
@@ -2098,28 +2104,32 @@ async def post_upload_assignment(
     import base64
     nim, password = creds
     clean_token = extract_clean_token(body.token_tugas) or body.token_tugas.strip("/")
-    try:
-        file_bytes = base64.b64decode(body.file_base64, validate=True)
-        if len(file_bytes) > 10 * 1024 * 1024:
-            raise ValueError("file too large")
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=error_response(
-                code="INVALID_BASE64",
-                message="Format file_base64 tidak valid",
-                module="elearning",
-            ),
-        )
+    async with _UPLOAD_SEMAPHORE:
+        try:
+            file_bytes = base64.b64decode(body.file_base64, validate=True)
+            body.file_base64 = ""
+            if len(file_bytes) > 10 * 1024 * 1024:
+                raise ValueError("file too large")
+        except Exception:
+            body.file_base64 = ""
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_response(
+                    code="INVALID_BASE64",
+                    message="Format file_base64 tidak valid",
+                    module="elearning",
+                ),
+            )
 
-    result = await submit_assignment_file(
-        nim=nim,
-        password=password,
-        token_tugas=clean_token,
-        filename=body.filename,
-        file_bytes=file_bytes,
-        catatan=body.catatan,
-    )
+        result = await submit_assignment_file(
+            nim=nim,
+            password=password,
+            token_tugas=clean_token,
+            filename=body.filename,
+            file_bytes=file_bytes,
+            catatan=body.catatan,
+        )
+        del file_bytes
 
     # Invalidate cache assignments di Redis agar data tugas langsung up-to-date
     await invalidate_elearning_user_cache(nim, clean_token)
@@ -2218,6 +2228,7 @@ async def _fetch_assignment_file(
                     module="elearning",
                 ),
             )
+        _ensure_download_within_limit(resp)
         filename = _safe_header_filename(file, "soal_tugas.pdf")
         content_type = resp.headers.get("content-type", "application/pdf")
         return Response(
@@ -2298,6 +2309,7 @@ async def _fetch_assignment_file(
                     module="elearning",
                 ),
             )
+        _ensure_download_within_limit(resp)
         filename = _safe_header_filename(file_url.rstrip("/").split("/")[-1], "berkas_tugas.pdf")
         content_type = resp.headers.get("content-type", "application/octet-stream")
         return Response(
@@ -2359,6 +2371,7 @@ async def _fetch_material_file(
                     module="elearning",
                 ),
             )
+        _ensure_download_within_limit(resp)
         filename = _safe_header_filename(file, "materi_kuliah.pdf")
         content_type = resp.headers.get("content-type", "application/pdf")
         return Response(
@@ -2431,6 +2444,7 @@ async def _fetch_material_file(
                     module="elearning",
                 ),
             )
+        _ensure_download_within_limit(resp)
         filename = _safe_header_filename(file_url.rstrip("/").split("/")[-1], "materi_kuliah.zip")
         content_type = resp.headers.get("content-type", "application/octet-stream")
         return Response(

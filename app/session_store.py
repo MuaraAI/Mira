@@ -6,6 +6,7 @@ AES-256-GCM menggunakan kunci 256-bit yang diturunkan dari master API_KEY server
 TTL 7 hari bersifat sliding: setiap resolve sukses me-reset TTL.
 """
 import base64
+import functools
 import hashlib
 import json
 import os
@@ -28,6 +29,7 @@ def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
+@functools.lru_cache(maxsize=4)
 def _derive_aes_key(secret: str) -> bytes:
     if not secret:
         raise RuntimeError("API_KEY wajib disetel di file .env server!")
@@ -38,9 +40,13 @@ def _derive_aes_key(secret: str) -> bytes:
     ).digest()
 
 
+@functools.lru_cache(maxsize=4)
+def _get_aesgcm(secret: str) -> AESGCM:
+    return AESGCM(_derive_aes_key(secret))
+
+
 def _encrypt_payload(data: dict, secret: str) -> str:
-    key = _derive_aes_key(secret)
-    aesgcm = AESGCM(key)
+    aesgcm = _get_aesgcm(secret)
     nonce = os.urandom(12)  # 96-bit nonce standar GCM
     plaintext = json.dumps(data).encode("utf-8")
     ct = aesgcm.encrypt(nonce, plaintext, None)
@@ -72,8 +78,7 @@ def _decrypt_payload(blob: str | bytes, secret: str) -> Optional[dict]:
             return None
         nonce = raw[:12]
         ct = raw[12:]
-        key = _derive_aes_key(secret)
-        aesgcm = AESGCM(key)
+        aesgcm = _get_aesgcm(secret)
         plaintext = aesgcm.decrypt(nonce, ct, None)
         return json.loads(plaintext.decode("utf-8"))
     except (InvalidTag, ValueError, TypeError, json.JSONDecodeError):

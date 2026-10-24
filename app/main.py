@@ -67,11 +67,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         pass
 
     async def _eviction_worker():
+        from app.file_cache import file_cache
+
         while True:
             await asyncio.sleep(300)
             try:
                 await studentv2_client.evict_idle()
                 await pooled_elearning_client.evict_idle()
+                file_cache.evict_expired()
             except Exception:
                 pass
 

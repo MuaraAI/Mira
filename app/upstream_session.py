@@ -14,6 +14,7 @@ login ulang sendiri tanpa user harus relogin di UBSI API:
 """
 import hashlib
 import re
+import ssl
 import threading
 import time
 from typing import Any, Optional
@@ -24,6 +25,13 @@ from fastapi import HTTPException, status
 
 from app.config import settings
 from app.envelope import error_response
+
+SHARED_SSL_CONTEXT = ssl.create_default_context()
+SHARED_HTTP_LIMITS = httpx.Limits(
+    max_connections=6,
+    max_keepalive_connections=2,
+    keepalive_expiry=30.0,
+)
 
 # Perbarui sesi sedikit sebelum batas 15 menit upstream.
 DEFAULT_MAX_SESSION_AGE = 13 * 60

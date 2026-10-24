@@ -85,7 +85,11 @@ async def verify_live_credentials(nim: str, elearning_pass: str, studentv2_pass:
             if hasattr(studentv2_client.login, "assert_called"):
                 return studentv2_client.login(nim, studentv2_pass)
             proxy = get_proxy(seed=nim)
-            ok = StudentV2Client(proxy=proxy).login(nim, studentv2_pass)
+            client = StudentV2Client(proxy=proxy)
+            try:
+                ok = client.login(nim, studentv2_pass)
+            finally:
+                client.close()
             if not ok:
                 logger.warning("SIAKAD login returned False for NIM %s", nim)
             return ok
@@ -98,7 +102,11 @@ async def verify_live_credentials(nim: str, elearning_pass: str, studentv2_pass:
             if hasattr(elearning_client.login, "assert_called"):
                 return elearning_client.login(nim, elearning_pass)
             proxy = get_proxy(seed=nim)
-            ok = ElearningClient(proxy=proxy).login(nim, elearning_pass)
+            client = ElearningClient(proxy=proxy)
+            try:
+                ok = client.login(nim, elearning_pass)
+            finally:
+                client.close()
             if not ok:
                 logger.warning("Elearning login returned False for NIM %s", nim)
             return ok

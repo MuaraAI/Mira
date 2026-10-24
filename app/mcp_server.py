@@ -9,8 +9,11 @@ Mendukung isolasi kredensial per akun / per session via:
 """
 from __future__ import annotations
 
+import functools
 import json
 import os
+import re
+import urllib.parse
 from typing import Any, Optional
 from contextvars import ContextVar
 import httpx
@@ -18,6 +21,26 @@ from mcp.server.mcpserver import Context, MCPServer
 
 _current_mcp_context: ContextVar[Optional[Context]] = ContextVar("_current_mcp_context", default=None)
 _active_transport: str = "stdio"
+_http_client: Optional[httpx.AsyncClient] = None
+_COURSE_ID_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
+def _get_http_client() -> httpx.AsyncClient:
+    global _http_client
+    if _http_client is None or _http_client.is_closed:
+        _http_client = httpx.AsyncClient(
+            timeout=30.0,
+            limits=httpx.Limits(
+                max_connections=20,
+                max_keepalive_connections=10,
+                keepalive_expiry=30.0,
+            ),
+        )
+    return _http_client
+
+
+def _json_dumps(data: Any) -> str:
+    return json.dumps(data, ensure_ascii=False, separators=(",", ":"))
 
 
 
@@ -71,7 +94,13 @@ def _register_dual_tool(
         server.add_tool(fn, name=mira_name, title=title, description=description, **kwargs)
         if legacy_name:
             alias_desc = f"[Legacy Alias: gunakan {mira_name}] {description or ''}".strip()
-            server.add_tool(fn, name=legacy_name, title=title, description=alias_desc, **kwargs)
+            mira_tool = server._tool_manager._tools.get(mira_name)
+            if mira_tool is not None and hasattr(mira_tool, "model_copy"):
+                server._tool_manager._tools[legacy_name] = mira_tool.model_copy(
+                    update={"name": legacy_name, "description": alias_desc}
+                )
+            else:
+                server.add_tool(fn, name=legacy_name, title=title, description=alias_desc, **kwargs)
         return fn
 
     return decorator
@@ -147,26 +176,26 @@ async def _api_get(
     url = f"{_get_base_url()}{path}"
     headers = _build_headers(api_key=api_key, session_token=session_token)
     try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            resp = await client.get(url, params=params, headers=headers)
-            try:
-                data = resp.json()
-            except Exception:
-                data = {
-                    "success": False,
-                    "error": {
-                        "code": f"HTTP_{resp.status_code}",
-                        "message": resp.text[:300],
-                    },
+        client = _get_http_client()
+        resp = await client.get(url, params=params, headers=headers, timeout=timeout)
+        try:
+            data = resp.json()
+        except Exception:
+            data = {
+                "success": False,
+                "error": {
+                    "code": f"HTTP_{resp.status_code}",
+                    "message": resp.text[:300],
+                },
+            }
+        if resp.status_code >= 400 and isinstance(data, dict):
+            data.setdefault("success", False)
+            if "error" not in data:
+                data["error"] = {
+                    "code": f"HTTP_{resp.status_code}",
+                    "message": resp.text[:300],
                 }
-            if resp.status_code >= 400 and isinstance(data, dict):
-                data.setdefault("success", False)
-                if "error" not in data:
-                    data["error"] = {
-                        "code": f"HTTP_{resp.status_code}",
-                        "message": resp.text[:300],
-                    }
-            return data
+        return data
     except Exception as exc:
         return {
             "success": False,
@@ -185,26 +214,26 @@ async def _api_post(
     url = f"{_get_base_url()}{path}"
     headers = _build_headers(api_key=api_key, session_token=session_token)
     try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            resp = await client.post(url, json=json_data, params=params, headers=headers)
-            try:
-                data = resp.json()
-            except Exception:
-                data = {
-                    "success": False,
-                    "error": {
-                        "code": f"HTTP_{resp.status_code}",
-                        "message": resp.text[:300],
-                    },
+        client = _get_http_client()
+        resp = await client.post(url, json=json_data, params=params, headers=headers, timeout=timeout)
+        try:
+            data = resp.json()
+        except Exception:
+            data = {
+                "success": False,
+                "error": {
+                    "code": f"HTTP_{resp.status_code}",
+                    "message": resp.text[:300],
+                },
+            }
+        if resp.status_code >= 400 and isinstance(data, dict):
+            data.setdefault("success", False)
+            if "error" not in data:
+                data["error"] = {
+                    "code": f"HTTP_{resp.status_code}",
+                    "message": resp.text[:300],
                 }
-            if resp.status_code >= 400 and isinstance(data, dict):
-                data.setdefault("success", False)
-                if "error" not in data:
-                    data["error"] = {
-                        "code": f"HTTP_{resp.status_code}",
-                        "message": resp.text[:300],
-                    }
-            return data
+        return data
     except Exception as exc:
         return {
             "success": False,
@@ -220,7 +249,7 @@ async def _api_post(
 )
 async def ubsi_whoami(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/auth/me", session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 # Tools: StudentV2 (SIAKAD)
@@ -231,7 +260,7 @@ async def ubsi_whoami(session_token: Optional[str] = None, api_key: Optional[str
 )
 async def ubsi_get_schedule(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/studentv2/schedule", session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -240,7 +269,7 @@ async def ubsi_get_schedule(session_token: Optional[str] = None, api_key: Option
 )
 async def ubsi_get_grades(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/studentv2/grades", session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -249,7 +278,7 @@ async def ubsi_get_grades(session_token: Optional[str] = None, api_key: Optional
 )
 async def ubsi_get_profile(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/studentv2/profile", session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -258,7 +287,7 @@ async def ubsi_get_profile(session_token: Optional[str] = None, api_key: Optiona
 )
 async def ubsi_get_khs(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/studentv2/khs", session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -267,7 +296,7 @@ async def ubsi_get_khs(session_token: Optional[str] = None, api_key: Optional[st
 )
 async def ubsi_get_krs(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/studentv2/krs", session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -276,7 +305,7 @@ async def ubsi_get_krs(session_token: Optional[str] = None, api_key: Optional[st
 )
 async def ubsi_get_uts(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/studentv2/uts", session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -285,7 +314,7 @@ async def ubsi_get_uts(session_token: Optional[str] = None, api_key: Optional[st
 )
 async def ubsi_get_uas(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/studentv2/uas", session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -294,7 +323,7 @@ async def ubsi_get_uas(session_token: Optional[str] = None, api_key: Optional[st
 )
 async def ubsi_get_academic_calendar(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/studentv2/calendar", session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -303,7 +332,7 @@ async def ubsi_get_academic_calendar(session_token: Optional[str] = None, api_ke
 )
 async def ubsi_get_prodi_contacts(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/studentv2/prodi-contacts", session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -312,7 +341,7 @@ async def ubsi_get_prodi_contacts(session_token: Optional[str] = None, api_key: 
 )
 async def ubsi_get_certificates(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/studentv2/certificates", session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -326,7 +355,7 @@ async def ubsi_get_lecturers(
 ) -> str:
     params = {"search": search} if search else None
     res = await _api_get("/v1/studentv2/lecturers", params=params, session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -335,7 +364,7 @@ async def ubsi_get_lecturers(
 )
 async def ubsi_get_dashboard(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/studentv2/dashboard", session_token=session_token, api_key=api_key, timeout=45.0)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 # Tools: Elearning (MyBest LMS) - Read & Write
@@ -346,7 +375,7 @@ async def ubsi_get_dashboard(session_token: Optional[str] = None, api_key: Optio
 )
 async def ubsi_get_courses(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/elearning/courses", session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -360,7 +389,7 @@ async def ubsi_get_assignments(
     api_key, session_token = _resolve_credentials(ctx, api_key, session_token)
     params = {"token": token} if token else None
     res = await _api_get("/v1/elearning/assignments", params=params, session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -382,7 +411,7 @@ async def ubsi_upload_assignment(
         "catatan": catatan,
     }
     res = await _api_post("/v1/elearning/assignments/upload", json_data=body, session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -402,7 +431,7 @@ async def ubsi_submit_assignment(
         "link_tugas": link_tugas,
     }
     res = await _api_post("/v1/elearning/assignments/submit", json_data=body, session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -414,17 +443,15 @@ async def ubsi_get_course_grades(
     session_token: Optional[str] = None,
     api_key: Optional[str] = None,
 ) -> str:
-    import re
-    import urllib.parse
     cid = course_id.strip()
-    if not re.fullmatch(r"^[A-Za-z0-9_-]+$", cid):
-        return json.dumps({
+    if not _COURSE_ID_RE.fullmatch(cid):
+        return _json_dumps({
             "success": False,
             "error": {"code": "INVALID_ARGUMENT", "message": "course_id hanya boleh alfanumerik"},
-        }, ensure_ascii=False, indent=2)
+        })
     clean_course_id = urllib.parse.quote(cid, safe="")
     res = await _api_get(f"/v1/elearning/courses/{clean_course_id}/grades", session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -437,7 +464,7 @@ async def ubsi_get_discussions(
     api_key: Optional[str] = None,
 ) -> str:
     res = await _api_get("/v1/elearning/discussions", params={"token": token}, session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -450,7 +477,7 @@ async def ubsi_get_discussion_comments(
     api_key: Optional[str] = None,
 ) -> str:
     res = await _api_get("/v1/elearning/discussions/comments", params={"token": token}, session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -470,7 +497,7 @@ async def ubsi_submit_discussion_comment(
         "komentar": komentar,
     }
     res = await _api_post("/v1/elearning/discussions/comments", json_data=body, session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -490,7 +517,7 @@ async def ubsi_create_discussion(
         "chat": chat,
     }
     res = await _api_post("/v1/elearning/discussions", json_data=body, session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -504,7 +531,7 @@ async def ubsi_get_presence(
     api_key, session_token = _resolve_credentials(ctx, api_key, session_token)
     params = {"token": token} if token else None
     res = await _api_get("/v1/elearning/presence", params=params, session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -518,7 +545,7 @@ async def ubsi_submit_presence(
     api_key, session_token = _resolve_credentials(ctx, api_key, session_token)
     params = {"token": token} if token else None
     res = await _api_post("/v1/elearning/presence", params=params, session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -530,7 +557,7 @@ async def ubsi_get_materials(
 ) -> str:
     params = {"token": token} if token else None
     res = await _api_get("/v1/elearning/materials", params=params, session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -542,7 +569,7 @@ async def ubsi_get_grades_recap(
 ) -> str:
     params = {"token": token} if token else None
     res = await _api_get("/v1/elearning/grades", params=params, session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -551,7 +578,7 @@ async def ubsi_get_grades_recap(
 )
 async def ubsi_get_quiz(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/elearning/quiz", session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -560,7 +587,7 @@ async def ubsi_get_quiz(session_token: Optional[str] = None, api_key: Optional[s
 )
 async def ubsi_get_exams(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/elearning/exams", session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -581,7 +608,7 @@ async def ubsi_get_exam_schedule(
     res = await _api_get(
         f"/v1/elearning/exams/{exam_type}", session_token=session_token, api_key=api_key
     )
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -600,7 +627,7 @@ async def ubsi_get_quiz_questions(
     if quiz_url:
         params["quiz_url"] = quiz_url
     res = await _api_get("/v1/elearning/quiz/questions", params=params or None, session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -618,7 +645,7 @@ async def ubsi_submit_quiz_answer(
     if csrf_token:
         body["csrf_token"] = csrf_token
     res = await _api_post("/v1/elearning/quiz/answer", json_data=body, session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 # Tools: Perpustakaan, Berita, & Publikasi Ilmiah
@@ -634,7 +661,7 @@ async def ubsi_get_news(
     if search:
         params["search"] = search
     res = await _api_get("/v1/news", params=params, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -646,7 +673,7 @@ async def ubsi_search_library(
 ) -> str:
     params = {"q": query, "opsi": category, "page": page}
     res = await _api_get("/v1/elibrary/search", params=params, api_key=api_key, timeout=60.0)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -657,7 +684,7 @@ async def ubsi_get_repository(query: Optional[str] = None, api_key: Optional[str
     path = "/v1/repository/search" if query else "/v1/repository/recent"
     params = {"q": query} if query else None
     res = await _api_get(path, params=params, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 # Tools: Webhook Notifikasi & Pengingat Kuliah
@@ -668,7 +695,7 @@ async def ubsi_get_repository(query: Optional[str] = None, api_key: Optional[str
 )
 async def ubsi_list_channels(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/channels", session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -686,7 +713,7 @@ async def ubsi_trigger_reminder(
         session_token=session_token,
         api_key=api_key,
     )
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -698,7 +725,7 @@ async def ubsi_get_elearning_profile(
     api_key: Optional[str] = None,
 ) -> str:
     res = await _api_get("/v1/elearning/profile", session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -710,7 +737,7 @@ async def ubsi_get_makeup_classes(
     api_key: Optional[str] = None,
 ) -> str:
     res = await _api_get("/v1/elearning/makeups", session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
 
 
 @server.tool(
@@ -722,7 +749,13 @@ async def ubsi_get_elearning_guides(
     api_key: Optional[str] = None,
 ) -> str:
     res = await _api_get("/v1/elearning/guides", session_token=session_token, api_key=api_key)
-    return json.dumps(res, ensure_ascii=False, indent=2)
+    return _json_dumps(res)
+
+
+@functools.lru_cache(maxsize=16)
+def _cached_api_docs_json(category: Optional[str]) -> str:
+    from app.docs import get_api_docs
+    return _json_dumps({"success": True, "data": get_api_docs(category)})
 
 
 @server.tool(
@@ -734,9 +767,7 @@ async def ubsi_get_api_docs(
     session_token: Optional[str] = None,
     api_key: Optional[str] = None,
 ) -> str:
-    from app.docs import get_api_docs
-    res = get_api_docs(category)
-    return json.dumps({"success": True, "data": res}, ensure_ascii=False, indent=2)
+    return _cached_api_docs_json(category)
 
 
 # Export mira_* module-level function aliases for all ubsi_* functions
@@ -778,6 +809,8 @@ def main():
             port=args.port,
             streamable_http_path=args.path,
             transport_security=sec,
+            stateless_http=True,
+            json_response=True,
         )
     elif args.transport == "sse":
         from mcp.server.transport_security import TransportSecuritySettings

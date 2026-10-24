@@ -5,6 +5,7 @@ dependency baru. Encrypt dijalankan di threadpool karena CPU-bound.
 """
 import asyncio
 import base64
+import functools
 import json
 import logging
 import os
@@ -54,11 +55,16 @@ def generate_vapid_keypair() -> tuple[str, str]:
     return priv_raw.hex(), _b64url(pub_raw)
 
 
-def _load_private_key() -> EllipticCurvePrivateKey:
-    raw = bytes.fromhex(settings.VAPID_PRIVATE_KEY)
+@functools.lru_cache(maxsize=4)
+def _cached_private_key(priv_hex: str) -> EllipticCurvePrivateKey:
+    raw = bytes.fromhex(priv_hex)
     if len(raw) != 32:
         raise ValueError("VAPID_PRIVATE_KEY harus hex 32 byte (generate via scripts/generate_vapid_keys.py)")
     return derive_private_key(int.from_bytes(raw, "big"), SECP256R1())
+
+
+def _load_private_key() -> EllipticCurvePrivateKey:
+    return _cached_private_key(settings.VAPID_PRIVATE_KEY)
 
 
 def _vapid_auth_header(endpoint: str) -> str:

@@ -424,6 +424,9 @@ async def poll_user_notifications() -> int:
             total += await _produce_user_category(category, assignment_fetch_cache)
         except Exception:
             logger.exception("Kategori notifikasi %s gagal diproses", category)
+        finally:
+            if category == "tugas-baru":
+                assignment_fetch_cache.clear()
     return total
 
 

@@ -52,10 +52,7 @@ class CacheManager:
             effective_ttl = ttl if ttl is not None else self.default_ttl
             now_str = datetime.now(WIB).isoformat()
             body = json.dumps(payload)
-            lgg_body = json.dumps({
-                "payload": payload,
-                "_saved_at": now_str
-            })
+            lgg_body = f'{{"payload":{body},"_saved_at":{json.dumps(now_str)}}}'
             await client.set(f"{key}:fresh", body, ex=effective_ttl)
             # LGG must expire eventually to prevent immortal Redis growth.
             await client.set(f"{key}:lgg", lgg_body, ex=max(effective_ttl, 7 * 24 * 3600))
@@ -70,10 +67,12 @@ class CacheManager:
             self._locks[key] = lock
         self._locks.move_to_end(key)
         if len(self._locks) > self._max_locks:
-            for old_key, old_lock in tuple(self._locks.items()):
-                if old_key != key and not old_lock.locked():
-                    del self._locks[old_key]
-                    break
+            old_key = next(
+                (k for k, lk in self._locks.items() if k != key and not lk.locked()),
+                None,
+            )
+            if old_key is not None:
+                del self._locks[old_key]
         return lock
 
     async def fresh_or_stale(self, key: str) -> Optional[tuple[Any, bool]]:

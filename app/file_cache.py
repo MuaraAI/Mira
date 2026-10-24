@@ -13,8 +13,9 @@ from typing import Awaitable, Callable, Optional
 
 from fastapi import Request, Response
 
-MAX_BYTES = 64 * 1024 * 1024
+MAX_BYTES = 12 * 1024 * 1024
 TTL_SECONDS = 90
+_MAX_LOCKS = 256
 
 
 @dataclass
@@ -58,8 +59,28 @@ class FileCache:
         entry = self._items.pop(key, None)
         if entry is not None:
             self._size -= len(entry.data)
+        lk = self._locks.get(key)
+        if lk is not None and not lk.locked():
+            self._locks.pop(key, None)
+
+    def evict_expired(self) -> int:
+        now = time.monotonic()
+        expired = [k for k, v in self._items.items() if now - v.stored_at > self.ttl]
+        for k in expired:
+            self._drop(k)
+        if len(self._locks) > _MAX_LOCKS:
+            for k in list(self._locks.keys()):
+                if k not in self._items and not self._locks[k].locked():
+                    self._locks.pop(k, None)
+        return len(expired)
 
     def lock(self, key: str) -> asyncio.Lock:
+        if len(self._locks) >= _MAX_LOCKS and key not in self._locks:
+            for k in list(self._locks.keys()):
+                if k not in self._items and not self._locks[k].locked():
+                    self._locks.pop(k, None)
+                    if len(self._locks) < _MAX_LOCKS:
+                        break
         return self._locks.setdefault(key, asyncio.Lock())
 
     def clear(self) -> None:
@@ -106,7 +127,7 @@ async def serve_cached(
             entry = file_cache.get(key)
             if entry is None:
                 produced = await producer()
-                data = bytes(produced.body)
+                data = produced.body if isinstance(produced.body, bytes) else bytes(produced.body)
                 entry = FileEntry(
                     data=data,
                     content_type=produced.headers.get("content-type", "application/octet-stream"),

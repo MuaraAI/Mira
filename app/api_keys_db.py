@@ -6,6 +6,7 @@ kunci yang diturunkan dari master API_KEY server. Tidak ada password kampus
 yang disimpan secara plaintext di database.
 """
 import base64
+import functools
 import hashlib
 import json
 import secrets
@@ -41,18 +42,14 @@ CREATE INDEX IF NOT EXISTS idx_api_keys_nim ON api_keys(nim);
 """
 
 
-def _legacy_get_fernet() -> Fernet:
-    secret = settings.API_KEY
-    if not secret:
-        raise RuntimeError("API_KEY wajib disetel di file .env server!")
+@functools.lru_cache(maxsize=4)
+def _cached_legacy_fernet(secret: str) -> Fernet:
     key = base64.urlsafe_b64encode(hashlib.sha256(secret.encode("utf-8")).digest())
     return Fernet(key)
 
 
-def _get_fernet() -> Fernet:
-    secret = settings.API_KEY
-    if not secret:
-        raise RuntimeError("API_KEY wajib disetel di file .env server!")
+@functools.lru_cache(maxsize=4)
+def _cached_fernet(secret: str) -> Fernet:
     # Keyed BLAKE2b (RFC 7693) KDF dengan context 32-byte untuk kunci Fernet
     h = hashlib.blake2b(
         b"ubsi_fernet_credential_encryption_v1",
@@ -61,6 +58,20 @@ def _get_fernet() -> Fernet:
     )
     key = base64.urlsafe_b64encode(h.digest())
     return Fernet(key)
+
+
+def _legacy_get_fernet() -> Fernet:
+    secret = settings.API_KEY
+    if not secret:
+        raise RuntimeError("API_KEY wajib disetel di file .env server!")
+    return _cached_legacy_fernet(secret)
+
+
+def _get_fernet() -> Fernet:
+    secret = settings.API_KEY
+    if not secret:
+        raise RuntimeError("API_KEY wajib disetel di file .env server!")
+    return _cached_fernet(secret)
 
 
 def _connect() -> sqlite3.Connection:
