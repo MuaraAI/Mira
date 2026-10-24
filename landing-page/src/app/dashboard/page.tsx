@@ -212,7 +212,7 @@ export default function DashboardOverviewPage() {
               <UserRound className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span>Profil Saya</span>
             </Link>
-            <Link href="/dashboard/flexing" className="inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap px-3 py-2 rounded-pill text-xs font-semibold transition-all sm:px-4 sm:text-sm border border-stroke bg-white text-secondary hover:bg-[#F0F7FB] hover:text-foreground">
+            <Link href="/dashboard/nilai?flexing=1" className="inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap px-3 py-2 rounded-pill text-xs font-semibold transition-all sm:px-4 sm:text-sm border border-stroke bg-white text-secondary hover:bg-[#F0F7FB] hover:text-foreground">
               <PixelTrophy className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span>Flexing Nilai</span>
             </Link>

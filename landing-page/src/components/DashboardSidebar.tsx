@@ -22,7 +22,6 @@ import {
 } from "lucide-react";
 import { Monogram } from "@/components/Monogram";
 import { useLogout } from "@/lib/logout";
-import { PixelTrophy } from "@/components/PixelIcons";
 
 export interface NavGroup {
   title: string;
@@ -57,7 +56,6 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
     title: "Akademik",
     items: [
       { href: "/dashboard/nilai", label: "Nilai & KHS", icon: GraduationCap },
-      { href: "/dashboard/flexing", label: "Flexing Nilai", icon: PixelTrophy },
       { href: "/dashboard/krs", label: "Kartu KRS", icon: FileSpreadsheet },
       { href: "/dashboard/ujian", label: "Kartu Ujian", icon: Award },
     ],
