@@ -15,7 +15,7 @@ export const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Bisa dipakai buat apa aja?",
-    a: "Lihat jadwal kuliah, presensi kehadiran, tugas dan deadline, kuis dan ujian online, bahan ajar dosen, nilai dan KHS/KRS, berita kampus, cari buku fisik di perpustakaan, hingga eksplorasi repositori skripsi. Ada juga pengingat otomatis ke notifikasi HP, Discord, atau Telegram.",
+    a: "Lihat jadwal kuliah, presensi kehadiran, tugas dan deadline, kuis dan ujian online, bahan ajar dosen, unduh 5 paket bahan ajar resmi (Slide, Modul, Silabus, RPS, RTM), nilai dan KHS/KRS, berita kampus, cari buku fisik di perpustakaan, hingga eksplorasi repositori skripsi. Ada juga pengingat otomatis ke notifikasi HP, Discord, atau Telegram.",
   },
   {
     q: "Gratis nggak?",

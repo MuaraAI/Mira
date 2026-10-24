@@ -5,7 +5,7 @@ import { StatsBadge } from "./StatsBadge";
 
 const features = [
   { icon: CalendarDays, title: "SIAKAD: Jadwal Kuliah", text: "Jadwal mingguan, ruang, nama dosen pengampu, dan kalender akademik." },
-  { icon: CheckSquare, title: "MyBest: Tugas & Kuis", text: "Deadline tugas, unduh soal, kumpulkan lembar tugas, dan pantau kuis aktif." },
+  { icon: CheckSquare, title: "MyBest: Tugas & Kuis", text: "Deadline tugas, kumpulkan lembar tugas, pantau kuis, dan unduh 5 paket bahan ajar resmi: Slide, Modul, Silabus, RPS, RTM." },
   { icon: UserCheck, title: "Presensi Real-time", text: "Presensi kehadiran perkuliahan dengan verifikasi rekap otomatis dari server." },
   { icon: GraduationCap, title: "Ujian Online & Nilai", text: "Jadwal ujian kampus (Latihan, UTS, UAS), kartu ujian, KHS, dan IPK semester." },
   { icon: BookOpen, title: "Perpustakaan & Repository", text: "Pencarian katalog buku fisik OPAC perpustakaan, materi dosen, dan repositori skripsi." },

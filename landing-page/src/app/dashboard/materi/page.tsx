@@ -132,48 +132,71 @@ export default function MateriPage() {
   const materials = materialsApi.data ?? [];
   const materiDosen = materials.filter((m) => m.kategori === "materi_dosen" || (!m.kategori && m.kode));
 
-  // 5 Official Campus Standard Categories
+  // Paket resmi dari halaman MyBest (URL asli kampus, sudut benar per-kelompok:
+  // mis. silabus/rps/rtm memakai kode "101_1530" yang tak bisa dibangun statis).
+  const BAHAN_AJAR_ICONS: Record<string, typeof Layers> = {
+    slide: Layers,
+    modul: FileCode,
+    silabus: FileText,
+    rps: FileCheck2,
+    rtm: BookOpen,
+    bahan_ajar: BookOpen,
+  };
+  const bahanAjarItems = materials.filter((m) => BAHAN_AJAR_ICONS[m.kategori || ""]);
+
+  // 5 Official Campus Standard Categories (fallback statis bila MyBest tak menyediakan tautan)
   const standardPackages = [
     {
       category: "slide",
       title: "Slide Presentasi (P1 - P14)",
       desc: "Kumpulan PDF slide materi tatap muka mingguan dosen.",
-      icon: Layers,
       url: `https://students.bsi.ac.id/mhs_download/bahan_ajar/slide/${courseCode}.zip`,
     },
     {
       category: "modul",
       title: "Modul Praktikum & Teori",
       desc: "Panduan praktikum laboratorium, studi kasus, dan teori lengkap.",
-      icon: FileCode,
       url: `https://students.bsi.ac.id/mhs_download/bahan_ajar/modul/${courseCode}.zip`,
     },
     {
       category: "silabus",
       title: "Silabus Mata Kuliah",
       desc: "Garis besar pokok bahasan mata kuliah selama satu semester.",
-      icon: FileText,
       url: `https://students.bsi.ac.id/mhs_download/bahan_ajar/silabus/${courseCode}.zip`,
     },
     {
       category: "rps",
       title: "Rencana Pembelajaran Semester (RPS)",
       desc: "Capaian pembelajaran lulusan (CPL), CPMK, dan buku referensi dosen.",
-      icon: FileCheck2,
       url: `https://students.bsi.ac.id/mhs_download/bahan_ajar/rps/${courseCode}.zip`,
     },
     {
       category: "rtm",
       title: "Rencana Tugas Mahasiswa (RTM)",
       desc: "Pedoman tugas, kriteria luaran, dan rubrik penilaian resmi.",
-      icon: BookOpen,
       url: `https://students.bsi.ac.id/mhs_download/bahan_ajar/rtm/${courseCode}.zip`,
     },
   ];
 
+  const resmiPackages = bahanAjarItems.length
+    ? bahanAjarItems.map((m) => ({
+        key: m.id || m.kategori || m.judul || "paket",
+        category: m.kategori || "bahan_ajar",
+        title: m.judul || "Bahan Ajar",
+        desc: m.deskripsi || "Berkas resmi perkuliahan",
+        url: m.file_url || "#",
+      }))
+    : standardPackages.map((p) => ({
+        key: p.category,
+        category: p.category,
+        title: p.title,
+        desc: p.desc,
+        url: p.url,
+      }));
+
   const tabs = [
     { key: "dosen" as const, label: `Materi Dosen${materialsApi.loading ? "" : ` (${materiDosen.length})`}` },
-    { key: "resmi" as const, label: `Paket Resmi (${standardPackages.length})` },
+    { key: "resmi" as const, label: `Paket Resmi (${resmiPackages.length})` },
   ];
 
   return (
@@ -218,10 +241,10 @@ export default function MateriPage() {
 
       {view === "resmi" ? (
         <ul className="page-in glass-card divide-y-2 divide-dashed divide-px-soft">
-          {standardPackages.map((pkg) => {
-            const Icon = pkg.icon;
+          {resmiPackages.map((pkg) => {
+            const Icon = BAHAN_AJAR_ICONS[pkg.category] ?? Layers;
             return (
-              <li key={pkg.category}>
+              <li key={pkg.key}>
                 <a
                   href={pkg.url}
                   target="_blank"
