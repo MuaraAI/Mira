@@ -30,6 +30,7 @@ export function Composer({
   const [sending, setSending] = useState(false);
   const [mention, setMention] = useState<{ query: string; start: number } | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [flying, setFlying] = useState(0);
   const area = useRef<HTMLTextAreaElement>(null);
   const lastTyping = useRef(0);
 
@@ -83,6 +84,7 @@ export function Composer({
     const value = text.trim();
     if (!value || sending || value.length > MAX_BODY) return;
     setSending(true);
+    setFlying((n) => n + 1);
     const ok = await onSubmit(value);
     setSending(false);
     if (ok) {
@@ -129,7 +131,7 @@ export function Composer({
   const banner = editing ?? replyTo;
 
   return (
-    <div className="relative shrink-0 border-t-2 border-[#CFE2EE] bg-white px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2 sm:px-4 lg:pb-3">
+    <div className="chat-ui relative shrink-0 border-t-2 border-[#CFE2EE] bg-white px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 sm:px-4 lg:pb-3">
       {suggestions.length > 0 && (
         <ul
           role="listbox"
@@ -203,16 +205,21 @@ export function Composer({
           }}
           onKeyDown={onKeyDown}
           onBlur={() => setMention(null)}
-          className="px-input min-h-11 flex-1 resize-none px-3 py-2.5 text-base leading-snug text-[#072033] placeholder:text-[#3B5A70]/60 sm:text-sm"
+          className="px-input min-h-11 flex-1 resize-none px-3 py-2.5 text-base leading-snug text-[#072033] placeholder:text-[#3B5A70]/60 sm:text-[15px]"
         />
         <button
           type="button"
+          onPointerDown={(e) => e.preventDefault()}
           onClick={submit}
           disabled={!text.trim() || sending || over}
           aria-label={editing ? "Simpan perubahan" : "Kirim pesan"}
-          className="px-btn flex h-11 w-11 shrink-0 items-center justify-center"
+          className={`flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden transition-[background-color,box-shadow,transform] duration-200 active:translate-x-px active:translate-y-px disabled:cursor-not-allowed ${
+            text.trim() && !over
+              ? "bg-[#0369A1] text-white shadow-[0_0_0_2px_#072033,3px_3px_0_0_#072033] hover:bg-[#075985]"
+              : "bg-[#EAF3F9] text-[#3B5A70] shadow-[0_0_0_2px_#CFE2EE]"
+          }`}
         >
-          <SendHorizontal className="h-5 w-5" aria-hidden="true" />
+          <SendHorizontal key={flying} className={`h-5 w-5 ${flying ? "send-fly" : ""}`} aria-hidden="true" />
         </button>
       </div>
       {text.length > MAX_BODY - 200 && (

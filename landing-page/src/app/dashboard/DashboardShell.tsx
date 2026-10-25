@@ -65,6 +65,8 @@ function ShellLayout({ children }: { children: React.ReactNode }) {
   const { logout, busy } = useLogout();
   const { authed, checking, error, reload, nim } = useRequireSession();
   const title = getPageTitle(pathname);
+  // Komunitas adalah aplikasi chat: pakai lebar penuh dan tinggi layar, tanpa banner dan footer.
+  const chatRoute = pathname.startsWith("/dashboard/komunitas");
 
   return (
     <div className="portal-type min-h-screen bg-background text-foreground flex flex-col lg:flex-row">
@@ -111,7 +113,11 @@ function ShellLayout({ children }: { children: React.ReactNode }) {
 
         <main
           id="main-content"
-          className="dashboard-main flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 lg:pb-8"
+          className={
+            chatRoute
+              ? "flex-1 w-full px-2 pt-3 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:px-4 lg:px-6 lg:py-3"
+              : "dashboard-main flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 lg:pb-8"
+          }
         >
           {checking ? (
             <LoadingState label="Memeriksa sesi mahasiswa" />
@@ -119,13 +125,13 @@ function ShellLayout({ children }: { children: React.ReactNode }) {
             <ErrorState error={error} onRetry={reload} />
           ) : authed ? (
             <div key={pathname} className="page-in">
-              <PwaPushBanner />
+              {!chatRoute && <PwaPushBanner />}
               {children}
             </div>
           ) : null}
         </main>
 
-        <footer className="py-4 px-6 text-center font-mono text-[11px] text-secondary border-t-2 border-dashed border-px-soft hidden lg:block">
+        <footer className={`py-4 px-6 text-center font-mono text-[11px] text-secondary border-t-2 border-dashed border-px-soft hidden ${chatRoute ? "" : "lg:block"}`}>
           Mira bukan aplikasi resmi UBSI. Data diambil dari SIAKAD dan MyBest.
         </footer>
       </div>
