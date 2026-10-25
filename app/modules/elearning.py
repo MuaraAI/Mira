@@ -1538,6 +1538,9 @@ async def get_assignments(
                 submissions_list.extend(i for i in previous_data.get("submissions", []) if belongs(i))
 
             return {
+                # courses_count dipakai should_cache: daftar kosong karena get_courses
+                # gagal sesaat TIDAK boleh ter-cache 10 menit (kelihatan seperti tugas hilang).
+                "courses_count": len(courses),
                 "tasks": tasks_list,
                 "submissions": submissions_list,
                 "failed_courses": [c.get("nama") or c.get("kode") or "" for c in failed],
@@ -1550,7 +1553,7 @@ async def get_assignments(
             parse=lambda data: data,
             ttl=settings.TTL_ASSIGNMENTS,
             cache_params={"nim": nim, "token": "all"},
-            should_cache=lambda data: not data.get("failed_courses"),
+            should_cache=lambda data: not data.get("failed_courses") and data.get("courses_count", 1) > 0,
         )
 
     return await cached_endpoint(

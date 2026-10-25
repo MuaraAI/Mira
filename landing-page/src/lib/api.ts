@@ -72,7 +72,9 @@ export async function apiFetch<T>(
       cache: "no-store",
       headers: {
         ...(json !== undefined ? { "Content-Type": "application/json" } : {}),
-        ...(method !== "GET" ? { "X-Requested-With": "dashboard" } : {}),
+        // Ambient cookie auth di backend hanya aktif untuk request dashboard;
+        // GET pun wajib membawa penanda ini agar sesi cookie tidak teraba.
+        "X-Requested-With": "dashboard",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...rest.headers,
       },
