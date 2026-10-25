@@ -37,6 +37,34 @@ def _session_nim(request: Request) -> str:
     return str(nim)
 
 
+async def _cached_siakad(nim: str, name: str) -> dict[str, Any]:
+    """Baca data SIAKAD dari cache Redis saja (fresh, lalu LGG). Tanpa live hit, fail-open."""
+    try:
+        from app.cache import cache
+
+        key = cache.make_key("studentv2", name, nim=nim)
+        data = await cache.get_fresh(key)
+        if data is None:
+            lgg = await cache.get_lgg(key)
+            data = lgg[0] if lgg else None
+        return data or {}
+    except Exception:
+        return {}
+
+
+async def _siakad_defaults(nim: str) -> dict[str, str]:
+    """Kelas, cabang, dan prodi otomatis dari cache SIAKAD (anti ketik manual, anti palsu)."""
+    from app.modules import studentv2 as sv2
+
+    profile = await _cached_siakad(nim, "profile")
+    krs = await _cached_siakad(nim, "krs")
+    return {
+        "class_code": sv2.class_label(profile, krs) or "",
+        "campus_branch": sv2.branch_display(profile.get("lokasi_cabang")) or "",
+        "major": (profile.get("program_studi") or "").strip(),
+    }
+
+
 async def _call(fn: Callable[..., Any], *args: Any) -> Any:
     """Jalankan service sinkron; terjemahkan SocialError ke envelope HTTP standar."""
     try:
@@ -146,15 +174,17 @@ async def get_me(request: Request):
 @router.patch("/me")
 async def update_me(request: Request, body: ProfileBody):
     nim = _session_nim(request)
+    # Auto-fill kelas/cabang/prodi dari cache SIAKAD bila mahasiswa tidak mengisi manual.
+    auto = await _siakad_defaults(nim)
     profile = await _call(
         service.upsert_me,
         nim,
         body.username,
         body.display_name,
         body.bio,
-        body.campus_branch,
-        body.major,
-        body.class_code,
+        body.campus_branch or auto.get("campus_branch") or None,
+        body.major or auto.get("major") or None,
+        body.class_code or auto.get("class_code") or None,
         body.avatar_preset,
         body.show_nim,
         body.show_class,

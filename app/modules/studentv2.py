@@ -22,6 +22,35 @@ from app.router_helper import cached_endpoint
 
 router = APIRouter(prefix="/v1/studentv2", tags=["studentv2"])
 
+# Kode lokasi cabang SIAKAD -> nama tampilan. Diperluas seiring cabang baru teridentifikasi.
+BRANCH_NAMES: dict[str, str] = {
+    "30": "UBSI Pontianak",
+}
+
+
+def branch_display(code: Optional[str]) -> Optional[str]:
+    """Terjemahkan kode cabang SIAKAD ('30') menjadi nama tampilan ('UBSI Pontianak')."""
+    raw = (code or "").strip()
+    return BRANCH_NAMES.get(raw, raw) or None
+
+
+def class_label(
+    profile: Optional[dict[str, Any]] = None,
+    krs: Optional[dict[str, Any]] = None,
+) -> Optional[str]:
+    """Label kelas siap tampil: utamakan kelompok ujian KRS (mis. 15.1C.30.A), fallback kelas.lokal."""
+    if krs:
+        kelompok = (krs.get("kelompok_ujian") or "").strip()
+        if kelompok:
+            return kelompok
+    if profile:
+        kelas = (profile.get("kelas") or "").strip()
+        lokal = (profile.get("lokal") or "").strip()
+        if kelas and lokal:
+            return f"{kelas}.{lokal}"
+        return kelas or None
+    return None
+
 # Pure Parsers (Unit-tested against snapshot fixtures)
 
 def parse_schedule(html: str) -> list[dict[str, Any]]:
@@ -152,6 +181,10 @@ def parse_profile(html: str) -> dict[str, Any]:
             val = input_el[0].attrib.get("value", "").strip()
             mapped = key_map.get(raw_k, raw_k)
             profile[mapped] = val
+
+    # Terjemahkan kode cabang menjadi nama tampilan sekali di sumber (dipakai API, stats, social).
+    if profile.get("lokasi_cabang"):
+        profile["lokasi_cabang"] = branch_display(profile["lokasi_cabang"])
 
     return profile
 
