@@ -297,7 +297,7 @@ async def rate_limiting_middleware(request: Request, call_next):
         if authorized_request.method == "OPTIONS" or path in ("/health", "/docs", "/openapi.json", "/redoc"):
             return await call_next(authorized_request)
         client_key = getattr(authorized_request.state, "key_id", None)
-        is_write_route = authorized_request.method in {"POST", "PUT", "PATCH", "DELETE"} and (
+        is_write_route = authorized_request.method in {"POST", "PATCH", "DELETE"} and (
             "/elearning/presence" in path
             or "/elearning/assignments/" in path
             or "/elearning/quiz/answer" in path
@@ -346,7 +346,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization", "If-None-Match", "X-API-Key", "X-Requested-With", "X-Studentv2-NIM", "X-Studentv2-Pass", "X-Elearning-NIM", "X-Elearning-Pass"],
 )
 
