@@ -1,16 +1,56 @@
-"""Skema SQLite WAL untuk Mira Komunitas.
+"""Supabase Postgres HTTP / PostgREST Client untuk Mira Social v3.
 
-Satu file DB dengan fitur lain (settings.SQLITE_DB_PATH). Semua tabel diberi
-prefix `social_` supaya tidak bentrok. Koneksi dibuat per operasi, sama seperti
-channels_db, sehingga aman dipanggil dari threadpool mana pun.
+Menggunakan httpx murni (sudah terpasang di dependencies) untuk berinteraksi langsung
+dengan REST API Supabase tanpa menambahkan library pihak ketiga yang membengkakkan memori.
+Bekerja mulus di cloud Supabase (`duzehjktvbuqczjubshy`).
 """
+import logging
 import os
 import sqlite3
 from contextlib import contextmanager
-from typing import Iterator
+from typing import Any, Iterator, Optional
+import httpx
 
 from app.config import settings
 
+logger = logging.getLogger("app.social.db")
+
+_client: Optional[httpx.AsyncClient] = None
+
+
+def get_headers() -> dict[str, str]:
+    key = settings.SUPABASE_SERVICE_ROLE_KEY or settings.SUPABASE_ANON_KEY or ""
+    return {
+        "apikey": key,
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation",
+    }
+
+
+def is_configured() -> bool:
+    return bool(settings.SUPABASE_URL and (settings.SUPABASE_SERVICE_ROLE_KEY or settings.SUPABASE_ANON_KEY))
+
+
+def get_supabase_client() -> httpx.AsyncClient:
+    global _client
+    if _client is None or _client.is_closed:
+        _client = httpx.AsyncClient(
+            base_url=f"{settings.SUPABASE_URL.rstrip('/')}/rest/v1",
+            headers=get_headers(),
+            timeout=10.0,
+        )
+    return _client
+
+
+async def close_client() -> None:
+    global _client
+    if _client and not _client.is_closed:
+        await _client.aclose()
+        _client = None
+
+
+# Skema fallback jika mode offline / testing tanpa koneksi Supabase
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS social_profiles (
     nim TEXT PRIMARY KEY,
@@ -57,7 +97,6 @@ CREATE TABLE IF NOT EXISTS social_conversations (
 );
 CREATE INDEX IF NOT EXISTS idx_social_conv_space ON social_conversations(space_id);
 
--- Anggota DM (membership) sekaligus read-state untuk DM dan channel.
 CREATE TABLE IF NOT EXISTS social_participants (
     conversation_id INTEGER NOT NULL REFERENCES social_conversations(id) ON DELETE CASCADE,
     nim TEXT NOT NULL,
@@ -110,7 +149,6 @@ def connect() -> sqlite3.Connection:
 
 @contextmanager
 def transaction() -> Iterator[sqlite3.Connection]:
-    """Satu koneksi per operasi service: commit kalau sukses, rollback kalau error."""
     conn = connect()
     try:
         yield conn
@@ -123,13 +161,16 @@ def transaction() -> Iterator[sqlite3.Connection]:
 
 
 def init_social_db() -> None:
+    if is_configured():
+        logger.info("Supabase Mira Social v3 aktif (Host: %s)", settings.SUPABASE_URL)
+        return
+
     db_dir = os.path.dirname(settings.SQLITE_DB_PATH)
     if db_dir:
         os.makedirs(db_dir, exist_ok=True)
     conn = connect()
     try:
         conn.executescript(_SCHEMA)
-        # Migrasi kolom tambahan bila tabel sudah pernah dibuat sebelumnya
         for alter_sql in (
             "ALTER TABLE social_profiles ADD COLUMN campus_branch TEXT NOT NULL DEFAULT 'UBSI Pontianak'",
             "ALTER TABLE social_profiles ADD COLUMN major TEXT NOT NULL DEFAULT 'Informatika'",
