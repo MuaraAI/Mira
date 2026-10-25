@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS social_profiles (
     campus_branch TEXT NOT NULL DEFAULT 'UBSI Pontianak',
     major TEXT NOT NULL DEFAULT 'Informatika',
     avatar_preset TEXT NOT NULL DEFAULT 'mura-default',
+    e2ee_public_key TEXT,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     last_seen_at TEXT
 );
@@ -72,6 +73,8 @@ CREATE TABLE IF NOT EXISTS social_messages (
     body TEXT NOT NULL,
     card_type TEXT NOT NULL DEFAULT 'none',
     card_payload TEXT NOT NULL DEFAULT '{}',
+    is_encrypted INTEGER NOT NULL DEFAULT 0,
+    encryption_nonce TEXT,
     reply_to_id INTEGER,
     pinned_at TEXT,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
@@ -133,6 +136,9 @@ def init_social_db() -> None:
             "ALTER TABLE social_profiles ADD COLUMN avatar_preset TEXT NOT NULL DEFAULT 'mura-default'",
             "ALTER TABLE social_messages ADD COLUMN card_type TEXT NOT NULL DEFAULT 'none'",
             "ALTER TABLE social_messages ADD COLUMN card_payload TEXT NOT NULL DEFAULT '{}'",
+            "ALTER TABLE social_profiles ADD COLUMN e2ee_public_key TEXT",
+            "ALTER TABLE social_messages ADD COLUMN is_encrypted INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE social_messages ADD COLUMN encryption_nonce TEXT",
         ):
             try:
                 conn.execute(alter_sql)

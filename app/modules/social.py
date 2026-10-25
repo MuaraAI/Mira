@@ -74,6 +74,7 @@ class ProfileBody(BaseModel):
     campus_branch: Optional[str] = Field(default=None, max_length=80)
     major: Optional[str] = Field(default=None, max_length=80)
     avatar_preset: Optional[str] = Field(default=None, max_length=40)
+    e2ee_public_key: Optional[str] = Field(default=None, max_length=256)
 
 
 class SpaceBody(BaseModel):
@@ -115,6 +116,8 @@ class MessageBody(BaseModel):
     reply_to_id: Optional[int] = Field(default=None, ge=1)
     card_type: Literal["none", "nilai", "jadwal", "tugas"] = "none"
     card_payload: Optional[dict[str, Any]] = None
+    is_encrypted: bool = False
+    encryption_nonce: Optional[str] = Field(default=None, max_length=128)
 
 
 class EditBody(BaseModel):
@@ -147,6 +150,7 @@ async def update_me(request: Request, body: ProfileBody):
         body.campus_branch,
         body.major,
         body.avatar_preset,
+        body.e2ee_public_key,
     )
     return success_response(data={"profile": profile})
 
@@ -314,6 +318,8 @@ async def send_message(request: Request, conversation_id: int, body: MessageBody
         body.reply_to_id,
         body.card_type,
         body.card_payload,
+        body.is_encrypted,
+        body.encryption_nonce,
     )
     return JSONResponse(status_code=status.HTTP_201_CREATED, content=success_response(data={"message": message}))
 

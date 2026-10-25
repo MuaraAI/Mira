@@ -126,6 +126,7 @@ def _public_profile(row: sqlite3.Row) -> dict[str, Any]:
         "campus_branch": row["campus_branch"] if "campus_branch" in keys else "UBSI Pontianak",
         "major": row["major"] if "major" in keys else "Informatika",
         "avatar_preset": row["avatar_preset"] if "avatar_preset" in keys else "mura-default",
+        "e2ee_public_key": row["e2ee_public_key"] if "e2ee_public_key" in keys else None,
         "online": _is_online(row["last_seen_at"]),
         "last_seen_at": row["last_seen_at"],
     }
@@ -275,6 +276,8 @@ def _serialize_messages(conn: sqlite3.Connection, rows: list[sqlite3.Row]) -> li
                 "body": "" if deleted else r["body"],
                 "card_type": card_type,
                 "card_payload": card_payload,
+                "is_encrypted": bool(r["is_encrypted"]) if "is_encrypted" in keys else False,
+                "encryption_nonce": r["encryption_nonce"] if "encryption_nonce" in keys else None,
                 "reply_to": reply,
                 "reactions": [
                     {"key": key, "count": len(users), "users": users}
@@ -382,6 +385,7 @@ def upsert_me(
     campus_branch: Optional[str] = None,
     major: Optional[str] = None,
     avatar_preset: Optional[str] = None,
+    e2ee_public_key: Optional[str] = None,
 ) -> Outcome:
     handle = (username or "").strip().lstrip("@").lower()
     if not USERNAME_RE.match(handle):
@@ -391,6 +395,7 @@ def upsert_me(
     branch = _clean(campus_branch or "UBSI Pontianak", 80, "Cabang kampus")
     prodi = _clean(major or "Informatika", 80, "Program studi")
     avatar = _clean(avatar_preset or "mura-default", 40, "Avatar")
+    pubkey = _clean(e2ee_public_key, 256, "Kunci publik E2EE") if e2ee_public_key else None
     with transaction() as conn:
         taken = conn.execute(
             "SELECT nim FROM social_profiles WHERE username = ?", (handle,)
@@ -398,13 +403,14 @@ def upsert_me(
         if taken and taken["nim"] != nim:
             raise SocialError("USERNAME_TAKEN", "Username sudah dipakai, coba yang lain", 409)
         conn.execute(
-            "INSERT INTO social_profiles (nim, username, display_name, bio, campus_branch, major, avatar_preset, last_seen_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+            "INSERT INTO social_profiles (nim, username, display_name, bio, campus_branch, major, avatar_preset, e2ee_public_key, last_seen_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
             "ON CONFLICT(nim) DO UPDATE SET username = excluded.username, "
             "display_name = excluded.display_name, bio = excluded.bio, "
             "campus_branch = COALESCE(excluded.campus_branch, social_profiles.campus_branch), "
             "major = COALESCE(excluded.major, social_profiles.major), "
-            "avatar_preset = COALESCE(excluded.avatar_preset, social_profiles.avatar_preset)",
-            (nim, handle, name, about, branch, prodi, avatar, _now()),
+            "avatar_preset = COALESCE(excluded.avatar_preset, social_profiles.avatar_preset), "
+            "e2ee_public_key = COALESCE(excluded.e2ee_public_key, social_profiles.e2ee_public_key)",
+            (nim, handle, name, about, branch, prodi, avatar, pubkey, _now()),
         )
         row = conn.execute("SELECT * FROM social_profiles WHERE nim = ?", (nim,)).fetchone()
         return Outcome(_public_profile(row))
@@ -964,10 +970,13 @@ def send_message(
     reply_to_id: Optional[int] = None,
     card_type: str = "none",
     card_payload: Optional[dict[str, Any]] = None,
+    is_encrypted: bool = False,
+    encryption_nonce: Optional[str] = None,
 ) -> Outcome:
     text = _clean_body(body)
     c_type = card_type if card_type in ("none", "nilai", "jadwal", "tugas") else "none"
     c_json = json.dumps(card_payload or {}, separators=(",", ":"))
+    nonce = _clean(encryption_nonce, 128, "Nonce") if is_encrypted and encryption_nonce else None
     with transaction() as conn:
         _require_profile(conn, nim)
         conv, _ = _conversation(conn, nim, conversation_id)
@@ -978,9 +987,9 @@ def send_message(
             if not target or target["conversation_id"] != conversation_id:
                 raise SocialError("VALIDATION_ERROR", "Pesan yang dibalas tidak ada di percakapan ini")
         message_id = conn.execute(
-            "INSERT INTO social_messages (conversation_id, author_nim, body, reply_to_id, card_type, card_payload, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (conversation_id, nim, text, reply_to_id, c_type, c_json, _now()),
+            "INSERT INTO social_messages (conversation_id, author_nim, body, reply_to_id, card_type, card_payload, is_encrypted, encryption_nonce, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (conversation_id, nim, text, reply_to_id, c_type, c_json, 1 if is_encrypted else 0, nonce, _now()),
         ).lastrowid
         conn.execute(
             "UPDATE social_conversations SET last_message_id = ? WHERE id = ?", (message_id, conversation_id)

@@ -323,18 +323,22 @@ async def test_academic_card_and_radar():
     radar = (await budi.get("/v1/social/radar?branch=UBSI+Pontianak")).json()["data"]["users"]
     assert any(u["username"] == "ayu" for u in radar)
 
-    # Budi kirim DM ke Ayu berisi Kartu Nilai (card_type: nilai)
+    # Budi buka DM ke Ayu
     conv = (await budi.post("/v1/social/dms", json={"username": "ayu"})).json()["data"]["conversation"]
-    res_msg = await budi.post(
+
+    # Budi kirim DM ke Ayu terenkripsi E2EE (ciphertext acak + nonce)
+    res_e2ee = await budi.post(
         f"/v1/social/conversations/{conv['id']}/messages",
         json={
-            "body": "Nih cek nilai semester 1 gw!",
-            "card_type": "nilai",
-            "card_payload": {"ipk": "3.92", "sks": 18, "predikat": "Dengan Pujian"},
+            "body": "7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c",  # ciphertext hasil enkripsi di browser
+            "is_encrypted": True,
+            "encryption_nonce": "a1b2c3d4e5f67890",
         },
     )
-    assert res_msg.status_code == 201
-    msg = res_msg.json()["data"]["message"]
-    assert msg["card_type"] == "nilai"
-    assert msg["card_payload"]["ipk"] == "3.92"
+    assert res_e2ee.status_code == 201
+    msg_e2ee = res_e2ee.json()["data"]["message"]
+    assert msg_e2ee["is_encrypted"] is True
+    assert msg_e2ee["encryption_nonce"] == "a1b2c3d4e5f67890"
+    assert msg_e2ee["body"] == "7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c"
+
 
