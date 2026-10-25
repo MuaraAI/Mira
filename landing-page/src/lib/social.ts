@@ -18,7 +18,11 @@ export interface AuthorRef {
   display_name: string;
 }
 
-export type ReactionKey = "up" | "heart" | "haha" | "wow" | "fire" | "sad";
+export type ReactionKey =
+  | "heart" | "haha" | "fire" | "up" | "wow" | "sad"
+  | "pray" | "clap" | "party" | "hundred" | "eyes" | "skull"
+  | "think" | "love" | "cool" | "salute" | "rocket" | "check"
+  | "rofl" | "sob" | "melt" | "sparkles";
 
 export interface Message {
   id: number;
@@ -31,6 +35,10 @@ export interface Message {
   created_at: string;
   edited_at: string | null;
   deleted: boolean;
+  /** Kunci render stabil: pesan optimistis dan versi server-nya memakai DOM yang sama (tanpa animasi ulang). */
+  clientKey?: string;
+  /** Hanya di klien: pesan sedang dikirim atau gagal terkirim. */
+  local?: "sending" | "failed";
 }
 
 export interface LastMessage {

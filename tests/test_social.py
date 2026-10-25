@@ -223,7 +223,7 @@ async def test_edit_delete_reaction_and_pin_rules():
     edited = (await budi.patch(f"/v1/social/messages/{mid}", json={"body": "fixed"})).json()["data"]["message"]
     assert edited["body"] == "fixed" and edited["edited_at"]
 
-    assert (await budi.post(f"/v1/social/messages/{mid}/reactions/rocket")).status_code == 400
+    assert (await budi.post(f"/v1/social/messages/{mid}/reactions/unicorn")).status_code == 400
     react = (await ayu.post(f"/v1/social/messages/{mid}/reactions/fire")).json()["data"]["message"]
     assert react["reactions"] == [{"key": "fire", "count": 1, "users": ["ayu"]}]
     react = (await ayu.post(f"/v1/social/messages/{mid}/reactions/fire")).json()["data"]["message"]

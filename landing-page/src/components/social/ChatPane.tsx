@@ -21,6 +21,8 @@ import {
 
 export interface ConversationState {
   messages: Message[];
+  /** Bubble optimistis yang belum dikonfirmasi server (selalu tampil paling bawah). */
+  pending: Message[];
   hasMore: boolean;
   loading: boolean;
   loadingOlder: boolean;
@@ -45,6 +47,7 @@ export function ChatPane({
   onDelete,
   onReact,
   onPin,
+  onRetry,
   onTyping,
   onMessageUser,
 }: {
@@ -60,6 +63,7 @@ export function ChatPane({
   onDelete: (message: Message) => void;
   onReact: (message: Message, key: ReactionKey) => void;
   onPin: (message: Message) => void;
+  onRetry: (message: Message) => void;
   onTyping: () => void;
   onMessageUser: (username: string) => void;
 }) {
@@ -120,10 +124,10 @@ export function ChatPane({
   const headerButton = "flex h-10 w-10 shrink-0 items-center justify-center text-[#3B5A70] transition-colors hover:bg-[#EAF3F9] hover:text-[#072033]";
 
   return (
-    <div className="flex h-full min-w-0 flex-1">
+    <div className="chat-ui flex h-full min-w-0 flex-1">
       <section className="flex min-w-0 flex-1 flex-col bg-white" aria-label={`Percakapan ${title}`}>
         <header className="flex h-14 shrink-0 items-center gap-2 border-b-2 border-[#CFE2EE] bg-white px-2 sm:px-3">
-          <button type="button" onClick={onBack} aria-label="Kembali ke daftar chat" className={`${headerButton} lg:hidden`}>
+          <button type="button" onClick={onBack} aria-label="Kembali ke daftar chat" className={`${headerButton} md:hidden`}>
             <ArrowLeft className="h-5 w-5" aria-hidden="true" />
           </button>
           {active.kind === "dm" ? (
@@ -134,8 +138,8 @@ export function ChatPane({
             </span>
           )}
           <div className="min-w-0 flex-1 pl-1">
-            <h2 className={`truncate text-sm font-bold text-[#072033] ${isChannel ? "font-mono" : ""}`}>{title}</h2>
-            <p className={`truncate text-[11px] ${typingName ? "font-semibold text-[#0369A1]" : active.kind === "dm" && active.dm.peer.online ? "text-[#0F766E]" : "text-[#3B5A70]"}`}>
+            <h2 className="truncate text-[15px] font-bold leading-tight text-[#072033]">{isChannel ? `# ${title}` : title}</h2>
+            <p className={`truncate text-xs ${typingName ? "font-semibold text-[#0369A1]" : active.kind === "dm" && active.dm.peer.online ? "text-[#0F766E]" : "text-[#3B5A70]"}`}>
               {subtitle}
             </p>
           </div>
@@ -165,13 +169,13 @@ export function ChatPane({
         </header>
 
         {!state || state.loading ? (
-          <div className="flex flex-1 flex-col gap-3 bg-[#F7FAFC] p-4" aria-busy="true" aria-label="Memuat pesan">
+          <div className="chat-wall flex flex-1 flex-col gap-3 p-4" aria-busy="true" aria-label="Memuat pesan">
             {[60, 40, 72, 52].map((w, i) => (
               <span key={i} className={`px-skeleton block h-10 ${i % 2 ? "self-end" : ""}`} style={{ width: `${w}%` }} />
             ))}
           </div>
-        ) : state.messages.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center bg-[#F7FAFC] px-6 text-center">
+        ) : state.messages.length === 0 && state.pending.length === 0 ? (
+          <div className="chat-wall flex flex-1 flex-col items-center justify-center px-6 text-center">
             <span className="px-icon h-14 w-14">
               {isChannel ? <Hash className="h-7 w-7" aria-hidden="true" /> : <Avatar name={title} seed={active.kind === "dm" ? active.dm.peer.username : ""} saved={active.kind === "dm" && active.dm.is_saved} />}
             </span>
@@ -184,7 +188,7 @@ export function ChatPane({
           </div>
         ) : (
           <MessageList
-            messages={state.messages}
+            messages={state.pending.length ? [...state.messages, ...state.pending] : state.messages}
             me={me}
             kind={active.kind}
             canModerate={canModerate}
@@ -195,6 +199,7 @@ export function ChatPane({
             loadingOlder={state.loadingOlder}
             onLoadOlder={onLoadOlder}
             highlightId={highlight}
+            typingName={typingName}
             actions={{
               onReply: (m) => {
                 setEditing(null);
@@ -207,6 +212,7 @@ export function ChatPane({
               onDelete,
               onReact,
               onPin,
+              onRetry,
               onCopy: async (m) => {
                 try {
                   await navigator.clipboard.writeText(m.body);

@@ -39,7 +39,7 @@ export function SpaceRail({
   return (
     <nav
       aria-label="Ruang komunitas"
-      className="scroll-slim flex shrink-0 gap-2 overflow-x-auto border-b-2 border-[#CFE2EE] bg-[#EAF3F9] p-2 lg:w-[68px] lg:flex-col lg:items-center lg:overflow-y-auto lg:overflow-x-hidden lg:border-b-0 lg:border-r-2 lg:py-3"
+      className="scroll-slim flex shrink-0 gap-2 overflow-x-auto border-b-2 border-[#CFE2EE] bg-[#EAF3F9] p-2 md:w-[68px] md:flex-col md:items-center md:overflow-y-auto md:overflow-x-hidden md:border-b-0 md:border-r-2 md:py-3"
     >
       <button type="button" onClick={() => onView("home")} aria-current={view === "home" ? "page" : undefined} aria-label="Pesan pribadi" title="Pesan pribadi" className={railButton}>
         <span
@@ -58,7 +58,7 @@ export function SpaceRail({
         )}
       </button>
 
-      <span className="mx-1 w-0.5 shrink-0 self-stretch bg-[#CFE2EE] lg:mx-0 lg:my-1 lg:h-0.5 lg:w-8 lg:self-center" aria-hidden="true" />
+      <span className="mx-1 w-0.5 shrink-0 self-stretch bg-[#CFE2EE] md:mx-0 md:my-1 md:h-0.5 md:w-8 md:self-center" aria-hidden="true" />
 
       {inbox.spaces.map((space) => {
         const active = view === space.id;
@@ -74,7 +74,7 @@ export function SpaceRail({
           >
             {/* Penanda kiri ala Discord: tinggi = aktif, titik = ada pesan baru. */}
             <span
-              className={`absolute -left-2 hidden w-1 bg-[#072033] transition-all lg:block ${active ? "h-8" : space.unread ? "h-2" : "h-0"}`}
+              className={`absolute -left-2 hidden w-1 bg-[#072033] transition-all md:block ${active ? "h-8" : space.unread ? "h-2" : "h-0"}`}
               aria-hidden="true"
             />
             <SpaceTile name={space.name} active={active} />
@@ -150,13 +150,13 @@ export function ConversationColumn({
   }, [inbox.dms, filter]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-white lg:w-[272px] lg:flex-none lg:border-r-2 lg:border-[#CFE2EE]">
+    <div className="flex min-h-0 flex-1 flex-col bg-white md:w-[256px] lg:w-[300px] md:flex-none md:border-r-2 md:border-[#CFE2EE]">
       <div className="flex h-14 shrink-0 items-center gap-2 border-b-2 border-[#CFE2EE] px-3">
         {space ? (
           <>
             <div className="min-w-0 flex-1">
-              <h2 className="truncate font-display text-sm font-bold text-[#072033]">{space.name}</h2>
-              <p className="truncate font-mono text-[10px] text-[#3B5A70]">{space.member_count} anggota</p>
+              <h2 className="truncate text-[15px] font-bold text-[#072033]">{space.name}</h2>
+              <p className="truncate text-[11px] text-[#3B5A70]">{space.member_count} anggota</p>
             </div>
             <button type="button" onClick={() => onSpaceSettings(space)} aria-label="Undang teman" title="Undang teman" className="flex h-10 w-10 items-center justify-center text-[#0369A1] hover:bg-[#EAF3F9]">
               <UserPlus className="h-[18px] w-[18px]" aria-hidden="true" />
@@ -167,7 +167,7 @@ export function ConversationColumn({
           </>
         ) : (
           <>
-            <h2 className="flex-1 font-display text-sm font-bold text-[#072033]">Pesan</h2>
+            <h2 className="flex-1 text-[17px] font-bold tracking-tight text-[#072033]">Pesan</h2>
             <button type="button" onClick={onNewDm} aria-label="Chat baru" title="Chat baru" className="flex h-10 w-10 items-center justify-center text-[#0369A1] hover:bg-[#EAF3F9]">
               <MessageCirclePlus className="h-5 w-5" aria-hidden="true" />
             </button>
@@ -212,7 +212,7 @@ export function ConversationColumn({
             <Avatar name={me.display_name} seed={me.username} size="sm" online />
             <span className="min-w-0">
               <span className="block truncate text-sm font-bold text-[#072033]">{me.display_name}</span>
-              <span className="block truncate font-mono text-[10px] text-[#3B5A70]">@{me.username}</span>
+              <span className="block truncate text-[11px] text-[#3B5A70]">@{me.username}</span>
             </span>
           </button>
           <StatusDot status={status} />
@@ -232,18 +232,18 @@ function DmRow({ dm, me, active, typing, onOpen }: { dm: DmItem; me: string; act
         type="button"
         onClick={() => onOpen(dm.id)}
         aria-current={active ? "true" : undefined}
-        className={`flex w-full items-center gap-3 px-2 py-2 text-left transition-[background-color,box-shadow] duration-150 ${
+        className={`flex w-full items-center gap-3 px-2 py-2.5 text-left transition-[background-color,box-shadow] duration-150 ${
           active ? "bg-[#DCEBF5] shadow-[inset_3px_0_0_#0369A1]" : "hover:bg-[#F0F7FB]"
         }`}
       >
         <Avatar name={name} seed={dm.peer.username} online={dm.is_saved ? undefined : dm.peer.online} saved={dm.is_saved} />
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline gap-2">
-            <span className={`truncate text-sm text-[#072033] ${dm.unread ? "font-bold" : "font-semibold"}`}>{name}</span>
-            {last && <span className="ml-auto shrink-0 font-mono text-[10px] text-[#3B5A70]">{listTime(last.created_at)}</span>}
+            <span className={`truncate text-[15px] text-[#072033] ${dm.unread ? "font-bold" : "font-semibold"}`}>{name}</span>
+            {last && <span className={`chat-time ml-auto shrink-0 text-[11px] ${dm.unread ? "font-bold text-[#0369A1]" : "text-[#3B5A70]"}`}>{listTime(last.created_at)}</span>}
           </span>
           <span className="mt-0.5 flex items-center gap-2">
-            <span className={`truncate text-[13px] ${dm.unread ? "text-[#072033]" : "text-[#3B5A70]"}`}>
+            <span className={`truncate text-[14px] ${dm.unread ? "text-[#072033]" : "text-[#3B5A70]"}`}>
               {typing ? (
                 <span className="font-semibold text-[#0369A1]">mengetik...</span>
               ) : last ? (
@@ -283,7 +283,7 @@ function ChannelList({ space, activeId, onOpen }: { space: SpaceItem; activeId: 
                 type="button"
                 onClick={() => onOpen(channel.id)}
                 aria-current={active ? "true" : undefined}
-                className={`flex min-h-10 w-full items-center gap-2 px-2.5 text-left font-mono text-[13px] transition-[background-color,color,box-shadow] duration-150 ${
+                className={`flex min-h-11 w-full items-center gap-2 px-2.5 text-left text-[14px] md:min-h-10 transition-[background-color,color,box-shadow] duration-150 ${
                   active
                     ? "bg-[#DCEBF5] font-semibold text-[#072033] shadow-[inset_3px_0_0_#0369A1]"
                     : unread

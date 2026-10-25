@@ -21,7 +21,13 @@ USERNAME_RE = re.compile(r"^[a-z0-9_]{3,24}$")
 CHANNEL_NAME_RE = re.compile(r"^[a-z0-9-]{1,32}$")
 MENTION_RE = re.compile(r"(?<![\w@])@([a-zA-Z0-9_]{3,24})\b")
 
-REACTIONS = ("up", "heart", "haha", "wow", "fire", "sad")
+# Key reaksi stabil di DB; frontend memetakan tiap key ke aset Fluent Emoji 3D.
+REACTIONS = (
+    "heart", "haha", "fire", "up", "wow", "sad",
+    "pray", "clap", "party", "hundred", "eyes", "skull",
+    "think", "love", "cool", "salute", "rocket", "check",
+    "rofl", "sob", "melt", "sparkles",
+)
 ROLES = ("owner", "admin", "member")
 ROLE_RANK = {"owner": 3, "admin": 2, "member": 1}
 

@@ -735,7 +735,7 @@ Chat ringan gabungan Discord (ruang + channel, role, @mention, reaksi) dan Teleg
 | `GET` | `/v1/social/conversations/{id}/pins` · `/search?q=` | Pesan disematkan · cari pesan |
 | `POST` | `/v1/social/conversations/{id}/read` · `/typing` | Tandai dibaca · indikator mengetik |
 | `PATCH` / `DELETE` | `/v1/social/messages/{id}` | Edit (pengirim) / hapus (pengirim atau admin) |
-| `POST` | `/v1/social/messages/{id}/reactions/{key}` | Toggle reaksi: `up`, `heart`, `haha`, `wow`, `fire`, `sad` |
+| `POST` | `/v1/social/messages/{id}/reactions/{key}` | Toggle reaksi (22 key, mis. `heart`, `haha`, `fire`, `up`, `pray`, `party`; daftar lengkap di `app/social/service.py`) |
 | `POST` / `DELETE` | `/v1/social/messages/{id}/pin` | Sematkan / lepas (admin di channel, kedua pihak di DM) |
 | `GET` | `/v1/social/stream` | SSE realtime |
 

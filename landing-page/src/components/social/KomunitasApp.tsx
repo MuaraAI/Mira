@@ -60,7 +60,7 @@ function findConv(inbox: Inbox | null, id: number | null): InboxConv | null {
 
 function insertMessage(list: Message[], message: Message): Message[] {
   const index = list.findIndex((m) => m.id === message.id);
-  if (index >= 0) return list.map((m, i) => (i === index ? message : m));
+  if (index >= 0) return list.map((m, i) => (i === index ? { ...message, clientKey: m.clientKey ?? message.clientKey } : m));
   if (!list.length || message.id > list[list.length - 1].id) return [...list, message];
   return [...list, message].sort((a, b) => a.id - b.id);
 }
@@ -69,7 +69,7 @@ function titleCase(name: string) {
   return name.toLowerCase().replace(/\b\p{L}/gu, (c) => c.toUpperCase()).trim();
 }
 
-const MOBILE_QUERY = "(max-width: 1023px)";
+const MOBILE_QUERY = "(max-width: 767px)";
 const isMobile = () => typeof window !== "undefined" && window.matchMedia(MOBILE_QUERY).matches;
 
 function useIsMobile() {
@@ -163,7 +163,7 @@ export function KomunitasApp() {
     const item = findConv(refs.current.inbox, id);
     setConvs((prev) => ({
       ...prev,
-      [id]: { messages: [], hasMore: false, loading: true, loadingOlder: false, peerLastReadId: null, unreadFromId: null },
+      [id]: { messages: [], pending: [], hasMore: false, loading: true, loadingOlder: false, peerLastReadId: null, unreadFromId: null },
     }));
     try {
       const page = await socialApi.messages(id);
@@ -171,6 +171,7 @@ export function KomunitasApp() {
         ...prev,
         [id]: {
           messages: page.messages,
+          pending: prev[id]?.pending ?? [],
           hasMore: page.has_more,
           loading: false,
           loadingOlder: false,
@@ -309,8 +310,21 @@ export function KomunitasApp() {
           debounce("inbox", () => loadInbox().catch(() => {}));
           break;
         }
-        setConvs((prev) => (prev[id] ? { ...prev, [id]: { ...prev[id], messages: insertMessage(prev[id].messages, message) } } : prev));
         const mine = message.author.username === myName;
+        setConvs((prev) => {
+          const state = prev[id];
+          if (!state) return prev;
+          // Event pesan sendiri bisa datang sebelum respons HTTP: ambil alih bubble optimistisnya.
+          const twin = mine ? state.pending.find((p) => p.body === message.body && p.local === "sending") : undefined;
+          return {
+            ...prev,
+            [id]: {
+              ...state,
+              pending: twin ? state.pending.filter((p) => p !== twin) : state.pending,
+              messages: insertMessage(state.messages, twin ? { ...message, clientKey: twin.clientKey } : message),
+            },
+          };
+        });
         const viewing = current === id && isVisible;
         patchConv(id, (item) => ({
           last_message: toLast(message),
@@ -450,17 +464,71 @@ export function KomunitasApp() {
 
   /* ---------------------------------------------------------------- message actions */
 
-  const send = async (text: string, replyTo: Message | null) => {
-    if (activeId === null) return false;
+  const patchPending = useCallback((id: number, clientKey: string, fn: (m: Message) => Message | null) => {
+    setConvs((prev) => {
+      const state = prev[id];
+      if (!state) return prev;
+      const pending = state.pending.flatMap((m) => (m.clientKey === clientKey ? (fn(m) ? [fn(m) as Message] : []) : [m]));
+      return { ...prev, [id]: { ...state, pending } };
+    });
+  }, []);
+
+  /** Kirim ke server untuk bubble optimistis; sukses = diganti versi server, gagal = tanda "Ketuk untuk kirim ulang". */
+  const deliver = async (temp: Message) => {
+    const id = temp.conversation_id;
+    const key = temp.clientKey as string;
     try {
-      const { message } = await socialApi.send(activeId, text, replyTo?.id);
-      setConvs((prev) => (prev[activeId] ? { ...prev, [activeId]: { ...prev[activeId], messages: insertMessage(prev[activeId].messages, message), unreadFromId: null } } : prev));
-      patchConv(activeId, () => ({ last_message: toLast(message), last_read_id: message.id, unread: 0, mentions: 0 }));
-      return true;
+      const { message } = await socialApi.send(id, temp.body, temp.reply_to?.id);
+      setConvs((prev) => {
+        const state = prev[id];
+        if (!state) return prev;
+        return {
+          ...prev,
+          [id]: {
+            ...state,
+            pending: state.pending.filter((p) => p.clientKey !== key),
+            messages: insertMessage(state.messages, { ...message, clientKey: key }),
+            unreadFromId: null,
+          },
+        };
+      });
+      patchConv(id, () => ({ last_message: toLast(message), last_read_id: message.id, unread: 0, mentions: 0 }));
     } catch (err) {
+      patchPending(id, key, (m) => ({ ...m, local: "failed" }));
       notify(errorText(err), "error");
-      return false;
     }
+  };
+
+  const send = async (text: string, replyTo: Message | null) => {
+    const profile = refs.current.inbox?.me;
+    if (activeId === null || !profile) return false;
+    const now = Date.now();
+    const temp: Message = {
+      id: -now,
+      conversation_id: activeId,
+      author: { username: profile.username, display_name: profile.display_name },
+      body: text,
+      reply_to: replyTo
+        ? { id: replyTo.id, author: replyTo.author, preview: replyTo.body.replace(/\s+/g, " ").slice(0, 90), deleted: false }
+        : null,
+      reactions: [],
+      pinned: false,
+      created_at: new Date(now).toISOString(),
+      edited_at: null,
+      deleted: false,
+      clientKey: `tmp-${now}-${Math.random().toString(36).slice(2, 7)}`,
+      local: "sending",
+    };
+    setConvs((prev) => (prev[activeId] ? { ...prev, [activeId]: { ...prev[activeId], pending: [...prev[activeId].pending, temp] } } : prev));
+    void deliver(temp);
+    return true;
+  };
+
+  const retry = (message: Message) => {
+    if (message.local !== "failed" || !message.clientKey) return;
+    const next = { ...message, local: "sending" as const };
+    patchPending(message.conversation_id, message.clientKey, () => next);
+    void deliver(next);
   };
 
   const runMessage = async (conversationId: number, task: Promise<{ message: Message }>, success?: string) => {
@@ -529,7 +597,12 @@ export function KomunitasApp() {
         onLoadOlder={loadOlder}
         onSend={send}
         onEdit={(m, text) => runMessage(m.conversation_id, socialApi.edit(m.id, text))}
+        onRetry={retry}
         onDelete={async (m) => {
+          if (m.local && m.clientKey) {
+            patchPending(m.conversation_id, m.clientKey, () => null);
+            return;
+          }
           const ok = await confirm({ title: "Hapus pesan?", message: "Pesan dihapus untuk semua orang di percakapan ini.", confirmLabel: "Hapus", tone: "danger" });
           if (ok) runMessage(m.conversation_id, socialApi.remove(m.id));
         }}
@@ -545,7 +618,7 @@ export function KomunitasApp() {
 
   return (
     <>
-      <div className="px-card flex flex-col overflow-hidden bg-white lg:h-[calc(100dvh-10.5rem)] lg:min-h-[520px] lg:flex-row">
+      <div className="chat-ui px-card flex h-[calc(100dvh-9.75rem-env(safe-area-inset-bottom))] min-h-[420px] flex-col overflow-hidden bg-white md:flex-row lg:h-[calc(100dvh-5.5rem)] lg:min-h-[520px]">
         <SpaceRail
           inbox={inbox}
           view={view}
@@ -560,7 +633,7 @@ export function KomunitasApp() {
           onCreate={() => setSheet("create")}
           onJoin={() => setSheet("join")}
         />
-        <div className="flex min-h-[60dvh] lg:min-h-0">
+        <div className="flex min-h-0 flex-1 md:flex-none">
           <ConversationColumn
             inbox={inbox}
             view={view}
@@ -580,7 +653,7 @@ export function KomunitasApp() {
         {active && !mobile ? (
           chatPane
         ) : (
-          <div className="hidden flex-1 flex-col items-center justify-center bg-[#F7FAFC] p-8 text-center lg:flex">
+          <div className="chat-wall hidden flex-1 flex-col items-center justify-center p-8 text-center md:flex">
             <span className="px-icon h-16 w-16">
               <MessagesSquare className="h-8 w-8" aria-hidden="true" />
             </span>
