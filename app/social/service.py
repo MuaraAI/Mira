@@ -38,7 +38,11 @@ MAX_CHANNELS = 20
 MAX_MEMBERS = 500
 MAX_PINS = 50
 PAGE_SIZE = 50
-ONLINE_WINDOW = timedelta(minutes=2)
+# Online = ada stream realtime aktif (is_online) dan heartbeat belum basi.
+# Heartbeat stream tiap 20 detik; jendela 90 detik menoleransi worker yang mati tanpa sempat menulis offline.
+ONLINE_WINDOW = timedelta(seconds=90)
+MAX_PRESENCE_AUDIENCE = 300
+MAX_RECENT_EDITS = 20
 _INVITE_ALPHABET = string.ascii_letters + string.digits
 
 
@@ -79,9 +83,9 @@ def _parse_ts(value: Optional[str]) -> Optional[datetime]:
         return None
 
 
-def _is_online(last_seen_at: Optional[str]) -> bool:
-    seen = _parse_ts(last_seen_at)
-    return bool(seen and datetime.now(timezone.utc) - seen <= ONLINE_WINDOW)
+def _is_online(row: sqlite3.Row) -> bool:
+    seen = _parse_ts(row["last_seen_at"])
+    return bool(row["is_online"] and seen and datetime.now(timezone.utc) - seen <= ONLINE_WINDOW)
 
 
 def _clean(text: Optional[str], limit: int, field_name: str, required: bool = False) -> str:
@@ -127,7 +131,9 @@ def _public_profile(row: sqlite3.Row) -> dict[str, Any]:
         "username": row["username"],
         "display_name": row["display_name"],
         "bio": row["bio"],
-        "online": _is_online(row["last_seen_at"]),
+        "avatar": row["avatar"],
+        "banner": row["banner"],
+        "online": _is_online(row),
         "last_seen_at": row["last_seen_at"],
     }
 
@@ -143,7 +149,15 @@ def _profiles_by_nim(conn: sqlite3.Connection, nims: Iterable[str]) -> dict[str,
 
 
 def _ghost(nim: str) -> dict[str, Any]:
-    return {"username": "", "display_name": "Pengguna", "bio": "", "online": False, "last_seen_at": None}
+    return {
+        "username": "",
+        "display_name": "Pengguna",
+        "bio": "",
+        "avatar": None,
+        "banner": None,
+        "online": False,
+        "last_seen_at": None,
+    }
 
 
 def _require_profile(conn: sqlite3.Connection, nim: str) -> sqlite3.Row:
@@ -251,20 +265,21 @@ def _serialize_messages(conn: sqlite3.Connection, rows: list[sqlite3.Row]) -> li
         reply = None
         if r["reply_to_id"]:
             target = replies.get(r["reply_to_id"])
-            if target is not None:
+            # Pesan yang dihapus hilang total, termasuk dari kutipan balasan.
+            if target is not None and not target["deleted_at"]:
                 target_author = profiles.get(target["author_nim"]) or _ghost(target["author_nim"])
                 reply = {
                     "id": target["id"],
                     "author": {"username": target_author["username"], "display_name": target_author["display_name"]},
-                    "preview": "" if target["deleted_at"] else _preview(target["body"], 90),
-                    "deleted": bool(target["deleted_at"]),
+                    "preview": _preview(target["body"], 90),
+                    "deleted": False,
                 }
         deleted = bool(r["deleted_at"])
         out.append(
             {
                 "id": r["id"],
                 "conversation_id": r["conversation_id"],
-                "author": {"username": author["username"], "display_name": author["display_name"]},
+                "author": {"username": author["username"], "display_name": author["display_name"], "avatar": author["avatar"]},
                 "body": "" if deleted else r["body"],
                 "reply_to": reply,
                 "reactions": [
@@ -337,6 +352,8 @@ def _space_summary(conn: sqlite3.Connection, space: sqlite3.Row, role: Optional[
         "name": space["name"],
         "description": space["description"],
         "is_public": bool(space["is_public"]),
+        "avatar": space["avatar"],
+        "banner": space["banner"],
         "member_count": member_count,
         "my_role": role,
         "created_at": space["created_at"],
@@ -390,6 +407,60 @@ def upsert_me(nim: str, username: str, display_name: str, bio: str = "") -> Outc
 def touch_seen(nim: str) -> None:
     with transaction() as conn:
         conn.execute("UPDATE social_profiles SET last_seen_at = ? WHERE nim = ?", (_now(), nim))
+
+
+def _require_media(media_id: Optional[str]) -> Optional[str]:
+    from app.social import media
+
+    if media_id is None:
+        return None
+    if media.path_for(media_id) is None:
+        raise SocialError("MEDIA_NOT_FOUND", "Gambar tidak ditemukan, unggah ulang", 404)
+    return media_id
+
+
+def set_profile_media(nim: str, changes: dict[str, Optional[str]]) -> Outcome:
+    """`changes` hanya berisi field yang dikirim klien: {"avatar": id|None, "banner": id|None}."""
+    with transaction() as conn:
+        me = _require_profile(conn, nim)
+        for field in ("avatar", "banner"):
+            if field in changes:
+                conn.execute(
+                    f"UPDATE social_profiles SET {field} = ? WHERE nim = ?", (_require_media(changes[field]), nim)
+                )
+        row = conn.execute("SELECT * FROM social_profiles WHERE nim = ?", (nim,)).fetchone()
+        profile = _public_profile(row)
+        audience = _presence_audience(conn, nim)
+        return Outcome(profile, [Event("profile.updated", audience, {"username": me["username"], "profile": profile})])
+
+
+def _presence_audience(conn: sqlite3.Connection, nim: str) -> list[str]:
+    """Siapa yang perlu tahu perubahan status/profil: lawan DM dan sesama anggota ruang."""
+    rows = conn.execute(
+        "SELECT DISTINCT p2.nim FROM social_participants p1 "
+        "JOIN social_conversations c ON c.id = p1.conversation_id AND c.kind = 'dm' "
+        "JOIN social_participants p2 ON p2.conversation_id = c.id "
+        "WHERE p1.nim = ? "
+        "UNION SELECT DISTINCT m2.nim FROM social_members m1 "
+        "JOIN social_members m2 ON m2.space_id = m1.space_id WHERE m1.nim = ? "
+        "LIMIT ?",
+        (nim, nim, MAX_PRESENCE_AUDIENCE),
+    ).fetchall()
+    return [r["nim"] for r in rows]
+
+
+def set_presence(nim: str, online: bool) -> Optional[Event]:
+    """Dipanggil stream saat koneksi pertama dibuka / terakhir ditutup."""
+    with transaction() as conn:
+        row = conn.execute("SELECT username FROM social_profiles WHERE nim = ?", (nim,)).fetchone()
+        now = _now()
+        conn.execute(
+            "UPDATE social_profiles SET is_online = ?, last_seen_at = ? WHERE nim = ?", (1 if online else 0, now, nim)
+        )
+        if not row:
+            return None
+        payload = {"username": row["username"], "online": online, "last_seen_at": now}
+        return Event("presence", _presence_audience(conn, nim), payload)
 
 
 def search_users(nim: str, query: str) -> list[dict[str, Any]]:
@@ -627,6 +698,8 @@ def discover_spaces(nim: str, query: str = "") -> list[dict[str, Any]]:
                 "name": r["name"],
                 "description": r["description"],
                 "is_public": True,
+                "avatar": r["avatar"],
+                "banner": r["banner"],
                 "member_count": r["members"],
                 "my_role": r["my_role"],
                 "created_at": r["created_at"],
@@ -702,6 +775,37 @@ def reset_invite(nim: str, space_id: int) -> Outcome:
         role = _require_space_role(conn, space_id, nim, "admin")
         conn.execute("UPDATE social_spaces SET invite_code = ? WHERE id = ?", (_new_invite_code(), space_id))
         return Outcome(_space_detail(conn, space_id, role))
+
+
+def set_space_media(nim: str, space_id: int, changes: dict[str, Optional[str]]) -> Outcome:
+    with transaction() as conn:
+        role = _require_space_role(conn, space_id, nim, "admin")
+        for field in ("avatar", "banner"):
+            if field in changes:
+                conn.execute(
+                    f"UPDATE social_spaces SET {field} = ? WHERE id = ?", (_require_media(changes[field]), space_id)
+                )
+        detail = _space_detail(conn, space_id, role)
+        return Outcome(detail, [Event("space.updated", _space_members(conn, space_id), {"space_id": space_id})])
+
+
+def invite_preview(nim: str, invite_code: str) -> dict[str, Any]:
+    """Kartu preview link undangan di dalam chat (siapa pun yang memegang kode boleh melihat)."""
+    code = (invite_code or "").strip()
+    with transaction() as conn:
+        space = conn.execute("SELECT * FROM social_spaces WHERE invite_code = ?", (code,)).fetchone()
+        if not space:
+            raise SocialError("INVITE_INVALID", "Link undangan tidak valid atau sudah diganti", 404)
+        role = _space_role(conn, space["id"], nim)
+        data = _space_summary(conn, space, role)
+        data.pop("invite_code", None)
+        data["online_count"] = conn.execute(
+            "SELECT COUNT(*) AS c FROM social_members m JOIN social_profiles p ON p.nim = m.nim "
+            "WHERE m.space_id = ? AND p.is_online = 1 AND p.last_seen_at >= ?",
+            (space["id"], (datetime.now(timezone.utc) - ONLINE_WINDOW).strftime("%Y-%m-%dT%H:%M:%SZ")),
+        ).fetchone()["c"]
+        data["joined"] = role is not None
+        return data
 
 
 def list_members(nim: str, space_id: int) -> list[dict[str, Any]]:
@@ -872,7 +976,8 @@ def list_messages(
         conv, role = _conversation(conn, nim, conversation_id)
         if after is not None:
             rows = conn.execute(
-                "SELECT * FROM social_messages WHERE conversation_id = ? AND id > ? ORDER BY id LIMIT ?",
+                "SELECT * FROM social_messages WHERE conversation_id = ? AND id > ? AND deleted_at IS NULL "
+                "ORDER BY id LIMIT ?",
                 (conversation_id, after, limit + 1),
             ).fetchall()
             has_more = len(rows) > limit
@@ -884,7 +989,8 @@ def list_messages(
                 clause = "AND id < ?"
                 params.append(before)
             rows = conn.execute(
-                f"SELECT * FROM social_messages WHERE conversation_id = ? {clause} ORDER BY id DESC LIMIT ?",
+                f"SELECT * FROM social_messages WHERE conversation_id = ? AND deleted_at IS NULL {clause} "
+                f"ORDER BY id DESC LIMIT ?",
                 [*params, limit + 1],
             ).fetchall()
             has_more = len(rows) > limit
@@ -898,9 +1004,17 @@ def list_messages(
             ).fetchone()
             peer_last_read_id = peer["last_read_id"] if peer else None
         mine = conn.execute(
-            "SELECT last_read_id FROM social_participants WHERE conversation_id = ? AND nim = ?",
+            "SELECT last_read_id, last_opened_at FROM social_participants WHERE conversation_id = ? AND nim = ?",
             (conversation_id, nim),
         ).fetchone()
+        recent_edits: list[dict[str, Any]] = []
+        if before is None and after is None:
+            recent_edits = _recent_edits(conn, conversation_id, nim, mine["last_opened_at"] if mine else None)
+            conn.execute(
+                "INSERT INTO social_participants (conversation_id, nim, last_opened_at) VALUES (?, ?, ?) "
+                "ON CONFLICT(conversation_id, nim) DO UPDATE SET last_opened_at = excluded.last_opened_at",
+                (conversation_id, nim, _now()),
+            )
         return {
             "conversation_id": conversation_id,
             "messages": _serialize_messages(conn, rows),
@@ -908,7 +1022,30 @@ def list_messages(
             "my_role": role,
             "last_read_id": mine["last_read_id"] if mine else 0,
             "peer_last_read_id": peer_last_read_id,
+            "recent_edits": recent_edits,
         }
+
+
+def _recent_edits(conn: sqlite3.Connection, conversation_id: int, nim: str, since: Optional[str]) -> list[dict[str, Any]]:
+    """Pesan orang lain yang diedit sejak `nim` terakhir membuka percakapan ini."""
+    if not since:
+        return []
+    rows = conn.execute(
+        "SELECT m.id, m.body, m.edited_at, p.username, p.display_name FROM social_messages m "
+        "LEFT JOIN social_profiles p ON p.nim = m.author_nim "
+        "WHERE m.conversation_id = ? AND m.author_nim != ? AND m.deleted_at IS NULL "
+        "AND m.edited_at IS NOT NULL AND m.edited_at > ? ORDER BY m.edited_at DESC LIMIT ?",
+        (conversation_id, nim, since, MAX_RECENT_EDITS),
+    ).fetchall()
+    return [
+        {
+            "id": r["id"],
+            "author": {"username": r["username"] or "", "display_name": r["display_name"] or "Pengguna"},
+            "preview": _preview(r["body"], 90),
+            "edited_at": r["edited_at"],
+        }
+        for r in rows
+    ]
 
 
 def send_message(nim: str, conversation_id: int, body: str, reply_to_id: Optional[int] = None) -> Outcome:
@@ -961,10 +1098,8 @@ def edit_message(nim: str, message_id: int, body: str) -> Outcome:
         )
         _store_mentions(conn, conv, message_id, text, nim)
         message = _serialize_message(conn, message_id)
-        return Outcome(
-            message,
-            [Event("message.updated", _recipients(conn, conv), {"conversation_id": conv["id"], "message": message})],
-        )
+        payload = {"conversation_id": conv["id"], "message": message, "change": "edited"}
+        return Outcome(message, [Event("message.updated", _recipients(conn, conv), payload)])
 
 
 def delete_message(nim: str, message_id: int) -> Outcome:
@@ -979,11 +1114,15 @@ def delete_message(nim: str, message_id: int) -> Outcome:
         )
         conn.execute("DELETE FROM social_reactions WHERE message_id = ?", (message_id,))
         conn.execute("DELETE FROM social_mentions WHERE message_id = ?", (message_id,))
-        message = _serialize_message(conn, message_id)
-        return Outcome(
-            message,
-            [Event("message.updated", _recipients(conn, conv), {"conversation_id": conv["id"], "message": message})],
+        # Preview daftar chat mundur ke pesan terakhir yang masih ada.
+        conn.execute(
+            "UPDATE social_conversations SET last_message_id = "
+            "(SELECT MAX(id) FROM social_messages WHERE conversation_id = ? AND deleted_at IS NULL) WHERE id = ?",
+            (conv["id"], conv["id"]),
         )
+        message = _serialize_message(conn, message_id)
+        payload = {"conversation_id": conv["id"], "message": message, "change": "deleted"}
+        return Outcome(message, [Event("message.updated", _recipients(conn, conv), payload)])
 
 
 def toggle_reaction(nim: str, message_id: int, reaction: str) -> Outcome:
@@ -1004,10 +1143,8 @@ def toggle_reaction(nim: str, message_id: int, reaction: str) -> Outcome:
                 (message_id, nim, reaction),
             )
         message = _serialize_message(conn, message_id)
-        return Outcome(
-            message,
-            [Event("message.updated", _recipients(conn, conv), {"conversation_id": conv["id"], "message": message})],
-        )
+        payload = {"conversation_id": conv["id"], "message": message, "change": "reaction"}
+        return Outcome(message, [Event("message.updated", _recipients(conn, conv), payload)])
 
 
 def set_pinned(nim: str, message_id: int, pinned: bool) -> Outcome:
@@ -1028,10 +1165,8 @@ def set_pinned(nim: str, message_id: int, pinned: bool) -> Outcome:
             "UPDATE social_messages SET pinned_at = ? WHERE id = ?", (_now() if pinned else None, message_id)
         )
         message = _serialize_message(conn, message_id)
-        return Outcome(
-            message,
-            [Event("message.updated", _recipients(conn, conv), {"conversation_id": conv["id"], "message": message})],
-        )
+        payload = {"conversation_id": conv["id"], "message": message, "change": "pinned"}
+        return Outcome(message, [Event("message.updated", _recipients(conn, conv), payload)])
 
 
 def list_pins(nim: str, conversation_id: int) -> list[dict[str, Any]]:

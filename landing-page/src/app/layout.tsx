@@ -106,6 +106,8 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
+  // Keyboard virtual mengecilkan layout (bukan menimpa), seperti aplikasi native: input chat & pencarian tetap terlihat.
+  interactiveWidget: "resizes-content",
 };
 
 const SEARCH_TITLE_KEYWORDS = [

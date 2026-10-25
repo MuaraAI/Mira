@@ -58,12 +58,12 @@ export function clearSessionToken(): void {
 
 export async function apiFetch<T>(
   path: string,
-  init?: Omit<RequestInit, "body"> & { json?: unknown }
+  init?: Omit<RequestInit, "body"> & { json?: unknown; form?: FormData }
 ): Promise<T> {
   const base = getApiBase();
   const token = readSessionToken();
-  const { json, ...rest } = init ?? {};
-  const method = rest.method ?? (json !== undefined ? "POST" : "GET");
+  const { json, form, ...rest } = init ?? {};
+  const method = rest.method ?? (json !== undefined || form !== undefined ? "POST" : "GET");
   const request = () =>
     fetch(`${base}${path}`, {
       ...rest,
@@ -78,7 +78,7 @@ export async function apiFetch<T>(
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...rest.headers,
       },
-      body: json !== undefined ? JSON.stringify(json) : undefined,
+      body: json !== undefined ? JSON.stringify(json) : form,
     });
 
   // Jaringan HP sering putus sesaat: permintaan baca (GET) dicoba ulang dua kali sebelum dianggap gagal.
