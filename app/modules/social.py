@@ -71,6 +71,9 @@ class ProfileBody(BaseModel):
     username: str = Field(..., min_length=3, max_length=25)
     display_name: str = Field(..., min_length=1, max_length=40)
     bio: str = Field(default="", max_length=160)
+    campus_branch: Optional[str] = Field(default=None, max_length=80)
+    major: Optional[str] = Field(default=None, max_length=80)
+    avatar_preset: Optional[str] = Field(default=None, max_length=40)
 
 
 class SpaceBody(BaseModel):
@@ -110,6 +113,8 @@ class DmBody(BaseModel):
 class MessageBody(BaseModel):
     body: str = Field(..., min_length=1, max_length=service.MAX_BODY + 200)
     reply_to_id: Optional[int] = Field(default=None, ge=1)
+    card_type: Literal["none", "nilai", "jadwal", "tugas"] = "none"
+    card_payload: Optional[dict[str, Any]] = None
 
 
 class EditBody(BaseModel):
@@ -133,7 +138,16 @@ async def get_me(request: Request):
 @router.patch("/me")
 async def update_me(request: Request, body: ProfileBody):
     nim = _session_nim(request)
-    profile = await _call(service.upsert_me, nim, body.username, body.display_name, body.bio)
+    profile = await _call(
+        service.upsert_me,
+        nim,
+        body.username,
+        body.display_name,
+        body.bio,
+        body.campus_branch,
+        body.major,
+        body.avatar_preset,
+    )
     return success_response(data={"profile": profile})
 
 
@@ -148,6 +162,19 @@ async def search_users(request: Request, q: str = ""):
 async def get_user(request: Request, username: str):
     _session_nim(request)
     return success_response(data={"user": await _call(service.get_user, username)})
+
+
+# ---------------------------------------------------------------- radar / explore
+@router.get("/radar")
+async def get_radar(
+    request: Request,
+    branch: Optional[str] = None,
+    major: Optional[str] = None,
+    limit: int = 30,
+):
+    nim = _session_nim(request)
+    users = await _call(service.get_radar, nim, branch, major, limit)
+    return success_response(data={"users": users})
 
 
 @router.get("/inbox")
@@ -279,7 +306,15 @@ async def list_messages(
 async def send_message(request: Request, conversation_id: int, body: MessageBody):
     nim = _session_nim(request)
     await _require_send_quota(nim)
-    message = await _call(service.send_message, nim, conversation_id, body.body, body.reply_to_id)
+    message = await _call(
+        service.send_message,
+        nim,
+        conversation_id,
+        body.body,
+        body.reply_to_id,
+        body.card_type,
+        body.card_payload,
+    )
     return JSONResponse(status_code=status.HTTP_201_CREATED, content=success_response(data={"message": message}))
 
 

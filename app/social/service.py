@@ -7,6 +7,7 @@ plus daftar `Event` realtime yang harus di-fan-out router setelah commit.
 Identitas publik pengguna adalah `username`; NIM tidak pernah keluar dari
 lapisan ini.
 """
+import json
 import re
 import secrets
 import sqlite3
@@ -117,10 +118,14 @@ def _placeholders(items: Iterable[Any]) -> str:
 
 
 def _public_profile(row: sqlite3.Row) -> dict[str, Any]:
+    keys = row.keys()
     return {
         "username": row["username"],
         "display_name": row["display_name"],
-        "bio": row["bio"],
+        "bio": row["bio"] or "",
+        "campus_branch": row["campus_branch"] if "campus_branch" in keys else "UBSI Pontianak",
+        "major": row["major"] if "major" in keys else "Informatika",
+        "avatar_preset": row["avatar_preset"] if "avatar_preset" in keys else "mura-default",
         "online": _is_online(row["last_seen_at"]),
         "last_seen_at": row["last_seen_at"],
     }
@@ -254,12 +259,22 @@ def _serialize_messages(conn: sqlite3.Connection, rows: list[sqlite3.Row]) -> li
                     "deleted": bool(target["deleted_at"]),
                 }
         deleted = bool(r["deleted_at"])
+        keys = r.keys()
+        card_type = r["card_type"] if "card_type" in keys else "none"
+        card_payload = {}
+        if "card_payload" in keys and r["card_payload"]:
+            try:
+                card_payload = json.loads(r["card_payload"]) if isinstance(r["card_payload"], str) else r["card_payload"]
+            except Exception:
+                card_payload = {}
         out.append(
             {
                 "id": r["id"],
                 "conversation_id": r["conversation_id"],
                 "author": {"username": author["username"], "display_name": author["display_name"]},
                 "body": "" if deleted else r["body"],
+                "card_type": card_type,
+                "card_payload": card_payload,
                 "reply_to": reply,
                 "reactions": [
                     {"key": key, "count": len(users), "users": users}
@@ -359,12 +374,23 @@ def get_me(nim: str) -> Optional[dict[str, Any]]:
         return _public_profile(row) if row else None
 
 
-def upsert_me(nim: str, username: str, display_name: str, bio: str = "") -> Outcome:
+def upsert_me(
+    nim: str,
+    username: str,
+    display_name: str,
+    bio: str = "",
+    campus_branch: Optional[str] = None,
+    major: Optional[str] = None,
+    avatar_preset: Optional[str] = None,
+) -> Outcome:
     handle = (username or "").strip().lstrip("@").lower()
     if not USERNAME_RE.match(handle):
         raise SocialError("VALIDATION_ERROR", "Username 3-24 karakter: huruf kecil, angka, atau garis bawah")
     name = _clean(display_name, 40, "Nama tampilan", required=True)
     about = _clean(bio, 160, "Bio")
+    branch = _clean(campus_branch or "UBSI Pontianak", 80, "Cabang kampus")
+    prodi = _clean(major or "Informatika", 80, "Program studi")
+    avatar = _clean(avatar_preset or "mura-default", 40, "Avatar")
     with transaction() as conn:
         taken = conn.execute(
             "SELECT nim FROM social_profiles WHERE username = ?", (handle,)
@@ -372,10 +398,13 @@ def upsert_me(nim: str, username: str, display_name: str, bio: str = "") -> Outc
         if taken and taken["nim"] != nim:
             raise SocialError("USERNAME_TAKEN", "Username sudah dipakai, coba yang lain", 409)
         conn.execute(
-            "INSERT INTO social_profiles (nim, username, display_name, bio, last_seen_at) VALUES (?, ?, ?, ?, ?) "
+            "INSERT INTO social_profiles (nim, username, display_name, bio, campus_branch, major, avatar_preset, last_seen_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
             "ON CONFLICT(nim) DO UPDATE SET username = excluded.username, "
-            "display_name = excluded.display_name, bio = excluded.bio",
-            (nim, handle, name, about, _now()),
+            "display_name = excluded.display_name, bio = excluded.bio, "
+            "campus_branch = COALESCE(excluded.campus_branch, social_profiles.campus_branch), "
+            "major = COALESCE(excluded.major, social_profiles.major), "
+            "avatar_preset = COALESCE(excluded.avatar_preset, social_profiles.avatar_preset)",
+            (nim, handle, name, about, branch, prodi, avatar, _now()),
         )
         row = conn.execute("SELECT * FROM social_profiles WHERE nim = ?", (nim,)).fetchone()
         return Outcome(_public_profile(row))
@@ -404,6 +433,29 @@ def search_users(nim: str, query: str) -> list[dict[str, Any]]:
 def get_user(username: str) -> dict[str, Any]:
     with transaction() as conn:
         return _public_profile(_nim_by_username(conn, username))
+
+
+def get_radar(
+    nim: str,
+    branch: Optional[str] = None,
+    major: Optional[str] = None,
+    limit: int = 30,
+) -> list[dict[str, Any]]:
+    """Daftar mahasiswa aktif per cabang/prodi untuk radar & direktori teman."""
+    cap = max(1, min(limit, 50))
+    query = "SELECT * FROM social_profiles WHERE nim != ?"
+    params: list[Any] = [nim]
+    if branch:
+        query += " AND campus_branch = ?"
+        params.append(branch)
+    if major:
+        query += " AND major = ?"
+        params.append(major)
+    query += " ORDER BY last_seen_at DESC LIMIT ?"
+    params.append(cap)
+    with transaction() as conn:
+        rows = conn.execute(query, tuple(params)).fetchall()
+        return [_public_profile(r) for r in rows]
 
 
 # ---------------------------------------------------------------- inbox
@@ -905,8 +957,17 @@ def list_messages(
         }
 
 
-def send_message(nim: str, conversation_id: int, body: str, reply_to_id: Optional[int] = None) -> Outcome:
+def send_message(
+    nim: str,
+    conversation_id: int,
+    body: str,
+    reply_to_id: Optional[int] = None,
+    card_type: str = "none",
+    card_payload: Optional[dict[str, Any]] = None,
+) -> Outcome:
     text = _clean_body(body)
+    c_type = card_type if card_type in ("none", "nilai", "jadwal", "tugas") else "none"
+    c_json = json.dumps(card_payload or {}, separators=(",", ":"))
     with transaction() as conn:
         _require_profile(conn, nim)
         conv, _ = _conversation(conn, nim, conversation_id)
@@ -917,9 +978,9 @@ def send_message(nim: str, conversation_id: int, body: str, reply_to_id: Optiona
             if not target or target["conversation_id"] != conversation_id:
                 raise SocialError("VALIDATION_ERROR", "Pesan yang dibalas tidak ada di percakapan ini")
         message_id = conn.execute(
-            "INSERT INTO social_messages (conversation_id, author_nim, body, reply_to_id, created_at) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (conversation_id, nim, text, reply_to_id, _now()),
+            "INSERT INTO social_messages (conversation_id, author_nim, body, reply_to_id, card_type, card_payload, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (conversation_id, nim, text, reply_to_id, c_type, c_json, _now()),
         ).lastrowid
         conn.execute(
             "UPDATE social_conversations SET last_message_id = ? WHERE id = ?", (message_id, conversation_id)

@@ -17,6 +17,9 @@ CREATE TABLE IF NOT EXISTS social_profiles (
     username TEXT NOT NULL UNIQUE COLLATE NOCASE,
     display_name TEXT NOT NULL,
     bio TEXT NOT NULL DEFAULT '',
+    campus_branch TEXT NOT NULL DEFAULT 'UBSI Pontianak',
+    major TEXT NOT NULL DEFAULT 'Informatika',
+    avatar_preset TEXT NOT NULL DEFAULT 'mura-default',
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     last_seen_at TEXT
 );
@@ -67,6 +70,8 @@ CREATE TABLE IF NOT EXISTS social_messages (
     conversation_id INTEGER NOT NULL REFERENCES social_conversations(id) ON DELETE CASCADE,
     author_nim TEXT NOT NULL,
     body TEXT NOT NULL,
+    card_type TEXT NOT NULL DEFAULT 'none',
+    card_payload TEXT NOT NULL DEFAULT '{}',
     reply_to_id INTEGER,
     pinned_at TEXT,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
@@ -121,6 +126,18 @@ def init_social_db() -> None:
     conn = connect()
     try:
         conn.executescript(_SCHEMA)
+        # Migrasi kolom tambahan bila tabel sudah pernah dibuat sebelumnya
+        for alter_sql in (
+            "ALTER TABLE social_profiles ADD COLUMN campus_branch TEXT NOT NULL DEFAULT 'UBSI Pontianak'",
+            "ALTER TABLE social_profiles ADD COLUMN major TEXT NOT NULL DEFAULT 'Informatika'",
+            "ALTER TABLE social_profiles ADD COLUMN avatar_preset TEXT NOT NULL DEFAULT 'mura-default'",
+            "ALTER TABLE social_messages ADD COLUMN card_type TEXT NOT NULL DEFAULT 'none'",
+            "ALTER TABLE social_messages ADD COLUMN card_payload TEXT NOT NULL DEFAULT '{}'",
+        ):
+            try:
+                conn.execute(alter_sql)
+            except sqlite3.OperationalError:
+                pass
         conn.commit()
     finally:
         conn.close()

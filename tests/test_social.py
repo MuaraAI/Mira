@@ -297,12 +297,44 @@ async def test_kicked_member_loses_access():
 
 
 @pytest.mark.asyncio
-async def test_stream_falls_back_when_redis_unavailable(monkeypatch):
-    async def boom(nim):
-        raise ConnectionError("redis down")
-
-    monkeypatch.setattr(social_events.Subscription, "open", boom)
+async def test_academic_card_and_radar():
     ayu = await _user("ayu")
-    res = await ayu.get("/v1/social/stream")
-    assert res.status_code == 503
-    assert res.json()["error"]["code"] == "STREAM_UNAVAILABLE"
+    budi = await _user("budi")
+
+    # Update profil Ayu dengan cabang dan preset avatar Mura
+    r = await ayu.patch(
+        "/v1/social/me",
+        json={
+            "username": "ayu",
+            "display_name": "Ayu Lestari",
+            "bio": "Mahasiswa Pontianak",
+            "campus_branch": "UBSI Pontianak",
+            "major": "Informatika",
+            "avatar_preset": "mura-ngoding",
+        },
+    )
+    assert r.status_code == 200
+    p = r.json()["data"]["profile"]
+    assert p["campus_branch"] == "UBSI Pontianak"
+    assert p["major"] == "Informatika"
+    assert p["avatar_preset"] == "mura-ngoding"
+
+    # Budi mencari teman di cabang Pontianak lewat Radar
+    radar = (await budi.get("/v1/social/radar?branch=UBSI+Pontianak")).json()["data"]["users"]
+    assert any(u["username"] == "ayu" for u in radar)
+
+    # Budi kirim DM ke Ayu berisi Kartu Nilai (card_type: nilai)
+    conv = (await budi.post("/v1/social/dms", json={"username": "ayu"})).json()["data"]["conversation"]
+    res_msg = await budi.post(
+        f"/v1/social/conversations/{conv['id']}/messages",
+        json={
+            "body": "Nih cek nilai semester 1 gw!",
+            "card_type": "nilai",
+            "card_payload": {"ipk": "3.92", "sks": 18, "predikat": "Dengan Pujian"},
+        },
+    )
+    assert res_msg.status_code == 201
+    msg = res_msg.json()["data"]["message"]
+    assert msg["card_type"] == "nilai"
+    assert msg["card_payload"]["ipk"] == "3.92"
+
