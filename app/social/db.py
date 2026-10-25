@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS social_spaces (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
+    campus_branch TEXT,
     owner_nim TEXT NOT NULL,
     invite_code TEXT NOT NULL UNIQUE,
     is_public INTEGER NOT NULL DEFAULT 0,
@@ -180,6 +181,7 @@ def init_social_db() -> None:
             "ALTER TABLE social_profiles ADD COLUMN e2ee_public_key TEXT",
             "ALTER TABLE social_messages ADD COLUMN is_encrypted INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE social_messages ADD COLUMN encryption_nonce TEXT",
+            "ALTER TABLE social_spaces ADD COLUMN campus_branch TEXT",
         ):
             try:
                 conn.execute(alter_sql)

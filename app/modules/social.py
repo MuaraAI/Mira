@@ -80,12 +80,14 @@ class ProfileBody(BaseModel):
 class SpaceBody(BaseModel):
     name: str = Field(..., min_length=2, max_length=40)
     description: str = Field(default="", max_length=200)
+    campus_branch: Optional[str] = Field(default=None, max_length=80)
     is_public: bool = False
 
 
 class SpacePatch(BaseModel):
     name: Optional[str] = Field(default=None, max_length=40)
     description: Optional[str] = Field(default=None, max_length=200)
+    campus_branch: Optional[str] = Field(default=None, max_length=80)
     is_public: Optional[bool] = None
 
 
@@ -193,7 +195,7 @@ async def get_inbox(request: Request):
 @router.post("/spaces")
 async def create_space(request: Request, body: SpaceBody):
     nim = _session_nim(request)
-    space = await _call(service.create_space, nim, body.name, body.description, body.is_public)
+    space = await _call(service.create_space, nim, body.name, body.description, body.is_public, body.campus_branch)
     return JSONResponse(status_code=status.HTTP_201_CREATED, content=success_response(data={"space": space}))
 
 
@@ -218,7 +220,15 @@ async def get_space(request: Request, space_id: int):
 @router.patch("/spaces/{space_id}")
 async def update_space(request: Request, space_id: int, body: SpacePatch):
     nim = _session_nim(request)
-    space = await _call(service.update_space, nim, space_id, body.name, body.description, body.is_public)
+    space = await _call(
+        service.update_space,
+        nim,
+        space_id,
+        body.name,
+        body.description,
+        body.is_public,
+        body.campus_branch,
+    )
     return success_response(data={"space": space})
 
 

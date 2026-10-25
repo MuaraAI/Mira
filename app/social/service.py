@@ -344,10 +344,12 @@ def _space_summary(conn: sqlite3.Connection, space: sqlite3.Row, role: Optional[
     member_count = conn.execute(
         "SELECT COUNT(*) AS c FROM social_members WHERE space_id = ?", (space["id"],)
     ).fetchone()["c"]
+    keys = space.keys()
     data = {
         "id": space["id"],
         "name": space["name"],
         "description": space["description"],
+        "campus_branch": space["campus_branch"] if "campus_branch" in keys else None,
         "is_public": bool(space["is_public"]),
         "member_count": member_count,
         "my_role": role,
@@ -596,11 +598,18 @@ def inbox(nim: str) -> dict[str, Any]:
 # ---------------------------------------------------------------- spaces
 
 
-def create_space(nim: str, name: str, description: str = "", is_public: bool = False) -> Outcome:
+def create_space(
+    nim: str,
+    name: str,
+    description: str = "",
+    is_public: bool = False,
+    campus_branch: Optional[str] = None,
+) -> Outcome:
     title = _clean(name, 40, "Nama ruang", required=True)
     if len(title) < 2:
         raise SocialError("VALIDATION_ERROR", "Nama ruang minimal 2 karakter")
     about = _clean(description, 200, "Deskripsi")
+    branch = _clean(campus_branch, 80, "Cabang kampus") if campus_branch else None
     with transaction() as conn:
         _require_profile(conn, nim)
         owned = conn.execute(
@@ -612,8 +621,8 @@ def create_space(nim: str, name: str, description: str = "", is_public: bool = F
         if joined >= MAX_JOINED_SPACES:
             raise SocialError("SPACE_LIMIT", f"Maksimal bergabung di {MAX_JOINED_SPACES} ruang")
         space_id = conn.execute(
-            "INSERT INTO social_spaces (name, description, owner_nim, invite_code, is_public) VALUES (?, ?, ?, ?, ?)",
-            (title, about, nim, _new_invite_code(), 1 if is_public else 0),
+            "INSERT INTO social_spaces (name, description, owner_nim, invite_code, is_public, campus_branch) VALUES (?, ?, ?, ?, ?, ?)",
+            (title, about, nim, _new_invite_code(), 1 if is_public else 0, branch),
         ).lastrowid
         conn.execute(
             "INSERT INTO social_members (space_id, nim, role) VALUES (?, ?, 'owner')", (space_id, nim)
@@ -632,7 +641,14 @@ def get_space(nim: str, space_id: int) -> dict[str, Any]:
         return _space_detail(conn, space_id, role)
 
 
-def update_space(nim: str, space_id: int, name: Optional[str], description: Optional[str], is_public: Optional[bool]) -> Outcome:
+def update_space(
+    nim: str,
+    space_id: int,
+    name: Optional[str],
+    description: Optional[str],
+    is_public: Optional[bool],
+    campus_branch: Optional[str] = None,
+) -> Outcome:
     with transaction() as conn:
         role = _require_space_role(conn, space_id, nim, "admin")
         if name is not None:
@@ -647,6 +663,9 @@ def update_space(nim: str, space_id: int, name: Optional[str], description: Opti
             )
         if is_public is not None:
             conn.execute("UPDATE social_spaces SET is_public = ? WHERE id = ?", (1 if is_public else 0, space_id))
+        if campus_branch is not None:
+            branch = _clean(campus_branch, 80, "Cabang kampus") if campus_branch else None
+            conn.execute("UPDATE social_spaces SET campus_branch = ? WHERE id = ?", (branch, space_id))
         detail = _space_detail(conn, space_id, role)
         return Outcome(detail, [Event("space.updated", _space_members(conn, space_id), {"space_id": space_id})])
 
