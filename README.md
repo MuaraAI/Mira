@@ -29,10 +29,11 @@
   <a href="#latar-belakang">Latar Belakang</a> ·
   <a href="#layanan-terintegrasi">6 Layanan Kampus</a> ·
   <a href="#fitur-unggulan">Fitur Unggulan</a> ·
+  <a href="#cara-kerja--alur-logika-how-it-works">Cara Kerja &amp; Flowchart</a> ·
   <a href="#arsitektur--keamanan">Arsitektur &amp; Keamanan</a> ·
   <a href="#mcp-server-untuk-ai-agent">MCP Server (80 Tools)</a> ·
   <a href="#quickstart">Quickstart</a> ·
-  <a href="#tim-pengembang">Tim Pengembang</a> ·
+  <a href="#tim-pengembang--kontributor">Tim Pengembang</a> ·
   <a href="#disclaimer">Disclaimer</a> ·
   <a href="#lisensi">Lisensi</a>
 </p>
@@ -85,7 +86,109 @@ Mahasiswa harus login berulang kali setiap hari, membuka banyak tab terpisah, se
 
 ---
 
-## Arsitektur &amp; Keamanan
+---
+
+## Cara Kerja & Alur Logika (How It Works)
+
+Banyak yang bertanya: **"Kok bisa Mira mengambil jadwal, presensi, tugas, dan nilai dari 6 portal kampus secara serentak tanpa mahasiswa harus login berulang kali?"**
+
+Berikut penjelasan mendalam mengenai alur logika otomasi dan siklus pemrosesan request di balik Mira:
+
+### 1. Flowchart Arsitektur & Siklus Request
+
+```text
+[ Browser / PWA / AI Agent ]
+         │
+         ▼  (1) Request + Cookie 'ubsi_session' ATAU Header 'Authorization: Bearer muara_mira_***'
+┌────────────────────────────────────────────────────────────────────────┐
+│ Caddy Reverse Proxy Gateway (api.muaraai.com)                         │
+│ • SSL Termination & Rate Limiter Sliding (60 req/min per IP/NIM)      │
+└────────────────────────────────────┬───────────────────────────────────┘
+                                     │
+                                     ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ FastAPI Engine (:8300) / FastMCP (:8350)                               │
+│ • Autentikasi Dual-Prefix (muara_mira_* & muara_ubsi_*)                │
+│ • Validasi Sesi: Ambil Ciphertext Kredensial dari Redis                │
+│ • Dekripsi Kredensial on-the-fly (AES-256-GCM / Fernet WAL)            │
+└────────────────────────────────────┬───────────────────────────────────┘
+                                     │
+                                     ▼  (2) Cek Cache Berjenjang
+                        ┌─────────────────────────┐
+                        │ Redis Two-Tier Cache    │
+                        │ Ada data segar (fresh)? │
+                        └────────────┬────────────┘
+                                     │
+                    ┌────────────────┴────────────────┐
+             (ADA)  ▼                                 ▼  (TIDAK ADA / EXPIRED)
+    ┌──────────────────────────────┐        ┌───────────────────────────────────┐
+    │ Kembalikan Data JSON (0ms)   │        │ Single-Flight Mutex Lock          │
+    │ Langsung ke Klien            │        │ Cegah ribuan request serentak     │
+    └──────────────────────────────┘        └─────────────────┬─────────────────┘
+                                                              │
+                                                              ▼  (3) Scraper SessionPool
+                                            ┌───────────────────────────────────┐
+                                            │ SessionPool per-NIM (Scrapling)   │
+                                            │ Pakai Cookie Jar aktif kampus     │
+                                            └─────────────────┬─────────────────┘
+                                                              │
+                                                              ▼  (4) Tembak Upstream
+                                            ┌───────────────────────────────────┐
+                                            │ Server Kampus (*.bsi.ac.id)       │
+                                            │ SIAKAD / MyBest / Ujian / OPAC    │
+                                            └─────────────────┬─────────────────┘
+                                                              │
+                                                              ▼  (5) Evaluasi Sesi Kampus
+                                            ┌───────────────────────────────────┐
+                                            │ Apakah Sesi Kampus Valid?         │
+                                            └────────────┬──────────────────────┘
+                                                         │
+                                        ┌────────────────┴────────────────┐
+                                 (YA)   ▼                                 ▼  (EXPIRED / 302 REDIRECT)
+                    ┌──────────────────────────────┐            ┌───────────────────────────────┐
+                    │ Parser HTML Cepat (lxml)     │            │ Auto-Relogin Otomatis         │
+                    │ Transformasi ke skema JSON   │            │ Submit password AES-256-GCM   │
+                    └──────────────┬───────────────┘            │ Dapatkan Cookie Jar baru      │
+                                   │                            └───────────────┬───────────────┘
+                                   ▼                                            │
+                    ┌──────────────────────────────┐                            │
+                    │ Simpan ke Redis (Tier Fresh) │◄───────────────────────────┘
+                    │ Simpan ke LGG (Cadangan)     │
+                    └──────────────┬───────────────┘
+                                   │
+                                   ▼
+                    [ Response JSON Standard Envelope ke Mahasiswa ]
+```
+
+---
+
+### 2. Lima Pilar Logika di Balik Kecepatan & Keamanan Mira
+
+#### A. Sesi Persisten & Auto-Relogin (Solusi Masalah Logout 15 Menit)
+* **Masalah Asli Kampus:** Server SIAKAD dan MyBest memiliki batas waktu idle yang sangat singkat (~15 menit). Jika tidak aktif, session cookie PHP/Laravel akan hangus dan mahasiswa dipaksa login ulang.
+* **Solusi Mira:** Saat login pertama kali di dashboard, password dienkripsi secara simetris dengan **AES-256-GCM** (kunci 256-bit berbasis BLAKE2b KDF) dan disimpan di Redis dengan masa aktif sliding 7 hari.
+* **Mekanisme Kerja:** Ketika klien meminta data dan server kampus merespons dengan HTTP 302 redirect ke form login (menandakan sesi kampus habis), backend Mira secara transparan dan otomatis melakukan *auto-relogin* di balik layar menggunakan password terenkripsi tadi, memperbarui cookie jar, dan mengulangi request tanpa mahasiswa merasakan adanya interupsi sama sekali.
+
+#### B. Single-Flight Mutex (Perlindungan Anti-Banned & Anti-DDoS Server Kampus)
+* **Masalah:** Jika ada 50 mahasiswa satu kelas membuka jadwal kuliah pada jam yang sama, menembak 50 request scraping bersamaan ke server kampus bisa memicu IP rate-limit atau membebani server BSI.
+* **Solusi Mira:** Kami mengimplementasikan pola **Single-Flight Mutex** berbasis Redis Lock (`_claim` & `_release`). Ketika data cache kedaluwarsa, hanya **1 request pertama** yang diizinkan mengambil data mentah dari server kampus. 49 request lainnya menunggu secara non-blocking (*sleep-wait*) sampai request pertama selesai mem-parse dan menyimpan hasilnya ke Redis. Hasilnya dibagikan bersama ke seluruh mahasiswa.
+
+#### C. Two-Tier Cache & Last-Known-Good (SWR 0ms)
+* **Tingkat 1 (Fresh Cache):** Data disimpan dengan TTL proporsional (Jadwal: 2 jam, Nilai: 30 menit, Tugas: 10 menit, Perpustakaan: 1 jam).
+* **Tingkat 2 (Last-Known-Good / LGG):** Salinan data terakhir yang sukses disimpan permanen sebagai cadangan. Jika server kampus BSI mengalami maintenance, mati listrik, atau timeout, Mira tidak menampilkan error ke mahasiswa, melainkan menyajikan data LGG dengan flag `is_fallback: true` (Stale-While-Revalidate).
+
+#### D. Multi-Tenant SessionPool (Isolasi Ketat per-NIM)
+* Setiap mahasiswa memiliki slot HTTP Client (`PooledElearningClient` dan `StudentV2Client`) masing-masing yang terisolasi berdasarkan NIM.
+* Cookie session PHP/Laravel antar-mahasiswa tidak akan pernah tertukar satu sama lain.
+* Jika mahasiswa tidak aktif selama 15 menit, instance client di memory RAM akan di-evict (dibersihkan) secara otomatis untuk menghemat penggunaan memory VPS.
+
+#### E. Pure HTML Parsing Offline-Tested (lxml + CSS Selectors)
+* Mira tidak menggunakan browser headless berat (seperti Puppeteer atau Selenium) yang memakan ratusan megabyte RAM.
+* Kami menggunakan **Scrapling + lxml C-extensions** yang memproses DOM HTML dalam hitungan **sub-milidetik** (<2ms). Seluruh logika parser diuji dengan 337+ unit test offline menggunakan snapshot HTML statis dari server kampus.
+
+---
+
+## Arsitektur & Keamanan
 
 ```text
                [ Browser Mahasiswa / PWA / AI Agent ]
