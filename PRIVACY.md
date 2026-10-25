@@ -1,7 +1,7 @@
 # Privacy Policy
 
-**Effective date:** October 18, 2026
-**Applies to:** UBSI API (`MuaraAI/Mira`), its hosted dashboard at `ubsi-api.muaraai.com`, and its API gateway at `api.muaraai.com`.
+**Effective date:** October 18, 2026 (Updated: October 24, 2026 - v2.5.0)  
+**Applies to:** Mira (`MuaraAI/Mira`, sebelumnya UBSI API), its hosted dashboard at `mira.muaraai.com` (redirect from `ubsi-api.muaraai.com`), and its API gateway at `api.muaraai.com`.
 
 This project is an unofficial, community-built student tool. This policy explains, in plain terms, what data the service touches, where it lives, how it is protected, and how you can delete it.
 
@@ -22,7 +22,7 @@ We do **not** collect: your real name for marketing, email, phone number, locati
 
 - **AES-256-GCM at rest**: Session payloads (including campus passwords) are encrypted with a 256-bit key derived from the server master key. Redis dumps reveal only ciphertext; tampering is rejected by the authentication tag.
 - **No plaintext anywhere**: Passwords are never written to disk, logs, or responses. The dashboard never receives them back after login.
-- **Hashed API keys**: Personal keys (`muara_ubsi_...`) are stored only as hashes. The full key is displayed exactly once, at creation.
+- **Hashed API keys**: Personal keys (`muara_mira_...` dan legacy `muara_ubsi_...`) are stored only as hashes. The full key is displayed exactly once, at creation.
 - **Cookie hygiene**: The browser session uses an `HttpOnly`, `Secure`, `SameSite=Lax` cookie. JavaScript on the page cannot read it.
 - **Rate limiting**: Login is limited to 5 attempts per minute per NIM; the API is capped at 60 requests per minute per client.
 

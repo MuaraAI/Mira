@@ -1,4 +1,4 @@
-# Model Context Protocol (MCP) Server Reference — Mira (sebelumnya UBSI API)
+# Model Context Protocol (MCP) Server Reference: Mira v2.5.0 (sebelumnya UBSI API)
 
 Universal Model Context Protocol (MCP) Server untuk ekosistem akademik Universitas Bina Sarana Informatika (UBSI). Memungkinkan AI Coding Agent (**Claude Code**, **Cursor**, **Codex CLI**, **Hermes Agent**, **OpenCode**, dan **Claude Desktop**) berinteraksi secara aman dan terenkripsi dengan 6 layanan kampus UBSI.
 
@@ -43,9 +43,9 @@ Authorization: Bearer muara_..._KEY
 ### 1. Claude Code CLI
 Tambahkan server akademik langsung via terminal:
 ```bash
-claude mcp add --transport http ubsi-academic \
-  https://api.muaraai.com/v1/ubsi-api/mcp \
-  --header "Authorization: Bearer muara_ubsi_YOUR_KEY"
+claude mcp add --transport http mira-academic \
+  https://api.muaraai.com/v1/mira/mcp \
+  --header "Authorization: Bearer muara_mira_YOUR_KEY"
 ```
 
 ### 2. Cursor IDE (`.cursor/mcp.json`)
@@ -53,10 +53,10 @@ Tambahkan ke konfigurasi proyek atau global Cursor:
 ```json
 {
   "mcpServers": {
-    "ubsi-academic": {
-      "url": "https://api.muaraai.com/v1/ubsi-api/mcp",
+    "mira-academic": {
+      "url": "https://api.muaraai.com/v1/mira/mcp",
       "headers": {
-        "Authorization": "Bearer muara_ubsi_YOUR_KEY"
+        "Authorization": "Bearer muara_mira_YOUR_KEY"
       }
     }
   }
@@ -67,31 +67,31 @@ Tambahkan ke konfigurasi proyek atau global Cursor:
 Tambahkan blok server di konfigurasi Hermes:
 ```yaml
 mcp_servers:
-  ubsi-academic:
-    url: https://api.muaraai.com/v1/ubsi-api/mcp
+  mira-academic:
+    url: https://api.muaraai.com/v1/mira/mcp
     headers:
-      Authorization: "Bearer muara_ubsi_YOUR_KEY"
+      Authorization: "Bearer muara_mira_YOUR_KEY"
 ```
 
 ### 4. Codex CLI (`~/.codex/config.toml`)
 ```toml
-[mcp_servers.ubsi-academic]
-url = "https://api.muaraai.com/v1/ubsi-api/mcp"
-http_headers = { "Authorization" = "Bearer muara_ubsi_YOUR_KEY" }
+[mcp_servers.mira-academic]
+url = "https://api.muaraai.com/v1/mira/mcp"
+http_headers = { "Authorization" = "Bearer muara_mira_YOUR_KEY" }
 ```
 
 ### 5. Claude Desktop (`claude_desktop_config.json`)
 ```json
 {
   "mcpServers": {
-    "ubsi-academic": {
+    "mira-academic": {
       "command": "npx",
       "args": [
         "-y",
         "mcp-remote",
-        "https://api.muaraai.com/v1/ubsi-api/mcp",
+        "https://api.muaraai.com/v1/mira/mcp",
         "--header",
-        "Authorization: Bearer muara_ubsi_YOUR_KEY"
+        "Authorization: Bearer muara_mira_YOUR_KEY"
       ]
     }
   }
@@ -179,11 +179,11 @@ Seluruh modul mata kuliah di MyBest diidentifikasi menggunakan **token terenkrip
 Salin panduan berikut ke prompt asisten Anda agar agent memahami kapabilitas alat secara optimal:
 
 ```text
-Server MCP Akademik UBSI: https://api.muaraai.com/v1/ubsi-api/mcp
-Autentikasi: Authorization: Bearer muara_ubsi_<kunci_anda>
+Server MCP Akademik UBSI: https://api.muaraai.com/v1/mira/mcp
+Autentikasi: Authorization: Bearer <PERSONAL_API_KEY_MIRA_ANDA>
 
-Peran Anda: Asisten akademik otonom mahasiswa Universitas Bina Sarana Informatika (UBSI).
-Anda memiliki akses ke 38 tools MCP "ubsi_*" untuk membantu perkuliahan harian.
+Kamu adalah asisten akademik mahasiswa UBSI yang terhubung ke server MCP di atas.
+Anda memiliki akses ke 80 tools MCP ("mira_*" primer dan "ubsi_*" legacy alias) untuk membantu perkuliahan harian.
 
 Aturan Kerja & Alur Pemanggilan Tools:
 1. Jadwal & Kelas:

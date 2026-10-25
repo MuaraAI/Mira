@@ -1,6 +1,6 @@
-# Panduan Remote Access & Deployment Domain (UBSI API v1.1)
+# Panduan Remote Access & Deployment Domain (Mira v2.5.0)
 
-UBSI API dirancang dengan prinsip **Localhost-Only Security Boundary**: aplikasi berjalan murni di `127.0.0.1:8300` dan tidak pernah mengekspos port aplikasi secara langsung ke `0.0.0.0` publik.
+Mira (sebelumnya UBSI API) dirancang dengan prinsip **Localhost-Only Security Boundary**: aplikasi berjalan murni di `127.0.0.1:8300` dan tidak pernah mengekspos port aplikasi secara langsung ke `0.0.0.0` publik.
 
 Untuk mengakses API dari luar (aplikasi mobile, dashboard web, atau bot eksternal), tersedia dua jalur yang didukung secara resmi:
 1. **Jalur A: Reverse Proxy (Caddy / Nginx)** — Direkomendasikan untuk VPS ber-IP publik.
@@ -25,7 +25,7 @@ Tempelkan ke berkas `.env`:
 API_KEY=ubsi_sec_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # 2. Kebijakan Browser / CORS (Wajib daftar origin eksplisit, dilarang '*')
-ALLOWED_ORIGINS=https://mira.muaraai.com,https://ubsi-api.muaraai.com,http://localhost:3000
+ALLOWED_ORIGINS=https://mira.muaraai.com,https://ubsi-api.muaraai.com
 
 # 3. IP Proxy Terpercaya untuk Real Client IP (Default: 127.0.0.1)
 TRUSTED_PROXIES=127.0.0.1

@@ -1,6 +1,6 @@
 # Production Deployment Guide
 
-Guide for deploying and operating UBSI API on a Linux VPS using PM2 and Redis.
+Guide for deploying and operating Mira (formerly UBSI API) on a Linux VPS using PM2 and Redis.
 
 ---
 
@@ -22,7 +22,7 @@ The repository includes an automated synchronization and restart script:
 
 What `scripts/deploy.sh` does:
 1. Verifies SSH connectivity to `curzy-vps-tencent`.
-2. Syncs code via `rsync` to `/home/ubuntu/ubsi-api`, excluding temporary and test files.
+2. Syncs code via `rsync` to `/opt/ubsi-api`, excluding temporary and test files.
 3. Automatically sets up a dedicated virtual environment (`/home/ubuntu/.venvs/ubsi-api`) using `uv`.
 4. Installs and updates packages from `requirements.txt`.
 5. Starts or restarts the service via PM2 (`ecosystem.config.cjs`).

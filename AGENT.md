@@ -1,19 +1,20 @@
-# AGENT.md — AI Coding Agent Guide & Project Manual
+# AGENT.md: AI Coding Agent Guide & Project Manual
 
-Selamat datang di repositori **UBSI API** (`MuaraAI/Mira`). Dokumen ini adalah panduan resmi operasional, arsitektur, dan konvensi kerja bagi seluruh AI Coding Agent (Hermes, Claude Code, Cursor, Codex, Copilot, dll.) dan pengembang yang berkontribusi pada proyek ini.
+Selamat datang di repositori **Mira** (`MuaraAI/Mira`, sebelumnya UBSI API). Dokumen ini adalah panduan resmi operasional, arsitektur, dan konvensi kerja bagi seluruh AI Coding Agent (Hermes, Claude Code, Cursor, Codex, Copilot, dll.) dan pengembang yang berkontribusi pada proyek ini.
 
 ---
 
 ## 1. Project Overview & Authors
 
-* **Nama Proyek:** UBSI API
-* **Deskripsi:** Unofficial REST API Aggregator untuk 6 layanan kampus Universitas Bina Sarana Informatika (SIAKAD, Elearning MyBest, Perpustakaan, Berita Resmi, Repository EPrints, dan E-Journal OJS).
+* **Nama Proyek:** Mira (Platform Akademik Modern & REST API Aggregator UBSI)
+* **Deskripsi:** Unofficial Academic Operating System untuk 6 layanan kampus Universitas Bina Sarana Informatika (SIAKAD, Elearning MyBest, Ujian Online, Perpustakaan OPAC, Berita Resmi, dan Repository Riset).
 * **Repositori Resmi:** [https://github.com/MuaraAI/Mira](https://github.com/MuaraAI/Mira) (Organisasi: `MuaraAI`, Public)
+* **Domain Produksi:** [https://mira.muaraai.com](https://mira.muaraai.com) (Redirect: `ubsi-api.muaraai.com`)
 * **Lisensi:** MIT License
 * **Core Team & Maintainers:**
-  - **Yuken Velino** ([@Curzyori](https://github.com/Curzyori)) — Lead Developer & Creator (Informatika, FTI UBSI)
-  - **Verzio** ([@MyKineID](https://github.com/MyKineID)) — Core Contributor (Informatika, FTI UBSI)
-  - **Muhammad Raffli Aldiansyah** ([@Seeyaa77](https://github.com/Seeyaa77)) — Core Contributor (Informatika, FTI UBSI)
+  - **Yuken Velino** ([@Curzyori](https://github.com/Curzyori)) — Founder | Backend (Informatika, FTI UBSI)
+  - **Verzio Yamanansyah** ([@MyKineID](https://github.com/MyKineID)) — Co-Founder | Frontend (Informatika, FTI UBSI)
+  - **Muhammad Raffli Aldiansyah** ([@Seeyaa77](https://github.com/Seeyaa77)) — Co-Founder | Hacker (Informatika, FTI UBSI)
 
 ---
 
@@ -121,7 +122,7 @@ Sebelum menyatakan tugas selesai, agen **WAJIB** menjalankan pengujian nyata:
 1. **Backend Tests:**
    ```bash
    .venv/bin/pytest -q
-   # Wajib 100% lulus (minimal 142 passed)
+   # Wajib 100% lulus (minimal 337 passed)
    ```
 2. **Frontend Build Check (jika memodifikasi `/landing-page`):**
    ```bash

@@ -1,6 +1,6 @@
 # Architecture
 
-UBSI API is structured as a single-process FastAPI application designed for high resilience, low memory footprint (~60–80 MB RAM), and non-invasive upstream querying.
+Mira is structured as a single-process FastAPI application designed for high resilience, low memory footprint (~60–80 MB RAM), and non-invasive upstream querying.
 
 ---
 
@@ -54,7 +54,7 @@ Client Request
 
 ## 2. Two-Tier Caching Strategy
 
-Scraping university websites is inherently susceptible to server timeouts, seasonal maintenance, and maintenance down-times. UBSI API mitigates this using a **two-tier cache**:
+Scraping university websites is inherently susceptible to server timeouts, seasonal maintenance, and maintenance down-times. Mira mitigates this using a **two-tier cache**:
 
 1. **Fresh Cache (`{key}:fresh`)**:
    - Stored with an explicit expiration (TTL).
@@ -106,7 +106,7 @@ Retrieves 4 critical academic sections (`schedule`, `grades`, `news`, `announcem
 
 ## 6. Multi-Channel Webhook Broadcaster (`app/modules/news.py`)
 
-UBSI API includes an automated background watcher for new campus publications:
+Mira includes an automated background watcher for new campus publications:
 - **Background Worker (`lifespan`)**: Non-blocking async loop checking upstream WordPress REST API every 10 minutes (`NEWS_WEBHOOK_INTERVAL`).
 - **Cold-Start Protection**: First run seeds current post IDs into Redis (`ubsi:news:seen_ids`, TTL 30 days) to prevent spamming notifications on reboot.
 - **Parallel Multi-Channel Delivery**:

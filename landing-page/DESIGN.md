@@ -103,7 +103,7 @@ motion:
 
 ## Identity
 
-Light-first design system for the UBSI API landing page (ubsi-api.muaraai.com) and
+Light-first design system for the Mira landing page (mira.muaraai.com) and
 its authenticated dashboard, aligned with the Muara AI brand spec
 "Fluid Currents Light v2" (DESIGNV2). The identity is the river mouth ("muara"):
 clean estuary water, deep riverbed ink, and a single river current blue accent.

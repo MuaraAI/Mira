@@ -1,12 +1,12 @@
 # DMCA & Intellectual Property Notice
 
-This document outlines the copyright, intellectual property, and Digital Millennium Copyright Act (DMCA) notice and takedown policy for the **UBSI API** project.
+This document outlines the copyright, intellectual property, and Digital Millennium Copyright Act (DMCA) notice and takedown policy for the **Mira** (previously UBSI API) project.
 
 ---
 
 ## 1. Content Ownership & Non-Hosting Disclaimer
 
-- **No Content Hosting**: UBSI API is an open-source, private API wrapper and middleware. This software **does not host, duplicate, re-distribute, or store** copyrighted educational materials, textbook PDFs, lecture slides, research papers, or student academic records.
+- **No Content Hosting**: Mira is an open-source, private API wrapper and middleware. This software **does not host, duplicate, re-distribute, or store** copyrighted educational materials, textbook PDFs, lecture slides, research papers, or student academic records.
 - **Third-Party Intellectual Property**: All university trademarks, names, portal layouts, course materials, syllabus files, and research publications are the exclusive property of **Universitas Bina Sarana Informatika (UBSI)**, its faculty, or their respective copyright holders.
 - **Pure Interoperability**: This tool merely formats data retrieved on-the-fly for an authenticated student's private view or from publicly accessible university directories.
 

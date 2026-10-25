@@ -6,7 +6,7 @@ This document explains the technical mechanisms implemented to ensure student ca
 
 ## 1. The Core Principles
 
-University security systems and Web Application Firewalls (WAF) monitor for abnormal traffic behavior. UBSI API mimics authentic human browsing patterns using five protective layers:
+University security systems and Web Application Firewalls (WAF) monitor for abnormal traffic behavior. Mira mimics authentic human browsing patterns using five protective layers:
 
 ---
 
