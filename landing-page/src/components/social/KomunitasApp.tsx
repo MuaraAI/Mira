@@ -11,6 +11,7 @@ import { ErrorState, LoadingState, ghostButtonClass, primaryButtonClass } from "
 import { ChatPane, type ActiveConversation, type ConversationState } from "@/components/social/ChatPane";
 import { SocialLinkContext, forgetInvite, stripFormatting, type SocialLinkHandlers } from "@/components/social/MessageBody";
 import { ConversationColumn, SpaceRail, type SidebarView } from "@/components/social/SocialSidebar";
+import { ResizeHandle, useSidebarWidth } from "@/components/social/ResizeHandle";
 import { useWallpaper } from "@/lib/wallpaper";
 import {
   CreateSpaceSheet,
@@ -139,6 +140,8 @@ export function KomunitasApp() {
   const mobile = useIsMobile();
   const router = useRouter();
   const wallpaper = useWallpaper();
+  const sidebar = useSidebarWidth();
+  const columnRef = useRef<HTMLDivElement>(null);
   useKeyboardViewport();
 
   const me = inbox?.me?.username ?? "";
@@ -757,7 +760,11 @@ export function KomunitasApp() {
           onCreate={() => setSheet("create")}
           onJoin={() => setSheet("join")}
         />
-        <div className="flex min-h-0 min-w-0 flex-1 md:flex-none">
+        <div
+          ref={columnRef}
+          className="flex min-h-0 min-w-0 flex-1 md:flex-none"
+          style={sidebar.width ? ({ "--col-w": `${sidebar.width}px` } as React.CSSProperties) : undefined}
+        >
           <ConversationColumn
             inbox={inbox}
             view={view}
@@ -773,6 +780,14 @@ export function KomunitasApp() {
             onProfile={() => setSheet("profile")}
           />
         </div>
+        <ResizeHandle
+          width={sidebar.width}
+          min={sidebar.min}
+          max={sidebar.max}
+          targetRef={columnRef}
+          onResize={sidebar.setWidth}
+          onCommit={sidebar.commit}
+        />
 
         {active && !mobile ? (
           chatPane

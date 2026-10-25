@@ -160,7 +160,7 @@ export function ConversationColumn({
   }, [inbox.dms, filter]);
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-white md:w-[264px] md:flex-none md:border-r-2 md:border-[#CFE2EE] lg:w-[320px]">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-white md:w-[var(--col-w,264px)] md:flex-none md:border-r-2 md:border-[#CFE2EE] lg:w-[var(--col-w,320px)]">
       <div className="flex h-14 shrink-0 items-center gap-2 border-b-2 border-[#CFE2EE] px-3">
         {space ? (
           <>
