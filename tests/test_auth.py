@@ -78,3 +78,30 @@ async def test_metrics_requires_api_key():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test", headers={"_skip_auto_auth": "1"}) as ac:
         res = await ac.get("/metrics")
     assert res.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_cors_preflight_allows_every_route_method():
+    """Method yang dipakai route tapi tidak diizinkan CORS membuat browser memblokir request.
+
+    Regresi: PUT /v1/notifications/pwa/categories gagal di dashboard sebagai
+    "Tidak bisa terhubung ke server" karena preflight PUT ditolak.
+    """
+    # Skema OpenAPI memuat semua route, termasuk router yang di-include.
+    methods = {m.upper() for ops in app.openapi()["paths"].values() for m in ops}
+    assert {"GET", "POST", "PUT", "PATCH", "DELETE"} <= methods
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        headers={"_skip_auto_auth": "1", "Origin": "https://mira.muaraai.com"},
+    ) as ac:
+        for method in sorted(methods):
+            res = await ac.options(
+                "/v1/notifications/pwa/categories",
+                headers={
+                    "Access-Control-Request-Method": method,
+                    "Access-Control-Request-Headers": "content-type,authorization,x-requested-with",
+                },
+            )
+            assert res.status_code == 200, f"preflight {method} ditolak CORS"
+            assert method in res.headers["access-control-allow-methods"]
