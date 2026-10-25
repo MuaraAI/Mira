@@ -33,7 +33,7 @@ interface EnvelopePayload {
   error?: { code?: string; message?: string };
 }
 
-function readSessionToken(): string | null {
+export function readSessionToken(): string | null {
   if (typeof window === "undefined") return null;
   try {
     const token = sessionStorage.getItem("ubsi_session_token");

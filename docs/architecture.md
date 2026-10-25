@@ -130,7 +130,12 @@ UBSI-API/
 │   │   ├── repository.py      # EPrints: Recent publications & search
 │   │   ├── ejournal.py        # OJS: 23 Journal catalog with real titles
 │   │   ├── auth.py            # Auth: Login BSI, session, verify, logout, me
-│   │   └── channels.py        # Channels: Webhook notification CRUD & testing
+│   │   ├── channels.py        # Channels: Webhook notification CRUD & testing
+│   │   └── social.py          # Komunitas: router HTTP tipis + SSE stream (/v1/social)
+│   ├── social/                # Komunitas: chat ala Discord (ruang + channel) + Telegram (DM)
+│   │   ├── db.py              # Skema SQLite social_* (FK cascade)
+│   │   ├── service.py         # Aturan akses, validasi, query; kembalikan Outcome + Event
+│   │   └── events.py          # Fan-out realtime Redis pub/sub per pengguna (fail-open)
 │   ├── cache.py               # Redis 2-tier cache (fresh + LGG) & single-flight mutex
 │   ├── channels_db.py         # SQLite WAL persistence for student notification channels
 │   ├── channel_validation.py  # Anti-SSRF and payload validation for webhooks

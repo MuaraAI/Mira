@@ -711,6 +711,38 @@ Returns aggregated, anonymous usage stats of active students and total requests.
 - `GET /v1/notifications/pwa/devices` — Daftar perangkat PWA aktif milik mahasiswa.
 - `GET /v1/notifications/pwa/categories` & `POST /v1/notifications/pwa/categories` — Manajemen preferensi kategori notifikasi (9 kategori: kuliah, absen, tugas, nilai, kuis, ujian, berita, surat, perpus).
 
+### 8. Mira Komunitas (Social Chat)
+
+Chat ringan gabungan Discord (ruang + channel, role, @mention, reaksi) dan Telegram (DM, Pesan Tersimpan, reply, pin, tanda dibaca). Semua endpoint hanya menerima **Session Token dashboard** (bukan Master Key atau Personal API Key) agar tidak bisa dipakai bot massal. Identitas publik adalah `username`; NIM tidak pernah dikirim ke pengguna lain.
+
+| Method | Path | Keterangan |
+| --- | --- | --- |
+| `GET` / `PATCH` | `/v1/social/me` | Profil Komunitas. `needs_onboarding: true` bila belum dibuat |
+| `GET` | `/v1/social/users?q=` | Cari pengguna (username / nama) |
+| `GET` | `/v1/social/inbox` | DM + ruang + channel beserta `unread` dan `mentions` |
+| `POST` | `/v1/social/spaces` | Buat ruang (otomatis channel `#umum`) |
+| `GET` | `/v1/social/spaces/discover?q=` | Jelajahi ruang publik |
+| `POST` | `/v1/social/spaces/join` | Gabung via kode atau link undangan |
+| `POST` | `/v1/social/spaces/{id}/join` · `/leave` · `/invite/reset` | Gabung publik, keluar, ganti link undangan (admin) |
+| `GET` / `PATCH` / `DELETE` | `/v1/social/spaces/{id}` | Detail, ubah (admin), hapus (owner) |
+| `GET` | `/v1/social/spaces/{id}/members` | Anggota + role + status online |
+| `PATCH` / `DELETE` | `/v1/social/spaces/{id}/members/{username}` | Ubah role (owner, termasuk transfer kepemilikan) / keluarkan (admin) |
+| `POST` | `/v1/social/spaces/{id}/channels` | Tambah channel (admin, maks 20) |
+| `PATCH` / `DELETE` | `/v1/social/conversations/{id}` | Ubah / hapus channel (admin) |
+| `POST` | `/v1/social/dms` | Buka DM dengan `username` (diri sendiri = Pesan Tersimpan) |
+| `GET` | `/v1/social/conversations/{id}/messages?before=&after=&limit=` | Riwayat bercursor (maks 100 per halaman) |
+| `POST` | `/v1/social/conversations/{id}/messages` | Kirim pesan `{body, reply_to_id?}` (maks 2000 karakter, 30/menit) |
+| `GET` | `/v1/social/conversations/{id}/pins` · `/search?q=` | Pesan disematkan · cari pesan |
+| `POST` | `/v1/social/conversations/{id}/read` · `/typing` | Tandai dibaca · indikator mengetik |
+| `PATCH` / `DELETE` | `/v1/social/messages/{id}` | Edit (pengirim) / hapus (pengirim atau admin) |
+| `POST` | `/v1/social/messages/{id}/reactions/{key}` | Toggle reaksi: `up`, `heart`, `haha`, `wow`, `fire`, `sad` |
+| `POST` / `DELETE` | `/v1/social/messages/{id}/pin` | Sematkan / lepas (admin di channel, kedua pihak di DM) |
+| `GET` | `/v1/social/stream` | SSE realtime |
+
+**Realtime.** `GET /v1/social/stream` adalah Server-Sent Events per pengguna lewat Redis pub/sub (aman untuk multi-worker). Server mengirim `event: ready`, heartbeat `: ping` tiap 20 detik, lalu menutup stream setiap 5 menit agar koneksi berputar. Bila Redis tidak tersedia atau slot stream per worker penuh (60), server membalas `503 STREAM_UNAVAILABLE` dan dashboard beralih ke polling ringan (`after=` cursor tiap 4 detik).
+
+Tipe event: `message.created` (dengan flag `mentioned`), `message.updated` (edit, hapus, reaksi, pin), `conversation.read`, `typing`, `space.updated`, `space.removed`.
+
 ## 8. Model Context Protocol (MCP) Server
 
 UBSI API exposes an official Model Context Protocol (MCP) Server with **80 AI Agent tools** (40 primary `mira_*` + 40 legacy alias `ubsi_*`) over Streamable HTTP:

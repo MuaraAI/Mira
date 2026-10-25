@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   HelpCircle,
   MessageSquare,
+  MessagesSquare,
   LogOut,
 } from "lucide-react";
 import { Monogram } from "@/components/Monogram";
@@ -39,6 +40,7 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
     title: "Utama",
     items: [
       { href: "/dashboard", label: "Ringkasan", icon: LayoutDashboard, exact: true },
+      { href: "/dashboard/komunitas", label: "Komunitas", icon: MessagesSquare, badge: "Baru" },
     ],
   },
   {

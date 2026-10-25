@@ -25,6 +25,7 @@ from app.modules.channels import router as channels_router
 from app.modules.pwa_push import router as pwa_push_router
 from app.modules.links import router as links_router
 from app.modules.stats import router as stats_router
+from app.modules.social import router as social_router
 from app.stats import record_request, record_profile
 
 def extract_client_ip(request: Request) -> str:
@@ -59,10 +60,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from app.channels_db import init_db
         from app.api_keys_db import init_api_keys_db
         from app.pwa_push_db import init_pwa_db
+        from app.social.db import init_social_db
 
         init_db()
         init_api_keys_db()
         init_pwa_db()
+        init_social_db()
     except Exception:
         pass
 
@@ -121,6 +124,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             await limiter._client.aclose()
         from app.session_store import session_store
         await session_store.close()
+        from app.social import events as social_events
+        await social_events.close()
     except Exception:
         pass
 
@@ -143,6 +148,7 @@ app.include_router(channels_router)
 app.include_router(pwa_push_router)
 app.include_router(links_router)
 app.include_router(stats_router)
+app.include_router(social_router)
 
 async def _reject_auth_failure(request: Request, code: str, message: str) -> JSONResponse:
     client_ip = extract_client_ip(request)
