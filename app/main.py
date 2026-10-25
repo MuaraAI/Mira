@@ -185,6 +185,9 @@ async def api_key_auth_middleware(request: Request, call_next):
     public_paths = {"/health", "/v1/auth/login", "/v1/stats", "/v1/docs", "/v1/notifications/pwa/vapid-key"}
     if request.url.path.rstrip("/") in public_paths:
         return await call_next(request)
+    # Gambar Komunitas (avatar/banner) dimuat lewat <img>, jadi publik; nama file berupa hash isi.
+    if request.method == "GET" and request.url.path.startswith("/v1/social/media/"):
+        return await call_next(request)
 
     # 3a. Extract candidate tokens from Authorization Bearer, cookies, or X-API-Key
     auth_header = request.headers.get("authorization", "")
@@ -294,7 +297,11 @@ async def api_key_auth_middleware(request: Request, call_next):
 async def rate_limiting_middleware(request: Request, call_next):
     async def after_auth(authorized_request: Request):
         path = authorized_request.url.path.rstrip("/")
-        if authorized_request.method == "OPTIONS" or path in ("/health", "/docs", "/openapi.json", "/redoc"):
+        if (
+            authorized_request.method == "OPTIONS"
+            or path in ("/health", "/docs", "/openapi.json", "/redoc")
+            or path.startswith("/v1/social/media/")
+        ):
             return await call_next(authorized_request)
         client_key = getattr(authorized_request.state, "key_id", None)
         is_write_route = authorized_request.method in {"POST", "PATCH", "DELETE"} and (

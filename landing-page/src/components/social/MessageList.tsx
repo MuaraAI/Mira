@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { AlertCircle, ArrowDown, Check, CheckCheck, Clock3, MoreHorizontal, Pin, Reply, SmilePlus } from "lucide-react";
-import { Avatar } from "@/components/social/Avatar";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { ArrowDown, MoreHorizontal, Pin, Reply, SmilePlus } from "lucide-react";
+import { Avatar, PixelTick } from "@/components/social/Avatar";
 import { Emoji, QUICK_REACTIONS, REACTION_LABEL } from "@/components/social/Emoji";
-import { MessageBody } from "@/components/social/MessageBody";
+import { InviteCard, MessageBody, firstInviteCode, stripFormatting } from "@/components/social/MessageBody";
 import { MessageMenu, type MenuTarget } from "@/components/social/MessageMenu";
-import { clockTime, dayLabel, type Message, type ReactionKey } from "@/lib/social";
+import { clockTime, dayLabel, replyColor, type Message, type ReactionKey } from "@/lib/social";
 
 const GROUP_WINDOW_MS = 5 * 60_000;
 const SWIPE_TRIGGER = 56;
@@ -28,6 +28,7 @@ export interface MessageActions {
 }
 
 const keyOf = (m: Message) => m.clientKey ?? String(m.id);
+
 const vibrate = (ms: number) => {
   try {
     navigator.vibrate?.(ms);
@@ -47,7 +48,7 @@ function useSheetMenu() {
 }
 
 export function MessageList({
-  messages,
+  messages: incoming,
   me,
   kind,
   canModerate,
@@ -59,6 +60,8 @@ export function MessageList({
   onLoadOlder,
   highlightId,
   typingName,
+  onJump,
+  wallpaper,
   actions,
 }: {
   messages: Message[];
@@ -73,8 +76,22 @@ export function MessageList({
   onLoadOlder: () => void;
   highlightId: number | null;
   typingName: string | null;
+  onJump: (messageId: number) => void;
+  wallpaper?: React.CSSProperties;
   actions: MessageActions;
 }) {
+  // Pesan terhapus tidak ditampilkan sama sekali (dan tidak memutus pengelompokan bubble).
+  const messages = useMemo(() => incoming.filter((m) => !m.deleted), [incoming]);
+  const days = useMemo(() => {
+    const out: { key: string; label: string; items: { message: Message; index: number }[] }[] = [];
+    messages.forEach((message, index) => {
+      const label = dayLabel(message.created_at);
+      const last = out[out.length - 1];
+      if (last && last.label === label) last.items.push({ message, index });
+      else out.push({ key: label, label, items: [{ message, index }] });
+    });
+    return out;
+  }, [messages]);
   const scroller = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
   const prevHeight = useRef(0);
@@ -151,12 +168,14 @@ export function MessageList({
       <div
         ref={scroller}
         onScroll={onScroll}
-        className="scroll-slim chat-wall h-full overflow-y-auto overflow-x-hidden overscroll-contain px-2 pb-2 pt-1 sm:px-5"
+        className={`scroll-slim h-full overflow-y-auto overflow-x-hidden overscroll-contain px-2.5 pb-3 pt-1 sm:px-6 ${wallpaper ? "" : "chat-wall"}`}
+        style={wallpaper}
         role="log"
         aria-live="polite"
         aria-relevant="additions"
         aria-label="Riwayat pesan"
       >
+        <div className="mx-auto w-full max-w-[900px]">
         {hasMore ? (
           <div className="flex justify-center py-3">
             <button
@@ -176,63 +195,69 @@ export function MessageList({
           )
         )}
 
-        <ul>
-          {messages.map((message, i) => {
-            const prev = messages[i - 1];
-            const next = messages[i + 1];
-            const newDay = !prev || dayLabel(prev.created_at) !== dayLabel(message.created_at);
-            const sameAuthor = (a?: Message, b?: Message) =>
-              !!a &&
-              !!b &&
-              !a.deleted &&
-              a.author.username === b.author.username &&
-              dayLabel(a.created_at) === dayLabel(b.created_at) &&
-              Math.abs(new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) < GROUP_WINDOW_MS;
-            const grouped = !newDay && !message.reply_to && sameAuthor(prev, message);
-            const lastInGroup = !(next && !next.reply_to && sameAuthor(message, next));
-            const showUnread =
-              unreadFromId !== null && message.id > unreadFromId && (!prev || prev.id <= unreadFromId) && message.author.username !== me;
-            const key = keyOf(message);
-            let animate = false;
-            if (!baseline.current?.has(key) && !(message.id > 0 && message.id < oldestId.current)) {
-              if (!entered.current.has(key)) entered.current.set(key, Date.now());
-              animate = true;
-            } else {
-              const started = entered.current.get(key);
-              animate = started !== undefined && Date.now() - started < ENTER_MS;
-            }
-            return (
-              <li key={key}>
-                {newDay && (
-                  <div className="sticky top-1 z-10 my-2 flex justify-center">
-                    <span className="bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-[#3B5A70] shadow-[0_0_0_2px_#CFE2EE] backdrop-blur">
-                      {dayLabel(message.created_at)}
-                    </span>
-                  </div>
-                )}
-                {showUnread && (
-                  <div className="my-3 flex items-center gap-2" role="separator">
-                    <span className="h-0.5 flex-1 bg-[#BE123C]/30" />
-                    <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#BE123C]">Belum dibaca</span>
-                    <span className="h-0.5 flex-1 bg-[#BE123C]/30" />
-                  </div>
-                )}
-                <MessageItem
-                  message={message}
-                  me={me}
-                  kind={kind}
-                  grouped={grouped}
-                  lastInGroup={lastInGroup}
-                  animate={animate}
-                  read={peerLastReadId !== null && message.id > 0 && message.id <= peerLastReadId}
-                  highlighted={message.id === highlightId}
-                  onMenu={openMenu}
-                  actions={actions}
-                />
-              </li>
-            );
-          })}
-        </ul>
+        {/* Satu section per hari: chip tanggal menempel di atas selama hari itu di-scroll,
+            lalu terdorong rapi oleh hari berikutnya (sticky hanya berlaku di dalam section-nya). */}
+        {days.map((day) => (
+          <section key={day.key} aria-label={day.label}>
+            <div className="pointer-events-none sticky top-2 z-10 mb-1 mt-5 flex justify-center">
+              <span className="pointer-events-auto bg-white/95 px-3 py-1 text-[12px] font-semibold text-[#3B5A70] shadow-[0_0_0_2px_#CFE2EE,2px_2px_0_0_#E4EEF4] backdrop-blur">
+                {day.label}
+              </span>
+            </div>
+            <ul className="pb-1">
+              {day.items.map(({ message, index: i }) => {
+                const prev = messages[i - 1];
+                const next = messages[i + 1];
+                const firstOfDay = !prev || dayLabel(prev.created_at) !== day.label;
+                const sameAuthor = (a?: Message, b?: Message) =>
+                  !!a &&
+                  !!b &&
+                  !a.deleted &&
+                  a.author.username === b.author.username &&
+                  dayLabel(a.created_at) === dayLabel(b.created_at) &&
+                  Math.abs(new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) < GROUP_WINDOW_MS;
+                const grouped = !firstOfDay && !message.reply_to && sameAuthor(prev, message);
+                const lastInGroup = !(next && !next.reply_to && sameAuthor(message, next));
+                const showUnread =
+                  unreadFromId !== null && message.id > unreadFromId && (!prev || prev.id <= unreadFromId) && message.author.username !== me;
+                const key = keyOf(message);
+                let animate = false;
+                if (!baseline.current?.has(key) && !(message.id > 0 && message.id < oldestId.current)) {
+                  if (!entered.current.has(key)) entered.current.set(key, Date.now());
+                  animate = true;
+                } else {
+                  const started = entered.current.get(key);
+                  animate = started !== undefined && Date.now() - started < ENTER_MS;
+                }
+                return (
+                  <li key={key}>
+                    {showUnread && (
+                      <div className="mb-1 mt-5 flex items-center gap-2" role="separator">
+                        <span className="h-0.5 flex-1 bg-[#BE123C]/30" />
+                        <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#BE123C]">Belum dibaca</span>
+                        <span className="h-0.5 flex-1 bg-[#BE123C]/30" />
+                      </div>
+                    )}
+                    <MessageItem
+                      message={message}
+                      me={me}
+                      kind={kind}
+                      grouped={grouped}
+                      firstOfDay={firstOfDay}
+                      lastInGroup={lastInGroup}
+                      animate={animate}
+                      read={peerLastReadId !== null && message.id > 0 && message.id <= peerLastReadId}
+                      highlighted={message.id === highlightId}
+                      onMenu={openMenu}
+                      onJump={onJump}
+                      actions={actions}
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        ))}
 
         {typingName && (
           <div className="chat-in-other flex items-end gap-2 pt-2" aria-live="polite">
@@ -247,6 +272,7 @@ export function MessageList({
             </div>
           </div>
         )}
+        </div>
       </div>
 
       {unseen > 0 && (
@@ -285,22 +311,26 @@ function MessageItem({
   me,
   kind,
   grouped,
+  firstOfDay,
   lastInGroup,
   animate,
   read,
   highlighted,
   onMenu,
+  onJump,
   actions,
 }: {
   message: Message;
   me: string;
   kind: "dm" | "channel";
   grouped: boolean;
+  firstOfDay: boolean;
   lastInGroup: boolean;
   animate: boolean;
   read: boolean;
   highlighted: boolean;
   onMenu: (message: Message, rect: DOMRect, pickerOnly?: boolean) => void;
+  onJump: (messageId: number) => void;
   actions: MessageActions;
 }) {
   const mine = message.author.username === me;
@@ -388,38 +418,27 @@ function MessageItem({
     endGesture(true);
   };
 
-  if (message.deleted) {
-    return (
-      <div data-mid={message.id} className={`flex ${mine ? "justify-end" : "justify-start"} ${grouped ? "pt-0.5" : "pt-2"}`}>
-        <p className={`px-3 py-1.5 text-[13px] italic text-[#3B5A70]/80 shadow-[0_0_0_2px_#E4EEF4] ${showAvatar ? "ml-10" : ""}`}>
-          Pesan ini sudah dihapus
-        </p>
-      </div>
-    );
-  }
+  // Pesan yang dihapus hilang total dari tampilan.
+  if (message.deleted) return null;
 
-  const status = mine && (
-    message.local === "sending" ? (
-      <Clock3 className="h-3.5 w-3.5" aria-label="Mengirim" />
-    ) : message.local === "failed" ? (
-      <AlertCircle className="h-3.5 w-3.5 text-[#BE123C]" aria-label="Gagal terkirim" />
-    ) : kind === "dm" ? (
-      read ? <CheckCheck className="h-3.5 w-3.5 text-[#0369A1]" aria-label="Sudah dibaca" /> : <Check className="h-3.5 w-3.5" aria-label="Terkirim" />
-    ) : null
-  );
+  const tick =
+    mine &&
+    (message.local === "sending" ? "sending" : message.local === "failed" ? "failed" : kind === "dm" ? (read ? "read" : "sent") : "sent");
+  const invite = !jumbo ? firstInviteCode(message.body) : null;
+  const replyTone = message.reply_to ? replyColor(message.reply_to.author.username) : null;
 
   const meta = (
-    <span className={`chat-time ml-2 inline-flex translate-y-1 items-center gap-1 whitespace-nowrap align-bottom text-[11px] ${jumbo ? "text-[#3B5A70]" : "text-[#3B5A70]/80"}`}>
-      {message.edited_at && <span>diedit</span>}
-      {clockTime(message.created_at)}
-      {status}
+    <span className={`chat-time ml-auto inline-flex shrink-0 items-center gap-1 self-end whitespace-nowrap pl-2 text-[11px] leading-none ${jumbo ? "text-[#3B5A70]" : "text-[#5F7F95]"}`}>
+      {message.edited_at && <span className="italic">diedit</span>}
+      <span>{clockTime(message.created_at)}</span>
+      {tick && <PixelTick state={tick} />}
     </span>
   );
 
   return (
     <div
       data-mid={message.id}
-      className={`group/msg relative flex touch-pan-y items-end gap-2 ${mine ? "flex-row-reverse" : ""} ${grouped ? "pt-0.5" : "pt-2.5"} ${
+      className={`group/msg relative flex touch-pan-y items-end gap-2 ${mine ? "flex-row-reverse" : ""} ${grouped ? "pt-1.5" : firstOfDay ? "pt-2" : "pt-4"} ${
         animate ? (mine ? "chat-in-mine" : "chat-in-other") : ""
       } ${highlighted ? "chat-flash" : ""}`}
     >
@@ -434,7 +453,7 @@ function MessageItem({
 
       {showAvatar && (
         <span className="w-8 shrink-0 self-end">
-          {lastInGroup && <Avatar name={message.author.display_name} seed={message.author.username} size="sm" />}
+          {lastInGroup && <Avatar name={message.author.display_name} seed={message.author.username} src={message.author.avatar} size="sm" />}
         </span>
       )}
 
@@ -477,7 +496,7 @@ function MessageItem({
           className={`relative max-w-full select-text text-left outline-none [-webkit-touch-callout:none] focus-visible:shadow-[0_0_0_3px_#0369A1] [@media(pointer:coarse)]:select-none ${
             jumbo
               ? "px-1 py-0.5"
-              : `px-3 pb-1.5 pt-2 ${
+              : `px-3.5 pb-2 pt-[9px] ${
                   mentionsMe
                     ? "bg-[#FFFBEB] text-[#072033] shadow-[inset_3px_0_0_#F59E0B,0_0_0_2px_#FCD34D]"
                     : mine
@@ -491,16 +510,31 @@ function MessageItem({
               <Pin className="h-3 w-3" aria-hidden="true" /> Disematkan
             </span>
           )}
-          {message.reply_to && (
-            <span className="mb-1.5 block min-w-0 max-w-full border-l-[3px] border-[#0369A1] bg-[#0369A1]/[0.07] px-2.5 py-1">
-              <span className="block truncate text-[13px] font-semibold text-[#0369A1]">{message.reply_to.author.display_name || "Pengguna"}</span>
-              <span className="block truncate text-[13px] text-[#3B5A70]">{message.reply_to.deleted ? "Pesan dihapus" : message.reply_to.preview}</span>
-            </span>
+          {message.reply_to && replyTone && (
+            <button
+              type="button"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (message.reply_to) onJump(message.reply_to.id);
+              }}
+              className="mb-1.5 block w-full min-w-[8rem] max-w-full border-l-[3px] px-2.5 py-1 text-left transition-colors"
+              style={{ borderColor: replyTone, background: `${replyTone}12` }}
+              aria-label={`Lihat pesan yang dibalas dari ${message.reply_to.author.display_name}`}
+            >
+              <span className="block truncate text-[13px] font-semibold" style={{ color: replyTone }}>
+                {message.reply_to.author.username === me ? "Kamu" : message.reply_to.author.display_name || "Pengguna"}
+              </span>
+              <span className="line-clamp-2 block text-[13px] leading-snug text-[#3B5A70]">{stripFormatting(message.reply_to.preview)}</span>
+            </button>
           )}
-          <span className={`whitespace-pre-wrap break-words [overflow-wrap:anywhere] ${jumbo ? "text-[42px] leading-tight" : "text-[15px] leading-[1.45]"}`}>
-            <MessageBody text={message.body} me={me} />
+          <span className="flex flex-wrap items-end gap-y-1">
+            <span className={`min-w-0 break-words [overflow-wrap:anywhere] ${jumbo ? "text-[42px] leading-tight" : "text-[15px] leading-[1.5]"}`}>
+              <MessageBody text={message.body} me={me} />
+            </span>
+            {meta}
           </span>
-          {meta}
+          {invite && <InviteCard code={invite} />}
           {message.local === "failed" && <span className="mt-1 block text-[12px] font-semibold text-[#BE123C]">Gagal terkirim. Ketuk untuk kirim ulang.</span>}
 
           {burst > 0 && (

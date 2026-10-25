@@ -71,15 +71,15 @@ function ShellLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="portal-type min-h-screen bg-background text-foreground flex flex-col lg:flex-row">
       {/* Desktop Sidebar (lg breakpoint >= 1024px) */}
-      <div className="hidden lg:block lg:w-64 lg:fixed lg:inset-y-0 lg:z-30">
-        <DashboardSidebar nim={nim} />
+      <div className={`hidden lg:block lg:fixed lg:inset-y-0 lg:z-30 ${chatRoute ? "lg:w-16" : "lg:w-64"}`}>
+        <DashboardSidebar nim={nim} compact={chatRoute} />
       </div>
 
       {/* Mobile Navigation (Topbar, Bottom bar & Drawer) */}
       <DashboardMobileNav nim={nim} />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 lg:pl-64">
+      <div className={`flex-1 flex flex-col min-w-0 ${chatRoute ? "lg:pl-16" : "lg:pl-64"}`}>
         {/* Desktop Sticky Subheader */}
         <header className="hidden lg:flex sticky top-0 z-20 h-16 items-center justify-between px-8 bg-white/85 backdrop-blur-xl border-b-2 border-px-soft">
           <div className="flex items-center gap-2 font-mono text-xs">

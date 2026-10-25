@@ -54,6 +54,51 @@ async def publish(events: Iterable[Event]) -> None:
         logger.debug("social publish skipped: %s", exc)
 
 
+_CONN_PREFIX = "ubsi:social:conn:"
+# TTL penghitung koneksi; di-refresh tiap heartbeat sehingga worker yang mati tidak menahan status online.
+CONN_TTL_SECONDS = 90
+# Stream berputar tiap 5 menit dan klien menyambung ulang < 1 detik: tunggu dulu sebelum menyatakan offline.
+OFFLINE_GRACE_SECONDS = 6.0
+
+
+async def mark_connected(nim: str) -> bool:
+    """Tambah penghitung koneksi; True bila ini koneksi pertama (pengguna baru saja online)."""
+    try:
+        client = await _get_client()
+        key = f"{_CONN_PREFIX}{nim}"
+        count = await client.incr(key)
+        await client.expire(key, CONN_TTL_SECONDS)
+        return int(count) == 1
+    except Exception:
+        return True
+
+
+async def refresh_connection(nim: str) -> None:
+    try:
+        client = await _get_client()
+        await client.expire(f"{_CONN_PREFIX}{nim}", CONN_TTL_SECONDS)
+    except Exception:
+        pass
+
+
+async def mark_disconnected(nim: str) -> None:
+    try:
+        client = await _get_client()
+        key = f"{_CONN_PREFIX}{nim}"
+        if int(await client.decr(key)) <= 0:
+            await client.delete(key)
+    except Exception:
+        pass
+
+
+async def is_connected(nim: str) -> bool:
+    try:
+        client = await _get_client()
+        return bool(await client.exists(f"{_CONN_PREFIX}{nim}"))
+    except Exception:
+        return False
+
+
 def stream_slot_available() -> bool:
     return _active_streams < MAX_STREAMS_PER_WORKER
 

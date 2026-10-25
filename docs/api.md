@@ -738,10 +738,18 @@ Chat ringan gabungan Discord (ruang + channel, role, @mention, reaksi) dan Teleg
 | `POST` | `/v1/social/messages/{id}/reactions/{key}` | Toggle reaksi (22 key, mis. `heart`, `haha`, `fire`, `up`, `pray`, `party`; daftar lengkap di `app/social/service.py`) |
 | `POST` / `DELETE` | `/v1/social/messages/{id}/pin` | Sematkan / lepas (admin di channel, kedua pihak di DM) |
 | `GET` | `/v1/social/stream` | SSE realtime |
+| `POST` | `/v1/social/media` | Unggah avatar/banner (multipart `file` + `kind=avatar|banner`, WebP/PNG/JPEG, maks 300/800 KB) |
+| `GET` | `/v1/social/media/{id}` | Sajikan gambar (publik, nama = hash isi, cache immutable) |
+| `PATCH` | `/v1/social/me/media` · `/v1/social/spaces/{id}/media` | Pasang/hapus `avatar` & `banner` profil atau grup (admin); kirim hanya field yang diubah, `null` = hapus |
+| `GET` | `/v1/social/invites/{code}` | Preview link undangan (nama, foto, banner, jumlah anggota & online, sudah gabung atau belum) |
 
 **Realtime.** `GET /v1/social/stream` adalah Server-Sent Events per pengguna lewat Redis pub/sub (aman untuk multi-worker). Server mengirim `event: ready`, heartbeat `: ping` tiap 20 detik, lalu menutup stream setiap 5 menit agar koneksi berputar. Bila Redis tidak tersedia atau slot stream per worker penuh (60), server membalas `503 STREAM_UNAVAILABLE` dan dashboard beralih ke polling ringan (`after=` cursor tiap 4 detik).
 
-Tipe event: `message.created` (dengan flag `mentioned`), `message.updated` (edit, hapus, reaksi, pin), `conversation.read`, `typing`, `space.updated`, `space.removed`.
+Tipe event: `message.created` (dengan flag `mentioned`), `message.updated` (field `change`: `edited`, `deleted`, `reaction`, `pinned`), `conversation.read`, `typing`, `presence` (online/offline), `profile.updated`, `space.updated`, `space.removed`.
+
+**Presence.** Server menghitung koneksi stream per pengguna di Redis (`ubsi:social:conn:{nim}`, TTL 90 detik yang di-refresh tiap heartbeat), sehingga banyak tab dan banyak worker tetap akurat. Koneksi pertama mengirim `presence` online ke lawan DM dan sesama anggota ruang; offline dikirim 6 detik setelah koneksi terakhir putus (rotasi stream tidak membuat status berkedip).
+
+**Pesan dihapus** tidak dikembalikan lagi oleh riwayat dan kutipan balasan; preview daftar chat mundur ke pesan terakhir yang masih ada. **Pesan diedit** orang lain sejak percakapan terakhir dibuka dikembalikan di `recent_edits` pada `GET .../messages` (halaman pertama).
 
 ## 8. Model Context Protocol (MCP) Server
 

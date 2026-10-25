@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { Compass, Hash, MessageCirclePlus, MessagesSquare, Plus, Search, Settings2, UserPlus } from "lucide-react";
-import { Avatar, SpaceTile } from "@/components/social/Avatar";
+import { Avatar, PixelTick, SpaceTile } from "@/components/social/Avatar";
+import { stripFormatting } from "@/components/social/MessageBody";
 import { listTime, type DmItem, type Inbox, type SpaceItem, type StreamStatus } from "@/lib/social";
 
 export type SidebarView = "home" | number;
@@ -39,11 +40,11 @@ export function SpaceRail({
   return (
     <nav
       aria-label="Ruang komunitas"
-      className="scroll-slim flex shrink-0 gap-2 overflow-x-auto border-b-2 border-[#CFE2EE] bg-[#EAF3F9] p-2 md:w-[68px] md:flex-col md:items-center md:overflow-y-auto md:overflow-x-hidden md:border-b-0 md:border-r-2 md:py-3"
+      className="scroll-slim flex shrink-0 items-center gap-2 overflow-x-auto border-b-2 border-[#CFE2EE] bg-[#F0F7FB] px-3 py-2 md:w-[68px] md:flex-col md:overflow-y-auto md:overflow-x-hidden md:border-b-0 md:border-r-2 md:px-2 md:py-3"
     >
       <button type="button" onClick={() => onView("home")} aria-current={view === "home" ? "page" : undefined} aria-label="Pesan pribadi" title="Pesan pribadi" className={railButton}>
         <span
-          className={`flex h-11 w-11 items-center justify-center transition-[background-color,color,box-shadow,transform] duration-200 ${
+          className={`flex h-10 w-10 items-center justify-center transition-[background-color,color,box-shadow,transform] duration-200 md:h-11 md:w-11 ${
             view === "home"
               ? "-translate-x-px -translate-y-px bg-[#0369A1] text-white shadow-[3px_3px_0_0_#072033]"
               : "bg-white text-[#0369A1] shadow-[0_0_0_2px_#CFE2EE] group-hover:shadow-[0_0_0_2px_#5FA3CC]"
@@ -77,7 +78,12 @@ export function SpaceRail({
               className={`absolute -left-2 hidden w-1 bg-[#072033] transition-all md:block ${active ? "h-8" : space.unread ? "h-2" : "h-0"}`}
               aria-hidden="true"
             />
-            <SpaceTile name={space.name} active={active} />
+            <span className="md:hidden">
+              <SpaceTile name={space.name} src={space.avatar} active={active} compact />
+            </span>
+            <span className="hidden md:inline-flex">
+              <SpaceTile name={space.name} src={space.avatar} active={active} />
+            </span>
             {(space.mentions ?? 0) > 0 ? (
               <span className="absolute -right-1 -top-1">
                 <CountBadge count={space.mentions ?? 0} mention />
@@ -90,12 +96,12 @@ export function SpaceRail({
       })}
 
       <button type="button" onClick={onCreate} aria-label="Buat ruang baru" title="Buat ruang" className={railButton}>
-        <span className="flex h-11 w-11 items-center justify-center bg-white text-[#0F766E] shadow-[0_0_0_2px_#CFE2EE] transition-shadow group-hover:shadow-[0_0_0_2px_#0F766E]">
+        <span className="flex h-10 w-10 items-center justify-center bg-white text-[#0F766E] md:h-11 md:w-11 shadow-[0_0_0_2px_#CFE2EE] transition-shadow group-hover:shadow-[0_0_0_2px_#0F766E]">
           <Plus className="h-5 w-5" aria-hidden="true" />
         </span>
       </button>
       <button type="button" onClick={onJoin} aria-label="Jelajahi dan gabung ruang" title="Jelajahi ruang" className={railButton}>
-        <span className="flex h-11 w-11 items-center justify-center bg-white text-[#0369A1] shadow-[0_0_0_2px_#CFE2EE] transition-shadow group-hover:shadow-[0_0_0_2px_#0369A1]">
+        <span className="flex h-10 w-10 items-center justify-center bg-white text-[#0369A1] shadow-[0_0_0_2px_#CFE2EE] transition-shadow group-hover:shadow-[0_0_0_2px_#0369A1] md:h-11 md:w-11">
           <Compass className="h-5 w-5" aria-hidden="true" />
         </span>
       </button>
@@ -105,13 +111,17 @@ export function SpaceRail({
 
 function StatusDot({ status }: { status: StreamStatus }) {
   const meta = {
-    live: { label: "Realtime", color: "bg-[#0F766E]" },
-    connecting: { label: "Menyambung", color: "bg-[#FCD34D]" },
-    polling: { label: "Mode hemat", color: "bg-[#5FA3CC]" },
+    live: { label: "Online", color: "bg-[#16A34A]", text: "text-[#15803D]" },
+    connecting: { label: "Menyambung...", color: "bg-[#F59E0B]", text: "text-[#A16207]" },
+    polling: { label: "Online · hemat", color: "bg-[#16A34A]", text: "text-[#15803D]" },
   }[status];
   return (
-    <span className="inline-flex items-center gap-1.5 font-mono text-[10px] font-semibold text-[#3B5A70]" title={status === "polling" ? "Realtime tidak tersedia, pesan dicek berkala" : undefined}>
-      <span className={`h-1.5 w-1.5 ${meta.color}`} aria-hidden="true" />
+    <span
+      className={`inline-flex shrink-0 items-center gap-1.5 text-[12px] font-semibold ${meta.text}`}
+      title={status === "polling" ? "Koneksi realtime tidak tersedia, pesan dicek berkala" : undefined}
+      role="status"
+    >
+      <span className={`h-2 w-2 ${meta.color} ${status === "connecting" ? "animate-pulse" : ""}`} aria-hidden="true" />
       {meta.label}
     </span>
   );
@@ -150,7 +160,7 @@ export function ConversationColumn({
   }, [inbox.dms, filter]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-white md:w-[256px] lg:w-[300px] md:flex-none md:border-r-2 md:border-[#CFE2EE]">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-white md:w-[var(--col-w,264px)] md:flex-none md:border-r-2 md:border-[#CFE2EE] lg:w-[var(--col-w,320px)]">
       <div className="flex h-14 shrink-0 items-center gap-2 border-b-2 border-[#CFE2EE] px-3">
         {space ? (
           <>
@@ -209,7 +219,7 @@ export function ConversationColumn({
       {me && (
         <div className="flex shrink-0 items-center gap-2 border-t-2 border-[#CFE2EE] bg-[#F7FAFC] px-3 py-2">
           <button type="button" onClick={onProfile} className="flex min-w-0 flex-1 items-center gap-2.5 py-1 text-left hover:opacity-80" title="Ubah profil">
-            <Avatar name={me.display_name} seed={me.username} size="sm" online />
+            <Avatar name={me.display_name} seed={me.username} src={me.avatar} size="sm" online={status !== "connecting"} />
             <span className="min-w-0">
               <span className="block truncate text-sm font-bold text-[#072033]">{me.display_name}</span>
               <span className="block truncate text-[11px] text-[#3B5A70]">@{me.username}</span>
@@ -236,21 +246,21 @@ function DmRow({ dm, me, active, typing, onOpen }: { dm: DmItem; me: string; act
           active ? "bg-[#DCEBF5] shadow-[inset_3px_0_0_#0369A1]" : "hover:bg-[#F0F7FB]"
         }`}
       >
-        <Avatar name={name} seed={dm.peer.username} online={dm.is_saved ? undefined : dm.peer.online} saved={dm.is_saved} />
+        <Avatar name={name} seed={dm.peer.username} src={dm.peer.avatar} size="lg" online={dm.is_saved ? undefined : dm.peer.online} saved={dm.is_saved} />
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline gap-2">
             <span className={`truncate text-[15px] text-[#072033] ${dm.unread ? "font-bold" : "font-semibold"}`}>{name}</span>
             {last && <span className={`chat-time ml-auto shrink-0 text-[11px] ${dm.unread ? "font-bold text-[#0369A1]" : "text-[#3B5A70]"}`}>{listTime(last.created_at)}</span>}
           </span>
           <span className="mt-0.5 flex items-center gap-2">
-            <span className={`truncate text-[14px] ${dm.unread ? "text-[#072033]" : "text-[#3B5A70]"}`}>
+            <span className={`flex min-w-0 flex-1 items-center text-[14px] ${dm.unread ? "text-[#072033]" : "text-[#3B5A70]"}`}>
               {typing ? (
                 <span className="font-semibold text-[#0369A1]">mengetik...</span>
               ) : last ? (
-                <>
-                  {mine && !dm.is_saved && <span className="text-[#0369A1]">Kamu: </span>}
-                  <span className={last.deleted ? "italic" : ""}>{last.preview}</span>
-                </>
+                <span className="inline-flex max-w-full items-center gap-1">
+                  {mine && !dm.is_saved && <PixelTick state={dm.peer_last_read_id >= last.id ? "read" : "sent"} />}
+                  <span className="truncate">{stripFormatting(last.preview)}</span>
+                </span>
               ) : (
                 <span className="italic">{dm.is_saved ? "Simpan catatan untuk diri sendiri" : "Belum ada pesan"}</span>
               )}

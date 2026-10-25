@@ -92,6 +92,18 @@ CREATE INDEX IF NOT EXISTS idx_social_mentions_nim ON social_mentions(nim, conve
 """
 
 
+# Kolom yang ditambahkan setelah rilis pertama. Dijalankan idempoten saat startup
+# (ALTER TABLE hanya bila kolom belum ada) supaya DB produksi lama ikut ter-upgrade.
+_ADDED_COLUMNS = (
+    ("social_profiles", "avatar", "TEXT"),
+    ("social_profiles", "banner", "TEXT"),
+    ("social_profiles", "is_online", "INTEGER NOT NULL DEFAULT 0"),
+    ("social_spaces", "avatar", "TEXT"),
+    ("social_spaces", "banner", "TEXT"),
+    ("social_participants", "last_opened_at", "TEXT"),
+)
+
+
 def connect() -> sqlite3.Connection:
     conn = sqlite3.connect(settings.SQLITE_DB_PATH, check_same_thread=False, timeout=10)
     conn.row_factory = sqlite3.Row
@@ -121,6 +133,10 @@ def init_social_db() -> None:
     conn = connect()
     try:
         conn.executescript(_SCHEMA)
+        for table, column, ddl in _ADDED_COLUMNS:
+            existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+            if column not in existing:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
         conn.commit()
     finally:
         conn.close()

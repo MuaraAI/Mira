@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import {
   AtSign,
+  Camera,
+  ImagePlus,
   Bookmark,
   Compass,
   Copy,
@@ -23,14 +25,18 @@ import { useDialog } from "@/components/ConfirmDialog";
 import { SideSheet } from "@/components/SideSheet";
 import { SheetTabs } from "@/components/SheetTabs";
 import { ghostButtonClass, inputClass, primaryButtonClass } from "@/components/dashboard-ui";
-import { Avatar } from "@/components/social/Avatar";
+import { Avatar, SpaceTile } from "@/components/social/Avatar";
+import { useWallpaper, WALLPAPERS } from "@/lib/wallpaper";
 import { MessageBody } from "@/components/social/MessageBody";
 import {
   clockTime,
+  compressImage,
   dayLabel,
   inviteLink,
   lastSeenLabel,
+  mediaUrl,
   socialApi,
+  toneFor,
   type Member,
   type Message,
   type SocialProfile,
@@ -177,6 +183,127 @@ export function Onboarding({ suggestedName, onDone }: { suggestedName: string; o
   );
 }
 
+/** Pilih gambar, kompres di perangkat, unggah, lalu kembalikan id media. */
+function ImagePickButton({
+  kind,
+  label,
+  onUploaded,
+  className = "",
+  children,
+}: {
+  kind: "avatar" | "banner";
+  label: string;
+  onUploaded: (id: string) => Promise<void> | void;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const { notify } = useDialog();
+  const [busy, setBusy] = useState(false);
+  return (
+    // Posisi (absolute) datang dari `className`; jangan tambahkan `relative` di sini karena akan menimpanya.
+    <label className={`cursor-pointer ${busy ? "pointer-events-none opacity-70" : ""} ${className}`} aria-label={label} title={label}>
+      <input
+        type="file"
+        accept="image/*"
+        className="sr-only"
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (!file) return;
+          setBusy(true);
+          try {
+            const blob = await compressImage(file, kind);
+            const { id } = await socialApi.uploadMedia(blob, kind);
+            await onUploaded(id);
+          } catch (err) {
+            notify(err instanceof Error && err.message ? err.message : "Gagal mengunggah gambar", "error");
+          } finally {
+            setBusy(false);
+          }
+        }}
+      />
+      {children}
+      {busy && (
+        <span className="absolute inset-0 flex items-center justify-center bg-[#072033]/40 text-xs font-bold text-white">Mengunggah...</span>
+      )}
+    </label>
+  );
+}
+
+/** Kepala profil ala Discord: banner, avatar menumpang di tepinya, nama, dan status. */
+function ProfileHeader({
+  name,
+  username,
+  avatar,
+  banner,
+  seed,
+  online,
+  status,
+  editBanner,
+  editAvatar,
+}: {
+  name: string;
+  username?: string;
+  avatar: string | null;
+  banner: string | null;
+  seed: string;
+  online?: boolean;
+  status?: string;
+  editBanner?: React.ReactNode;
+  editAvatar?: React.ReactNode;
+}) {
+  const bannerUrl = mediaUrl(banner);
+  const tone = toneFor(seed);
+  return (
+    <div className="-mx-4 -mt-4 mb-4 sm:-mx-6 sm:-mt-6">
+      <div
+        className="relative h-28 bg-cover bg-center sm:h-32"
+        style={bannerUrl ? { backgroundImage: `url(${bannerUrl})` } : { background: `repeating-linear-gradient(135deg, ${tone.bg} 0 12px, ${tone.bg}e6 12px 24px)` }}
+      >
+        {editBanner}
+      </div>
+      <div className="flex items-end gap-3 px-4 sm:px-6">
+        <div className="relative -mt-10 shadow-[0_0_0_4px_#fff]">
+          <Avatar name={name} seed={seed} src={avatar} size="xl" online={online} />
+          {editAvatar}
+        </div>
+        <div className="min-w-0 flex-1 pb-1">
+          <p className="truncate text-lg font-bold leading-tight text-[#072033]">{name}</p>
+          {username && <p className="truncate text-[13px] text-[#3B5A70]">@{username}</p>}
+        </div>
+      </div>
+      {status && (
+        <p className={`mt-2 flex items-center gap-1.5 px-4 text-[13px] sm:px-6 ${online ? "font-medium text-[#15803D]" : "text-[#3B5A70]"}`}>
+          {online && <span className="h-2 w-2 bg-[#16A34A]" aria-hidden="true" />}
+          {status}
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function ProfileCard({ open, profile, onClose }: { open: boolean; profile: SocialProfile; onClose: () => void }) {
+  return (
+    <SideSheet open={open} onClose={onClose} eyebrow="Profil" title={profile.display_name} titleId="social-card-title" width="md">
+      <ProfileHeader
+        name={profile.display_name}
+        username={profile.username}
+        avatar={profile.avatar}
+        banner={profile.banner}
+        seed={profile.username}
+        online={profile.online}
+        status={lastSeenLabel(profile)}
+      />
+      <section>
+        <h4 className="mb-1 text-[11px] font-bold uppercase tracking-[0.14em] text-[#3B5A70]">Bio</h4>
+        <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-[#072033]">{profile.bio || "Belum menulis bio."}</p>
+      </section>
+    </SideSheet>
+  );
+}
+
+const editBadge = "absolute flex h-9 w-9 items-center justify-center bg-white text-[#072033] shadow-[0_0_0_2px_#163A55,2px_2px_0_0_#0369A1] hover:bg-[#EAF3F9]";
+
 export function ProfileSheet({
   open,
   me,
@@ -186,18 +313,94 @@ export function ProfileSheet({
   open: boolean;
   me: SocialProfile;
   onClose: () => void;
-  onSaved: (profile: SocialProfile) => void;
+  onSaved: (profile: SocialProfile, close?: boolean) => void;
 }) {
+  const { notify } = useDialog();
+  const wallpaper = useWallpaper();
+  const setMedia = async (changes: { avatar?: string | null; banner?: string | null }) => {
+    const { profile } = await socialApi.setMyMedia(changes);
+    onSaved(profile, false);
+    notify("Profil diperbarui", "success");
+  };
   return (
     <SideSheet open={open} onClose={onClose} eyebrow="Komunitas" title="Profil kamu" titleId="social-profile-title" width="md">
-      <div className="mb-5 flex items-center gap-3">
-        <Avatar name={me.display_name} seed={me.username} size="lg" />
-        <div className="min-w-0">
-          <p className="truncate font-display text-lg font-bold text-[#072033]">{me.display_name}</p>
-          <p className="truncate font-mono text-xs text-[#3B5A70]">@{me.username}</p>
+      <ProfileHeader
+        name={me.display_name}
+        username={me.username}
+        avatar={me.avatar}
+        banner={me.banner}
+        seed={me.username}
+        editBanner={
+          <ImagePickButton kind="banner" label="Ganti banner" onUploaded={(id) => setMedia({ banner: id })} className={`${editBadge} bottom-2 right-2`}>
+            <ImagePlus className="h-4 w-4" aria-hidden="true" />
+          </ImagePickButton>
+        }
+        editAvatar={
+          <ImagePickButton kind="avatar" label="Ganti foto profil" onUploaded={(id) => setMedia({ avatar: id })} className={`${editBadge} -bottom-2 -right-2 h-8 w-8`}>
+            <Camera className="h-4 w-4" aria-hidden="true" />
+          </ImagePickButton>
+        }
+      />
+      {(me.avatar || me.banner) && (
+        <div className="-mt-1 mb-4 flex flex-wrap gap-3 text-[13px]">
+          {me.avatar && (
+            <button type="button" onClick={() => setMedia({ avatar: null })} className="font-semibold text-[#BE123C] hover:underline">
+              Hapus foto profil
+            </button>
+          )}
+          {me.banner && (
+            <button type="button" onClick={() => setMedia({ banner: null })} className="font-semibold text-[#BE123C] hover:underline">
+              Hapus banner
+            </button>
+          )}
         </div>
-      </div>
-      <ProfileForm initial={me} submitLabel="Simpan profil" onSaved={onSaved} />
+      )}
+      <ProfileForm initial={me} submitLabel="Simpan profil" onSaved={(p) => onSaved(p, true)} />
+
+      <section className="mt-6 border-t-2 border-dashed border-[#CFE2EE] pt-5">
+        <h4 className="mb-1 text-[11px] font-bold uppercase tracking-[0.14em] text-[#3B5A70]">Wallpaper chat</h4>
+        <p className="mb-3 text-[13px] text-[#3B5A70]">Tersimpan di perangkat ini saja.</p>
+        <div className="grid grid-cols-4 gap-2">
+          {WALLPAPERS.map((w) => (
+            <button
+              key={w.id}
+              type="button"
+              onClick={() => wallpaper.choose(w.id)}
+              aria-pressed={wallpaper.stored.id === w.id}
+              className={`flex aspect-[3/4] flex-col justify-end p-1 text-[11px] font-semibold text-[#072033] transition-shadow ${
+                wallpaper.stored.id === w.id ? "shadow-[0_0_0_3px_#0369A1]" : "shadow-[0_0_0_2px_#CFE2EE] hover:shadow-[0_0_0_2px_#5FA3CC]"
+              }`}
+              style={w.style}
+            >
+              <span className="bg-white/90 px-1 py-0.5">{w.label}</span>
+            </button>
+          ))}
+          <label
+            className={`flex aspect-[3/4] cursor-pointer flex-col items-center justify-center gap-1 bg-[#F0F7FB] p-1 text-center text-[11px] font-semibold text-[#0369A1] transition-shadow ${
+              wallpaper.stored.id === "custom" ? "shadow-[0_0_0_3px_#0369A1]" : "shadow-[0_0_0_2px_#CFE2EE] hover:shadow-[0_0_0_2px_#5FA3CC]"
+            }`}
+            style={wallpaper.stored.id === "custom" ? wallpaper.style : undefined}
+          >
+            <input
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (!file) return;
+                try {
+                  await wallpaper.setCustom(file);
+                } catch (err) {
+                  notify(err instanceof Error ? err.message : "Gagal memasang wallpaper", "error");
+                }
+              }}
+            />
+            <ImagePlus className="h-5 w-5" aria-hidden="true" />
+            <span className="bg-white/90 px-1 py-0.5">Gambar sendiri</span>
+          </label>
+        </div>
+      </section>
     </SideSheet>
   );
 }
@@ -364,7 +567,7 @@ export function JoinSheet({
               <ul className="space-y-2">
                 {spaces.map((s) => (
                   <li key={s.id} className="flex items-center gap-3 bg-white p-3 shadow-[0_0_0_2px_#CFE2EE]">
-                    <Avatar name={s.name} seed={`space-${s.id}`} />
+                    <SpaceTile name={s.name} src={s.avatar} active={false} compact />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-bold text-[#072033]">{s.name}</p>
                       <p className="truncate text-xs text-[#3B5A70]">{s.description || "Tanpa deskripsi"}</p>
@@ -438,7 +641,7 @@ export function NewDmSheet({
         {users.map((u) => (
           <li key={u.username}>
             <button type="button" onClick={() => onPick(u.username)} className="flex w-full items-center gap-3 p-2 text-left hover:bg-[#F0F7FB]">
-              <Avatar name={u.display_name} seed={u.username} online={u.online} />
+              <Avatar name={u.display_name} seed={u.username} src={u.avatar} online={u.online} />
               <span className="min-w-0">
                 <span className="block truncate text-sm font-bold text-[#072033]">{u.display_name}</span>
                 <span className="block truncate font-mono text-[11px] text-[#3B5A70]">
@@ -497,7 +700,7 @@ export function MemberList({
               return (
                 <li key={m.username} className="group flex items-center gap-2.5 px-1 py-1.5 hover:bg-[#F0F7FB]">
                   <button type="button" onClick={() => m.username !== me && onMessage(m.username)} className="flex min-w-0 flex-1 items-center gap-2.5 text-left" title={m.username === me ? "Kamu" : `Kirim pesan ke ${m.display_name}`}>
-                    <Avatar name={m.display_name} seed={m.username} size="sm" online={m.online} />
+                    <Avatar name={m.display_name} seed={m.username} src={m.avatar} size="sm" online={m.online} />
                     <span className="min-w-0">
                       <span className={`flex items-center gap-1 truncate text-sm font-semibold ${m.online ? "text-[#072033]" : "text-[#3B5A70]"}`}>
                         <span className="truncate">{m.display_name}</span>
@@ -615,6 +818,37 @@ export function SpaceSettingsSheet({
 
         {tab === "umum" && (
           <>
+            <ProfileHeader
+              name={space.name}
+              avatar={space.avatar}
+              banner={space.banner}
+              seed={`space-${space.id}`}
+              status={`${space.member_count} anggota · ${space.is_public ? "Ruang publik" : "Ruang privat"}`}
+              editBanner={
+                isAdmin && (
+                  <ImagePickButton
+                    kind="banner"
+                    label="Ganti banner grup"
+                    onUploaded={(id) => guard(() => socialApi.setSpaceMedia(space.id, { banner: id }), "Banner grup diperbarui").then(() => undefined)}
+                    className={`${editBadge} bottom-2 right-2`}
+                  >
+                    <ImagePlus className="h-4 w-4" aria-hidden="true" />
+                  </ImagePickButton>
+                )
+              }
+              editAvatar={
+                isAdmin && (
+                  <ImagePickButton
+                    kind="avatar"
+                    label="Ganti foto grup"
+                    onUploaded={(id) => guard(() => socialApi.setSpaceMedia(space.id, { avatar: id }), "Foto grup diperbarui").then(() => undefined)}
+                    className={`${editBadge} -bottom-2 -right-2 h-8 w-8`}
+                  >
+                    <Camera className="h-4 w-4" aria-hidden="true" />
+                  </ImagePickButton>
+                )
+              }
+            />
             {space.invite_code && (
               <section className="space-y-2">
                 <h4 className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[#3B5A70]">Link undangan</h4>
@@ -776,7 +1010,7 @@ function MessageResult({ message, me, onPick }: { message: Message; me: string; 
   return (
     <li>
       <button type="button" onClick={() => onPick(message)} className="flex w-full gap-2.5 bg-white p-3 text-left shadow-[0_0_0_2px_#CFE2EE] hover:shadow-[0_0_0_2px_#5FA3CC]">
-        <Avatar name={message.author.display_name} seed={message.author.username} size="sm" />
+        <Avatar name={message.author.display_name} seed={message.author.username} src={message.author.avatar} size="sm" />
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline justify-between gap-2">
             <span className="truncate text-sm font-bold text-[#072033]">{message.author.display_name}</span>
