@@ -59,7 +59,10 @@ CREATE TABLE IF NOT EXISTS social_profiles (
     bio TEXT NOT NULL DEFAULT '',
     campus_branch TEXT NOT NULL DEFAULT 'UBSI Pontianak',
     major TEXT NOT NULL DEFAULT 'Informatika',
-    avatar_preset TEXT NOT NULL DEFAULT 'mura-default',
+    class_code TEXT,
+    avatar_preset TEXT NOT NULL DEFAULT 'mura-welcome',
+    show_nim INTEGER NOT NULL DEFAULT 0,
+    show_class INTEGER NOT NULL DEFAULT 0,
     e2ee_public_key TEXT,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     last_seen_at TEXT
@@ -182,6 +185,9 @@ def init_social_db() -> None:
             "ALTER TABLE social_messages ADD COLUMN is_encrypted INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE social_messages ADD COLUMN encryption_nonce TEXT",
             "ALTER TABLE social_spaces ADD COLUMN campus_branch TEXT",
+            "ALTER TABLE social_profiles ADD COLUMN class_code TEXT",
+            "ALTER TABLE social_profiles ADD COLUMN show_nim INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE social_profiles ADD COLUMN show_class INTEGER NOT NULL DEFAULT 0",
         ):
             try:
                 conn.execute(alter_sql)

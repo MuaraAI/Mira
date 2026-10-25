@@ -73,7 +73,10 @@ class ProfileBody(BaseModel):
     bio: str = Field(default="", max_length=160)
     campus_branch: Optional[str] = Field(default=None, max_length=80)
     major: Optional[str] = Field(default=None, max_length=80)
+    class_code: Optional[str] = Field(default=None, max_length=20)
     avatar_preset: Optional[str] = Field(default=None, max_length=40)
+    show_nim: Optional[bool] = False
+    show_class: Optional[bool] = False
     e2ee_public_key: Optional[str] = Field(default=None, max_length=256)
 
 
@@ -151,7 +154,10 @@ async def update_me(request: Request, body: ProfileBody):
         body.bio,
         body.campus_branch,
         body.major,
+        body.class_code,
         body.avatar_preset,
+        body.show_nim,
+        body.show_class,
         body.e2ee_public_key,
     )
     return success_response(data={"profile": profile})
@@ -165,8 +171,7 @@ async def search_users(request: Request, q: str = ""):
 
 
 @router.get("/users/{username}")
-async def get_user(request: Request, username: str):
-    _session_nim(request)
+async def get_user(username: str):
     return success_response(data={"user": await _call(service.get_user, username)})
 
 

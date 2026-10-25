@@ -119,17 +119,28 @@ def _placeholders(items: Iterable[Any]) -> str:
 
 def _public_profile(row: sqlite3.Row) -> dict[str, Any]:
     keys = row.keys()
-    return {
+    show_nim = bool(row["show_nim"]) if "show_nim" in keys else False
+    show_class = bool(row["show_class"]) if "show_class" in keys else False
+    avatar = row["avatar_preset"] if "avatar_preset" in keys else "mura-welcome"
+    data = {
         "username": row["username"],
         "display_name": row["display_name"],
         "bio": row["bio"] or "",
         "campus_branch": row["campus_branch"] if "campus_branch" in keys else "UBSI Pontianak",
         "major": row["major"] if "major" in keys else "Informatika",
-        "avatar_preset": row["avatar_preset"] if "avatar_preset" in keys else "mura-default",
+        "avatar_preset": avatar,
+        "avatar_url": f"/avatars/mura/{avatar}.png",
+        "hide_id": not show_nim,
+        "hide_class": not show_class,
         "e2ee_public_key": row["e2ee_public_key"] if "e2ee_public_key" in keys else None,
         "online": _is_online(row["last_seen_at"]),
         "last_seen_at": row["last_seen_at"],
     }
+    if show_nim:
+        data["student_id"] = row["nim"]
+    if show_class and "class_code" in keys and row["class_code"]:
+        data["class_code"] = row["class_code"]
+    return data
 
 
 def _profiles_by_nim(conn: sqlite3.Connection, nims: Iterable[str]) -> dict[str, dict[str, Any]]:
@@ -386,7 +397,10 @@ def upsert_me(
     bio: str = "",
     campus_branch: Optional[str] = None,
     major: Optional[str] = None,
+    class_code: Optional[str] = None,
     avatar_preset: Optional[str] = None,
+    show_nim: Optional[bool] = None,
+    show_class: Optional[bool] = None,
     e2ee_public_key: Optional[str] = None,
 ) -> Outcome:
     handle = (username or "").strip().lstrip("@").lower()
@@ -396,7 +410,8 @@ def upsert_me(
     about = _clean(bio, 160, "Bio")
     branch = _clean(campus_branch or "UBSI Pontianak", 80, "Cabang kampus")
     prodi = _clean(major or "Informatika", 80, "Program studi")
-    avatar = _clean(avatar_preset or "mura-default", 40, "Avatar")
+    c_code = _clean(class_code, 20, "Kode kelas") if class_code else None
+    avatar = _clean(avatar_preset or "mura-welcome", 40, "Avatar")
     pubkey = _clean(e2ee_public_key, 256, "Kunci publik E2EE") if e2ee_public_key else None
     with transaction() as conn:
         taken = conn.execute(
@@ -405,14 +420,30 @@ def upsert_me(
         if taken and taken["nim"] != nim:
             raise SocialError("USERNAME_TAKEN", "Username sudah dipakai, coba yang lain", 409)
         conn.execute(
-            "INSERT INTO social_profiles (nim, username, display_name, bio, campus_branch, major, avatar_preset, e2ee_public_key, last_seen_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "INSERT INTO social_profiles (nim, username, display_name, bio, campus_branch, major, class_code, avatar_preset, show_nim, show_class, e2ee_public_key, last_seen_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
             "ON CONFLICT(nim) DO UPDATE SET username = excluded.username, "
             "display_name = excluded.display_name, bio = excluded.bio, "
             "campus_branch = COALESCE(excluded.campus_branch, social_profiles.campus_branch), "
             "major = COALESCE(excluded.major, social_profiles.major), "
+            "class_code = COALESCE(excluded.class_code, social_profiles.class_code), "
             "avatar_preset = COALESCE(excluded.avatar_preset, social_profiles.avatar_preset), "
+            "show_nim = COALESCE(excluded.show_nim, social_profiles.show_nim), "
+            "show_class = COALESCE(excluded.show_class, social_profiles.show_class), "
             "e2ee_public_key = COALESCE(excluded.e2ee_public_key, social_profiles.e2ee_public_key)",
-            (nim, handle, name, about, branch, prodi, avatar, pubkey, _now()),
+            (
+                nim,
+                handle,
+                name,
+                about,
+                branch,
+                prodi,
+                c_code,
+                avatar,
+                1 if show_nim else (0 if show_nim is not None else 0),
+                1 if show_class else (0 if show_class is not None else 0),
+                pubkey,
+                _now(),
+            ),
         )
         row = conn.execute("SELECT * FROM social_profiles WHERE nim = ?", (nim,)).fetchone()
         return Outcome(_public_profile(row))
