@@ -163,12 +163,12 @@ export default function NilaiPage() {
   const previewRef = useRef<HTMLDivElement>(null);
   const [previewWidth, setPreviewWidth] = useState(340);
 
-  // Kartu pratinjau mengikuti lebar panel (maks 360px) supaya tidak terpotong di HP.
+  // Kartu pratinjau mengikuti lebar panel (maks 440px di desktop) supaya tidak terpotong di HP.
   useEffect(() => {
     if (!flexingOpen) return;
     const node = previewRef.current;
     if (!node) return;
-    const update = () => setPreviewWidth(Math.max(220, Math.min(360, Math.floor(node.clientWidth - 10))));
+    const update = () => setPreviewWidth(Math.max(220, Math.min(440, Math.floor(node.clientWidth - 10))));
     update();
     const observer = new ResizeObserver(update);
     observer.observe(node);
@@ -306,7 +306,7 @@ export default function NilaiPage() {
         open={flexingOpen}
         onClose={() => setFlexingOpen(false)}
         side="right"
-        width="md"
+        width="lg"
         titleId="flexing-title"
         eyebrow="Flexing Nilai"
         title={VARIANT_OPTIONS.find((v) => v.value === activeTab)?.label ?? "Kartu Nilai"}
