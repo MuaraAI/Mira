@@ -400,6 +400,48 @@ API_DOCS_DATA: dict[str, Any] = {
                 "payload": {"category": "matkul-besok | kelas-mulai | quiz-tugas | tugas-baru | pengumuman-siakad | absen-kuliah | nilai-keluar | jadwal-ujian"},
             },
         ],
+        "social": [
+            {
+                "path": "/v1/social/me",
+                "method": "GET | PATCH",
+                "auth": "Session Token",
+                "description": "Profil Komunitas (username, nama tampilan, bio). NIM tidak pernah ditampilkan ke pengguna lain.",
+                "payload": {"username": "3-24 huruf kecil/angka/_", "display_name": "string", "bio": "string opsional"},
+            },
+            {
+                "path": "/v1/social/inbox",
+                "method": "GET",
+                "auth": "Session Token",
+                "description": "Satu panggilan untuk sidebar: DM, ruang, channel, jumlah belum dibaca, dan mention.",
+            },
+            {
+                "path": "/v1/social/spaces",
+                "method": "POST",
+                "auth": "Session Token",
+                "description": "Buat ruang (ala server Discord) lengkap dengan channel #umum. Join via /spaces/join (kode undangan) atau /spaces/{id}/join (publik).",
+                "payload": {"name": "string", "description": "string", "is_public": "boolean"},
+            },
+            {
+                "path": "/v1/social/dms",
+                "method": "POST",
+                "auth": "Session Token",
+                "description": "Buka atau buat DM ala Telegram dengan @username (username sendiri = Pesan Tersimpan).",
+                "payload": {"username": "string"},
+            },
+            {
+                "path": "/v1/social/conversations/{id}/messages",
+                "method": "GET | POST",
+                "auth": "Session Token",
+                "description": "Riwayat pesan bercursor (before/after) dan kirim pesan dengan reply_to_id opsional. Maks 2000 karakter, 30 pesan/menit.",
+                "payload": {"body": "string", "reply_to_id": "int opsional"},
+            },
+            {
+                "path": "/v1/social/stream",
+                "method": "GET",
+                "auth": "Session Token",
+                "description": "Server-Sent Events realtime per pengguna (Redis pub/sub). 503 STREAM_UNAVAILABLE berarti klien beralih ke polling.",
+            },
+        ],
         "tools": [
             {
                 "path": "/v1/tools/link-check",
