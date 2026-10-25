@@ -429,15 +429,18 @@ export function ShowcaseCard({
   format,
   hideNim,
   variant = "khs",
+  previewWidth = CARD_WIDTH,
 }: {
   data: Showcase;
   theme: Theme;
   format: Format;
   hideNim: boolean;
   variant?: ShowcaseVariant;
+  /** Lebar pratinjau di layar; kartu asli tetap 1080px untuk ekspor. */
+  previewWidth?: number;
 }) {
   const { width, height } = FORMATS[format];
-  const scale = CARD_WIDTH / width;
+  const scale = previewWidth / width;
   const badge = getVariantBadge(data, variant);
 
   const config =
@@ -511,7 +514,7 @@ export function ShowcaseCard({
   const maxSpread = Math.max(1, ...config.spread.map((g) => g.count));
 
   return (
-    <div className="flexcard-frame" style={{ width: CARD_WIDTH, height: height * scale }}>
+    <div className="flexcard-frame" style={{ width: previewWidth, height: height * scale }}>
       <div
         className="flexcard-card"
         data-theme={theme}

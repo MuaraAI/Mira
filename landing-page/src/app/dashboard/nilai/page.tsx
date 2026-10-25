@@ -15,8 +15,6 @@ import {
   Share2,
   Eye,
   EyeOff,
-  ChevronDown,
-  ChevronUp,
 } from "lucide-react";
 import { toPng } from "html-to-image";
 import { useApi } from "@/lib/api";
@@ -42,7 +40,8 @@ import {
   type StudentProfile,
   type Theme,
 } from "@/components/ShowcaseCard";
-import { PixelBolt, PixelCrown, PixelShield, PixelTrophy } from "@/components/PixelIcons";
+import { PixelTrophy } from "@/components/PixelIcons";
+import { SideSheet } from "@/components/SideSheet";
 
 interface KhsItem {
   no: number;
@@ -146,12 +145,6 @@ function normalizeElearningGrades(data: ElearningGradesData | null): ElearningGr
   };
 }
 
-function VariantIcon({ variant, className = "h-4 w-4" }: { variant: ShowcaseVariant; className?: string }) {
-  if (variant === "murni") return <PixelShield className={className} aria-hidden="true" />;
-  if (variant === "elearning") return <PixelBolt className={className} aria-hidden="true" />;
-  return <PixelCrown className={className} aria-hidden="true" />;
-}
-
 export default function NilaiPage() {
   const profileApi = useApi<StudentProfile>("/v1/studentv2/profile");
   const krsApi = useApi<KrsData>("/v1/studentv2/krs");
@@ -167,6 +160,20 @@ export default function NilaiPage() {
   const [busy, setBusy] = useState<"download" | "share" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
+  const [previewWidth, setPreviewWidth] = useState(340);
+
+  // Kartu pratinjau mengikuti lebar panel (maks 360px) supaya tidak terpotong di HP.
+  useEffect(() => {
+    if (!flexingOpen) return;
+    const node = previewRef.current;
+    if (!node) return;
+    const update = () => setPreviewWidth(Math.max(220, Math.min(360, Math.floor(node.clientWidth - 10))));
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [flexingOpen]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -262,262 +269,163 @@ export default function NilaiPage() {
       <div className="flex flex-col">
         <PageHeader
           title="Nilai & Kartu Hasil Studi (KHS)"
-          description="IPK, rincian nilai murni SIAKAD, rekap tugas MyBest, serta studio 3 kartu flexing ber-badge unik."
+          description="IPK, rincian nilai murni SIAKAD, dan rekap nilai tugas MyBest."
         />
 
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="px-seg">
-            <button
-              type="button"
-              onClick={() => setActiveTab("khs")}
-              className={`px-seg-btn flex items-center justify-center gap-1.5 ${
-                activeTab === "khs" ? "px-seg-on" : ""
-              }`}
-            >
-              <PixelCrown className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              <span>Kartu KHS</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("murni")}
-              className={`px-seg-btn flex items-center justify-center gap-1.5 ${
-                activeTab === "murni" ? "px-seg-on" : ""
-              }`}
-            >
-              <PixelShield className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              <span>Rincian Nilai Murni</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("elearning")}
-              className={`px-seg-btn flex items-center justify-center gap-1.5 ${
-                activeTab === "elearning" ? "px-seg-on" : ""
-              }`}
-            >
-              <PixelBolt className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              <span>Nilai Tugas MyBest</span>
-            </button>
+          <div className="px-seg" role="tablist" aria-label="Jenis nilai">
+            {VARIANT_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === opt.value}
+                onClick={() => setActiveTab(opt.value)}
+                className={`px-seg-btn whitespace-nowrap ${activeTab === opt.value ? "px-seg-on" : ""}`}
+              >
+                <span className="sm:hidden">{opt.shortLabel}</span>
+                <span className="hidden sm:inline">{opt.label}</span>
+              </button>
+            ))}
           </div>
 
-          {/* Opsi A: Banner/Tombol Toggle Studio Flexing dengan Badge Aktif */}
           <button
             type="button"
-            onClick={() => setFlexingOpen((v) => !v)}
-            aria-expanded={flexingOpen}
-            className={`px-frame flex min-h-11 items-center justify-between gap-3 px-3.5 py-2 text-left transition-colors ${
-              flexingOpen
-                ? "bg-[#072033] text-white [--px-line:#0369A1]"
-                : "bg-white text-foreground [--px-line:#0369A1] hover:bg-[#F0F7FB]"
-            }`}
+            onClick={() => setFlexingOpen(true)}
+            aria-haspopup="dialog"
+            className="px-btn inline-flex min-h-11 w-full items-center justify-center gap-2.5 whitespace-nowrap px-4 text-sm font-bold lg:w-auto"
           >
-            <span className="flex items-center gap-2 min-w-0">
-              <span
-                className={`flex h-7 w-7 shrink-0 items-center justify-center ${
-                  flexingOpen ? "bg-[#FCD34D] text-[#072033]" : "bg-[#0369A1] text-white"
-                }`}
-              >
-                <PixelTrophy className="h-4 w-4" aria-hidden="true" />
-              </span>
-              <span className="min-w-0">
-                <span className="block font-mono text-[10px] font-bold uppercase tracking-wider text-[#0369A1] data-[open=true]:text-[#7DD3FC]" data-open={flexingOpen}>
-                  Flexing Card · {activeBadge.rank}
-                </span>
-                <span className="block truncate font-mono text-xs font-bold">
-                  Badge: {activeBadge.code}
-                </span>
-              </span>
-            </span>
-            <span className="flex items-center gap-1 font-mono text-[11px] font-bold shrink-0">
-              <span>{flexingOpen ? "Tutup" : "Buka Kartu"}</span>
-              {flexingOpen ? (
-                <ChevronUp className="h-4 w-4" aria-hidden="true" />
-              ) : (
-                <ChevronDown className="h-4 w-4" aria-hidden="true" />
-              )}
-            </span>
+            <PixelTrophy className="h-4 w-4 shrink-0 text-[#FCD34D]" aria-hidden="true" />
+            <span>Flexing Nilai</span>
+            <span className="bg-[#FCD34D] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#072033]">{activeBadge.rank}</span>
           </button>
         </div>
       </div>
 
-      {/* Opsi A: Collapsible Studio Flexing 3 Varian Kartu & Badge */}
-      {flexingOpen && (
-        <section
-          aria-label="Studio Flexing Nilai"
-          className="glass-card p-4 sm:p-6 border-t-4 border-t-[#0369A1] space-y-5"
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-stroke pb-4">
-            <div>
-              <p className="font-mono text-[11px] font-bold uppercase tracking-wider text-[#0369A1]">
-                Studio Flexing Nilai · 3 Varian Kartu & Badge
-              </p>
-              <h2 className="font-display text-lg font-bold text-foreground mt-0.5">
-                {VARIANT_OPTIONS.find((v) => v.value === activeTab)?.label} ({activeBadge.code})
-              </h2>
-              <p className="text-xs text-secondary mt-0.5">
-                Setiap tab memiliki desain kartu, maskot visual Mura, dan achievement badge tersendiri.
-              </p>
+      <SideSheet
+        open={flexingOpen}
+        onClose={() => setFlexingOpen(false)}
+        side="right"
+        width="md"
+        titleId="flexing-title"
+        eyebrow="Flexing Nilai"
+        title={VARIANT_OPTIONS.find((v) => v.value === activeTab)?.label ?? "Kartu Nilai"}
+        subtitle="Pilih kartu, atur tampilan, lalu unduh atau bagikan."
+        footer={
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <button type="button" onClick={downloadCard} disabled={busy !== null} className={`${primaryButtonClass} whitespace-nowrap`}>
+                <Download className="h-4 w-4 shrink-0" aria-hidden="true" />
+                {busy === "download" ? "Membuat..." : "Unduh PNG"}
+              </button>
+              <button type="button" onClick={shareCard} disabled={busy !== null} className={`${ghostButtonClass} whitespace-nowrap`}>
+                <Share2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+                {busy === "share" ? "Menyiapkan..." : "Bagikan"}
+              </button>
             </div>
-
-            {/* 3-Card Badge Selector Pills */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {VARIANT_OPTIONS.map((opt) => {
-                const b = getVariantBadge(showcaseData, opt.value);
-                const selected = activeTab === opt.value;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setActiveTab(opt.value)}
-                    className={`px-frame flex items-center gap-2 px-3 py-2 text-left transition-colors ${
-                      selected
-                        ? "bg-[#072033] text-white [--px-line:#0369A1]"
-                        : "bg-[#F7FAFC] text-foreground [--px-line:#CFE2EE] hover:bg-white"
-                    }`}
-                  >
-                    <VariantIcon
-                      variant={opt.value}
-                      className={`h-4 w-4 shrink-0 ${selected ? "text-[#FCD34D]" : "text-[#0369A1]"}`}
-                    />
-                    <span className="min-w-0">
-                      <span className="block font-mono text-[10px] font-bold uppercase tracking-wider opacity-80">
-                        {opt.shortLabel} · {b.rank}
-                      </span>
-                      <span className="block truncate font-mono text-[11px] font-bold">
-                        {b.code}
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+            {message && (
+              <p className="text-xs font-medium text-[#0369A1]" role="status">
+                {message}
+              </p>
+            )}
+          </div>
+        }
+      >
+        <div className="space-y-5">
+          <div className="px-seg px-seg-fill" role="tablist" aria-label="Pilih kartu">
+            {VARIANT_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === opt.value}
+                onClick={() => setActiveTab(opt.value)}
+                className={`px-seg-btn whitespace-nowrap ${activeTab === opt.value ? "px-seg-on" : ""}`}
+              >
+                {opt.shortLabel}
+              </button>
+            ))}
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-[auto_1fr] items-start">
-            <div ref={cardRef} className="mx-auto lg:mx-0 max-w-full overflow-x-auto">
+          <div className="flex items-start justify-between gap-3 border-l-4 border-[#0369A1] bg-[#F0F7FB] px-4 py-3">
+            <div className="min-w-0">
+              <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-secondary">Badge</p>
+              <p className="mt-0.5 font-mono text-sm font-bold text-foreground">{activeBadge.code}</p>
+              <p className="mt-0.5 text-xs text-secondary">{activeBadge.subtitle}</p>
+            </div>
+            <span className="shrink-0 bg-[#072033] px-2 py-1 font-mono text-[10px] font-bold text-white">{activeBadge.rank}</span>
+          </div>
+
+          <div ref={previewRef} className="w-full pr-2 pb-2">
+            <div ref={cardRef} className="mx-auto w-fit">
               <ShowcaseCard
                 data={showcaseData}
                 theme={theme}
                 format={format}
                 hideNim={hideNim}
                 variant={activeTab}
+                previewWidth={previewWidth}
               />
             </div>
+          </div>
 
-            <div className="space-y-5 lg:max-w-md">
-              {/* Info Detail Badge Aktif */}
-              <div className="p-4 bg-[#F0F7FB] border-2 border-[#CFE2EE] space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="inline-flex items-center gap-1.5 font-mono text-xs font-bold text-[#0369A1]">
-                    <VariantIcon variant={activeTab} className="h-4 w-4" />
-                    <span>BADGE AKTIF: {activeBadge.code}</span>
-                  </span>
-                  <span className="px-2 py-0.5 bg-[#072033] text-white font-mono text-[10px] font-bold">
-                    {activeBadge.rank}
-                  </span>
-                </div>
-                <p className="text-xs text-secondary">{activeBadge.subtitle}</p>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="font-mono text-[11px] font-bold uppercase tracking-wider text-secondary">Tema</p>
+              <div className="px-seg px-seg-fill mt-2" role="radiogroup" aria-label="Tema kartu">
+                {(
+                  [
+                    { value: "night", label: "Malam" },
+                    { value: "mist", label: "Terang" },
+                  ] as const
+                ).map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={theme === opt.value}
+                    onClick={() => setTheme(opt.value)}
+                    className={`px-seg-btn ${theme === opt.value ? "px-seg-on" : ""}`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
-
-              {/* Pilihan Tema */}
-              <div>
-                <p className="font-mono text-[11px] font-bold uppercase tracking-wider text-secondary">
-                  Tema Kartu
-                </p>
-                <div className="mt-2 flex gap-2" role="radiogroup" aria-label="Tema Kartu">
-                  {(
-                    [
-                      { value: "night", label: "Malam" },
-                      { value: "mist", label: "Terang" },
-                    ] as const
-                  ).map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      role="radio"
-                      aria-checked={theme === opt.value}
-                      onClick={() => setTheme(opt.value)}
-                      className={`min-h-10 flex-1 px-3 text-xs font-bold transition-colors ${
-                        theme === opt.value
-                          ? "bg-[#072033] text-white"
-                          : "px-frame bg-white text-foreground [--px-line:#CFE2EE] hover:text-[#0369A1]"
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
+            </div>
+            <div>
+              <p className="font-mono text-[11px] font-bold uppercase tracking-wider text-secondary">Ukuran</p>
+              <div className="px-seg px-seg-fill mt-2" role="radiogroup" aria-label="Ukuran kartu">
+                {(Object.keys(FORMATS) as Format[]).map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    role="radio"
+                    aria-checked={format === key}
+                    onClick={() => setFormat(key)}
+                    className={`px-seg-btn ${format === key ? "px-seg-on" : ""}`}
+                  >
+                    {key === "post" ? "4:5" : "9:16"}
+                  </button>
+                ))}
               </div>
-
-              {/* Pilihan Format Rasio */}
-              <div>
-                <p className="font-mono text-[11px] font-bold uppercase tracking-wider text-secondary">
-                  Ukuran Rasio
-                </p>
-                <div className="mt-2 flex gap-2" role="radiogroup" aria-label="Ukuran Rasio">
-                  {(Object.keys(FORMATS) as Format[]).map((key) => (
-                    <button
-                      key={key}
-                      type="button"
-                      role="radio"
-                      aria-checked={format === key}
-                      onClick={() => setFormat(key)}
-                      className={`min-h-10 flex-1 px-3 text-xs font-bold transition-colors ${
-                        format === key
-                          ? "bg-[#072033] text-white"
-                          : "px-frame bg-white text-foreground [--px-line:#CFE2EE] hover:text-[#0369A1]"
-                      }`}
-                    >
-                      {FORMATS[key].label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Privasi NIM */}
-              <button
-                type="button"
-                onClick={() => setHideNim((v) => !v)}
-                aria-pressed={hideNim}
-                className={`${ghostButtonClass} w-full`}
-              >
-                {hideNim ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                {hideNim ? "NIM disamarkan" : "NIM ditampilkan"}
-              </button>
-
-              {/* Tombol Unduh & Bagikan */}
-              <div className="grid grid-cols-2 gap-3 border-t-2 border-px-soft pt-4">
-                <button
-                  type="button"
-                  onClick={downloadCard}
-                  disabled={busy !== null}
-                  className={primaryButtonClass}
-                >
-                  <Download className="h-4 w-4" />
-                  {busy === "download" ? "Membuat..." : "Unduh PNG"}
-                </button>
-                <button
-                  type="button"
-                  onClick={shareCard}
-                  disabled={busy !== null}
-                  className={ghostButtonClass}
-                >
-                  <Share2 className="h-4 w-4" />
-                  {busy === "share" ? "Menyiapkan..." : "Bagikan"}
-                </button>
-              </div>
-
-              {message && (
-                <p className="text-xs font-medium text-[#0369A1]" role="status">
-                  {message}
-                </p>
-              )}
-              <p className="text-xs leading-5 text-secondary">
-                Gambar dirender 1080p langsung di perangkatmu. Data nilai tidak dikirim ke pihak ketiga.
-              </p>
             </div>
           </div>
-        </section>
-      )}
+
+          <button
+            type="button"
+            onClick={() => setHideNim((v) => !v)}
+            aria-pressed={hideNim}
+            className={`${ghostButtonClass} w-full`}
+          >
+            {hideNim ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
+            {hideNim ? "NIM disamarkan" : "NIM ditampilkan"}
+          </button>
+
+          <p className="text-xs leading-5 text-secondary">
+            Gambar 1080px dibuat langsung di perangkatmu. Data nilai tidak dikirim ke mana pun.
+          </p>
+        </div>
+      </SideSheet>
 
       {/* Top Academic Stat Cards */}
       {activeTab === "elearning" ? (

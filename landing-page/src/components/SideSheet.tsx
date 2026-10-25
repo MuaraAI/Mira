@@ -29,6 +29,7 @@ export function SideSheet({
   footer,
   flush = false,
   fill = false,
+  side = "auto",
   children,
 }: {
   open: boolean;
@@ -43,6 +44,8 @@ export function SideSheet({
   flush?: boolean;
   /** Isi mengisi tinggi panel dan mengatur scroll-nya sendiri (penampil PDF). */
   fill?: boolean;
+  /** "right": selalu geser dari kanan, juga di HP (bukan naik dari bawah). */
+  side?: "auto" | "right";
   children: React.ReactNode;
 }) {
   const root = useRef<HTMLDivElement>(null);
@@ -60,13 +63,17 @@ export function SideSheet({
   if (!open || typeof document === "undefined") return null;
 
   return createPortal(
-    <div ref={root} className="fixed inset-0 z-[60] flex items-end justify-end sm:items-stretch">
+    <div ref={root} className={`fixed inset-0 z-[60] flex justify-end ${side === "right" ? "items-stretch" : "items-end sm:items-stretch"}`}>
       <div className="modal-backdrop fixed inset-0 bg-[#072033]/50 backdrop-blur-[2px]" onClick={onClose} aria-hidden="true" />
       <FocusDialog
         open={open}
         onClose={onClose}
         labelledBy={titleId}
-        className={`side-sheet relative z-10 flex ${flush ? "h-[92dvh]" : ""} max-h-[92dvh] w-full flex-col bg-white shadow-[0_-4px_0_0_#0369A1] sm:h-full sm:max-h-none sm:border-l-2 sm:border-[#163A55] sm:shadow-[-6px_0_0_0_#0369A1] ${WIDTHS[width]}`}
+        className={
+          side === "right"
+            ? `side-sheet-right relative z-10 flex h-full w-[92%] flex-col border-l-2 border-[#163A55] bg-white shadow-[-6px_0_0_0_#0369A1] ${WIDTHS[width]}`
+            : `side-sheet relative z-10 flex ${flush ? "h-[92dvh]" : ""} max-h-[92dvh] w-full flex-col bg-white shadow-[0_-4px_0_0_#0369A1] sm:h-full sm:max-h-none sm:border-l-2 sm:border-[#163A55] sm:shadow-[-6px_0_0_0_#0369A1] ${WIDTHS[width]}`
+        }
       >
         <div className="flex shrink-0 items-start gap-3 border-b-2 border-px-soft bg-px-tint p-4">
           <div className="min-w-0 flex-1">
