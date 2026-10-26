@@ -52,9 +52,93 @@ def parse_courses(html: str) -> list[dict[str, Any]]:
         return []
     page = Adaptor(html)
     plans = page.css("div.pricing-plan")
-    if not plans:
+    cards = page.css("div.jadwal-card")
+    if not plans and not cards:
         raise ValueError("HTML_STRUCTURE_CHANGED: elearning course cards not found")
     courses = []
+
+    for card in cards:
+        # Layout MyBest baru (jadwal-card): title, pill kelas, info-row label/val, footer links.
+        info: dict[str, str] = {}
+        for row in card.css(".jadwal-info-row"):
+            lab = row.css(".jadwal-info-label")
+            val = row.css(".jadwal-info-val")
+            if lab and val:
+                key = lab[0].get_all_text().strip().strip(":").strip().lower()
+                info[key] = val[0].get_all_text().strip()
+
+        title_el = card.css(".jadwal-title")
+        nama = title_el[0].get_all_text().strip() if title_el else ""
+
+        # "Hari & Jam: Selasa, 09:10-10:50" -> hari + jam; fallback badge hari di header.
+        hari, jam = "", ""
+        schedule_text = info.get("hari & jam", "")
+        if ", " in schedule_text:
+            hari, jam = (p.strip() for p in schedule_text.split(", ", 1))
+        else:
+            hari = schedule_text
+        if not hari:
+            hdr = card.css(".jadwal-header")
+            if hdr:
+                parts = hdr[0].get_all_text().split()
+                hari = parts[1] if len(parts) > 1 else ""
+
+        pill_el = card.css(".jadwal-kelas-pill")
+        pill = pill_el[0].get_all_text().split(":")[-1].strip() if pill_el else ""
+
+        card_text = " ".join(card.get_all_text().split())
+        header_text = " ".join((card.css(".jadwal-header")[0].get_all_text().split()) if card.css(".jadwal-header") else [])
+
+        m_sks = re.search(r"(\d+)", info.get("sks", ""))
+        sks = int(m_sks.group(1)) if m_sks else 0
+
+        kel_praktek = info.get("kel praktek", "").strip() or None
+        kode_gabung = info.get("kode gabung", "").strip() or (pill if "gabung" in header_text.lower() else None)
+        if not kode_gabung and pill.startswith(("KG.", "DG.")):
+            kode_gabung = pill
+
+        def extract_token(pattern: str) -> Optional[str]:
+            for a in card.css("a"):
+                href = a.attrib.get("href", "")
+                if pattern in href:
+                    return href.split(pattern)[-1]
+            return None
+
+        token_absen = extract_token("/absen-mhs/")
+        token_diskusi = extract_token("/form-diskusimhs/")
+        token_learning = extract_token("/learning/")
+        token_assignment = extract_token("/assignment/")
+
+        kode_mtk = info.get("kode mtk", "")
+        item_id = hashlib.sha256(f"{kode_mtk}:{hari}:{jam}:{info.get('ruang', '')}".encode()).hexdigest()[:12]
+
+        courses.append({
+            "id": item_id,
+            "kode": kode_mtk,
+            "nama": nama,
+            "sks": sks,
+            "hari": hari,
+            "jam": jam,
+            "ruang": info.get("ruang", ""),
+            "kode_dosen": info.get("dosen", "-"),
+            "kelompok_praktek": kel_praktek,
+            "kode_gabung": kode_gabung,
+            "jadwal": {
+                "hari": hari,
+                "jam": jam,
+                "ruang": info.get("ruang", ""),
+            },
+            "tokens": {
+                "absen": token_absen,
+                "diskusi": token_diskusi,
+                "learning": token_learning,
+                "assignment": token_assignment,
+            },
+            "token_absen": token_absen,
+            "token_diskusi": token_diskusi,
+            "token_learning": token_learning,
+            "token_assignment": token_assignment,
+        })
 
     for pl in plans:
         title_el = pl.css(".pricing-title")
