@@ -149,7 +149,9 @@ export default function NilaiPage() {
   const profileApi = useApi<StudentProfile>("/v1/studentv2/profile");
   const krsApi = useApi<KrsData>("/v1/studentv2/krs");
   const khsApi = useApi<KhsData>("/v1/studentv2/khs");
-  const gradesApi = useApi<GradeItem[]>("/v1/studentv2/grades");
+  const gradesApiRaw = useApi<{ items: GradeItem[]; gate: string | null }>("/v1/studentv2/grades");
+  const gradesApi = { ...gradesApiRaw, data: gradesApiRaw.data?.items ?? [] };
+  const gradesGate = gradesApiRaw.data?.gate ?? null;
   const elearningRaw = useApi<ElearningGradesData>("/v1/elearning/grades");
   const elearningApi = { ...elearningRaw, data: normalizeElearningGrades(elearningRaw.data) };
   const [activeTab, setActiveTab] = useState<ShowcaseVariant>("khs");
@@ -332,6 +334,14 @@ export default function NilaiPage() {
         }
       >
         <div className="space-y-5">
+          {gradesGate && (
+            <div className="flex items-start gap-3 border-l-4 border-[#F59E0B] bg-[#FEF3C7] px-4 py-3" role="status">
+              <div className="min-w-0">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#92400E]">Info Kampus</p>
+                <p className="mt-0.5 text-sm font-semibold text-[#78350F]">{gradesGate}</p>
+              </div>
+            </div>
+          )}
           <div className="px-seg px-seg-fill" role="tablist" aria-label="Pilih kartu">
             {VARIANT_OPTIONS.map((opt) => (
               <button

@@ -123,3 +123,22 @@ def test_parse_uts():
     assert "uts-jadwal" in uts["jadwal_online_url"]
     assert uts["soal_offline_url"] is not None
     assert "drive.google.com" in uts["soal_offline_url"]
+
+def test_parse_grades_meta_gate_and_items():
+    from app.modules.studentv2 import parse_grades_meta
+
+    # Halaman gerbang rilis: shell + SweetAlert, tanpa tabel
+    gated = """
+    <html><body><div class="side-menu">menu</div>
+    <script>Swal.fire({ icon: 'error', title: 'Oops...', text: 'Nilai Murni dapat dilihat pada tanggal 07 September 2026, Pukul 17:00 WIB', });</script>
+    </body></html>
+    """
+    meta = parse_grades_meta(gated)
+    assert meta["items"] == []
+    assert "dapat dilihat" in meta["gate"]
+
+    # Halaman normal (fixture tabel) -> tanpa gate, items terisi
+    normal = (FIXTURES / "sv2_nilai_murni.html").read_text(encoding="utf-8")
+    meta2 = parse_grades_meta(normal)
+    assert meta2["gate"] is None
+    assert len(meta2["items"]) >= 1
