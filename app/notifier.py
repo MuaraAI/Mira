@@ -353,6 +353,33 @@ def _query(params: dict[str, Any]) -> str:
     return urlencode({k: str(v) for k, v in params.items()})
 
 
+async def _alert_admin_once(reason: str) -> None:
+    """Alarm parser pecah: maksimal 1x per hari ke Discord/Telegram pemilik.
+    Dedupe pakai _claim (SET NX) supaya 15 NIM gagal serentak tidak spam."""
+    redis = await _redis()
+    key = f"ubsi:notify:admin:parsealert:{_now_wib().date().isoformat()}:{reason[:40]}"
+    if not await _claim(key, 86400):
+        return
+    from app.modules.news import dispatch_discord_webhook, dispatch_telegram_message
+
+    post = {
+        "title": "Parser MyBest perlu diperbarui",
+        "description": (
+            f"{reason[:300]}. Mahasiswa baru berpotensi gagal absen & tidak menerima pengingat. "
+            "Perbarui parse_courses di app/modules/elearning.py (snapshot live tersedia di log)."
+        ),
+        "link": f"{settings.WEB_BASE_URL}/dashboard/presensi",
+        "author": "Mira Guard",
+    }
+    try:
+        if settings.DISCORD_WEBHOOK_URL:
+            await dispatch_discord_webhook(post, settings.DISCORD_WEBHOOK_URL)
+        if settings.TELEGRAM_BOT_TOKEN and settings.TELEGRAM_CHAT_ID:
+            await dispatch_telegram_message(post, settings.TELEGRAM_BOT_TOKEN, settings.TELEGRAM_CHAT_ID)
+    except Exception:
+        logger.exception("Gagal mengirim alarm admin parse")
+
+
 async def process_nim(nim: str, want_class: bool, want_absen: bool, current: Optional[datetime] = None) -> int:
     credentials = await _credentials(nim)
     if not credentials:
@@ -400,8 +427,13 @@ async def run_realtime_cycle(current: Optional[datetime] = None) -> int:
         async with semaphore:
             try:
                 return await asyncio.wait_for(process_nim(nim, flags[0], flags[1], current), timeout=60)
-            except Exception:
+            except asyncio.TimeoutError:
+                logger.warning("Notifikasi realtime timeout untuk NIM %s", nim)
+                return 0
+            except Exception as exc:
                 logger.exception("Notifikasi realtime gagal untuk NIM %s", nim)
+                if "HTML_STRUCTURE_CHANGED" in str(exc) or "HTML_STRUCTURE_CHANGED" in repr(getattr(exc, "detail", "")):
+                    await _alert_admin_once(f"MyBest /sch berubah layout: {exc}")
                 return 0
 
     results = await asyncio.gather(*(one(nim, flags) for nim, flags in targets.items()))

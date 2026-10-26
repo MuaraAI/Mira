@@ -296,3 +296,39 @@ async def test_absen_notification_suppressed_when_rekap_says_present(monkeypatch
     assert '"done": true' in store.get(
         "ubsi:notify:absen:1:2026-10-21:207:07:30 - 10:00", ""
     ) or any('"done": true' in v for v in store.values())
+
+
+# ------------------------------------------------------------------ alarm admin parser (Mira Guard)
+@pytest.mark.asyncio
+async def test_parse_failure_alerts_admin_once_per_day(monkeypatch):
+    store: dict[str, str] = {}
+
+    class FakeRedis:
+        async def set(self, key, value, ex=None, nx=False):
+            if key in store:
+                return None  # nx: sudah diklaim
+            store[key] = value
+            return True
+
+    async def fake_redis():
+        return FakeRedis()
+
+    calls: list[dict] = []
+
+    async def fake_discord(post, url):
+        calls.append(post)
+        return True
+
+    async def fake_telegram(post, token, chat):
+        return True
+
+    monkeypatch.setattr(notifier, "_redis", fake_redis)
+    monkeypatch.setattr(notifier.settings, "DISCORD_WEBHOOK_URL", "https://discord.example/hook")
+    monkeypatch.setattr(notifier.settings, "TELEGRAM_BOT_TOKEN", "")
+    monkeypatch.setattr("app.modules.news.dispatch_discord_webhook", fake_discord)
+    monkeypatch.setattr("app.modules.news.dispatch_telegram_message", fake_telegram)
+
+    await notifier._alert_admin_once("MyBest /sch berubah layout: HTML_STRUCTURE_CHANGED")
+    await notifier._alert_admin_once("MyBest /sch berubah layout: HTML_STRUCTURE_CHANGED")
+    assert len(calls) == 1  # dedupe harian: 15 NIM gagal pun hanya 1 alarm
+    assert "parse_courses" in calls[0]["description"]

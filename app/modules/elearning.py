@@ -54,6 +54,10 @@ def parse_courses(html: str) -> list[dict[str, Any]]:
     plans = page.css("div.pricing-plan")
     cards = page.css("div.jadwal-card")
     if not plans and not cards:
+        # Strategi terakhir tahan-redesign: buru link absen langsung dari pola konten.
+        fallback = _parse_courses_linkscan(page)
+        if fallback:
+            return fallback
         raise ValueError("HTML_STRUCTURE_CHANGED: elearning course cards not found")
     courses = []
 
@@ -216,6 +220,92 @@ def parse_courses(html: str) -> list[dict[str, Any]]:
             "token_assignment": token_assignment,
         })
 
+    return courses
+
+_LINKSCAN_DAYS = r"(Senin|Selasa|Rabu|Kamis|Jumat|Sabtu|Minggu)"
+
+
+def _parse_courses_linkscan(page: "Adaptor") -> list[dict[str, Any]]:
+    """Strategi terakhir tahan-redesign: buru link absen langsung, lalu naik ke ancestor
+    yang memuat konteks kartu (Kode MTK dkk). Konteks diambil dari pola KONTEN
+    (label teks), bukan class markup - jadi tetap jalan walau HTML dirombak total."""
+    courses: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for a in page.css('a[href*="/absen-mhs/"]'):
+        href = a.attrib.get("href", "")
+        token = href.split("/absen-mhs/")[-1]
+        if not token or token in seen:
+            continue
+        seen.add(token)
+
+        node, card_text, scope = a, "", a
+        for _ in range(8):
+            node = getattr(node, "parent", None)
+            if node is None:
+                break
+            text = node.get_all_text()
+            if "Kode MTK" in text or len(text) > 2500:
+                card_text, scope = text, node
+                break
+        if not card_text:
+            continue
+        card_text = " ".join(card_text.split())
+
+        hari, jam = "", ""
+        m_sched = re.search(_LINKSCAN_DAYS + r"[,.]?\s*(\d{1,2}[:.]\d{2}\s*[-–]\s*\d{1,2}[:.]\d{2})", card_text)
+        if m_sched:
+            hari, jam = m_sched.group(1), m_sched.group(2).replace(".", ":")
+        m_kode = re.search(r"Kode MTK\s*:?\s*(\d+)", card_text)
+        kode_mtk = m_kode.group(1) if m_kode else ""
+        m_sks = re.search(r"SKS\s*:?\s*(\d+)", card_text)
+        sks = int(m_sks.group(1)) if m_sks else 0
+        m_ruang = re.search(r"Ruang\s*:?\s*([A-Z0-9][A-Z0-9\-]*)", card_text)
+        ruang = m_ruang.group(1) if m_ruang else ""
+        m_dosen = re.search(r"Dosen\s*:?\s*([A-Z]{2,6})\b", card_text)
+        dosen = m_dosen.group(1) if m_dosen else "-"
+        m_kp = re.search(r"Kel\s*Praktek\s*:?\s*([A-Z0-9.\-]{4,})\b", card_text)
+        kel_praktek = m_kp.group(1) if m_kp else None
+        m_kg = re.search(r"(?:Kode\s*Gabung|Kelas)\s*:?\s*(KG\.[A-Z0-9.\-]{4,})\b", card_text)
+        kode_gabung = m_kg.group(1) if m_kg else None
+        m_nama = re.search(r"([A-Z][A-Z &'`\-]{4,}(?:\s+[IVX]+|\s+\d{1,2})?)\s+Kelas\s*:", card_text)
+        nama = m_nama.group(1).strip() if m_nama else ""
+
+        item_id = hashlib.sha256(f"{kode_mtk}:{hari}:{jam}:{ruang}".encode()).hexdigest()[:12]
+
+        def _sib_token(pattern: str) -> Optional[str]:
+            """Link saudara dalam lingkup kartu yang sama ( climb ancestor )."""
+            try:
+                for sibling in scope.css(f'a[href*="{pattern}"]'):
+                    h = sibling.attrib.get("href", "")
+                    if pattern in h:
+                        return h.split(pattern)[-1]
+            except Exception:
+                pass
+            return None
+
+        courses.append({
+            "id": item_id,
+            "kode": kode_mtk,
+            "nama": nama,
+            "sks": sks,
+            "hari": hari,
+            "jam": jam,
+            "ruang": ruang,
+            "kode_dosen": dosen,
+            "kelompok_praktek": kel_praktek,
+            "kode_gabung": kode_gabung,
+            "jadwal": {"hari": hari, "jam": jam, "ruang": ruang},
+            "tokens": {
+                "absen": token,
+                "diskusi": _sib_token("/form-diskusimhs/"),
+                "learning": _sib_token("/learning/"),
+                "assignment": _sib_token("/assignment/"),
+            },
+            "token_absen": token,
+            "token_diskusi": _sib_token("/form-diskusimhs/"),
+            "token_learning": _sib_token("/learning/"),
+            "token_assignment": _sib_token("/assignment/"),
+        })
     return courses
 
 def parse_assignments(html: str) -> dict[str, list[dict[str, Any]]]:
