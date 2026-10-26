@@ -5,17 +5,18 @@ Router ini sengaja tipis: validasi bentuk request (Pydantic), panggil
 Akses hanya untuk session dashboard mahasiswa (bukan Master Key / API key)
 supaya tidak ada bot atau skrip massal yang ikut mengobrol.
 """
+import asyncio
 from typing import Any, Callable, Literal, Optional
 
-from fastapi import APIRouter, HTTPException, Request, status
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile, status
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
 
 from app.envelope import error_response, success_response
 from app.limiter import limiter
-from app.social import events, service
+from app.social import events, media, service
 from app.social.service import Outcome, SocialError
 
 router = APIRouter(prefix="/v1/social", tags=["social"])
@@ -157,6 +158,16 @@ class EditBody(BaseModel):
     body: str = Field(..., min_length=1, max_length=service.MAX_BODY + 200)
 
 
+class MediaPatch(BaseModel):
+    """Kirim hanya field yang diubah; null = hapus gambar."""
+
+    avatar: Optional[str] = Field(default=None, max_length=64)
+    banner: Optional[str] = Field(default=None, max_length=64)
+
+    def changes(self) -> dict[str, Optional[str]]:
+        return {field: getattr(self, field) for field in self.model_fields_set if field in ("avatar", "banner")}
+
+
 class ReadBody(BaseModel):
     message_id: int = Field(..., ge=0)
 
@@ -191,6 +202,54 @@ async def update_me(request: Request, body: ProfileBody):
         body.e2ee_public_key,
     )
     return success_response(data={"profile": profile})
+
+
+@router.patch("/me/media")
+async def update_my_media(request: Request, body: MediaPatch):
+    nim = _session_nim(request)
+    return success_response(data={"profile": await _call(service.set_profile_media, nim, body.changes())})
+
+
+@router.post("/media")
+async def upload_media(request: Request, file: UploadFile = File(...), kind: Literal["avatar", "banner"] = Form(...)):
+    """Unggah avatar/banner (klien sudah mengompres ke WebP). Kembalikan id untuk dipasang via PATCH .../media."""
+    nim = _session_nim(request)
+    if not await limiter.is_allowed(f"social_media:{nim}", limit=10):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=error_response(code="RATE_LIMIT_EXCEEDED", message="Terlalu banyak unggahan, tunggu sebentar", module="social"),
+        )
+    data = await file.read(media.MAX_BYTES[kind] + 1)
+    try:
+        media_id = await run_in_threadpool(media.save, data, kind)
+    except media.MediaError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_response(code="MEDIA_INVALID", message=str(exc), module="social"),
+        )
+    return JSONResponse(status_code=status.HTTP_201_CREATED, content=success_response(data={"id": media_id}))
+
+
+@router.get("/media/{media_id}")
+async def get_media(media_id: str):
+    """Publik (tanpa auth) supaya <img> bisa dimuat; nama berbasis hash sehingga tidak bisa ditebak."""
+    path = media.path_for(media_id)
+    if path is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=error_response(code="MEDIA_NOT_FOUND", message="Gambar tidak ditemukan", module="social"),
+        )
+    return FileResponse(
+        path,
+        media_type=media.content_type(media_id),
+        headers={"Cache-Control": "public, max-age=31536000, immutable", "X-Content-Type-Options": "nosniff"},
+    )
+
+
+@router.get("/invites/{invite_code}")
+async def invite_preview(request: Request, invite_code: str):
+    nim = _session_nim(request)
+    return success_response(data={"space": await _call(service.invite_preview, nim, invite_code[:40])})
 
 
 @router.get("/users")
@@ -265,6 +324,12 @@ async def update_space(request: Request, space_id: int, body: SpacePatch):
         body.campus_branch,
     )
     return success_response(data={"space": space})
+
+
+@router.patch("/spaces/{space_id}/media")
+async def update_space_media(request: Request, space_id: int, body: MediaPatch):
+    nim = _session_nim(request)
+    return success_response(data={"space": await _call(service.set_space_media, nim, space_id, body.changes())})
 
 
 @router.delete("/spaces/{space_id}")
@@ -447,7 +512,21 @@ async def stream(request: Request):
     except Exception:
         raise _stream_unavailable("Realtime tidak tersedia, beralih ke mode hemat")
 
-    await run_in_threadpool(service.touch_seen, nim)
+    if await events.mark_connected(nim):
+        await _announce_presence(nim, True)
+    else:
+        await run_in_threadpool(service.touch_seen, nim)
+
+    released = False
+
+    async def release() -> None:
+        nonlocal released
+        if released:
+            return
+        released = True
+        await subscription.close()
+        await events.mark_disconnected(nim)
+        _spawn(_maybe_offline(nim))
 
     async def body():
         try:
@@ -458,16 +537,45 @@ async def stream(request: Request):
                     break
                 if item is None:
                     await run_in_threadpool(service.touch_seen, nim)
+                    await events.refresh_connection(nim)
                     yield ": ping\n\n"
                 else:
                     yield f"data: {item}\n\n"
         finally:
-            await subscription.close()
+            # Saat klien putus, Starlette membatalkan generator ini: await di sini ikut dibatalkan,
+            # jadi pembersihan dijalankan sebagai task terpisah yang tidak terkena pembatalan.
+            _spawn(release())
 
     return StreamingResponse(
         body(),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"},
-        # Jaring pengaman kalau klien putus sebelum generator sempat berjalan (close idempoten).
-        background=BackgroundTask(subscription.close),
+        # Jaring pengaman kalau klien putus sebelum generator sempat berjalan (release idempoten).
+        background=BackgroundTask(release),
     )
+
+
+_background: set[asyncio.Task] = set()
+
+
+def _spawn(coro) -> None:
+    """Jalankan coroutine di latar belakang dan simpan referensinya supaya tidak dibuang GC."""
+    task = asyncio.get_running_loop().create_task(coro)
+    _background.add(task)
+    task.add_done_callback(_background.discard)
+
+
+async def _announce_presence(nim: str, online: bool) -> None:
+    event = await run_in_threadpool(service.set_presence, nim, online)
+    if event is not None:
+        await events.publish([event])
+
+
+async def _maybe_offline(nim: str) -> None:
+    """Offline hanya bila tidak ada koneksi baru setelah masa tenggang (tab lain / reconnect rotasi)."""
+    await asyncio.sleep(events.OFFLINE_GRACE_SECONDS)
+    if not await events.is_connected(nim):
+        try:
+            await _announce_presence(nim, False)
+        except Exception:
+            pass

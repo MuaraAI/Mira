@@ -9,6 +9,9 @@ export interface SocialProfile {
   username: string;
   display_name: string;
   bio: string;
+  /** Id media (lihat mediaUrl) atau null. */
+  avatar: string | null;
+  banner: string | null;
   online: boolean;
   last_seen_at: string | null;
 }
@@ -16,9 +19,14 @@ export interface SocialProfile {
 export interface AuthorRef {
   username: string;
   display_name: string;
+  avatar?: string | null;
 }
 
-export type ReactionKey = "up" | "heart" | "haha" | "wow" | "fire" | "sad";
+export type ReactionKey =
+  | "heart" | "haha" | "fire" | "up" | "wow" | "sad"
+  | "pray" | "clap" | "party" | "hundred" | "eyes" | "skull"
+  | "think" | "love" | "cool" | "salute" | "rocket" | "check"
+  | "rofl" | "sob" | "melt" | "sparkles";
 
 export interface Message {
   id: number;
@@ -31,6 +39,10 @@ export interface Message {
   created_at: string;
   edited_at: string | null;
   deleted: boolean;
+  /** Kunci render stabil: pesan optimistis dan versi server-nya memakai DOM yang sama (tanpa animasi ulang). */
+  clientKey?: string;
+  /** Hanya di klien: pesan sedang dikirim atau gagal terkirim. */
+  local?: "sending" | "failed";
 }
 
 export interface LastMessage {
@@ -73,6 +85,8 @@ export interface SpaceItem {
   name: string;
   description: string;
   is_public: boolean;
+  avatar: string | null;
+  banner: string | null;
   member_count: number;
   my_role: SpaceRole | null;
   invite_code?: string;
@@ -95,6 +109,28 @@ export interface MessagePage {
   my_role: SpaceRole | null;
   last_read_id: number;
   peer_last_read_id: number | null;
+  /** Pesan orang lain yang diedit sejak terakhir percakapan ini dibuka. */
+  recent_edits: RecentEdit[];
+}
+
+export interface RecentEdit {
+  id: number;
+  author: AuthorRef;
+  preview: string;
+  edited_at: string;
+}
+
+export interface InvitePreview {
+  id: number;
+  name: string;
+  description: string;
+  is_public: boolean;
+  avatar: string | null;
+  banner: string | null;
+  member_count: number;
+  online_count: number;
+  my_role: SpaceRole | null;
+  joined: boolean;
 }
 
 export interface Member extends SocialProfile {
@@ -104,7 +140,9 @@ export interface Member extends SocialProfile {
 
 export type SocialEvent =
   | { type: "message.created"; conversation_id: number; space_id: number | null; message: Message; mentioned: boolean }
-  | { type: "message.updated"; conversation_id: number; message: Message }
+  | { type: "message.updated"; conversation_id: number; message: Message; change?: "edited" | "deleted" | "reaction" | "pinned" }
+  | { type: "presence"; username: string; online: boolean; last_seen_at: string }
+  | { type: "profile.updated"; username: string; profile: SocialProfile }
   | { type: "conversation.read"; conversation_id: number; username: string; last_read_id: number }
   | { type: "typing"; conversation_id: number; user: AuthorRef }
   | { type: "space.updated"; space_id: number }
@@ -118,6 +156,17 @@ export const socialApi = {
   me: () => apiFetch<{ profile: SocialProfile | null; needs_onboarding: boolean }>(`${BASE}/me`),
   saveProfile: (body: { username: string; display_name: string; bio: string }) =>
     apiFetch<{ profile: SocialProfile }>(`${BASE}/me`, { method: "PATCH", json: body }),
+  setMyMedia: (body: { avatar?: string | null; banner?: string | null }) =>
+    apiFetch<{ profile: SocialProfile }>(`${BASE}/me/media`, { method: "PATCH", json: body }),
+  setSpaceMedia: (id: number, body: { avatar?: string | null; banner?: string | null }) =>
+    apiFetch<{ space: SpaceItem }>(`${BASE}/spaces/${id}/media`, { method: "PATCH", json: body }),
+  uploadMedia: async (blob: Blob, kind: "avatar" | "banner") => {
+    const form = new FormData();
+    form.append("file", blob, `${kind}.webp`);
+    form.append("kind", kind);
+    return apiFetch<{ id: string }>(`${BASE}/media`, { form });
+  },
+  invite: (code: string) => apiFetch<{ space: InvitePreview }>(`${BASE}/invites/${encodeURIComponent(code)}`),
   inbox: () => apiFetch<Inbox>(`${BASE}/inbox`),
   searchUsers: (q: string) => apiFetch<{ users: SocialProfile[] }>(`${BASE}/users?q=${encodeURIComponent(q)}`),
 
@@ -334,12 +383,13 @@ export function listTime(iso: string): string {
   return d.toLocaleDateString("id-ID", { day: "numeric", month: "short" });
 }
 
-export function lastSeenLabel(profile: SocialProfile): string {
+export function lastSeenLabel(profile: Pick<SocialProfile, "online" | "last_seen_at">): string {
   if (profile.online) return "online";
   if (!profile.last_seen_at) return "belum pernah online";
   const d = new Date(profile.last_seen_at);
-  const minutes = Math.round((Date.now() - d.getTime()) / 60_000);
-  if (minutes < 60) return `terakhir dilihat ${Math.max(minutes, 1)} menit lalu`;
+  const minutes = Math.floor((Date.now() - d.getTime()) / 60_000);
+  if (minutes < 1) return "baru saja online";
+  if (minutes < 60) return `terakhir dilihat ${minutes} menit lalu`;
   const diff = Math.round((startOfDay(new Date()) - startOfDay(d)) / 86_400_000);
   if (diff === 0) return `terakhir dilihat pukul ${clockTime(profile.last_seen_at)}`;
   if (diff === 1) return `terakhir dilihat kemarin`;
@@ -351,3 +401,54 @@ export function inviteLink(code: string): string {
 }
 
 export const MAX_BODY = 2000;
+
+/** URL publik gambar Komunitas (avatar/banner) dari id media. */
+export function mediaUrl(id: string | null | undefined): string | null {
+  return id ? `${getApiBase()}/v1/social/media/${id}` : null;
+}
+
+/** Ambil kode undangan dari link `.../dashboard/komunitas?join=KODE` (origin mana pun milik Mira). */
+export function inviteCodeFrom(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    if (!parsed.pathname.replace(/\/+$/, "").endsWith("/dashboard/komunitas")) return null;
+    const code = parsed.searchParams.get("join");
+    return code && /^[A-Za-z0-9]{4,40}$/.test(code) ? code : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Kecilkan gambar di perangkat sebelum diunggah: crop tengah ke rasio target lalu WebP.
+ * Avatar 256x256 (~10-20 KB), banner 960x320 (~30-60 KB): ringan untuk kuota dan server.
+ */
+export async function compressImage(file: File, kind: "avatar" | "banner"): Promise<Blob> {
+  const [w, h] = kind === "avatar" ? [256, 256] : [960, 320];
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.max(w / bitmap.width, h / bitmap.height);
+  const sw = w / scale;
+  const sh = h / scale;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Browser tidak mendukung pengolahan gambar");
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(bitmap, (bitmap.width - sw) / 2, (bitmap.height - sh) / 2, sw, sh, 0, 0, w, h);
+  bitmap.close();
+  for (const quality of [0.86, 0.75, 0.6]) {
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", quality));
+    if (blob && blob.size <= (kind === "avatar" ? 280_000 : 760_000)) return blob;
+  }
+  throw new Error("Gambar terlalu besar setelah dikompres");
+}
+
+// Warna kutipan balasan per pengirim: semua lolos kontras teks di atas putih (>= 4.5:1).
+const REPLY_TONES = ["#0369A1", "#0F766E", "#9A3412", "#7C3AED", "#BE123C", "#1D4ED8", "#A16207", "#047857"];
+
+export function replyColor(username: string): string {
+  let hash = 0;
+  for (let i = 0; i < username.length; i++) hash = (hash * 31 + username.charCodeAt(i)) | 0;
+  return REPLY_TONES[Math.abs(hash) % REPLY_TONES.length];
+}

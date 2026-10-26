@@ -165,7 +165,7 @@ async def test_channel_messages_mentions_unread_and_events(social_env):
     assert sent.status_code == 201
     msg = sent.json()["data"]["message"]
     assert msg["body"] == "Halo @budi, cek tugas ya\n\nmakasih"
-    assert msg["author"] == {"username": "ayu", "display_name": "Ayu"}
+    assert msg["author"] == {"username": "ayu", "display_name": "Ayu", "avatar": None}
 
     created = [e for e in social_env if e.type == "message.created"]
     flagged = {nim for e in created if e.payload["mentioned"] for nim in e.recipients}
@@ -223,7 +223,7 @@ async def test_edit_delete_reaction_and_pin_rules():
     edited = (await budi.patch(f"/v1/social/messages/{mid}", json={"body": "fixed"})).json()["data"]["message"]
     assert edited["body"] == "fixed" and edited["edited_at"]
 
-    assert (await budi.post(f"/v1/social/messages/{mid}/reactions/rocket")).status_code == 400
+    assert (await budi.post(f"/v1/social/messages/{mid}/reactions/unicorn")).status_code == 400
     react = (await ayu.post(f"/v1/social/messages/{mid}/reactions/fire")).json()["data"]["message"]
     assert react["reactions"] == [{"key": "fire", "count": 1, "users": ["ayu"]}]
     react = (await ayu.post(f"/v1/social/messages/{mid}/reactions/fire")).json()["data"]["message"]
@@ -342,3 +342,150 @@ async def test_academic_card_and_radar():
     assert msg_e2ee["body"] == "7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c"
 
 
+@pytest.mark.asyncio
+async def test_stream_falls_back_when_redis_unavailable(monkeypatch):
+    async def boom(nim):
+        raise ConnectionError("redis down")
+
+    monkeypatch.setattr(social_events.Subscription, "open", boom)
+    ayu = await _user("ayu")
+    res = await ayu.get("/v1/social/stream")
+    assert res.status_code == 503
+    assert res.json()["error"]["code"] == "STREAM_UNAVAILABLE"
+
+
+# ------------------------------------------------------------------ v2: media, invite preview, delete, edits, presence
+
+_WEBP = b"RIFF\x24\x00\x00\x00WEBPVP8 " + b"\x00" * 24
+
+
+@pytest.mark.asyncio
+async def test_media_upload_validation_and_public_serving():
+    ayu = await _user("ayu")
+    bad = await ayu.post("/v1/social/media", files={"file": ("x.webp", b"<svg onload=alert(1)>", "image/webp")}, data={"kind": "avatar"})
+    assert bad.status_code == 400 and bad.json()["error"]["code"] == "MEDIA_INVALID"
+    big = await ayu.post("/v1/social/media", files={"file": ("x.webp", _WEBP + b"\x00" * 400_000, "image/webp")}, data={"kind": "avatar"})
+    assert big.status_code == 400
+
+    up = await ayu.post("/v1/social/media", files={"file": ("a.webp", _WEBP, "image/webp")}, data={"kind": "avatar"})
+    assert up.status_code == 201
+    media_id = up.json()["data"]["id"]
+    assert media_id.endswith(".webp")
+
+    # Disajikan tanpa auth (untuk <img>), dengan cache immutable.
+    async with _client() as anon:
+        served = await anon.get(f"/v1/social/media/{media_id}", headers={"X-API-Key": ""})
+    assert served.status_code == 200
+    assert served.headers["content-type"] == "image/webp"
+    assert "immutable" in served.headers["cache-control"]
+    async with _client() as anon:
+        assert (await anon.get("/v1/social/media/..%2F..%2Fetc%2Fpasswd")).status_code == 404
+
+    profile = (await ayu.patch("/v1/social/me/media", json={"avatar": media_id})).json()["data"]["profile"]
+    assert profile["avatar"] == media_id and profile["banner"] is None
+    # Hanya field yang dikirim yang berubah; null menghapus.
+    profile = (await ayu.patch("/v1/social/me/media", json={"banner": media_id})).json()["data"]["profile"]
+    assert profile["avatar"] == media_id and profile["banner"] == media_id
+    profile = (await ayu.patch("/v1/social/me/media", json={"avatar": None})).json()["data"]["profile"]
+    assert profile["avatar"] is None and profile["banner"] == media_id
+    missing = await ayu.patch("/v1/social/me/media", json={"avatar": "0" * 32 + ".webp"})
+    assert missing.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_space_media_and_invite_preview():
+    ayu, budi = await _user("ayu"), await _user("budi")
+    space = (await ayu.post("/v1/social/spaces", json={"name": "Kelas", "description": "Info kelas"})).json()["data"]["space"]
+    media_id = (await ayu.post("/v1/social/media", files={"file": ("b.webp", _WEBP, "image/webp")}, data={"kind": "banner"})).json()["data"]["id"]
+    assert (await budi.patch(f"/v1/social/spaces/{space['id']}/media", json={"banner": media_id})).status_code == 404
+    updated = (await ayu.patch(f"/v1/social/spaces/{space['id']}/media", json={"banner": media_id})).json()["data"]["space"]
+    assert updated["banner"] == media_id
+
+    preview = (await budi.get(f"/v1/social/invites/{space['invite_code']}")).json()["data"]["space"]
+    assert preview["name"] == "Kelas" and preview["banner"] == media_id
+    assert preview["joined"] is False and preview["member_count"] == 1
+    assert "invite_code" not in preview
+    assert (await budi.get("/v1/social/invites/nope")).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_deleted_messages_vanish_everywhere():
+    ayu, budi = await _user("ayu"), await _user("budi")
+    dm = (await ayu.post("/v1/social/dms", json={"username": "budi"})).json()["data"]["conversation"]
+    first = (await ayu.post(f"/v1/social/conversations/{dm['id']}/messages", json={"body": "pertama"})).json()["data"]["message"]
+    second = (await ayu.post(f"/v1/social/conversations/{dm['id']}/messages", json={"body": "salah kirim"})).json()["data"]["message"]
+    reply = (await budi.post(f"/v1/social/conversations/{dm['id']}/messages", json={"body": "hah?", "reply_to_id": second["id"]})).json()["data"]["message"]
+    assert reply["reply_to"]["id"] == second["id"]
+
+    await ayu.delete(f"/v1/social/messages/{second['id']}")
+    page = (await budi.get(f"/v1/social/conversations/{dm['id']}/messages")).json()["data"]
+    assert [m["body"] for m in page["messages"]] == ["pertama", "hah?"]
+    assert page["messages"][1]["reply_to"] is None
+
+    await budi.delete(f"/v1/social/messages/{reply['id']}")
+    last = (await budi.get("/v1/social/inbox")).json()["data"]["dms"][0]["last_message"]
+    assert last["id"] == first["id"] and last["preview"] == "pertama"
+
+
+@pytest.mark.asyncio
+async def test_recent_edits_reported_on_next_open(social_env):
+    ayu, budi = await _user("ayu"), await _user("budi")
+    dm = (await ayu.post("/v1/social/dms", json={"username": "budi"})).json()["data"]["conversation"]
+    mid = (await ayu.post(f"/v1/social/conversations/{dm['id']}/messages", json={"body": "jam 7"})).json()["data"]["message"]["id"]
+    first_open = (await budi.get(f"/v1/social/conversations/{dm['id']}/messages")).json()["data"]
+    assert first_open["recent_edits"] == []
+
+    import time
+
+    time.sleep(1.1)  # timestamp berresolusi detik
+    social_env.clear()
+    await ayu.patch(f"/v1/social/messages/{mid}", json={"body": "jam 8"})
+    assert next(e for e in social_env if e.type == "message.updated").payload["change"] == "edited"
+
+    reopened = (await budi.get(f"/v1/social/conversations/{dm['id']}/messages")).json()["data"]
+    assert [(e["id"], e["author"]["username"], e["preview"]) for e in reopened["recent_edits"]] == [(mid, "ayu", "jam 8")]
+    # Sudah dilihat: tidak dilaporkan lagi; editan sendiri tidak pernah dilaporkan ke pengirim.
+    assert (await budi.get(f"/v1/social/conversations/{dm['id']}/messages")).json()["data"]["recent_edits"] == []
+    assert (await ayu.get(f"/v1/social/conversations/{dm['id']}/messages")).json()["data"]["recent_edits"] == []
+
+
+@pytest.mark.asyncio
+async def test_presence_online_offline_and_audience():
+    from app.social import service
+
+    await _user("ayu"), await _user("budi"), await _user("citra")
+    ayu = _open_clients[0]
+    await ayu.post("/v1/social/dms", json={"username": "budi"})
+
+    event = service.set_presence(NIMS["ayu"], True)
+    assert event.type == "presence" and event.payload["online"] is True
+    assert set(event.recipients) == {NIMS["ayu"], NIMS["budi"]}  # citra tidak berbagi DM/ruang
+    budi_view = (await _open_clients[1].get("/v1/social/inbox")).json()["data"]["dms"][0]["peer"]
+    assert budi_view["online"] is True
+
+    service.set_presence(NIMS["ayu"], False)
+    budi_view = (await _open_clients[1].get("/v1/social/inbox")).json()["data"]["dms"][0]["peer"]
+    assert budi_view["online"] is False and budi_view["last_seen_at"]
+
+
+def test_migration_adds_columns_to_legacy_db(tmp_path, monkeypatch):
+    import sqlite3
+
+    legacy = tmp_path / "legacy.db"
+    conn = sqlite3.connect(legacy)
+    conn.executescript(
+        "CREATE TABLE social_profiles (nim TEXT PRIMARY KEY, username TEXT, display_name TEXT, bio TEXT, created_at TEXT, last_seen_at TEXT);"
+        "CREATE TABLE social_spaces (id INTEGER PRIMARY KEY, name TEXT, description TEXT, owner_nim TEXT, invite_code TEXT, is_public INTEGER, created_at TEXT);"
+        "CREATE TABLE social_participants (conversation_id INTEGER, nim TEXT, last_read_id INTEGER, PRIMARY KEY (conversation_id, nim));"
+    )
+    conn.close()
+    monkeypatch.setattr("app.config.settings.SQLITE_DB_PATH", str(legacy))
+    from app.social.db import init_social_db
+
+    init_social_db()
+    init_social_db()  # idempoten
+    conn = sqlite3.connect(legacy)
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(social_profiles)")}
+    assert {r[1] for r in conn.execute("PRAGMA table_info(social_profiles)")} >= {"avatar", "banner", "is_online"}
+    assert "last_opened_at" in {r[1] for r in conn.execute("PRAGMA table_info(social_participants)")}
+    conn.close()

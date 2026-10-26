@@ -2,13 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import { Compass, MessageCirclePlus, MessagesSquare, Plus } from "lucide-react";
 import { apiFetch, ApiError } from "@/lib/api";
 import { lockScroll } from "@/lib/scroll-lock";
 import { useDialog } from "@/components/ConfirmDialog";
 import { ErrorState, LoadingState, ghostButtonClass, primaryButtonClass } from "@/components/dashboard-ui";
 import { ChatPane, type ActiveConversation, type ConversationState } from "@/components/social/ChatPane";
+import { SocialLinkContext, forgetInvite, stripFormatting, type SocialLinkHandlers } from "@/components/social/MessageBody";
 import { ConversationColumn, SpaceRail, type SidebarView } from "@/components/social/SocialSidebar";
+import { ResizeHandle, useSidebarWidth } from "@/components/social/ResizeHandle";
+import { useWallpaper } from "@/lib/wallpaper";
 import {
   CreateSpaceSheet,
   JoinSheet,
@@ -28,6 +32,7 @@ import {
   type Message,
   type ReactionKey,
   type SocialEvent,
+  type SocialProfile,
 } from "@/lib/social";
 
 type Sheet = null | "create" | "join" | "newdm" | "profile" | { settings: number };
@@ -60,7 +65,7 @@ function findConv(inbox: Inbox | null, id: number | null): InboxConv | null {
 
 function insertMessage(list: Message[], message: Message): Message[] {
   const index = list.findIndex((m) => m.id === message.id);
-  if (index >= 0) return list.map((m, i) => (i === index ? message : m));
+  if (index >= 0) return list.map((m, i) => (i === index ? { ...message, clientKey: m.clientKey ?? message.clientKey } : m));
   if (!list.length || message.id > list[list.length - 1].id) return [...list, message];
   return [...list, message].sort((a, b) => a.id - b.id);
 }
@@ -69,7 +74,7 @@ function titleCase(name: string) {
   return name.toLowerCase().replace(/\b\p{L}/gu, (c) => c.toUpperCase()).trim();
 }
 
-const MOBILE_QUERY = "(max-width: 1023px)";
+const MOBILE_QUERY = "(max-width: 767px)";
 const isMobile = () => typeof window !== "undefined" && window.matchMedia(MOBILE_QUERY).matches;
 
 function useIsMobile() {
@@ -82,6 +87,40 @@ function useIsMobile() {
     return () => query.removeEventListener("change", update);
   }, []);
   return mobile;
+}
+
+/**
+ * Tinggi layar yang benar-benar terlihat (dikurangi keyboard virtual) sebagai CSS var,
+ * supaya chat dan pencarian di HP mengecil mengikuti keyboard seperti aplikasi native.
+ */
+function useKeyboardViewport() {
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const root = document.documentElement;
+    let frame = 0;
+    const update = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        root.style.setProperty("--vvh", `${Math.round(vv.height)}px`);
+        root.style.setProperty("--vvt", `${Math.round(vv.offsetTop)}px`);
+      });
+    };
+    update();
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    return () => {
+      cancelAnimationFrame(frame);
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+      root.style.removeProperty("--vvh");
+      root.style.removeProperty("--vvt");
+    };
+  }, []);
+}
+
+function patchProfile<T extends Pick<SocialProfile, "username">>(item: T, username: string, patch: Partial<SocialProfile>): T {
+  return item.username === username ? { ...item, ...patch } : item;
 }
 
 export function KomunitasApp() {
@@ -99,6 +138,11 @@ export function KomunitasApp() {
   const [suggestedName, setSuggestedName] = useState("");
   const [visible, setVisible] = useState(true);
   const mobile = useIsMobile();
+  const router = useRouter();
+  const wallpaper = useWallpaper();
+  const sidebar = useSidebarWidth();
+  const columnRef = useRef<HTMLDivElement>(null);
+  useKeyboardViewport();
 
   const me = inbox?.me?.username ?? "";
   const refs = useRef({ inbox, activeId, convs, me, visible });
@@ -150,6 +194,31 @@ export function KomunitasApp() {
     });
   }, []);
 
+  /** Terapkan perubahan status/profil seseorang ke semua tempat ia tampil (DM, anggota, diri sendiri). */
+  const patchPerson = useCallback((username: string, patch: Partial<SocialProfile>) => {
+    setInbox((prev) =>
+      prev
+        ? {
+            ...prev,
+            me: prev.me ? patchProfile(prev.me, username, patch) : prev.me,
+            dms: prev.dms.map((d) => (d.peer.username === username ? { ...d, peer: { ...d.peer, ...patch } } : d)),
+          }
+        : prev
+    );
+    setMembers((prev) => {
+      let changed = false;
+      const next: Record<number, Member[]> = {};
+      for (const [key, list] of Object.entries(prev)) {
+        next[Number(key)] = list.map((m) => {
+          if (m.username !== username) return m;
+          changed = true;
+          return { ...m, ...patch };
+        });
+      }
+      return changed ? next : prev;
+    });
+  }, []);
+
   const upsertMessage = useCallback((conversationId: number, message: Message) => {
     setConvs((prev) => {
       const state = prev[conversationId];
@@ -163,7 +232,7 @@ export function KomunitasApp() {
     const item = findConv(refs.current.inbox, id);
     setConvs((prev) => ({
       ...prev,
-      [id]: { messages: [], hasMore: false, loading: true, loadingOlder: false, peerLastReadId: null, unreadFromId: null },
+      [id]: { messages: [], pending: [], hasMore: false, loading: true, loadingOlder: false, peerLastReadId: null, unreadFromId: null, edits: [] },
     }));
     try {
       const page = await socialApi.messages(id);
@@ -171,11 +240,13 @@ export function KomunitasApp() {
         ...prev,
         [id]: {
           messages: page.messages,
+          pending: prev[id]?.pending ?? [],
           hasMore: page.has_more,
           loading: false,
           loadingOlder: false,
           peerLastReadId: page.peer_last_read_id,
           unreadFromId: item && (item.unread ?? 0) > 0 ? page.last_read_id : null,
+          edits: page.recent_edits ?? [],
         },
       }));
     } catch (err) {
@@ -309,8 +380,21 @@ export function KomunitasApp() {
           debounce("inbox", () => loadInbox().catch(() => {}));
           break;
         }
-        setConvs((prev) => (prev[id] ? { ...prev, [id]: { ...prev[id], messages: insertMessage(prev[id].messages, message) } } : prev));
         const mine = message.author.username === myName;
+        setConvs((prev) => {
+          const state = prev[id];
+          if (!state) return prev;
+          // Event pesan sendiri bisa datang sebelum respons HTTP: ambil alih bubble optimistisnya.
+          const twin = mine ? state.pending.find((p) => p.body === message.body && p.local === "sending") : undefined;
+          return {
+            ...prev,
+            [id]: {
+              ...state,
+              pending: twin ? state.pending.filter((p) => p !== twin) : state.pending,
+              messages: insertMessage(state.messages, twin ? { ...message, clientKey: twin.clientKey } : message),
+            },
+          };
+        });
         const viewing = current === id && isVisible;
         patchConv(id, (item) => ({
           last_message: toLast(message),
@@ -326,8 +410,27 @@ export function KomunitasApp() {
         });
         break;
       }
-      case "message.updated":
-        upsertMessage(event.conversation_id, event.message);
+      case "message.updated": {
+        const { conversation_id: id, message } = event;
+        upsertMessage(id, message);
+        if (event.change === "deleted") {
+          // Server sudah memundurkan preview ke pesan sebelumnya: ambil ulang daftar chat.
+          debounce("inbox", () => loadInbox().catch(() => {}));
+        } else if (event.change === "edited" && message.author.username !== myName) {
+          setConvs((prev) => {
+            const state = prev[id];
+            if (!state) return prev;
+            const edit = { id: message.id, author: message.author, preview: stripFormatting(message.body).slice(0, 90), edited_at: message.edited_at ?? "" };
+            return { ...prev, [id]: { ...state, edits: [edit, ...state.edits.filter((e) => e.id !== message.id)].slice(0, 20) } };
+          });
+        }
+        break;
+      }
+      case "presence":
+        patchPerson(event.username, { online: event.online, last_seen_at: event.last_seen_at });
+        break;
+      case "profile.updated":
+        patchPerson(event.username, event.profile);
         break;
       case "conversation.read":
         if (event.username === myName) {
@@ -363,7 +466,7 @@ export function KomunitasApp() {
         break;
       }
     }
-  }, [debounce, loadInbox, loadMembers, patchConv, upsertMessage]);
+  }, [debounce, loadInbox, loadMembers, patchConv, patchPerson, upsertMessage]);
 
   const streamConnectedOnce = useRef(false);
   const onReady = useCallback(() => {
@@ -450,17 +553,71 @@ export function KomunitasApp() {
 
   /* ---------------------------------------------------------------- message actions */
 
-  const send = async (text: string, replyTo: Message | null) => {
-    if (activeId === null) return false;
+  const patchPending = useCallback((id: number, clientKey: string, fn: (m: Message) => Message | null) => {
+    setConvs((prev) => {
+      const state = prev[id];
+      if (!state) return prev;
+      const pending = state.pending.flatMap((m) => (m.clientKey === clientKey ? (fn(m) ? [fn(m) as Message] : []) : [m]));
+      return { ...prev, [id]: { ...state, pending } };
+    });
+  }, []);
+
+  /** Kirim ke server untuk bubble optimistis; sukses = diganti versi server, gagal = tanda "Ketuk untuk kirim ulang". */
+  const deliver = async (temp: Message) => {
+    const id = temp.conversation_id;
+    const key = temp.clientKey as string;
     try {
-      const { message } = await socialApi.send(activeId, text, replyTo?.id);
-      setConvs((prev) => (prev[activeId] ? { ...prev, [activeId]: { ...prev[activeId], messages: insertMessage(prev[activeId].messages, message), unreadFromId: null } } : prev));
-      patchConv(activeId, () => ({ last_message: toLast(message), last_read_id: message.id, unread: 0, mentions: 0 }));
-      return true;
+      const { message } = await socialApi.send(id, temp.body, temp.reply_to?.id);
+      setConvs((prev) => {
+        const state = prev[id];
+        if (!state) return prev;
+        return {
+          ...prev,
+          [id]: {
+            ...state,
+            pending: state.pending.filter((p) => p.clientKey !== key),
+            messages: insertMessage(state.messages, { ...message, clientKey: key }),
+            unreadFromId: null,
+          },
+        };
+      });
+      patchConv(id, () => ({ last_message: toLast(message), last_read_id: message.id, unread: 0, mentions: 0 }));
     } catch (err) {
+      patchPending(id, key, (m) => ({ ...m, local: "failed" }));
       notify(errorText(err), "error");
-      return false;
     }
+  };
+
+  const send = async (text: string, replyTo: Message | null) => {
+    const profile = refs.current.inbox?.me;
+    if (activeId === null || !profile) return false;
+    const now = Date.now();
+    const temp: Message = {
+      id: -now,
+      conversation_id: activeId,
+      author: { username: profile.username, display_name: profile.display_name },
+      body: text,
+      reply_to: replyTo
+        ? { id: replyTo.id, author: replyTo.author, preview: replyTo.body.replace(/\s+/g, " ").slice(0, 90), deleted: false }
+        : null,
+      reactions: [],
+      pinned: false,
+      created_at: new Date(now).toISOString(),
+      edited_at: null,
+      deleted: false,
+      clientKey: `tmp-${now}-${Math.random().toString(36).slice(2, 7)}`,
+      local: "sending",
+    };
+    setConvs((prev) => (prev[activeId] ? { ...prev, [activeId]: { ...prev[activeId], pending: [...prev[activeId].pending, temp] } } : prev));
+    void deliver(temp);
+    return true;
+  };
+
+  const retry = (message: Message) => {
+    if (message.local !== "failed" || !message.clientKey) return;
+    const next = { ...message, local: "sending" as const };
+    patchPending(message.conversation_id, message.clientKey, () => next);
+    void deliver(next);
   };
 
   const runMessage = async (conversationId: number, task: Promise<{ message: Message }>, success?: string) => {
@@ -492,6 +649,36 @@ export function KomunitasApp() {
     }
   };
 
+  /* ---------------------------------------------------------------- link di dalam chat */
+
+  const linkHandlers: SocialLinkHandlers = useMemo(
+    () => ({
+      openInternal: (path) => {
+        const url = new URL(path, window.location.origin);
+        const chat = Number(url.searchParams.get("c"));
+        if (url.pathname.replace(/\/+$/, "") === "/dashboard/komunitas" && chat && findConv(refs.current.inbox, chat)) {
+          openConversation(chat);
+          return;
+        }
+        router.push(path);
+      },
+      openInvite: async (code) => {
+        try {
+          const { space } = await socialApi.invite(code);
+          const joined = refs.current.inbox?.spaces.find((s) => s.id === space.id);
+          if (space.joined && joined?.channels[0]) {
+            setView(joined.id);
+            openConversation(joined.channels[0].id);
+            return;
+          }
+        } catch {}
+        setJoinCode(code);
+        setSheet("join");
+      },
+    }),
+    [router, openConversation]
+  );
+
   /* ---------------------------------------------------------------- render */
 
   if (phase === "loading") return <LoadingState label="Membuka Komunitas" />;
@@ -518,7 +705,10 @@ export function KomunitasApp() {
 
   // Di HP chat dirender lewat portal: wrapper halaman beranimasi transform sehingga `fixed` di dalamnya ikut terkurung.
   const chatPane = active && (
-    <div className={mobile ? "fixed inset-0 z-[45] flex bg-white" : "flex min-w-0 flex-1"}>
+    <div
+      className={mobile ? "chat-ui fixed inset-x-0 z-[45] flex bg-white" : "flex min-w-0 flex-1"}
+      style={mobile ? { top: "var(--vvt, 0px)", height: "var(--vvh, 100dvh)" } : undefined}
+    >
       <ChatPane
         active={active}
         state={convs[active.kind === "dm" ? active.dm.id : active.channel.id]}
@@ -529,10 +719,19 @@ export function KomunitasApp() {
         onLoadOlder={loadOlder}
         onSend={send}
         onEdit={(m, text) => runMessage(m.conversation_id, socialApi.edit(m.id, text))}
+        onRetry={retry}
         onDelete={async (m) => {
-          const ok = await confirm({ title: "Hapus pesan?", message: "Pesan dihapus untuk semua orang di percakapan ini.", confirmLabel: "Hapus", tone: "danger" });
-          if (ok) runMessage(m.conversation_id, socialApi.remove(m.id));
+          if (m.local && m.clientKey) {
+            patchPending(m.conversation_id, m.clientKey, () => null);
+            return;
+          }
+          const ok = await confirm({ title: "Hapus pesan?", message: "Pesan hilang untuk semua orang di percakapan ini.", confirmLabel: "Hapus", tone: "danger" });
+          if (ok && (await runMessage(m.conversation_id, socialApi.remove(m.id)))) debounce("inbox", () => loadInbox().catch(() => {}));
         }}
+        wallpaper={wallpaper.style}
+        onDismissEdits={() =>
+          setConvs((prev) => (activeId !== null && prev[activeId] ? { ...prev, [activeId]: { ...prev[activeId], edits: [] } } : prev))
+        }
         onReact={(m, key: ReactionKey) => runMessage(m.conversation_id, socialApi.react(m.id, key))}
         onPin={(m) => runMessage(m.conversation_id, socialApi.pin(m.id, !m.pinned), m.pinned ? "Sematan dilepas" : "Pesan disematkan")}
         onTyping={() => {
@@ -545,7 +744,8 @@ export function KomunitasApp() {
 
   return (
     <>
-      <div className="px-card flex flex-col overflow-hidden bg-white lg:h-[calc(100dvh-10.5rem)] lg:min-h-[520px] lg:flex-row">
+      <SocialLinkContext.Provider value={linkHandlers}>
+      <div className="chat-ui -mx-2 -mt-3 flex h-[calc(100dvh-9rem-env(safe-area-inset-bottom))] min-h-[360px] min-w-0 flex-col overflow-hidden bg-white sm:-mx-4 md:mx-0 md:mt-0 md:h-[calc(100dvh-9.75rem-env(safe-area-inset-bottom))] md:flex-row md:shadow-[0_0_0_2px_#163A55,6px_6px_0_0_#CFE2EE] lg:h-[calc(100dvh-5.5rem)] lg:min-h-[520px]">
         <SpaceRail
           inbox={inbox}
           view={view}
@@ -560,7 +760,11 @@ export function KomunitasApp() {
           onCreate={() => setSheet("create")}
           onJoin={() => setSheet("join")}
         />
-        <div className="flex min-h-[60dvh] lg:min-h-0">
+        <div
+          ref={columnRef}
+          className="flex min-h-0 min-w-0 flex-1 md:flex-none"
+          style={sidebar.width ? ({ "--col-w": `${sidebar.width}px` } as React.CSSProperties) : undefined}
+        >
           <ConversationColumn
             inbox={inbox}
             view={view}
@@ -576,11 +780,19 @@ export function KomunitasApp() {
             onProfile={() => setSheet("profile")}
           />
         </div>
+        <ResizeHandle
+          width={sidebar.width}
+          min={sidebar.min}
+          max={sidebar.max}
+          targetRef={columnRef}
+          onResize={sidebar.setWidth}
+          onCommit={sidebar.commit}
+        />
 
         {active && !mobile ? (
           chatPane
         ) : (
-          <div className="hidden flex-1 flex-col items-center justify-center bg-[#F7FAFC] p-8 text-center lg:flex">
+          <div className="chat-wall hidden flex-1 flex-col items-center justify-center p-8 text-center md:flex">
             <span className="px-icon h-16 w-16">
               <MessagesSquare className="h-8 w-8" aria-hidden="true" />
             </span>
@@ -603,7 +815,7 @@ export function KomunitasApp() {
         )}
       </div>
 
-      {active && mobile && createPortal(chatPane, document.body)}
+      {active && mobile && createPortal(<SocialLinkContext.Provider value={linkHandlers}>{chatPane}</SocialLinkContext.Provider>, document.body)}
 
       <CreateSpaceSheet
         open={sheet === "create"}
@@ -624,6 +836,7 @@ export function KomunitasApp() {
           setJoinCode("");
         }}
         onJoined={async (space) => {
+          if (joinCode) forgetInvite(joinCode);
           setSheet(null);
           setJoinCode("");
           await loadInbox();
@@ -637,10 +850,12 @@ export function KomunitasApp() {
         open={sheet === "profile"}
         me={inbox.me}
         onClose={() => setSheet(null)}
-        onSaved={(profile) => {
+        onSaved={(profile, close) => {
           setInbox((prev) => (prev ? { ...prev, me: profile } : prev));
-          setSheet(null);
-          notify("Profil disimpan", "success");
+          if (close) {
+            setSheet(null);
+            notify("Profil disimpan", "success");
+          }
         }}
       />
       {settingsSpace && (
@@ -661,6 +876,7 @@ export function KomunitasApp() {
           reloadMembers={() => loadMembers(settingsSpace.id)}
         />
       )}
+      </SocialLinkContext.Provider>
     </>
   );
 }

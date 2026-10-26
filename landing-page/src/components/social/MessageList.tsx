@@ -1,39 +1,21 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import {
-  ArrowDown,
-  Check,
-  CheckCheck,
-  Copy,
-  Flame,
-  Frown,
-  Heart,
-  Laugh,
-  Pencil,
-  Pin,
-  PinOff,
-  Reply,
-  SmilePlus,
-  Sparkles,
-  ThumbsUp,
-  Trash2,
-} from "lucide-react";
-import { Avatar } from "@/components/social/Avatar";
-import { MessageBody } from "@/components/social/MessageBody";
-import { clockTime, dayLabel, type Message, type ReactionKey } from "@/lib/social";
-
-export const REACTIONS: { key: ReactionKey; label: string; icon: typeof Heart }[] = [
-  { key: "up", label: "Setuju", icon: ThumbsUp },
-  { key: "heart", label: "Suka", icon: Heart },
-  { key: "haha", label: "Lucu", icon: Laugh },
-  { key: "wow", label: "Keren", icon: Sparkles },
-  { key: "fire", label: "Mantap", icon: Flame },
-  { key: "sad", label: "Sedih", icon: Frown },
-];
-const REACTION_MAP = Object.fromEntries(REACTIONS.map((r) => [r.key, r])) as Record<ReactionKey, (typeof REACTIONS)[number]>;
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { ArrowDown, MoreHorizontal, Pin, Reply, SmilePlus } from "lucide-react";
+import { Avatar, PixelTick } from "@/components/social/Avatar";
+import { Emoji, QUICK_REACTIONS, REACTION_LABEL } from "@/components/social/Emoji";
+import { InviteCard, MessageBody, firstInviteCode, stripFormatting } from "@/components/social/MessageBody";
+import { MessageMenu, type MenuTarget } from "@/components/social/MessageMenu";
+import { clockTime, dayLabel, replyColor, type Message, type ReactionKey } from "@/lib/social";
 
 const GROUP_WINDOW_MS = 5 * 60_000;
+const SWIPE_TRIGGER = 56;
+const SWIPE_MAX = 84;
+const LONG_PRESS_MS = 420;
+const DOUBLE_TAP_MS = 280;
+const ENTER_MS = 450;
+// Pesan yang isinya hanya 1-3 emoji tampil besar tanpa bubble (seperti Telegram).
+const EMOJI_ONLY = /^(?:\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic}|\p{Emoji_Modifier})*\s*){1,3}$/u;
 
 export interface MessageActions {
   onReply: (message: Message) => void;
@@ -42,10 +24,31 @@ export interface MessageActions {
   onReact: (message: Message, key: ReactionKey) => void;
   onPin: (message: Message) => void;
   onCopy: (message: Message) => void;
+  onRetry: (message: Message) => void;
+}
+
+const keyOf = (m: Message) => m.clientKey ?? String(m.id);
+
+const vibrate = (ms: number) => {
+  try {
+    navigator.vibrate?.(ms);
+  } catch {}
+};
+
+function useSheetMenu() {
+  const [sheet, setSheet] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 1023px), (pointer: coarse)");
+    const update = () => setSheet(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  return sheet;
 }
 
 export function MessageList({
-  messages,
+  messages: incoming,
   me,
   kind,
   canModerate,
@@ -56,6 +59,9 @@ export function MessageList({
   loadingOlder,
   onLoadOlder,
   highlightId,
+  typingName,
+  onJump,
+  wallpaper,
   actions,
 }: {
   messages: Message[];
@@ -69,37 +75,68 @@ export function MessageList({
   loadingOlder: boolean;
   onLoadOlder: () => void;
   highlightId: number | null;
+  typingName: string | null;
+  onJump: (messageId: number) => void;
+  wallpaper?: React.CSSProperties;
   actions: MessageActions;
 }) {
+  // Pesan terhapus tidak ditampilkan sama sekali (dan tidak memutus pengelompokan bubble).
+  const messages = useMemo(() => incoming.filter((m) => !m.deleted), [incoming]);
+  const days = useMemo(() => {
+    const out: { key: string; label: string; items: { message: Message; index: number }[] }[] = [];
+    messages.forEach((message, index) => {
+      const label = dayLabel(message.created_at);
+      const last = out[out.length - 1];
+      if (last && last.label === label) last.items.push({ message, index });
+      else out.push({ key: label, label, items: [{ message, index }] });
+    });
+    return out;
+  }, [messages]);
   const scroller = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
   const prevHeight = useRef(0);
-  const prevFirstId = useRef<number | null>(null);
-  const prevLastId = useRef<number | null>(null);
-  const [selected, setSelected] = useState<number | null>(null);
-  const [showJump, setShowJump] = useState(false);
+  const prevFirstKey = useRef<string | null>(null);
+  const prevLastKey = useRef<string | null>(null);
+  const oldestId = useRef<number>(Number.MAX_SAFE_INTEGER);
+  // Pesan yang sudah ada saat percakapan dibuka tidak dianimasikan; hanya yang datang sesudahnya.
+  const baseline = useRef<Set<string> | null>(null);
+  // Waktu mulai animasi per bubble: tetap beranimasi walau versi server menggantikan bubble optimistis.
+  const entered = useRef(new Map<string, number>());
+  const [unseen, setUnseen] = useState(0);
+  const [menu, setMenu] = useState<MenuTarget | null>(null);
+  const sheet = useSheetMenu();
 
-  // Jaga posisi scroll: tempel ke bawah untuk pesan baru, pertahankan posisi saat memuat pesan lama.
+  if (baseline.current === null) baseline.current = new Set(messages.map(keyOf));
+
   useLayoutEffect(() => {
     const el = scroller.current;
     if (!el) return;
-    const firstId = messages[0]?.id ?? null;
-    const lastId = messages[messages.length - 1]?.id ?? null;
-    const prependedOlder = prevFirstId.current !== null && firstId !== null && firstId < prevFirstId.current;
-    if (prependedOlder) {
+    const firstKey = messages[0] ? keyOf(messages[0]) : null;
+    const last = messages[messages.length - 1];
+    const lastKey = last ? keyOf(last) : null;
+    const prepended = prevFirstKey.current !== null && firstKey !== prevFirstKey.current && lastKey === prevLastKey.current;
+    if (prepended) {
       el.scrollTop += el.scrollHeight - prevHeight.current;
-    } else if (lastId !== prevLastId.current) {
-      const mine = messages[messages.length - 1]?.author.username === me;
-      if (atBottom.current || mine || prevLastId.current === null) {
-        el.scrollTop = el.scrollHeight;
+    } else if (lastKey !== prevLastKey.current) {
+      const mine = last?.author.username === me;
+      if (atBottom.current || mine || prevLastKey.current === null) {
+        el.scrollTo({ top: el.scrollHeight, behavior: prevLastKey.current === null ? "auto" : "smooth" });
       } else {
-        setShowJump(true);
+        setUnseen((n) => n + 1);
       }
     }
     prevHeight.current = el.scrollHeight;
-    prevFirstId.current = firstId;
-    prevLastId.current = lastId;
+    prevFirstKey.current = firstKey;
+    prevLastKey.current = lastKey;
+    messages.forEach((m) => baseline.current?.add(keyOf(m)));
+    if (messages[0] && messages[0].id > 0) oldestId.current = Math.min(oldestId.current, messages[0].id);
   }, [messages, me]);
+
+  // Indikator mengetik muncul di bawah: tetap tempel kalau pengguna sedang di bawah.
+  useEffect(() => {
+    const el = scroller.current;
+    if (el && typingName && atBottom.current) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, [typingName]);
 
   useEffect(() => {
     if (!highlightId) return;
@@ -110,103 +147,160 @@ export function MessageList({
     const el = scroller.current;
     if (!el) return;
     atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-    if (atBottom.current) setShowJump(false);
-    if (el.scrollTop < 120 && hasMore && !loadingOlder) onLoadOlder();
+    if (atBottom.current) setUnseen(0);
+    if (el.scrollTop < 160 && hasMore && !loadingOlder) onLoadOlder();
   };
 
   const jumpToBottom = () => {
-    const el = scroller.current;
-    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-    setShowJump(false);
+    scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" });
+    setUnseen(0);
   };
 
+  const openMenu = useCallback((message: Message, rect: DOMRect, pickerOnly = false) => {
+    setMenu({ message, rect, pickerOnly });
+  }, []);
+
+  const menuMessage = menu ? messages.find((m) => keyOf(m) === keyOf(menu.message)) ?? menu.message : null;
+  const menuMine = menuMessage?.author.username === me;
+
   return (
-    <div className="relative min-h-0 flex-1">
+    <div className="chat-ui relative min-h-0 flex-1">
       <div
         ref={scroller}
         onScroll={onScroll}
-        className="scroll-slim h-full overflow-y-auto overflow-x-hidden overscroll-contain bg-[#F7FAFC] px-3 py-3 sm:px-5"
+        className={`scroll-slim h-full overflow-y-auto overflow-x-hidden overscroll-contain px-2.5 pb-3 pt-1 sm:px-6 ${wallpaper ? "" : "chat-wall"}`}
+        style={wallpaper}
         role="log"
         aria-live="polite"
         aria-relevant="additions"
         aria-label="Riwayat pesan"
       >
+        <div className="mx-auto w-full max-w-[900px]">
         {hasMore ? (
-          <div className="flex justify-center py-2">
+          <div className="flex justify-center py-3">
             <button
               type="button"
               onClick={onLoadOlder}
               disabled={loadingOlder}
-              className="px-chip bg-white px-3 py-1 font-mono text-[11px] font-semibold text-[#0369A1] disabled:opacity-60"
+              className="px-chip bg-white px-3 py-1 text-xs font-semibold text-[#0369A1] disabled:opacity-60"
             >
               {loadingOlder ? "Memuat..." : "Muat pesan sebelumnya"}
             </button>
           </div>
         ) : (
           messages.length > 0 && (
-            <p className="py-3 text-center font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#3B5A70]/70">
+            <p className="py-4 text-center font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#3B5A70]/70">
               Awal percakapan
             </p>
           )
         )}
 
-        <ul className="space-y-0.5">
-          {messages.map((message, i) => {
-            const prev = messages[i - 1];
-            const newDay = !prev || dayLabel(prev.created_at) !== dayLabel(message.created_at);
-            const grouped =
-              !!prev &&
-              !newDay &&
-              !message.reply_to &&
-              !prev.deleted &&
-              prev.author.username === message.author.username &&
-              new Date(message.created_at).getTime() - new Date(prev.created_at).getTime() < GROUP_WINDOW_MS;
-            const showUnread = unreadFromId !== null && message.id > unreadFromId && (!prev || prev.id <= unreadFromId) && message.author.username !== me;
-            return (
-              <li key={message.id}>
-                {newDay && (
-                  <div className="my-3 flex justify-center">
-                    <span className="px-chip bg-white px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[#3B5A70]">
-                      {dayLabel(message.created_at)}
-                    </span>
-                  </div>
-                )}
-                {showUnread && (
-                  <div className="my-2 flex items-center gap-2" role="separator">
-                    <span className="h-0.5 flex-1 bg-[#BE123C]/40" />
-                    <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[#BE123C]">Belum dibaca</span>
-                    <span className="h-0.5 flex-1 bg-[#BE123C]/40" />
-                  </div>
-                )}
-                <MessageItem
-                  message={message}
-                  me={me}
-                  kind={kind}
-                  grouped={grouped}
-                  read={peerLastReadId !== null && message.id <= peerLastReadId}
-                  canModerate={canModerate}
-                  canPin={canPin}
-                  highlighted={message.id === highlightId}
-                  selected={selected === message.id}
-                  onSelect={() => setSelected((s) => (s === message.id ? null : message.id))}
-                  onDeselect={() => setSelected(null)}
-                  actions={actions}
-                />
-              </li>
-            );
-          })}
-        </ul>
+        {/* Satu section per hari: chip tanggal menempel di atas selama hari itu di-scroll,
+            lalu terdorong rapi oleh hari berikutnya (sticky hanya berlaku di dalam section-nya). */}
+        {days.map((day) => (
+          <section key={day.key} aria-label={day.label}>
+            <div className="pointer-events-none sticky top-2 z-10 mb-1 mt-5 flex justify-center">
+              <span className="pointer-events-auto bg-white/95 px-3 py-1 text-[12px] font-semibold text-[#3B5A70] shadow-[0_0_0_2px_#CFE2EE,2px_2px_0_0_#E4EEF4] backdrop-blur">
+                {day.label}
+              </span>
+            </div>
+            <ul className="pb-1">
+              {day.items.map(({ message, index: i }) => {
+                const prev = messages[i - 1];
+                const next = messages[i + 1];
+                const firstOfDay = !prev || dayLabel(prev.created_at) !== day.label;
+                const sameAuthor = (a?: Message, b?: Message) =>
+                  !!a &&
+                  !!b &&
+                  !a.deleted &&
+                  a.author.username === b.author.username &&
+                  dayLabel(a.created_at) === dayLabel(b.created_at) &&
+                  Math.abs(new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) < GROUP_WINDOW_MS;
+                const grouped = !firstOfDay && !message.reply_to && sameAuthor(prev, message);
+                const lastInGroup = !(next && !next.reply_to && sameAuthor(message, next));
+                const showUnread =
+                  unreadFromId !== null && message.id > unreadFromId && (!prev || prev.id <= unreadFromId) && message.author.username !== me;
+                const key = keyOf(message);
+                let animate = false;
+                if (!baseline.current?.has(key) && !(message.id > 0 && message.id < oldestId.current)) {
+                  if (!entered.current.has(key)) entered.current.set(key, Date.now());
+                  animate = true;
+                } else {
+                  const started = entered.current.get(key);
+                  animate = started !== undefined && Date.now() - started < ENTER_MS;
+                }
+                return (
+                  <li key={key}>
+                    {showUnread && (
+                      <div className="mb-1 mt-5 flex items-center gap-2" role="separator">
+                        <span className="h-0.5 flex-1 bg-[#BE123C]/30" />
+                        <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#BE123C]">Belum dibaca</span>
+                        <span className="h-0.5 flex-1 bg-[#BE123C]/30" />
+                      </div>
+                    )}
+                    <MessageItem
+                      message={message}
+                      me={me}
+                      kind={kind}
+                      grouped={grouped}
+                      firstOfDay={firstOfDay}
+                      lastInGroup={lastInGroup}
+                      animate={animate}
+                      read={peerLastReadId !== null && message.id > 0 && message.id <= peerLastReadId}
+                      highlighted={message.id === highlightId}
+                      onMenu={openMenu}
+                      onJump={onJump}
+                      actions={actions}
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        ))}
+
+        {typingName && (
+          <div className="chat-in-other flex items-end gap-2 pt-2" aria-live="polite">
+            {kind === "channel" && <span className="w-8 shrink-0" />}
+            <div className="flex items-center gap-2 bg-white px-3 py-2.5 shadow-[0_0_0_2px_#CFE2EE]">
+              <span className="flex items-center gap-1" aria-hidden="true">
+                <span className="typing-dot h-1.5 w-1.5 bg-[#0369A1]" />
+                <span className="typing-dot h-1.5 w-1.5 bg-[#0369A1]" />
+                <span className="typing-dot h-1.5 w-1.5 bg-[#0369A1]" />
+              </span>
+              <span className="text-xs text-[#3B5A70]">{kind === "channel" ? `${typingName} mengetik` : "mengetik"}</span>
+            </div>
+          </div>
+        )}
+        </div>
       </div>
 
-      {showJump && (
+      {unseen > 0 && (
         <button
           type="button"
           onClick={jumpToBottom}
-          className="px-btn absolute bottom-3 right-4 inline-flex h-10 items-center gap-1.5 px-3 font-mono text-xs font-bold"
+          className="menu-pop absolute bottom-3 right-3 inline-flex h-11 items-center gap-1.5 bg-[#072033] px-3.5 text-sm font-bold text-white shadow-[3px_3px_0_0_#0369A1] sm:right-5"
         >
           <ArrowDown className="h-4 w-4" aria-hidden="true" />
-          Pesan baru
+          {unseen} pesan baru
         </button>
+      )}
+
+      {menu && menuMessage && (
+        <MessageMenu
+          target={{ ...menu, message: menuMessage }}
+          me={me}
+          sheet={sheet}
+          permissions={{ mine: menuMine, canPin, canDelete: menuMine || canModerate }}
+          onClose={() => setMenu(null)}
+          onReact={(key) => actions.onReact(menuMessage, key)}
+          onReply={() => actions.onReply(menuMessage)}
+          onCopy={() => actions.onCopy(menuMessage)}
+          onPin={() => actions.onPin(menuMessage)}
+          onEdit={() => actions.onEdit(menuMessage)}
+          onDelete={() => actions.onDelete(menuMessage)}
+          onRetry={() => actions.onRetry(menuMessage)}
+        />
       )}
     </div>
   );
@@ -217,217 +311,292 @@ function MessageItem({
   me,
   kind,
   grouped,
+  firstOfDay,
+  lastInGroup,
+  animate,
   read,
-  canModerate,
-  canPin,
   highlighted,
-  selected,
-  onSelect,
-  onDeselect,
+  onMenu,
+  onJump,
   actions,
 }: {
   message: Message;
   me: string;
   kind: "dm" | "channel";
   grouped: boolean;
+  firstOfDay: boolean;
+  lastInGroup: boolean;
+  animate: boolean;
   read: boolean;
-  canModerate: boolean;
-  canPin: boolean;
   highlighted: boolean;
-  selected: boolean;
-  onSelect: () => void;
-  onDeselect: () => void;
+  onMenu: (message: Message, rect: DOMRect, pickerOnly?: boolean) => void;
+  onJump: (messageId: number) => void;
   actions: MessageActions;
 }) {
   const mine = message.author.username === me;
-  const mentionsMe = !mine && new RegExp(`(^|[^\\w@])@${me}\\b`, "i").test(message.body);
+  const bubble = useRef<HTMLDivElement>(null);
+  const gesture = useRef<{ x: number; y: number; t: number; swiping: boolean; timer: ReturnType<typeof setTimeout> | null } | null>(null);
+  const lastTap = useRef(0);
+  const [offset, setOffset] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const [burst, setBurst] = useState(0);
+  const pending = !!message.local;
+  const interactive = !message.deleted;
+  const mentionsMe = !mine && !!me && new RegExp(`(^|[^\\w@])@${me}\\b`, "i").test(message.body);
+  const jumbo = !message.reply_to && EMOJI_ONLY.test(message.body.trim());
   const showAuthor = kind === "channel" && !mine && !grouped;
-  const [picker, setPicker] = useState(false);
-  // Setiap aksi dari menu langsung menutup menu, supaya daftar pesan tetap bersih.
-  const run = (fn: (message: Message) => void) => () => {
-    setPicker(false);
-    onDeselect();
-    fn(message);
+  const showAvatar = kind === "channel" && !mine;
+
+  const openMenu = (pickerOnly = false) => {
+    if (bubble.current) onMenu(message, bubble.current.getBoundingClientRect(), pickerOnly);
   };
 
-  if (message.deleted) {
-    return (
-      <div data-mid={message.id} className={`flex ${mine ? "justify-end" : "justify-start"} ${grouped ? "" : "pt-1.5"}`}>
-        <p className={`px-3 py-1.5 font-mono text-[11px] italic text-[#3B5A70]/80 ${kind === "channel" && !mine ? "ml-10" : ""}`}>
-          Pesan ini sudah dihapus
-        </p>
-      </div>
-    );
-  }
+  const quickReact = (key: ReactionKey) => {
+    if (pending) return;
+    if (!message.reactions.some((r) => r.key === key && r.users.includes(me))) setBurst((n) => n + 1);
+    actions.onReact(message, key);
+  };
+
+  /* -------- gestur sentuh: geser kanan = balas, tahan = menu, ketuk dua kali = suka -------- */
+  const endGesture = (commit: boolean) => {
+    const g = gesture.current;
+    if (g?.timer) clearTimeout(g.timer);
+    if (commit && g?.swiping && offset >= SWIPE_TRIGGER && !pending) actions.onReply(message);
+    gesture.current = null;
+    setDragging(false);
+    setOffset(0);
+  };
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (e.pointerType === "mouse" || !interactive) return;
+    const timer = setTimeout(() => {
+      vibrate(12);
+      gesture.current = null;
+      setOffset(0);
+      openMenu();
+    }, LONG_PRESS_MS);
+    gesture.current = { x: e.clientX, y: e.clientY, t: Date.now(), swiping: false, timer };
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    const g = gesture.current;
+    if (!g) return;
+    const dx = e.clientX - g.x;
+    const dy = e.clientY - g.y;
+    if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+      if (g.timer) clearTimeout(g.timer);
+      g.timer = null;
+    }
+    if (!g.swiping) {
+      if (dx > 12 && Math.abs(dx) > Math.abs(dy) * 1.4 && !pending) {
+        g.swiping = true;
+        setDragging(true);
+      } else if (Math.abs(dy) > 12) {
+        gesture.current = null; // scroll vertikal: lepaskan gestur.
+        return;
+      }
+    }
+    if (g.swiping) {
+      // Hambatan makin terasa mendekati batas, seperti WhatsApp.
+      const next = Math.min(SWIPE_MAX, dx < SWIPE_TRIGGER ? dx : SWIPE_TRIGGER + (dx - SWIPE_TRIGGER) * 0.3);
+      if (offset < SWIPE_TRIGGER && next >= SWIPE_TRIGGER) vibrate(8);
+      setOffset(Math.max(0, next));
+    }
+  };
+
+  const onPointerUp = (e: React.PointerEvent) => {
+    const g = gesture.current;
+    if (e.pointerType !== "mouse" && g && !g.swiping && Date.now() - g.t < 250) {
+      const now = Date.now();
+      if (now - lastTap.current < DOUBLE_TAP_MS) {
+        lastTap.current = 0;
+        quickReact("heart");
+      } else {
+        lastTap.current = now;
+      }
+    }
+    endGesture(true);
+  };
+
+  // Pesan yang dihapus hilang total dari tampilan.
+  if (message.deleted) return null;
+
+  const tick =
+    mine &&
+    (message.local === "sending" ? "sending" : message.local === "failed" ? "failed" : kind === "dm" ? (read ? "read" : "sent") : "sent");
+  const invite = !jumbo ? firstInviteCode(message.body) : null;
+  const replyTone = message.reply_to ? replyColor(message.reply_to.author.username) : null;
+
+  const meta = (
+    <span className={`chat-time ml-auto inline-flex shrink-0 items-center gap-1 self-end whitespace-nowrap pl-2 text-[11px] leading-none ${jumbo ? "text-[#3B5A70]" : "text-[#5F7F95]"}`}>
+      {message.edited_at && <span className="italic">diedit</span>}
+      <span>{clockTime(message.created_at)}</span>
+      {tick && <PixelTick state={tick} />}
+    </span>
+  );
 
   return (
     <div
       data-mid={message.id}
-      className={`group/msg relative flex gap-2 ${mine ? "flex-row-reverse" : ""} ${grouped ? "pt-0.5" : "pt-2"}`}
+      className={`group/msg relative flex touch-pan-y items-end gap-2 ${mine ? "flex-row-reverse" : ""} ${grouped ? "pt-1.5" : firstOfDay ? "pt-2" : "pt-4"} ${
+        animate ? (mine ? "chat-in-mine" : "chat-in-other") : ""
+      } ${highlighted ? "chat-flash" : ""}`}
     >
-      {kind === "channel" && !mine && (
-        <span className="w-8 shrink-0">
-          {!grouped && <Avatar name={message.author.display_name} seed={message.author.username} size="sm" />}
+      {/* Ikon balas yang muncul di belakang bubble saat digeser. */}
+      <span
+        className="pointer-events-none absolute left-1 top-1/2 flex h-8 w-8 items-center justify-center bg-[#0369A1] text-white"
+        style={{ opacity: Math.min(1, offset / SWIPE_TRIGGER), transform: `translateY(-50%) scale(${0.5 + Math.min(1, offset / SWIPE_TRIGGER) * 0.5})` }}
+        aria-hidden="true"
+      >
+        <Reply className="h-4 w-4" />
+      </span>
+
+      {showAvatar && (
+        <span className="w-8 shrink-0 self-end">
+          {lastInGroup && <Avatar name={message.author.display_name} seed={message.author.username} src={message.author.avatar} size="sm" />}
         </span>
       )}
 
-      <div className={`flex min-w-0 max-w-[85%] flex-col sm:max-w-[72%] ${mine ? "items-end" : "items-start"}`}>
+      <div
+        className={`relative flex min-w-0 max-w-[82%] flex-col sm:max-w-[68%] ${mine ? "items-end" : "items-start"}`}
+        style={{ transform: offset ? `translateX(${offset}px)` : undefined, transition: dragging ? "none" : "transform .24s cubic-bezier(.22,1,.36,1)" }}
+      >
         {showAuthor && (
-          <p className="mb-0.5 flex items-baseline gap-2 px-0.5">
+          <p className="mb-1 flex max-w-full items-baseline gap-1.5 px-0.5">
             <span className="truncate text-[13px] font-bold text-[#072033]">{message.author.display_name}</span>
-            <span className="truncate font-mono text-[10px] text-[#3B5A70]">@{message.author.username}</span>
+            <span className="truncate text-[11px] text-[#3B5A70]">@{message.author.username}</span>
           </p>
         )}
 
         <div
+          ref={bubble}
           role="button"
           tabIndex={0}
-          aria-pressed={selected}
-          aria-label={`Pesan dari ${message.author.display_name}, pukul ${clockTime(message.created_at)}. Tekan untuk aksi.`}
-          onClick={(e) => {
+          aria-haspopup="dialog"
+          aria-label={`Pesan dari ${mine ? "kamu" : message.author.display_name}, pukul ${clockTime(message.created_at)}. Tekan Enter untuk aksi.`}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={() => endGesture(false)}
+          onContextMenu={(e) => {
             if ((e.target as HTMLElement).closest("a")) return;
-            onSelect();
+            e.preventDefault();
+            gesture.current = null;
+            openMenu();
+          }}
+          onClick={(e) => {
+            if (message.local === "failed" && !(e.target as HTMLElement).closest("a")) actions.onRetry(message);
           }}
           onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
+            if (e.key === "Enter" || e.key === " " || e.key === "ContextMenu") {
               e.preventDefault();
-              onSelect();
+              openMenu();
             }
           }}
-          className={`relative max-w-full cursor-pointer select-text px-3 py-2 text-left text-[14px] leading-relaxed outline-none transition-[box-shadow,background-color] duration-200 focus-visible:shadow-[0_0_0_3px_#0369A1] ${
-            mine
-              ? "bg-[#DCEBF5] text-[#072033] shadow-[0_0_0_2px_#9CC6E0]"
-              : "bg-white text-[#072033] shadow-[0_0_0_2px_#CFE2EE]"
-          } ${mentionsMe ? "shadow-[inset_3px_0_0_#FCD34D,0_0_0_2px_#FCD34D]" : ""} ${
-            highlighted ? "shadow-[0_0_0_3px_#0369A1]" : ""
-          }`}
+          className={`relative max-w-full select-text text-left outline-none [-webkit-touch-callout:none] focus-visible:shadow-[0_0_0_3px_#0369A1] [@media(pointer:coarse)]:select-none ${
+            jumbo
+              ? "px-1 py-0.5"
+              : `px-3.5 pb-2 pt-[9px] ${
+                  mentionsMe
+                    ? "bg-[#FFFBEB] text-[#072033] shadow-[inset_3px_0_0_#F59E0B,0_0_0_2px_#FCD34D]"
+                    : mine
+                      ? "bg-[#D7E9F5] text-[#072033] shadow-[0_0_0_2px_#9CC6E0]"
+                      : "bg-white text-[#072033] shadow-[0_0_0_2px_#D9E5ED]"
+                }`
+          } ${message.local === "failed" ? "cursor-pointer opacity-80" : ""} ${message.local === "sending" ? "opacity-90" : ""}`}
         >
           {message.pinned && (
-            <span className="mb-1 flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#0369A1]">
+            <span className="mb-1 flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.1em] text-[#0369A1]">
               <Pin className="h-3 w-3" aria-hidden="true" /> Disematkan
             </span>
           )}
-          {message.reply_to && (
-            <span className="mb-1.5 block min-w-0 max-w-full border-l-[3px] border-[#0369A1] bg-[#0369A1]/[0.06] px-2 py-1">
-              <span className="block truncate text-[12px] font-bold text-[#0369A1]">
-                {message.reply_to.author.display_name || "Pengguna"}
+          {message.reply_to && replyTone && (
+            <button
+              type="button"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (message.reply_to) onJump(message.reply_to.id);
+              }}
+              className="mb-1.5 block w-full min-w-[8rem] max-w-full border-l-[3px] px-2.5 py-1 text-left transition-colors"
+              style={{ borderColor: replyTone, background: `${replyTone}12` }}
+              aria-label={`Lihat pesan yang dibalas dari ${message.reply_to.author.display_name}`}
+            >
+              <span className="block truncate text-[13px] font-semibold" style={{ color: replyTone }}>
+                {message.reply_to.author.username === me ? "Kamu" : message.reply_to.author.display_name || "Pengguna"}
               </span>
-              <span className="block truncate text-[12px] text-[#3B5A70]">
-                {message.reply_to.deleted ? "Pesan dihapus" : message.reply_to.preview}
-              </span>
+              <span className="line-clamp-2 block text-[13px] leading-snug text-[#3B5A70]">{stripFormatting(message.reply_to.preview)}</span>
+            </button>
+          )}
+          <span className="flex flex-wrap items-end gap-y-1">
+            <span className={`min-w-0 break-words [overflow-wrap:anywhere] ${jumbo ? "text-[42px] leading-tight" : "text-[15px] leading-[1.5]"}`}>
+              <MessageBody text={message.body} me={me} />
+            </span>
+            {meta}
+          </span>
+          {invite && <InviteCard code={invite} />}
+          {message.local === "failed" && <span className="mt-1 block text-[12px] font-semibold text-[#BE123C]">Gagal terkirim. Ketuk untuk kirim ulang.</span>}
+
+          {burst > 0 && (
+            <span key={burst} className="heart-burst pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden="true">
+              <Emoji name="heart" size={44} />
             </span>
           )}
-          <span className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
-            <MessageBody text={message.body} me={me} />
-          </span>
-          <span className="ml-2 inline-flex translate-y-0.5 items-center gap-1 whitespace-nowrap align-bottom font-mono text-[10px] text-[#3B5A70]/80">
-            {message.edited_at && <span>diedit</span>}
-            {clockTime(message.created_at)}
-            {mine && kind === "dm" && (read ? (
-              <CheckCheck className="h-3.5 w-3.5 text-[#0369A1]" aria-label="Sudah dibaca" />
-            ) : (
-              <Check className="h-3.5 w-3.5" aria-label="Terkirim" />
-            ))}
-          </span>
         </div>
 
         {message.reactions.length > 0 && (
-          <div className={`mt-1 flex flex-wrap gap-1 ${mine ? "justify-end" : ""}`}>
+          <div className={`relative z-[1] mt-1 flex flex-wrap gap-1 px-0.5 ${mine ? "justify-end" : ""}`}>
             {message.reactions.map((reaction) => {
-              const meta = REACTION_MAP[reaction.key];
-              if (!meta) return null;
               const reacted = reaction.users.includes(me);
-              const Icon = meta.icon;
               return (
                 <button
-                  key={reaction.key}
+                  key={`${reaction.key}-${reaction.count}`}
                   type="button"
-                  onClick={() => actions.onReact(message, reaction.key)}
-                  title={`${meta.label}: ${reaction.users.map((u) => "@" + u).join(", ")}`}
+                  onClick={() => quickReact(reaction.key)}
+                  title={`${REACTION_LABEL[reaction.key] ?? reaction.key}: ${reaction.users.map((u) => "@" + u).join(", ")}`}
                   aria-pressed={reacted}
-                  aria-label={`${meta.label} ${reaction.count}`}
-                  className={`inline-flex h-7 items-center gap-1 px-2 font-mono text-[11px] font-bold transition-colors ${
-                    reacted
-                      ? "bg-[#0369A1] text-white shadow-[0_0_0_2px_#0369A1]"
-                      : "bg-white text-[#072033] shadow-[0_0_0_2px_#CFE2EE] hover:shadow-[0_0_0_2px_#5FA3CC]"
+                  aria-label={`${REACTION_LABEL[reaction.key] ?? reaction.key} ${reaction.count}`}
+                  className={`react-pop inline-flex h-7 items-center gap-1 pl-1 pr-2 text-xs font-bold transition-[transform,background-color] duration-150 hover:-translate-y-0.5 ${
+                    reacted ? "bg-[#DCEBF5] text-[#0369A1] shadow-[0_0_0_2px_#0369A1]" : "bg-white text-[#072033] shadow-[0_0_0_2px_#CFE2EE]"
                   }`}
                 >
-                  <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-                  {reaction.count}
+                  <Emoji name={reaction.key} size={18} />
+                  <span className="chat-time">{reaction.count}</span>
                 </button>
               );
             })}
           </div>
         )}
 
-        {(selected || picker) && (
-          <div className={`menu-drop mt-1.5 flex flex-wrap items-center gap-1 ${mine ? "justify-end" : ""}`}>
-            {REACTIONS.map(({ key, label, icon: Icon }) => (
-              <ActionButton key={key} label={label} onClick={run((m) => actions.onReact(m, key))}>
-                <Icon className="h-4 w-4" aria-hidden="true" />
-              </ActionButton>
+        {/* Desktop: toolbar cepat menempel di samping bubble saat hover (seperti Discord). */}
+        {interactive && !pending && (
+          <div
+            className={`pointer-events-none absolute z-[2] hidden items-center gap-0.5 bg-white p-0.5 opacity-0 shadow-[0_0_0_2px_#CFE2EE,3px_3px_0_0_#E4EEF4] transition-opacity duration-150 group-hover/msg:pointer-events-auto group-hover/msg:opacity-100 group-focus-within/msg:pointer-events-auto group-focus-within/msg:opacity-100 [@media(hover:hover)_and_(pointer:fine)]:flex ${
+              mine ? "left-1" : "right-1"
+            } ${showAuthor ? "-top-2" : "-top-4"}`}
+          >
+            {QUICK_REACTIONS.slice(0, 3).map((key) => (
+              <ToolbarButton key={key} label={REACTION_LABEL[key]} onClick={() => quickReact(key)}>
+                <Emoji name={key} size={20} />
+              </ToolbarButton>
             ))}
-            <span className="mx-0.5 h-5 w-0.5 bg-[#CFE2EE]" aria-hidden="true" />
-            <ActionButton label="Balas" onClick={run(actions.onReply)}>
+            <ToolbarButton label="Tambah reaksi" onClick={() => openMenu(true)}>
+              <SmilePlus className="h-4 w-4" aria-hidden="true" />
+            </ToolbarButton>
+            <ToolbarButton label="Balas" onClick={() => actions.onReply(message)}>
               <Reply className="h-4 w-4" aria-hidden="true" />
-            </ActionButton>
-            <ActionButton label="Salin" onClick={run(actions.onCopy)}>
-              <Copy className="h-4 w-4" aria-hidden="true" />
-            </ActionButton>
-            {canPin && (
-              <ActionButton label={message.pinned ? "Lepas sematan" : "Sematkan"} onClick={run(actions.onPin)}>
-                {message.pinned ? <PinOff className="h-4 w-4" aria-hidden="true" /> : <Pin className="h-4 w-4" aria-hidden="true" />}
-              </ActionButton>
-            )}
-            {mine && (
-              <ActionButton label="Edit" onClick={run(actions.onEdit)}>
-                <Pencil className="h-4 w-4" aria-hidden="true" />
-              </ActionButton>
-            )}
-            {(mine || canModerate) && (
-              <ActionButton label="Hapus" danger onClick={run(actions.onDelete)}>
-                <Trash2 className="h-4 w-4" aria-hidden="true" />
-              </ActionButton>
-            )}
+            </ToolbarButton>
+            <ToolbarButton label="Lainnya" onClick={() => openMenu()}>
+              <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+            </ToolbarButton>
           </div>
         )}
       </div>
-
-      {/* Desktop: aksi cepat muncul saat hover, seperti Discord. */}
-      {!selected && (
-        <div
-          className={`pointer-events-none absolute top-0 hidden items-center gap-1 opacity-0 transition-opacity duration-150 group-hover/msg:pointer-events-auto group-hover/msg:opacity-100 lg:flex ${
-            mine ? "left-0" : "right-0"
-          }`}
-        >
-          <ActionButton label="Reaksi" onClick={() => setPicker((p) => !p)}>
-            <SmilePlus className="h-4 w-4" aria-hidden="true" />
-          </ActionButton>
-          <ActionButton label="Balas" onClick={() => actions.onReply(message)}>
-            <Reply className="h-4 w-4" aria-hidden="true" />
-          </ActionButton>
-          {mine && (
-            <ActionButton label="Edit" onClick={() => actions.onEdit(message)}>
-              <Pencil className="h-4 w-4" aria-hidden="true" />
-            </ActionButton>
-          )}
-        </div>
-      )}
     </div>
   );
 }
 
-function ActionButton({
-  label,
-  onClick,
-  danger = false,
-  children,
-}: {
-  label: string;
-  onClick: () => void;
-  danger?: boolean;
-  children: React.ReactNode;
-}) {
+function ToolbarButton({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
       type="button"
@@ -437,9 +606,7 @@ function ActionButton({
         e.stopPropagation();
         onClick();
       }}
-      className={`flex h-9 w-9 items-center justify-center bg-white shadow-[0_0_0_2px_#CFE2EE] transition-colors lg:h-8 lg:w-8 ${
-        danger ? "text-[#BE123C] hover:bg-[#FFF1F2]" : "text-[#072033] hover:bg-[#EAF3F9] hover:text-[#0369A1]"
-      }`}
+      className="flex h-8 w-8 items-center justify-center text-[#3B5A70] transition-[transform,background-color,color] duration-150 hover:scale-110 hover:bg-[#EAF3F9] hover:text-[#072033]"
     >
       {children}
     </button>

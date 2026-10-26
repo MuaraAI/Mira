@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Hash, Pin, Search, Users } from "lucide-react";
+import { ArrowLeft, Hash, Pencil, Pin, Search, Users, X } from "lucide-react";
 import { useDialog } from "@/components/ConfirmDialog";
 import { Avatar } from "@/components/social/Avatar";
 import { Composer } from "@/components/social/Composer";
 import { MessageList } from "@/components/social/MessageList";
-import { MemberList, PinsSheet, SearchSheet } from "@/components/social/SocialSheets";
+import { MemberList, PinsSheet, ProfileCard, SearchSheet } from "@/components/social/SocialSheets";
 import { SideSheet } from "@/components/SideSheet";
 import {
   lastSeenLabel,
@@ -16,21 +16,35 @@ import {
   type Member,
   type Message,
   type ReactionKey,
+  type RecentEdit,
   type SpaceItem,
 } from "@/lib/social";
 
 export interface ConversationState {
   messages: Message[];
+  /** Bubble optimistis yang belum dikonfirmasi server (selalu tampil paling bawah). */
+  pending: Message[];
   hasMore: boolean;
   loading: boolean;
   loadingOlder: boolean;
   peerLastReadId: number | null;
   unreadFromId: number | null;
+  /** Pesan orang lain yang diedit (sejak terakhir dibuka, atau realtime saat sedang dibuka). */
+  edits: RecentEdit[];
 }
 
 export type ActiveConversation =
   | { kind: "dm"; dm: DmItem }
   | { kind: "channel"; channel: ChannelItem; space: SpaceItem };
+
+/** Render ulang berkala supaya label "terakhir dilihat X menit lalu" tetap akurat. */
+function useMinuteTick() {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setTick((t) => t + 1), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+}
 
 export function ChatPane({
   active,
@@ -38,6 +52,7 @@ export function ChatPane({
   me,
   typingName,
   members,
+  wallpaper,
   onBack,
   onLoadOlder,
   onSend,
@@ -45,14 +60,17 @@ export function ChatPane({
   onDelete,
   onReact,
   onPin,
+  onRetry,
   onTyping,
   onMessageUser,
+  onDismissEdits,
 }: {
   active: ActiveConversation;
   state: ConversationState | undefined;
   me: string;
   typingName: string | null;
   members: Member[];
+  wallpaper: React.CSSProperties;
   onBack: () => void;
   onLoadOlder: () => void;
   onSend: (text: string, replyTo: Message | null) => Promise<boolean>;
@@ -60,15 +78,18 @@ export function ChatPane({
   onDelete: (message: Message) => void;
   onReact: (message: Message, key: ReactionKey) => void;
   onPin: (message: Message) => void;
+  onRetry: (message: Message) => void;
   onTyping: () => void;
   onMessageUser: (username: string) => void;
+  onDismissEdits: () => void;
 }) {
   const { notify } = useDialog();
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [editing, setEditing] = useState<Message | null>(null);
   const [highlight, setHighlight] = useState<number | null>(null);
-  const [sheet, setSheet] = useState<"pins" | "search" | "members" | null>(null);
+  const [sheet, setSheet] = useState<"pins" | "search" | "members" | "profile" | null>(null);
   const [showMembers, setShowMembers] = useState(true);
+  useMinuteTick();
 
   const conversationId = active.kind === "dm" ? active.dm.id : active.channel.id;
   const isChannel = active.kind === "channel";
@@ -81,6 +102,7 @@ export function ChatPane({
     setReplyTo(null);
     setEditing(null);
     setHighlight(null);
+    setSheet(null);
   }, [conversationId]);
 
   useEffect(() => {
@@ -94,19 +116,27 @@ export function ChatPane({
     [members, me]
   );
 
-  const title = active.kind === "dm" ? (active.dm.is_saved ? "Pesan Tersimpan" : active.dm.peer.display_name) : active.channel.name;
-  const subtitle =
-    typingName
-      ? `${typingName} sedang mengetik...`
-      : active.kind === "dm"
-        ? active.dm.is_saved
-          ? "Catatan pribadi, hanya kamu yang bisa melihat"
-          : `@${active.dm.peer.username} · ${lastSeenLabel(active.dm.peer)}`
-        : active.channel.topic || active.space.name;
+  const dm = active.kind === "dm" ? active.dm : null;
+  const title = dm ? (dm.is_saved ? "Pesan Tersimpan" : dm.peer.display_name) : active.kind === "channel" ? active.channel.name : "";
+  const online = !!dm && !dm.is_saved && dm.peer.online;
+  const subtitle = typingName
+    ? `${typingName} mengetik...`
+    : dm
+      ? dm.is_saved
+        ? "Catatan pribadi, hanya kamu yang bisa melihat"
+        : lastSeenLabel(dm.peer)
+      : active.kind === "channel"
+        ? active.channel.topic || `${active.space.name} · ${active.space.member_count} anggota`
+        : "";
+
+  const jumpTo = (id: number) => {
+    if (state?.messages.some((m) => m.id === id && !m.deleted)) setHighlight(id);
+    else notify("Pesan itu sudah lama. Gulir ke atas untuk memuat riwayat sebelumnya.", "error");
+  };
 
   const pick = (message: Message) => {
     setSheet(null);
-    setHighlight(message.id);
+    jumpTo(message.id);
   };
 
   const editLast = () => {
@@ -117,28 +147,43 @@ export function ChatPane({
     }
   };
 
+  const edits = state?.edits ?? [];
+  const editors = [...new Set(edits.map((e) => e.author.display_name))];
   const headerButton = "flex h-10 w-10 shrink-0 items-center justify-center text-[#3B5A70] transition-colors hover:bg-[#EAF3F9] hover:text-[#072033]";
 
   return (
-    <div className="flex h-full min-w-0 flex-1">
+    <div className="chat-ui flex h-full min-w-0 flex-1">
       <section className="flex min-w-0 flex-1 flex-col bg-white" aria-label={`Percakapan ${title}`}>
-        <header className="flex h-14 shrink-0 items-center gap-2 border-b-2 border-[#CFE2EE] bg-white px-2 sm:px-3">
-          <button type="button" onClick={onBack} aria-label="Kembali ke daftar chat" className={`${headerButton} lg:hidden`}>
+        <header className="flex h-[3.75rem] shrink-0 items-center gap-1 border-b-2 border-[#CFE2EE] bg-white px-1.5 sm:px-3">
+          <button type="button" onClick={onBack} aria-label="Kembali ke daftar chat" className={`${headerButton} md:hidden`}>
             <ArrowLeft className="h-5 w-5" aria-hidden="true" />
           </button>
-          {active.kind === "dm" ? (
-            <Avatar name={title} seed={active.dm.peer.username} size="sm" online={active.dm.is_saved ? undefined : active.dm.peer.online} saved={active.dm.is_saved} />
-          ) : (
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center bg-[#EAF3F9] text-[#0369A1]">
-              <Hash className="h-4 w-4" aria-hidden="true" />
+          {/* Ketuk identitas untuk melihat profil (DM) atau anggota (channel). */}
+          <button
+            type="button"
+            onClick={() => setSheet(dm ? (dm.is_saved ? null : "profile") : "members")}
+            className="flex min-w-0 flex-1 items-center gap-2.5 py-1 pl-1 pr-2 text-left transition-colors hover:bg-[#F0F7FB]"
+            aria-label={dm ? `Profil ${title}` : `Anggota ${title}`}
+          >
+            {dm ? (
+              <Avatar name={title} seed={dm.peer.username} src={dm.peer.avatar} size="md" online={dm.is_saved ? undefined : dm.peer.online} saved={dm.is_saved} />
+            ) : (
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-[#EAF3F9] text-[#0369A1]">
+                <Hash className="h-5 w-5" aria-hidden="true" />
+              </span>
+            )}
+            <span className="min-w-0">
+              <h2 className="truncate text-base font-bold leading-tight text-[#072033]">{title}</h2>
+              <span
+                className={`flex items-center gap-1.5 truncate text-[13px] leading-tight ${
+                  typingName ? "font-semibold text-[#0369A1]" : online ? "font-medium text-[#15803D]" : "text-[#3B5A70]"
+                }`}
+              >
+                {online && !typingName && <span className="h-2 w-2 shrink-0 bg-[#16A34A]" aria-hidden="true" />}
+                <span className="truncate">{subtitle}</span>
+              </span>
             </span>
-          )}
-          <div className="min-w-0 flex-1 pl-1">
-            <h2 className={`truncate text-sm font-bold text-[#072033] ${isChannel ? "font-mono" : ""}`}>{title}</h2>
-            <p className={`truncate text-[11px] ${typingName ? "font-semibold text-[#0369A1]" : active.kind === "dm" && active.dm.peer.online ? "text-[#0F766E]" : "text-[#3B5A70]"}`}>
-              {subtitle}
-            </p>
-          </div>
+          </button>
           <button type="button" onClick={() => setSheet("search")} aria-label="Cari pesan" title="Cari pesan" className={headerButton}>
             <Search className="h-[18px] w-[18px]" aria-hidden="true" />
           </button>
@@ -146,37 +191,52 @@ export function ChatPane({
             <Pin className="h-[18px] w-[18px]" aria-hidden="true" />
           </button>
           {isChannel && (
-            <>
-              <button
-                type="button"
-                onClick={() => setShowMembers((v) => !v)}
-                aria-pressed={showMembers}
-                aria-label="Tampilkan anggota"
-                title="Anggota"
-                className={`${headerButton} hidden xl:flex ${showMembers ? "bg-[#EAF3F9] text-[#0369A1]" : ""}`}
-              >
-                <Users className="h-[18px] w-[18px]" aria-hidden="true" />
-              </button>
-              <button type="button" onClick={() => setSheet("members")} aria-label="Anggota" title="Anggota" className={`${headerButton} xl:hidden`}>
-                <Users className="h-[18px] w-[18px]" aria-hidden="true" />
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={() => setShowMembers((v) => !v)}
+              aria-pressed={showMembers}
+              aria-label="Tampilkan anggota"
+              title="Anggota"
+              className={`${headerButton} hidden xl:flex ${showMembers ? "bg-[#EAF3F9] text-[#0369A1]" : ""}`}
+            >
+              <Users className="h-[18px] w-[18px]" aria-hidden="true" />
+            </button>
           )}
         </header>
 
+        {edits.length > 0 && (
+          <div className="menu-drop flex shrink-0 items-center gap-2 border-b-2 border-[#FDE68A] bg-[#FFFBEB] py-1.5 pl-3 pr-1" role="status">
+            <Pencil className="h-4 w-4 shrink-0 text-[#A16207]" aria-hidden="true" />
+            <button type="button" onClick={() => jumpTo(edits[0].id)} className="min-w-0 flex-1 text-left">
+              <span className="block truncate text-[13px] font-semibold text-[#713F12]">
+                {editors.slice(0, 2).join(", ")}
+                {editors.length > 2 ? ` +${editors.length - 2}` : ""} mengedit {edits.length} pesan
+              </span>
+              <span className="block truncate text-[12px] text-[#854D0E]">&ldquo;{edits[0].preview}&rdquo; · ketuk untuk lihat</span>
+            </button>
+            <button type="button" onClick={onDismissEdits} aria-label="Tutup pemberitahuan edit" className="flex h-9 w-9 shrink-0 items-center justify-center text-[#A16207] hover:bg-[#FEF3C7]">
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        )}
+
         {!state || state.loading ? (
-          <div className="flex flex-1 flex-col gap-3 bg-[#F7FAFC] p-4" aria-busy="true" aria-label="Memuat pesan">
+          <div className="flex flex-1 flex-col gap-3 p-4" style={wallpaper} aria-busy="true" aria-label="Memuat pesan">
             {[60, 40, 72, 52].map((w, i) => (
-              <span key={i} className={`px-skeleton block h-10 ${i % 2 ? "self-end" : ""}`} style={{ width: `${w}%` }} />
+              <span key={i} className={`px-skeleton block h-11 ${i % 2 ? "self-end" : ""}`} style={{ width: `${w}%` }} />
             ))}
           </div>
-        ) : state.messages.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center bg-[#F7FAFC] px-6 text-center">
-            <span className="px-icon h-14 w-14">
-              {isChannel ? <Hash className="h-7 w-7" aria-hidden="true" /> : <Avatar name={title} seed={active.kind === "dm" ? active.dm.peer.username : ""} saved={active.kind === "dm" && active.dm.is_saved} />}
+        ) : state.messages.filter((m) => !m.deleted).length === 0 && state.pending.length === 0 ? (
+          <div className="flex flex-1 flex-col items-center justify-center px-6 text-center" style={wallpaper}>
+            <span className="px-icon h-16 w-16 bg-white">
+              {isChannel ? (
+                <Hash className="h-8 w-8" aria-hidden="true" />
+              ) : (
+                <Avatar name={title} seed={dm?.peer.username ?? ""} src={dm?.peer.avatar} size="lg" saved={!!dm?.is_saved} />
+              )}
             </span>
-            <p className="mt-3 font-display text-base font-bold text-[#072033]">
-              {isChannel ? `Selamat datang di #${title}` : active.kind === "dm" && active.dm.is_saved ? "Simpan apa saja di sini" : `Mulai obrolan dengan ${title}`}
+            <p className="mt-3 text-base font-bold text-[#072033]">
+              {isChannel ? `Selamat datang di #${title}` : dm?.is_saved ? "Simpan apa saja di sini" : `Mulai obrolan dengan ${title}`}
             </p>
             <p className="mt-1 max-w-xs text-sm text-[#3B5A70]">
               {isChannel ? "Ini awal channel. Sapa anggota lain, atau sebut teman dengan @username." : "Kirim pesan pertama di bawah."}
@@ -184,17 +244,20 @@ export function ChatPane({
           </div>
         ) : (
           <MessageList
-            messages={state.messages}
+            messages={state.pending.length ? [...state.messages, ...state.pending] : state.messages}
             me={me}
             kind={active.kind}
             canModerate={canModerate}
             canPin={canPin}
-            peerLastReadId={active.kind === "dm" && !active.dm.is_saved ? state.peerLastReadId : null}
+            peerLastReadId={dm && !dm.is_saved ? state.peerLastReadId : null}
             unreadFromId={state.unreadFromId}
             hasMore={state.hasMore}
             loadingOlder={state.loadingOlder}
             onLoadOlder={onLoadOlder}
             highlightId={highlight}
+            typingName={typingName}
+            onJump={jumpTo}
+            wallpaper={wallpaper}
             actions={{
               onReply: (m) => {
                 setEditing(null);
@@ -207,6 +270,7 @@ export function ChatPane({
               onDelete,
               onReact,
               onPin,
+              onRetry,
               onCopy: async (m) => {
                 try {
                   await navigator.clipboard.writeText(m.body);
@@ -220,9 +284,10 @@ export function ChatPane({
         )}
 
         <Composer
-          placeholder={isChannel ? `Kirim pesan ke #${title}` : active.kind === "dm" && active.dm.is_saved ? "Tulis catatan" : `Pesan untuk ${title}`}
+          placeholder={isChannel ? `Pesan ke #${title}` : dm?.is_saved ? "Tulis catatan" : "Ketik pesan"}
           replyTo={replyTo}
           editing={editing}
+          me={me}
           mentionCandidates={mentionCandidates}
           onCancel={() => {
             setReplyTo(null);
@@ -248,14 +313,17 @@ export function ChatPane({
       </section>
 
       {isChannel && showMembers && (
-        <aside className="scroll-slim hidden w-60 shrink-0 overflow-y-auto border-l-2 border-[#CFE2EE] bg-[#F7FAFC] p-3 xl:block" aria-label="Anggota ruang">
+        <aside className="scroll-slim hidden w-64 shrink-0 overflow-y-auto border-l-2 border-[#CFE2EE] bg-[#F7FAFC] p-3 xl:block" aria-label="Anggota ruang">
           <MemberList members={members} me={me} myRole={null} onMessage={onMessageUser} />
         </aside>
       )}
 
       <PinsSheet open={sheet === "pins"} conversationId={conversationId} me={me} onClose={() => setSheet(null)} onPick={pick} />
       <SearchSheet open={sheet === "search"} conversationId={conversationId} me={me} onClose={() => setSheet(null)} onPick={pick} />
-      {isChannel && (
+      {dm && !dm.is_saved && (
+        <ProfileCard open={sheet === "profile"} profile={dm.peer} onClose={() => setSheet(null)} />
+      )}
+      {active.kind === "channel" && (
         <SideSheet open={sheet === "members"} onClose={() => setSheet(null)} eyebrow={active.space.name} title="Anggota" titleId="social-members-title" width="md">
           <MemberList
             members={members}

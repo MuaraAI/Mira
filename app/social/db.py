@@ -197,6 +197,29 @@ CREATE TABLE IF NOT EXISTS social_mentions (
 CREATE INDEX IF NOT EXISTS idx_social_mentions_nim ON social_mentions(nim, conversation_id);
 """
 
+# Kolom yang ditambahkan setelah rilis pertama. Dijalankan idempoten saat startup
+# (ALTER TABLE hanya bila kolom belum ada) supaya DB produksi lama ikut ter-upgrade.
+_ADDED_COLUMNS = (
+    ("social_profiles", "campus_branch", "TEXT NOT NULL DEFAULT 'UBSI Pontianak'"),
+    ("social_profiles", "major", "TEXT NOT NULL DEFAULT 'Informatika'"),
+    ("social_profiles", "class_code", "TEXT"),
+    ("social_profiles", "avatar_preset", "TEXT NOT NULL DEFAULT 'mura-welcome'"),
+    ("social_profiles", "show_nim", "INTEGER NOT NULL DEFAULT 0"),
+    ("social_profiles", "show_class", "INTEGER NOT NULL DEFAULT 0"),
+    ("social_profiles", "e2ee_public_key", "TEXT"),
+    ("social_profiles", "avatar", "TEXT"),
+    ("social_profiles", "banner", "TEXT"),
+    ("social_profiles", "is_online", "INTEGER NOT NULL DEFAULT 0"),
+    ("social_spaces", "campus_branch", "TEXT"),
+    ("social_spaces", "avatar", "TEXT"),
+    ("social_spaces", "banner", "TEXT"),
+    ("social_messages", "card_type", "TEXT NOT NULL DEFAULT 'none'"),
+    ("social_messages", "card_payload", "TEXT NOT NULL DEFAULT '{}'"),
+    ("social_messages", "is_encrypted", "INTEGER NOT NULL DEFAULT 0"),
+    ("social_messages", "encryption_nonce", "TEXT"),
+    ("social_participants", "last_opened_at", "TEXT"),
+)
+
 
 def init_social_db() -> None:
     if using_postgres():
@@ -209,25 +232,10 @@ def init_social_db() -> None:
     conn = connect()
     try:
         conn.executescript(_SCHEMA)
-        # Migrasi kolom tambahan bila tabel dibuat oleh versi lama
-        for alter_sql in (
-            "ALTER TABLE social_profiles ADD COLUMN campus_branch TEXT NOT NULL DEFAULT 'UBSI Pontianak'",
-            "ALTER TABLE social_profiles ADD COLUMN major TEXT NOT NULL DEFAULT 'Informatika'",
-            "ALTER TABLE social_profiles ADD COLUMN avatar_preset TEXT NOT NULL DEFAULT 'mura-welcome'",
-            "ALTER TABLE social_messages ADD COLUMN card_type TEXT NOT NULL DEFAULT 'none'",
-            "ALTER TABLE social_messages ADD COLUMN card_payload TEXT NOT NULL DEFAULT '{}'",
-            "ALTER TABLE social_profiles ADD COLUMN e2ee_public_key TEXT",
-            "ALTER TABLE social_messages ADD COLUMN is_encrypted INTEGER NOT NULL DEFAULT 0",
-            "ALTER TABLE social_messages ADD COLUMN encryption_nonce TEXT",
-            "ALTER TABLE social_spaces ADD COLUMN campus_branch TEXT",
-            "ALTER TABLE social_profiles ADD COLUMN class_code TEXT",
-            "ALTER TABLE social_profiles ADD COLUMN show_nim INTEGER NOT NULL DEFAULT 0",
-            "ALTER TABLE social_profiles ADD COLUMN show_class INTEGER NOT NULL DEFAULT 0",
-        ):
-            try:
-                conn.execute(alter_sql)
-            except sqlite3.OperationalError:
-                pass
+        for table, column, ddl in _ADDED_COLUMNS:
+            existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+            if column not in existing:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
         conn.commit()
     finally:
         conn.close()
