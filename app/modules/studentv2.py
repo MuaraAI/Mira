@@ -272,7 +272,13 @@ def parse_uts(html: str) -> dict[str, Any]:
         "title": "Ruang Ujian Tengah Semester",
         "jadwal_online_url": None,
         "soal_offline_url": None,
+        "gate": None,
     }
+    # Periksa apakah ada pesan gerbang rilis / sweetalert
+    m_gate = re.search(r"Swal\.fire\(\{[^}]*?text:\s*'([^']{5,300})'", html, re.S)
+    if m_gate:
+        uts["gate"] = m_gate.group(1).strip()
+
     for a in page.css("a"):
         h = a.attrib.get("href", "")
         t = a.get_all_text().strip().lower()
@@ -289,7 +295,12 @@ def parse_uas(html: str) -> dict[str, Any]:
         "title": "Ruang Ujian Akhir Semester",
         "jadwal_online_url": None,
         "soal_offline_url": None,
+        "gate": None,
     }
+    m_gate = re.search(r"Swal\.fire\(\{[^}]*?text:\s*'([^']{5,300})'", html, re.S)
+    if m_gate:
+        uas["gate"] = m_gate.group(1).strip()
+
     for a in page.css("a"):
         h = a.attrib.get("href", "")
         t = a.get_all_text().strip().lower()

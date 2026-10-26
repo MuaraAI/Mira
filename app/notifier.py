@@ -308,14 +308,13 @@ async def _absen_process_course(
         await redis.set(key, json.dumps({**state, "next": now_ts + ABSEN_RECHECK_SECONDS}), ex=86400)
         return 0
     html = await pooled_elearning_client.fetch_page(f"/absen-mhs/{token}", nim, elearning_password)
-    session_open = bool(inspect_session_status(html).get("can_submit"))
-    if session_open:
-        # Form absen/komentar bisa tetap terrender WALAU user sudah absen ->
-        # jangan percaya can_submit mentah. Cek rekap AJAX: ada baris hadir
-        # bertanggal hari ini = sudah absen, hentikan pengingat permanen.
-        m_rekap = re.findall(r"rekap-side/([^\"'\s]+)", html)
-        if m_rekap:
-            rekap_tok = extract_clean_token(m_rekap[0])
+    # 1. Selalu periksa rekap presensi terlebih dahulu TANPA syarat can_submit:
+    # Mahasiswa yang sudah absen manual di web kampus atau dosen yang sudah tutup sesi
+    # tidak boleh lagi dikirimi notifikasi tuduhan belum absen.
+    m_rekap = re.findall(r"rekap-side/([^\"'\s]+)", html)
+    if m_rekap:
+        rekap_tok = extract_clean_token(m_rekap[0])
+        try:
             raw_rekap = await pooled_elearning_client.fetch_page(
                 f"/rekap-side/{rekap_tok}", nim, elearning_password
             )
@@ -327,9 +326,13 @@ async def _absen_process_course(
                     and "hadir" in status_absen
                     and "tidak" not in status_absen
                 ):
-                    # Sudah absen: tandai selesai, jangan ganggu lagi hari ini.
+                    # Terbukti sudah hadir hari ini: tandai selesai, stop pengingat.
                     await redis.set(key, json.dumps({**state, "done": True}), ex=86400)
                     return 0
+        except Exception:
+            logger.debug("Gagal fetch rekap presensi untuk verifikasi NIM %s", nim)
+
+    session_open = bool(inspect_session_status(html).get("can_submit"))
     action, new_state = absen_decision(state, session_open, now_ts)
     if action == "remind":
         nama = str(course.get("nama") or "Kuliah").strip()

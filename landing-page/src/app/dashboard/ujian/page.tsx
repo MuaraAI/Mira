@@ -15,6 +15,7 @@ interface ExamData {
   title?: string;
   jadwal_online_url?: string | null;
   soal_offline_url?: string | null;
+  gate?: string | null;
 }
 
 interface ScheduleItem {
@@ -76,6 +77,15 @@ export default function UjianPage() {
       </div>
 
       {/* Main Info Card */}
+      {currentExam?.gate && (
+        <div className="flex items-start gap-3 border-l-4 border-[#F59E0B] bg-[#FEF3C7] px-4 py-3" role="status">
+          <div className="min-w-0">
+            <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#92400E]">Status Jadwal Ujian</p>
+            <p className="mt-0.5 text-sm font-semibold text-[#78350F]">{currentExam.gate}</p>
+          </div>
+        </div>
+      )}
+
       <div className="glass-card p-6 border-l-4 border-l-[#0369A1]">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
