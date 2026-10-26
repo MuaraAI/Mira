@@ -309,12 +309,35 @@ async def _produce_user_category(
                     if await _claim(f"ubsi:notify:quizseen:{nim}:{qid}", 7 * 24 * 3600):
                         claimed_quiz_ids.append(qid)
                         new_quizzes.append(q)
-                task_count = 0
+                unsubmitted_tasks: list[dict[str, Any]] = []
                 for course in parse_courses(raw_assignments):
                     token_assignment = course.get("token_assignment")
                     if token_assignment:
                         task_html = await pooled_elearning_client.fetch_page(f"/assignment/{token_assignment}", nim, elearning_password)
-                        task_count += len(parse_assignments(task_html).get("tasks", []))
+                        assigned = parse_assignments(task_html)
+                        tasks = assigned.get("tasks", [])
+                        submissions = assigned.get("submissions", [])
+                        # Kumpulkan id/nomor tugas yang SUDAH dikumpulkan mahasiswa
+                        submitted_ids = {
+                            str(s.get("tugas_id") or s.get("id") or s.get("judul") or "").strip()
+                            for s in submissions if s
+                        }
+                        for t in tasks:
+                            tid = str(t.get("id") or t.get("judul") or "").strip()
+                            # Abaikan tugas yang sudah dikumpulkan
+                            if tid and tid in submitted_ids:
+                                continue
+                            unsubmitted_tasks.append(t)
+
+                # Filter hanya tugas BARU yang belum pernah dinotifikasikan
+                new_tasks: list[dict[str, Any]] = []
+                for t in unsubmitted_tasks:
+                    tid = t.get("id") or t.get("judul")
+                    if not tid:
+                        continue
+                    if await _claim(f"ubsi:notify:taskseen:{nim}:{tid}", 14 * 24 * 3600):
+                        new_tasks.append(t)
+
                 if new_quizzes:
                     names = ", ".join(str(q.get("paket")) for q in new_quizzes[:3])
                     more = f" +{len(new_quizzes) - 3} lainnya" if len(new_quizzes) > 3 else ""
@@ -324,11 +347,13 @@ async def _produce_user_category(
                         "description": f"Kuis baru di MyBest: {names}{more}. Kerjakan sebelum waktu ujiannya berakhir.",
                         "link": f"{settings.WEB_BASE_URL}/dashboard/kuis",
                     }
-                elif task_count:
+                elif new_tasks:
+                    names = ", ".join(str(t.get("judul")) for t in new_tasks[:3])
+                    more = f" +{len(new_tasks) - 3} lainnya" if len(new_tasks) > 3 else ""
                     payload = {
                         "category": category,
-                        "title": "Tugas dan kuis MyBest tersedia",
-                        "description": f"Tersedia {task_count} tugas di MyBest. Periksa dashboard sebelum tenggat.",
+                        "title": f"Tugas Baru ({len(new_tasks)})",
+                        "description": f"Tugas baru di MyBest: {names}{more}. Selesaikan sebelum batas pengumpulan.",
                         "link": f"{settings.WEB_BASE_URL}/dashboard/tugas",
                     }
             elif category == "nilai-keluar":
@@ -350,14 +375,30 @@ async def _produce_user_category(
                 raw_uas = await studentv2_client.fetch_page("/mahasiswa/uas", nim, student_password)
                 uts = parse_uts(raw_uts)
                 uas = parse_uas(raw_uas)
-                if uts.get("jadwal_online_url") or uts.get("soal_offline_url"):
+                # Hanya kirim notifikasi jika jadwal BENAR-BENAR sudah dirilis (ada tabel/gate tidak aktif)
+                uts_released = False
+                uas_released = False
+                if uts.get("jadwal_online_url"):
+                    try:
+                        raw_uts_sch = await studentv2_client.fetch_page("/mahasiswa/uts-jadwal", nim, student_password)
+                        uts_released = "<table" in raw_uts_sch.lower() and "belum dapat dilihat" not in raw_uts_sch.lower()
+                    except Exception:
+                        uts_released = False
+                if uas.get("jadwal_online_url"):
+                    try:
+                        raw_uas_sch = await studentv2_client.fetch_page("/mahasiswa/uas-jadwal", nim, student_password)
+                        uas_released = "<table" in raw_uas_sch.lower() and "belum dapat dilihat" not in raw_uas_sch.lower()
+                    except Exception:
+                        uas_released = False
+
+                if uts_released or uts.get("soal_offline_url"):
                     payload = {
                         "category": category,
                         "title": "Jadwal & Ruang UTS Telah Diumumkan",
                         "description": "Informasi jadwal ruang ujian tengah semester (UTS) telah dirilis di SIAKAD. Periksa jadwal dan persiapan ujian Anda.",
                         "link": f"{settings.WEB_BASE_URL}/dashboard/ujian",
                     }
-                elif uas.get("jadwal_online_url") or uas.get("soal_offline_url"):
+                elif uas_released or uas.get("soal_offline_url"):
                     payload = {
                         "category": category,
                         "title": "Jadwal & Ruang UAS Telah Diumumkan",

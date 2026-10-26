@@ -188,7 +188,7 @@ async def test_user_notification_dispatches_jadwal_ujian():
     with (
         patch("app.modules.news.list_active_by_category", new=AsyncMock(return_value=[active_channel])),
         patch("app.modules.news.session_store.get_credentials_for_nim", new=AsyncMock(return_value=("15260767", "sv", "el"))),
-        patch("app.modules.studentv2.studentv2_client.fetch_page", new=AsyncMock(side_effect=["<html>uts</html>", "<html>uas</html>"])),
+        patch("app.modules.studentv2.studentv2_client.fetch_page", new=AsyncMock(side_effect=["<html>uts</html>", "<html>uas</html>", "<table>jadwal</table>"])),
         patch("app.modules.studentv2.parse_uts", return_value={"jadwal_online_url": "https://uts.bsi.ac.id/jadwal", "soal_offline_url": None}),
         patch("app.modules.studentv2.parse_uas", return_value={"jadwal_online_url": None, "soal_offline_url": None}),
         patch("app.modules.news.dispatch_webhook_notification", new=AsyncMock(return_value=True)) as dispatch,
@@ -422,3 +422,35 @@ async def test_known_quiz_is_not_renotified(monkeypatch):
         assert await _produce_user_category("quiz-tugas") == 0  # kuis yang sama: tidak dikirim ulang
 
     assert dispatch.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_jadwal_ujian_gate_suppresses_fake_notification():
+    """Jika halaman jadwal UTS memuat gate 'belum dapat dilihat', jangan kirim notif."""
+    from app.modules.news import _produce_user_category
+
+    active_channel = {
+        "id": 12,
+        "nim": "15260767",
+        "type": "custom",
+        "categories": ["jadwal-ujian"],
+        "config": {"url": "https://example.com/webhook"},
+    }
+    with (
+        patch("app.modules.news.list_active_by_category", new=AsyncMock(return_value=[active_channel])),
+        patch("app.modules.news.session_store.get_credentials_for_nim", new=AsyncMock(return_value=("15260767", "sv", "el"))),
+        patch("app.modules.studentv2.studentv2_client.fetch_page", new=AsyncMock(side_effect=[
+            "<html>uts</html>", "<html>uas</html>",
+            "<script>Swal.fire({text: 'Mohon Maaf Jadwal UTS Belum Dapat Dilihat'});</script>"
+        ])),
+        patch("app.modules.studentv2.parse_uts", return_value={"jadwal_online_url": "https://uts.bsi.ac.id/jadwal", "soal_offline_url": None}),
+        patch("app.modules.studentv2.parse_uas", return_value={"jadwal_online_url": None, "soal_offline_url": None}),
+        patch("app.modules.news.dispatch_webhook_notification", new=AsyncMock(return_value=True)) as dispatch,
+        patch("app.modules.news.cache.get_client") as get_client,
+    ):
+        redis = AsyncMock()
+        redis.get.return_value = None
+        get_client.return_value = redis
+        # Gate aktif: harus 0 notifikasi (tidak ada false alarm)
+        assert await _produce_user_category("jadwal-ujian") == 0
+        dispatch.assert_not_called()
