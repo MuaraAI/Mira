@@ -43,6 +43,38 @@ def test_parse_courses():
     assert first["token_assignment"] is not None
     assert first["token_learning"] is not None
 
+def test_parse_courses_v2_jadwal_card():
+    """Layout MyBest baru (jadwal-card) - snapshot live ter-sanisasi."""
+    html = (FIXTURES / "el_sch_v2.html").read_text(encoding="utf-8")
+    courses = parse_courses(html)
+    assert len(courses) == 6
+
+    teori = courses[0]
+    assert teori["kode"] == "104"
+    assert teori["nama"] == "BAHASA INGGRIS I"
+    assert teori["hari"] == "Selasa"
+    assert teori["jam"] == "09:10-10:50"
+    assert teori["kode_dosen"] == "TDL"
+    assert teori["sks"] == 2
+    assert teori["ruang"] == "EN2-P1"
+    assert teori["kelompok_praktek"] is None
+    assert teori["token_absen"] and teori["token_learning"] and teori["token_assignment"] and teori["token_diskusi"]
+
+    praktek = next(c for c in courses if c["nama"] == "DASAR PEMROGRAMAN")
+    assert praktek["kelompok_praktek"] == "DPG.15.1C.30.A"
+    assert praktek["hari"] == "Kamis"
+
+    gabung = next(c for c in courses if c["nama"] == "PENDIDIKAN PANCASILA")
+    assert gabung["kode_gabung"] == "KG.101.30.C"
+    assert gabung["jadwal"]["jam"] == "07:30-09:10"
+
+def test_parse_courses_legacy_pricing_plan_still_supported():
+    """Fixture lama (pricing-plan) tetap ter-parse - kompatibilitas dua layout."""
+    html = (FIXTURES / "el_sch.html").read_text(encoding="utf-8")
+    legacy = parse_courses(html)
+    assert len(legacy) == 6
+    assert all(c["token_absen"] for c in legacy)
+
 def test_parse_assignments():
     html = (FIXTURES / "el_assignment_1.html").read_text(encoding="utf-8")
     data = parse_assignments(html)
