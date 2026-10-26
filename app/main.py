@@ -188,6 +188,9 @@ async def api_key_auth_middleware(request: Request, call_next):
     # Gambar Komunitas (avatar/banner) dimuat lewat <img>, jadi publik; nama file berupa hash isi.
     if request.method == "GET" and request.url.path.startswith("/v1/social/media/"):
         return await call_next(request)
+    # Kartu profil publik (share link @username + QR): read-only, tanpa NIM/kelas kecuali diizinkan.
+    if request.method == "GET" and request.url.path.startswith("/v1/social/users/"):
+        return await call_next(request)
 
     # 3a. Extract candidate tokens from Authorization Bearer, cookies, or X-API-Key
     auth_header = request.headers.get("authorization", "")
