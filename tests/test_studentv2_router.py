@@ -59,7 +59,8 @@ async def test_get_grades_success(monkeypatch):
         assert res.status_code == 200
         data = res.json()
         assert data["success"] is True
-        assert len(data["data"]) == 6
+        assert len(data["data"]["items"]) == 6
+        assert data["data"]["gate"] is None
 
 @pytest.mark.asyncio
 async def test_get_news_and_announcements(monkeypatch):

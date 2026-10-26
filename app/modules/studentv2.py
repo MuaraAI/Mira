@@ -107,6 +107,18 @@ def parse_grades(html: str) -> list[dict[str, Any]]:
             })
     return results
 
+def parse_grades_gate(html: str) -> Optional[str]:
+    """Teks gerbang rilis SIAKAD (SweetAlert), mis. 'Nilai Murni dapat dilihat pada
+    tanggal ... WIB'. None bila halaman memuat tabel nilai normal."""
+    m = re.search(r"Swal\.fire\(\{[^}]*?text:\s*'([^']{5,300})'", html, re.S)
+    return m.group(1).strip() if m and "<table" not in html.lower() else None
+
+def parse_grades_meta(html: str) -> dict[str, Any]:
+    """Nilai + info gerbang rilis: {'items': [...], 'gate': teks | None}."""
+    gate = parse_grades_gate(html)
+    items = [] if gate else parse_grades(html)
+    return {"items": items, "gate": gate}
+
 def parse_news(html: str, limit: int = 100) -> list[dict[str, Any]]:
     page = Adaptor(html)
     rows = page.css("table tr")
@@ -483,9 +495,9 @@ async def get_grades(creds: tuple[str, str] = Depends(require_studentv2_creds)):
     nim, password = creds
     return await cached_endpoint(
         module="studentv2",
-        name="grades",
+        name="grades-meta",
         fetch=lambda: studentv2_client.fetch_page("/mahasiswa/nilai-murni", nim, password),
-        parse=parse_grades,
+        parse=parse_grades_meta,
         ttl=settings.TTL_GRADES,
         cache_params={"nim": nim},
     )
