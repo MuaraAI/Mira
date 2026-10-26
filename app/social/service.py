@@ -321,7 +321,7 @@ def _store_mentions(conn: sqlite3.Connection, conv: sqlite3.Row, message_id: int
     for row in rows:
         if row["nim"] in allowed and row["nim"] != author_nim:
             conn.execute(
-                "INSERT OR IGNORE INTO social_mentions (message_id, conversation_id, nim) VALUES (?, ?, ?)",
+                "INSERT INTO social_mentions (message_id, conversation_id, nim) VALUES (?, ?, ?) ON CONFLICT DO NOTHING",
                 (message_id, conv["id"], row["nim"]),
             )
 
@@ -439,8 +439,8 @@ def upsert_me(
                 prodi,
                 c_code,
                 avatar,
-                1 if show_nim else (0 if show_nim is not None else 0),
-                1 if show_class else (0 if show_class is not None else 0),
+                bool(show_nim),
+                bool(show_class),
                 pubkey,
                 _now(),
             ),
@@ -652,9 +652,9 @@ def create_space(
         if joined >= MAX_JOINED_SPACES:
             raise SocialError("SPACE_LIMIT", f"Maksimal bergabung di {MAX_JOINED_SPACES} ruang")
         space_id = conn.execute(
-            "INSERT INTO social_spaces (name, description, owner_nim, invite_code, is_public, campus_branch) VALUES (?, ?, ?, ?, ?, ?)",
-            (title, about, nim, _new_invite_code(), 1 if is_public else 0, branch),
-        ).lastrowid
+            "INSERT INTO social_spaces (name, description, owner_nim, invite_code, is_public, campus_branch) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
+            (title, about, nim, _new_invite_code(), bool(is_public), branch),
+        ).fetchone()["id"]
         conn.execute(
             "INSERT INTO social_members (space_id, nim, role) VALUES (?, ?, 'owner')", (space_id, nim)
         )
@@ -693,7 +693,7 @@ def update_space(
                 (_clean(description, 200, "Deskripsi"), space_id),
             )
         if is_public is not None:
-            conn.execute("UPDATE social_spaces SET is_public = ? WHERE id = ?", (1 if is_public else 0, space_id))
+            conn.execute("UPDATE social_spaces SET is_public = ? WHERE id = ?", (bool(is_public), space_id))
         if campus_branch is not None:
             branch = _clean(campus_branch, 80, "Cabang kampus") if campus_branch else None
             conn.execute("UPDATE social_spaces SET campus_branch = ? WHERE id = ?", (branch, space_id))
@@ -878,9 +878,9 @@ def create_channel(nim: str, space_id: int, name: str, topic: str = "") -> Outco
             raise SocialError("CHANNEL_EXISTS", "Nama channel sudah dipakai di ruang ini", 409)
         position = max((r["position"] for r in rows), default=0) + 1
         conv_id = conn.execute(
-            "INSERT INTO social_conversations (kind, space_id, name, topic, position) VALUES ('channel', ?, ?, ?, ?)",
+            "INSERT INTO social_conversations (kind, space_id, name, topic, position) VALUES ('channel', ?, ?, ?, ?) RETURNING id",
             (space_id, channel, about, position),
-        ).lastrowid
+        ).fetchone()["id"]
         row = conn.execute("SELECT * FROM social_conversations WHERE id = ?", (conv_id,)).fetchone()
         return Outcome(
             _channel_summary(row),
@@ -945,11 +945,11 @@ def open_dm(nim: str, username: str) -> Outcome:
         conv = conn.execute("SELECT * FROM social_conversations WHERE dm_key = ?", (key,)).fetchone()
         if conv is None:
             conv_id = conn.execute(
-                "INSERT INTO social_conversations (kind, dm_key) VALUES ('dm', ?)", (key,)
-            ).lastrowid
+                "INSERT INTO social_conversations (kind, dm_key) VALUES ('dm', ?) RETURNING id", (key,)
+            ).fetchone()["id"]
             for member in set(pair):
                 conn.execute(
-                    "INSERT OR IGNORE INTO social_participants (conversation_id, nim) VALUES (?, ?)",
+                    "INSERT INTO social_participants (conversation_id, nim) VALUES (?, ?) ON CONFLICT DO NOTHING",
                     (conv_id, member),
                 )
         else:
@@ -1038,9 +1038,9 @@ def send_message(
                 raise SocialError("VALIDATION_ERROR", "Pesan yang dibalas tidak ada di percakapan ini")
         message_id = conn.execute(
             "INSERT INTO social_messages (conversation_id, author_nim, body, reply_to_id, card_type, card_payload, is_encrypted, encryption_nonce, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (conversation_id, nim, text, reply_to_id, c_type, c_json, 1 if is_encrypted else 0, nonce, _now()),
-        ).lastrowid
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
+            (conversation_id, nim, text, reply_to_id, c_type, c_json, bool(is_encrypted), nonce, _now()),
+        ).fetchone()["id"]
         conn.execute(
             "UPDATE social_conversations SET last_message_id = ? WHERE id = ?", (message_id, conversation_id)
         )

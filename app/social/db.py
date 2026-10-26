@@ -1,56 +1,111 @@
-"""Supabase Postgres HTTP / PostgREST Client untuk Mira Social v3.
+"""Lapisan koneksi Mira Social v3: Supabase Postgres (produksi) atau SQLite (lokal/test).
 
-Menggunakan httpx murni (sudah terpasang di dependencies) untuk berinteraksi langsung
-dengan REST API Supabase tanpa menambahkan library pihak ketiga yang membengkakkan memori.
-Bekerja mulus di cloud Supabase (`duzehjktvbuqczjubshy`).
+- Produksi: `SUPABASE_DB_URL` diisi (Supabase -> Connect -> Session pooler) -> psycopg3
+  dengan SQL portable (placeholder '?', RETURNING, ON CONFLICT) — social 100% di Supabase.
+- Lokal/test: kosongkan `SUPABASE_DB_URL` -> SQLite WAL di `SQLITE_DB_PATH`
+  (Iron Rule: pytest 100% offline, tanpa jaringan).
+
+Skema Supabase dikelola lewat migration (MCP Supabase / SQL editor), bukan dari file ini.
 """
 import logging
 import os
 import sqlite3
 from contextlib import contextmanager
-from typing import Any, Iterator, Optional
-import httpx
+from datetime import datetime, timezone
+from typing import Any, Iterator
 
 from app.config import settings
 
 logger = logging.getLogger("app.social.db")
 
-_client: Optional[httpx.AsyncClient] = None
+
+def using_postgres() -> bool:
+    """True bila produksi terhubung Supabase lewat wire protocol Postgres."""
+    return bool(getattr(settings, "SUPABASE_DB_URL", ""))
 
 
-def get_headers() -> dict[str, str]:
-    key = settings.SUPABASE_SERVICE_ROLE_KEY or settings.SUPABASE_ANON_KEY or ""
-    return {
-        "apikey": key,
-        "Authorization": f"Bearer {key}",
-        "Content-Type": "application/json",
-        "Prefer": "return=representation",
-    }
+class _PgCursor:
+    """Cursor psycopg: datetime -> string ISO 'Z' agar identik dengan output SQLite."""
+
+    def __init__(self, cur: Any) -> None:
+        self._cur = cur
+
+    @staticmethod
+    def _norm(row: Any) -> Any:
+        if isinstance(row, dict):
+            return {
+                k: (
+                    v.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                    if isinstance(v, datetime)
+                    else v
+                )
+                for k, v in row.items()
+            }
+        return row
+
+    def fetchone(self) -> Any:
+        return self._norm(self._cur.fetchone())
+
+    def fetchall(self) -> list[Any]:
+        return [self._norm(r) for r in (self._cur.fetchall() or [])]
+
+    def __iter__(self) -> Iterator[Any]:
+        return iter(self.fetchall())
 
 
-def is_configured() -> bool:
-    return bool(settings.SUPABASE_URL and (settings.SUPABASE_SERVICE_ROLE_KEY or settings.SUPABASE_ANON_KEY))
+class _PgConn:
+    """Koneksi psycopg tipis dengan placeholder gaya SQLite ('?'), kompatibel kode lama."""
+
+    def __init__(self, conn: Any) -> None:
+        self._conn = conn
+
+    def execute(self, sql: str, params: Any = ()) -> _PgCursor:
+        # SQLite memakai '?', psycopg '%s'; SQL kita tidak memuat literal '?' maupun '%'.
+        cur = self._conn.execute(sql.replace("?", "%s"), tuple(params))
+        return _PgCursor(cur)
+
+    def commit(self) -> None:
+        self._conn.commit()
+
+    def rollback(self) -> None:
+        self._conn.rollback()
+
+    def close(self) -> None:
+        self._conn.close()
 
 
-def get_supabase_client() -> httpx.AsyncClient:
-    global _client
-    if _client is None or _client.is_closed:
-        _client = httpx.AsyncClient(
-            base_url=f"{settings.SUPABASE_URL.rstrip('/')}/rest/v1",
-            headers=get_headers(),
-            timeout=10.0,
-        )
-    return _client
+def connect() -> Any:
+    if using_postgres():
+        import psycopg
+        from psycopg.rows import dict_row
+
+        conn = psycopg.connect(settings.SUPABASE_DB_URL, row_factory=dict_row, autocommit=False)
+        # ponytail: pgbouncer transaction pooler tidak mendukung prepared statement.
+        conn.prepare_threshold = None
+        return _PgConn(conn)
+
+    conn = sqlite3.connect(settings.SQLITE_DB_PATH, check_same_thread=False, timeout=10)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA foreign_keys=ON")
+    return conn
 
 
-async def close_client() -> None:
-    global _client
-    if _client and not _client.is_closed:
-        await _client.aclose()
-        _client = None
+@contextmanager
+def transaction() -> Iterator[Any]:
+    """Satu koneksi per operasi service: commit kalau sukses, rollback kalau error."""
+    conn = connect()
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
-# Skema fallback jika mode offline / testing tanpa koneksi Supabase
+# Skema fallback SQLite (lokal/test). Supabase memakai migration tersendiri.
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS social_profiles (
     nim TEXT PRIMARY KEY,
@@ -143,30 +198,9 @@ CREATE INDEX IF NOT EXISTS idx_social_mentions_nim ON social_mentions(nim, conve
 """
 
 
-def connect() -> sqlite3.Connection:
-    conn = sqlite3.connect(settings.SQLITE_DB_PATH, check_same_thread=False, timeout=10)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA foreign_keys=ON")
-    return conn
-
-
-@contextmanager
-def transaction() -> Iterator[sqlite3.Connection]:
-    conn = connect()
-    try:
-        yield conn
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
-
-
 def init_social_db() -> None:
-    if is_configured():
-        logger.info("Supabase Mira Social v3 aktif (Host: %s)", settings.SUPABASE_URL)
+    if using_postgres():
+        logger.info("Mira Social v3: memakai Supabase Postgres (skema via migration).")
         return
 
     db_dir = os.path.dirname(settings.SQLITE_DB_PATH)
@@ -175,10 +209,11 @@ def init_social_db() -> None:
     conn = connect()
     try:
         conn.executescript(_SCHEMA)
+        # Migrasi kolom tambahan bila tabel dibuat oleh versi lama
         for alter_sql in (
             "ALTER TABLE social_profiles ADD COLUMN campus_branch TEXT NOT NULL DEFAULT 'UBSI Pontianak'",
             "ALTER TABLE social_profiles ADD COLUMN major TEXT NOT NULL DEFAULT 'Informatika'",
-            "ALTER TABLE social_profiles ADD COLUMN avatar_preset TEXT NOT NULL DEFAULT 'mura-default'",
+            "ALTER TABLE social_profiles ADD COLUMN avatar_preset TEXT NOT NULL DEFAULT 'mura-welcome'",
             "ALTER TABLE social_messages ADD COLUMN card_type TEXT NOT NULL DEFAULT 'none'",
             "ALTER TABLE social_messages ADD COLUMN card_payload TEXT NOT NULL DEFAULT '{}'",
             "ALTER TABLE social_profiles ADD COLUMN e2ee_public_key TEXT",

@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     SUPABASE_URL: str = "https://duzehjktvbuqczjubshy.supabase.co"
     SUPABASE_SERVICE_ROLE_KEY: str | None = None
     SUPABASE_ANON_KEY: str | None = None
+    # Wire protocol Postgres (Session pooler). Diisi di produksi -> social 100% ke Supabase;
+    # dikosongkan (lokal/test) -> fallback SQLite offline.
+    SUPABASE_DB_URL: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",
