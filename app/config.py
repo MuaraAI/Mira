@@ -46,10 +46,18 @@ class Settings(BaseSettings):
     def _strip_trailing_slash(cls, v: str) -> str:
         return v.rstrip("/") if isinstance(v, str) else v
 
+    # Supabase Social v3
+    SUPABASE_URL: str = "https://duzehjktvbuqczjubshy.supabase.co"
+    SUPABASE_SERVICE_ROLE_KEY: str | None = None
+    SUPABASE_ANON_KEY: str | None = None
+    # Wire protocol Postgres (Session pooler). Diisi di produksi -> social 100% ke Supabase;
+    # dikosongkan (lokal/test) -> fallback SQLite offline.
+    SUPABASE_DB_URL: str = ""
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        extra="ignore"
+        extra="ignore",
     )
 
 settings = Settings()

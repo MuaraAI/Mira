@@ -67,6 +67,24 @@ def test_parse_profile():
     assert "Informatika" in profile["program_studi"]
     assert profile["semester_aktif"] == "1"
     assert profile["status_aktif"] == "Aktif"
+    # Kode cabang SIAKAD diterjemahkan menjadi nama tampilan di sumber.
+    assert profile["lokasi_cabang"] == "UBSI Pontianak"
+
+
+def test_class_label_and_branch_display():
+    from app.modules.studentv2 import branch_display, class_label
+
+    # Kode dikenal -> nama; kode asing -> apa adanya; kosong -> None.
+    assert branch_display("30") == "UBSI Pontianak"
+    assert branch_display("99") == "99"
+    assert branch_display("") is None
+    assert branch_display(None) is None
+
+    # Prioritas label kelas: kelompok ujian KRS > kelas.lokal > kelas saja.
+    assert class_label(krs={"kelompok_ujian": "15.1C.30.A"}) == "15.1C.30.A"
+    assert class_label(profile={"kelas": "1C", "lokal": "30"}) == "1C.30"
+    assert class_label(profile={"kelas": "1C"}) == "1C"
+    assert class_label() is None
 
 def test_parse_khs():
     html = (FIXTURES / "sv2_khs.html").read_text(encoding="utf-8")

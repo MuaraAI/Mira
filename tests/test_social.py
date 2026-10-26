@@ -297,6 +297,52 @@ async def test_kicked_member_loses_access():
 
 
 @pytest.mark.asyncio
+async def test_academic_card_and_radar():
+    ayu = await _user("ayu")
+    budi = await _user("budi")
+
+    # Update profil Ayu dengan cabang dan preset avatar Mura
+    r = await ayu.patch(
+        "/v1/social/me",
+        json={
+            "username": "ayu",
+            "display_name": "Ayu Lestari",
+            "bio": "Mahasiswa Pontianak",
+            "campus_branch": "UBSI Pontianak",
+            "major": "Informatika",
+            "avatar_preset": "mura-ngoding",
+        },
+    )
+    assert r.status_code == 200
+    p = r.json()["data"]["profile"]
+    assert p["campus_branch"] == "UBSI Pontianak"
+    assert p["major"] == "Informatika"
+    assert p["avatar_preset"] == "mura-ngoding"
+
+    # Budi mencari teman di cabang Pontianak lewat Radar
+    radar = (await budi.get("/v1/social/radar?branch=UBSI+Pontianak")).json()["data"]["users"]
+    assert any(u["username"] == "ayu" for u in radar)
+
+    # Budi buka DM ke Ayu
+    conv = (await budi.post("/v1/social/dms", json={"username": "ayu"})).json()["data"]["conversation"]
+
+    # Budi kirim DM ke Ayu terenkripsi E2EE (ciphertext acak + nonce)
+    res_e2ee = await budi.post(
+        f"/v1/social/conversations/{conv['id']}/messages",
+        json={
+            "body": "7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c",  # ciphertext hasil enkripsi di browser
+            "is_encrypted": True,
+            "encryption_nonce": "a1b2c3d4e5f67890",
+        },
+    )
+    assert res_e2ee.status_code == 201
+    msg_e2ee = res_e2ee.json()["data"]["message"]
+    assert msg_e2ee["is_encrypted"] is True
+    assert msg_e2ee["encryption_nonce"] == "a1b2c3d4e5f67890"
+    assert msg_e2ee["body"] == "7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c"
+
+
+@pytest.mark.asyncio
 async def test_stream_falls_back_when_redis_unavailable(monkeypatch):
     async def boom(nim):
         raise ConnectionError("redis down")
@@ -440,6 +486,6 @@ def test_migration_adds_columns_to_legacy_db(tmp_path, monkeypatch):
     init_social_db()  # idempoten
     conn = sqlite3.connect(legacy)
     cols = {r[1] for r in conn.execute("PRAGMA table_info(social_profiles)")}
-    assert {"avatar", "banner", "is_online"} <= cols
+    assert {r[1] for r in conn.execute("PRAGMA table_info(social_profiles)")} >= {"avatar", "banner", "is_online"}
     assert "last_opened_at" in {r[1] for r in conn.execute("PRAGMA table_info(social_participants)")}
     conn.close()

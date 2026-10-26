@@ -7,6 +7,7 @@ plus daftar `Event` realtime yang harus di-fan-out router setelah commit.
 Identitas publik pengguna adalah `username`; NIM tidak pernah keluar dari
 lapisan ini.
 """
+import json
 import re
 import secrets
 import sqlite3
@@ -127,15 +128,31 @@ def _placeholders(items: Iterable[Any]) -> str:
 
 
 def _public_profile(row: sqlite3.Row) -> dict[str, Any]:
-    return {
+    keys = row.keys()
+    show_nim = bool(row["show_nim"]) if "show_nim" in keys else False
+    show_class = bool(row["show_class"]) if "show_class" in keys else False
+    avatar = row["avatar_preset"] if "avatar_preset" in keys else "mura-welcome"
+    data = {
         "username": row["username"],
         "display_name": row["display_name"],
-        "bio": row["bio"],
-        "avatar": row["avatar"],
-        "banner": row["banner"],
+        "bio": row["bio"] or "",
+        "campus_branch": row["campus_branch"] if "campus_branch" in keys else "UBSI Pontianak",
+        "major": row["major"] if "major" in keys else "Informatika",
+        "avatar": row["avatar"] if "avatar" in keys else None,
+        "banner": row["banner"] if "banner" in keys else None,
+        "avatar_preset": avatar,
+        "avatar_url": f"/avatars/mura/{avatar}.png",
+        "hide_id": not show_nim,
+        "hide_class": not show_class,
+        "e2ee_public_key": row["e2ee_public_key"] if "e2ee_public_key" in keys else None,
         "online": _is_online(row),
         "last_seen_at": row["last_seen_at"],
     }
+    if show_nim:
+        data["student_id"] = row["nim"]
+    if show_class and "class_code" in keys and row["class_code"]:
+        data["class_code"] = row["class_code"]
+    return data
 
 
 def _profiles_by_nim(conn: sqlite3.Connection, nims: Iterable[str]) -> dict[str, dict[str, Any]]:
@@ -275,12 +292,24 @@ def _serialize_messages(conn: sqlite3.Connection, rows: list[sqlite3.Row]) -> li
                     "deleted": False,
                 }
         deleted = bool(r["deleted_at"])
+        keys = r.keys()
+        card_type = r["card_type"] if "card_type" in keys else "none"
+        card_payload = {}
+        if "card_payload" in keys and r["card_payload"]:
+            try:
+                card_payload = json.loads(r["card_payload"]) if isinstance(r["card_payload"], str) else r["card_payload"]
+            except Exception:
+                card_payload = {}
         out.append(
             {
                 "id": r["id"],
                 "conversation_id": r["conversation_id"],
                 "author": {"username": author["username"], "display_name": author["display_name"], "avatar": author["avatar"]},
                 "body": "" if deleted else r["body"],
+                "card_type": card_type,
+                "card_payload": card_payload,
+                "is_encrypted": bool(r["is_encrypted"]) if "is_encrypted" in keys else False,
+                "encryption_nonce": r["encryption_nonce"] if "encryption_nonce" in keys else None,
                 "reply_to": reply,
                 "reactions": [
                     {"key": key, "count": len(users), "users": users}
@@ -313,7 +342,7 @@ def _store_mentions(conn: sqlite3.Connection, conv: sqlite3.Row, message_id: int
     for row in rows:
         if row["nim"] in allowed and row["nim"] != author_nim:
             conn.execute(
-                "INSERT OR IGNORE INTO social_mentions (message_id, conversation_id, nim) VALUES (?, ?, ?)",
+                "INSERT INTO social_mentions (message_id, conversation_id, nim) VALUES (?, ?, ?) ON CONFLICT DO NOTHING",
                 (message_id, conv["id"], row["nim"]),
             )
 
@@ -347,10 +376,12 @@ def _space_summary(conn: sqlite3.Connection, space: sqlite3.Row, role: Optional[
     member_count = conn.execute(
         "SELECT COUNT(*) AS c FROM social_members WHERE space_id = ?", (space["id"],)
     ).fetchone()["c"]
+    keys = space.keys()
     data = {
         "id": space["id"],
         "name": space["name"],
         "description": space["description"],
+        "campus_branch": space["campus_branch"] if "campus_branch" in keys else None,
         "is_public": bool(space["is_public"]),
         "avatar": space["avatar"],
         "banner": space["banner"],
@@ -382,12 +413,29 @@ def get_me(nim: str) -> Optional[dict[str, Any]]:
         return _public_profile(row) if row else None
 
 
-def upsert_me(nim: str, username: str, display_name: str, bio: str = "") -> Outcome:
+def upsert_me(
+    nim: str,
+    username: str,
+    display_name: str,
+    bio: str = "",
+    campus_branch: Optional[str] = None,
+    major: Optional[str] = None,
+    class_code: Optional[str] = None,
+    avatar_preset: Optional[str] = None,
+    show_nim: Optional[bool] = None,
+    show_class: Optional[bool] = None,
+    e2ee_public_key: Optional[str] = None,
+) -> Outcome:
     handle = (username or "").strip().lstrip("@").lower()
     if not USERNAME_RE.match(handle):
         raise SocialError("VALIDATION_ERROR", "Username 3-24 karakter: huruf kecil, angka, atau garis bawah")
     name = _clean(display_name, 40, "Nama tampilan", required=True)
     about = _clean(bio, 160, "Bio")
+    branch = _clean(campus_branch or "UBSI Pontianak", 80, "Cabang kampus")
+    prodi = _clean(major or "Informatika", 80, "Program studi")
+    c_code = _clean(class_code, 20, "Kode kelas") if class_code else None
+    avatar = _clean(avatar_preset or "mura-welcome", 40, "Avatar")
+    pubkey = _clean(e2ee_public_key, 256, "Kunci publik E2EE") if e2ee_public_key else None
     with transaction() as conn:
         taken = conn.execute(
             "SELECT nim FROM social_profiles WHERE username = ?", (handle,)
@@ -395,10 +443,30 @@ def upsert_me(nim: str, username: str, display_name: str, bio: str = "") -> Outc
         if taken and taken["nim"] != nim:
             raise SocialError("USERNAME_TAKEN", "Username sudah dipakai, coba yang lain", 409)
         conn.execute(
-            "INSERT INTO social_profiles (nim, username, display_name, bio, last_seen_at) VALUES (?, ?, ?, ?, ?) "
+            "INSERT INTO social_profiles (nim, username, display_name, bio, campus_branch, major, class_code, avatar_preset, show_nim, show_class, e2ee_public_key, last_seen_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
             "ON CONFLICT(nim) DO UPDATE SET username = excluded.username, "
-            "display_name = excluded.display_name, bio = excluded.bio",
-            (nim, handle, name, about, _now()),
+            "display_name = excluded.display_name, bio = excluded.bio, "
+            "campus_branch = COALESCE(excluded.campus_branch, social_profiles.campus_branch), "
+            "major = COALESCE(excluded.major, social_profiles.major), "
+            "class_code = COALESCE(excluded.class_code, social_profiles.class_code), "
+            "avatar_preset = COALESCE(excluded.avatar_preset, social_profiles.avatar_preset), "
+            "show_nim = COALESCE(excluded.show_nim, social_profiles.show_nim), "
+            "show_class = COALESCE(excluded.show_class, social_profiles.show_class), "
+            "e2ee_public_key = COALESCE(excluded.e2ee_public_key, social_profiles.e2ee_public_key)",
+            (
+                nim,
+                handle,
+                name,
+                about,
+                branch,
+                prodi,
+                c_code,
+                avatar,
+                bool(show_nim),
+                bool(show_class),
+                pubkey,
+                _now(),
+            ),
         )
         row = conn.execute("SELECT * FROM social_profiles WHERE nim = ?", (nim,)).fetchone()
         return Outcome(_public_profile(row))
@@ -481,6 +549,29 @@ def search_users(nim: str, query: str) -> list[dict[str, Any]]:
 def get_user(username: str) -> dict[str, Any]:
     with transaction() as conn:
         return _public_profile(_nim_by_username(conn, username))
+
+
+def get_radar(
+    nim: str,
+    branch: Optional[str] = None,
+    major: Optional[str] = None,
+    limit: int = 30,
+) -> list[dict[str, Any]]:
+    """Daftar mahasiswa aktif per cabang/prodi untuk radar & direktori teman."""
+    cap = max(1, min(limit, 50))
+    query = "SELECT * FROM social_profiles WHERE nim != ?"
+    params: list[Any] = [nim]
+    if branch:
+        query += " AND campus_branch = ?"
+        params.append(branch)
+    if major:
+        query += " AND major = ?"
+        params.append(major)
+    query += " ORDER BY last_seen_at DESC LIMIT ?"
+    params.append(cap)
+    with transaction() as conn:
+        rows = conn.execute(query, tuple(params)).fetchall()
+        return [_public_profile(r) for r in rows]
 
 
 # ---------------------------------------------------------------- inbox
@@ -615,11 +706,18 @@ def inbox(nim: str) -> dict[str, Any]:
 # ---------------------------------------------------------------- spaces
 
 
-def create_space(nim: str, name: str, description: str = "", is_public: bool = False) -> Outcome:
+def create_space(
+    nim: str,
+    name: str,
+    description: str = "",
+    is_public: bool = False,
+    campus_branch: Optional[str] = None,
+) -> Outcome:
     title = _clean(name, 40, "Nama ruang", required=True)
     if len(title) < 2:
         raise SocialError("VALIDATION_ERROR", "Nama ruang minimal 2 karakter")
     about = _clean(description, 200, "Deskripsi")
+    branch = _clean(campus_branch, 80, "Cabang kampus") if campus_branch else None
     with transaction() as conn:
         _require_profile(conn, nim)
         owned = conn.execute(
@@ -631,9 +729,9 @@ def create_space(nim: str, name: str, description: str = "", is_public: bool = F
         if joined >= MAX_JOINED_SPACES:
             raise SocialError("SPACE_LIMIT", f"Maksimal bergabung di {MAX_JOINED_SPACES} ruang")
         space_id = conn.execute(
-            "INSERT INTO social_spaces (name, description, owner_nim, invite_code, is_public) VALUES (?, ?, ?, ?, ?)",
-            (title, about, nim, _new_invite_code(), 1 if is_public else 0),
-        ).lastrowid
+            "INSERT INTO social_spaces (name, description, owner_nim, invite_code, is_public, campus_branch) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
+            (title, about, nim, _new_invite_code(), bool(is_public), branch),
+        ).fetchone()["id"]
         conn.execute(
             "INSERT INTO social_members (space_id, nim, role) VALUES (?, ?, 'owner')", (space_id, nim)
         )
@@ -651,7 +749,14 @@ def get_space(nim: str, space_id: int) -> dict[str, Any]:
         return _space_detail(conn, space_id, role)
 
 
-def update_space(nim: str, space_id: int, name: Optional[str], description: Optional[str], is_public: Optional[bool]) -> Outcome:
+def update_space(
+    nim: str,
+    space_id: int,
+    name: Optional[str],
+    description: Optional[str],
+    is_public: Optional[bool],
+    campus_branch: Optional[str] = None,
+) -> Outcome:
     with transaction() as conn:
         role = _require_space_role(conn, space_id, nim, "admin")
         if name is not None:
@@ -665,7 +770,10 @@ def update_space(nim: str, space_id: int, name: Optional[str], description: Opti
                 (_clean(description, 200, "Deskripsi"), space_id),
             )
         if is_public is not None:
-            conn.execute("UPDATE social_spaces SET is_public = ? WHERE id = ?", (1 if is_public else 0, space_id))
+            conn.execute("UPDATE social_spaces SET is_public = ? WHERE id = ?", (bool(is_public), space_id))
+        if campus_branch is not None:
+            branch = _clean(campus_branch, 80, "Cabang kampus") if campus_branch else None
+            conn.execute("UPDATE social_spaces SET campus_branch = ? WHERE id = ?", (branch, space_id))
         detail = _space_detail(conn, space_id, role)
         return Outcome(detail, [Event("space.updated", _space_members(conn, space_id), {"space_id": space_id})])
 
@@ -880,9 +988,9 @@ def create_channel(nim: str, space_id: int, name: str, topic: str = "") -> Outco
             raise SocialError("CHANNEL_EXISTS", "Nama channel sudah dipakai di ruang ini", 409)
         position = max((r["position"] for r in rows), default=0) + 1
         conv_id = conn.execute(
-            "INSERT INTO social_conversations (kind, space_id, name, topic, position) VALUES ('channel', ?, ?, ?, ?)",
+            "INSERT INTO social_conversations (kind, space_id, name, topic, position) VALUES ('channel', ?, ?, ?, ?) RETURNING id",
             (space_id, channel, about, position),
-        ).lastrowid
+        ).fetchone()["id"]
         row = conn.execute("SELECT * FROM social_conversations WHERE id = ?", (conv_id,)).fetchone()
         return Outcome(
             _channel_summary(row),
@@ -947,11 +1055,11 @@ def open_dm(nim: str, username: str) -> Outcome:
         conv = conn.execute("SELECT * FROM social_conversations WHERE dm_key = ?", (key,)).fetchone()
         if conv is None:
             conv_id = conn.execute(
-                "INSERT INTO social_conversations (kind, dm_key) VALUES ('dm', ?)", (key,)
-            ).lastrowid
+                "INSERT INTO social_conversations (kind, dm_key) VALUES ('dm', ?) RETURNING id", (key,)
+            ).fetchone()["id"]
             for member in set(pair):
                 conn.execute(
-                    "INSERT OR IGNORE INTO social_participants (conversation_id, nim) VALUES (?, ?)",
+                    "INSERT INTO social_participants (conversation_id, nim) VALUES (?, ?) ON CONFLICT DO NOTHING",
                     (conv_id, member),
                 )
         else:
@@ -1048,8 +1156,20 @@ def _recent_edits(conn: sqlite3.Connection, conversation_id: int, nim: str, sinc
     ]
 
 
-def send_message(nim: str, conversation_id: int, body: str, reply_to_id: Optional[int] = None) -> Outcome:
+def send_message(
+    nim: str,
+    conversation_id: int,
+    body: str,
+    reply_to_id: Optional[int] = None,
+    card_type: str = "none",
+    card_payload: Optional[dict[str, Any]] = None,
+    is_encrypted: bool = False,
+    encryption_nonce: Optional[str] = None,
+) -> Outcome:
     text = _clean_body(body)
+    c_type = card_type if card_type in ("none", "nilai", "jadwal", "tugas") else "none"
+    c_json = json.dumps(card_payload or {}, separators=(",", ":"))
+    nonce = _clean(encryption_nonce, 128, "Nonce") if is_encrypted and encryption_nonce else None
     with transaction() as conn:
         _require_profile(conn, nim)
         conv, _ = _conversation(conn, nim, conversation_id)
@@ -1060,10 +1180,10 @@ def send_message(nim: str, conversation_id: int, body: str, reply_to_id: Optiona
             if not target or target["conversation_id"] != conversation_id:
                 raise SocialError("VALIDATION_ERROR", "Pesan yang dibalas tidak ada di percakapan ini")
         message_id = conn.execute(
-            "INSERT INTO social_messages (conversation_id, author_nim, body, reply_to_id, created_at) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (conversation_id, nim, text, reply_to_id, _now()),
-        ).lastrowid
+            "INSERT INTO social_messages (conversation_id, author_nim, body, reply_to_id, card_type, card_payload, is_encrypted, encryption_nonce, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
+            (conversation_id, nim, text, reply_to_id, c_type, c_json, bool(is_encrypted), nonce, _now()),
+        ).fetchone()["id"]
         conn.execute(
             "UPDATE social_conversations SET last_message_id = ? WHERE id = ?", (message_id, conversation_id)
         )

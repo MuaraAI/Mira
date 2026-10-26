@@ -38,6 +38,34 @@ def _session_nim(request: Request) -> str:
     return str(nim)
 
 
+async def _cached_siakad(nim: str, name: str) -> dict[str, Any]:
+    """Baca data SIAKAD dari cache Redis saja (fresh, lalu LGG). Tanpa live hit, fail-open."""
+    try:
+        from app.cache import cache
+
+        key = cache.make_key("studentv2", name, nim=nim)
+        data = await cache.get_fresh(key)
+        if data is None:
+            lgg = await cache.get_lgg(key)
+            data = lgg[0] if lgg else None
+        return data or {}
+    except Exception:
+        return {}
+
+
+async def _siakad_defaults(nim: str) -> dict[str, str]:
+    """Kelas, cabang, dan prodi otomatis dari cache SIAKAD (anti ketik manual, anti palsu)."""
+    from app.modules import studentv2 as sv2
+
+    profile = await _cached_siakad(nim, "profile")
+    krs = await _cached_siakad(nim, "krs")
+    return {
+        "class_code": sv2.class_label(profile, krs) or "",
+        "campus_branch": sv2.branch_display(profile.get("lokasi_cabang")) or "",
+        "major": (profile.get("program_studi") or "").strip(),
+    }
+
+
 async def _call(fn: Callable[..., Any], *args: Any) -> Any:
     """Jalankan service sinkron; terjemahkan SocialError ke envelope HTTP standar."""
     try:
@@ -72,17 +100,26 @@ class ProfileBody(BaseModel):
     username: str = Field(..., min_length=3, max_length=25)
     display_name: str = Field(..., min_length=1, max_length=40)
     bio: str = Field(default="", max_length=160)
+    campus_branch: Optional[str] = Field(default=None, max_length=80)
+    major: Optional[str] = Field(default=None, max_length=80)
+    class_code: Optional[str] = Field(default=None, max_length=20)
+    avatar_preset: Optional[str] = Field(default=None, max_length=40)
+    show_nim: Optional[bool] = False
+    show_class: Optional[bool] = False
+    e2ee_public_key: Optional[str] = Field(default=None, max_length=256)
 
 
 class SpaceBody(BaseModel):
     name: str = Field(..., min_length=2, max_length=40)
     description: str = Field(default="", max_length=200)
+    campus_branch: Optional[str] = Field(default=None, max_length=80)
     is_public: bool = False
 
 
 class SpacePatch(BaseModel):
     name: Optional[str] = Field(default=None, max_length=40)
     description: Optional[str] = Field(default=None, max_length=200)
+    campus_branch: Optional[str] = Field(default=None, max_length=80)
     is_public: Optional[bool] = None
 
 
@@ -111,6 +148,10 @@ class DmBody(BaseModel):
 class MessageBody(BaseModel):
     body: str = Field(..., min_length=1, max_length=service.MAX_BODY + 200)
     reply_to_id: Optional[int] = Field(default=None, ge=1)
+    card_type: Literal["none", "nilai", "jadwal", "tugas"] = "none"
+    card_payload: Optional[dict[str, Any]] = None
+    is_encrypted: bool = False
+    encryption_nonce: Optional[str] = Field(default=None, max_length=128)
 
 
 class EditBody(BaseModel):
@@ -144,7 +185,22 @@ async def get_me(request: Request):
 @router.patch("/me")
 async def update_me(request: Request, body: ProfileBody):
     nim = _session_nim(request)
-    profile = await _call(service.upsert_me, nim, body.username, body.display_name, body.bio)
+    # Auto-fill kelas/cabang/prodi dari cache SIAKAD bila mahasiswa tidak mengisi manual.
+    auto = await _siakad_defaults(nim)
+    profile = await _call(
+        service.upsert_me,
+        nim,
+        body.username,
+        body.display_name,
+        body.bio,
+        body.campus_branch or auto.get("campus_branch") or None,
+        body.major or auto.get("major") or None,
+        body.class_code or auto.get("class_code") or None,
+        body.avatar_preset,
+        body.show_nim,
+        body.show_class,
+        body.e2ee_public_key,
+    )
     return success_response(data={"profile": profile})
 
 
@@ -204,9 +260,21 @@ async def search_users(request: Request, q: str = ""):
 
 
 @router.get("/users/{username}")
-async def get_user(request: Request, username: str):
-    _session_nim(request)
+async def get_user(username: str):
     return success_response(data={"user": await _call(service.get_user, username)})
+
+
+# ---------------------------------------------------------------- radar / explore
+@router.get("/radar")
+async def get_radar(
+    request: Request,
+    branch: Optional[str] = None,
+    major: Optional[str] = None,
+    limit: int = 30,
+):
+    nim = _session_nim(request)
+    users = await _call(service.get_radar, nim, branch, major, limit)
+    return success_response(data={"users": users})
 
 
 @router.get("/inbox")
@@ -221,7 +289,7 @@ async def get_inbox(request: Request):
 @router.post("/spaces")
 async def create_space(request: Request, body: SpaceBody):
     nim = _session_nim(request)
-    space = await _call(service.create_space, nim, body.name, body.description, body.is_public)
+    space = await _call(service.create_space, nim, body.name, body.description, body.is_public, body.campus_branch)
     return JSONResponse(status_code=status.HTTP_201_CREATED, content=success_response(data={"space": space}))
 
 
@@ -246,7 +314,15 @@ async def get_space(request: Request, space_id: int):
 @router.patch("/spaces/{space_id}")
 async def update_space(request: Request, space_id: int, body: SpacePatch):
     nim = _session_nim(request)
-    space = await _call(service.update_space, nim, space_id, body.name, body.description, body.is_public)
+    space = await _call(
+        service.update_space,
+        nim,
+        space_id,
+        body.name,
+        body.description,
+        body.is_public,
+        body.campus_branch,
+    )
     return success_response(data={"space": space})
 
 
@@ -344,7 +420,17 @@ async def list_messages(
 async def send_message(request: Request, conversation_id: int, body: MessageBody):
     nim = _session_nim(request)
     await _require_send_quota(nim)
-    message = await _call(service.send_message, nim, conversation_id, body.body, body.reply_to_id)
+    message = await _call(
+        service.send_message,
+        nim,
+        conversation_id,
+        body.body,
+        body.reply_to_id,
+        body.card_type,
+        body.card_payload,
+        body.is_encrypted,
+        body.encryption_nonce,
+    )
     return JSONResponse(status_code=status.HTTP_201_CREATED, content=success_response(data={"message": message}))
 
 
