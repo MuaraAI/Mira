@@ -316,6 +316,9 @@ async def rate_limiting_middleware(request: Request, call_next):
             authorized_request.method == "OPTIONS"
             or path in ("/health", "/docs", "/openapi.json", "/redoc")
             or path.startswith("/v1/social/media/")
+            # Mock demo (MOCK_MODE=1): data statis tanpa upstream kampus, bebas rate limit
+            # agar burst 6 endpoint /demo tidak menggerus kuota 60 req/menit user.
+            or (settings.MOCK_MODE and path.startswith("/v1/mock/"))
         ):
             return await call_next(authorized_request)
         client_key = getattr(authorized_request.state, "key_id", None)

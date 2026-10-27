@@ -150,7 +150,7 @@ export default function DemoPage() {
       {failed ? (
         <section className="overflow-hidden bg-white p-6 shadow-[0_0_0_2px_#163A55,6px_6px_0_0_#9CC6E0]">
           <p className="text-sm text-[#163A55]">
-            API demo belum aktif di server ini (butuh <code className="font-mono text-[13px]">MOCK_MODE=1</code>).
+            Gagal memuat data demo (server sedang sibuk atau mode demo dimatikan). Muat ulang halaman, atau hubungi admin untuk mengaktifkan <code className="font-mono text-[13px]">MOCK_MODE</code>.
           </p>
         </section>
       ) : (
