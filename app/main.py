@@ -154,6 +154,11 @@ app.include_router(stats_router)
 app.include_router(social_router)
 app.include_router(lecturers_router)
 
+# Mock API (data demo 100% palsu): hanya ter-mount saat MOCK_MODE=1.
+if settings.MOCK_MODE:
+    from app.modules.mock import router as mock_router
+    app.include_router(mock_router)
+
 async def _reject_auth_failure(request: Request, code: str, message: str) -> JSONResponse:
     client_ip = extract_client_ip(request)
     if not await limiter.is_allowed(f"auth_fail:{client_ip}", limit=20):
@@ -194,6 +199,9 @@ async def api_key_auth_middleware(request: Request, call_next):
         return await call_next(request)
     # Kartu profil publik (share link @username + QR): read-only, tanpa NIM/kelas kecuali diizinkan.
     if request.method == "GET" and request.url.path.startswith("/v1/social/users/"):
+        return await call_next(request)
+    # Mock API demo (MOCK_MODE=1 saja): isinya data palsu, aman publik untuk dashboard demo.
+    if settings.MOCK_MODE and request.method == "GET" and request.url.path.startswith("/v1/mock/"):
         return await call_next(request)
 
     # 3a. Extract candidate tokens from Authorization Bearer, cookies, or X-API-Key
