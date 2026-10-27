@@ -29,6 +29,7 @@ import {
   minutesRange,
   sessionTiming,
   shortDate,
+  timingRank,
   type RoomInfo,
   type SessionTiming,
 } from "@/lib/schedule";
@@ -148,18 +149,12 @@ export default function PresensiPage() {
   const todayIdx = now.getDay();
 
   const rawCourses = coursesApi.data ?? [];
-  // Urutan mingguan dimulai dari kelas terdekat: yang berlangsung/akan datang hari ini dulu,
-  // lalu besok, dst. Kelas hari ini yang sudah selesai pindah ke akhir (minggu depan).
+  // Presensi hari ini selalu di depan (berlangsung > segera > nanti > sudah selesai), baru hari berikutnya.
   const timed = useMemo(
     () =>
       rawCourses
         .map((course) => ({ course, timing: sessionTiming(course.hari, course.jam, now) }))
-        .sort((a, b) => {
-          const da = a.timing?.daysAway ?? 99;
-          const db = b.timing?.daysAway ?? 99;
-          if (da !== db) return da - db;
-          return (a.timing?.range?.[0] ?? 9999) - (b.timing?.range?.[0] ?? 9999);
-        }),
+        .sort((a, b) => timingRank(a.timing) - timingRank(b.timing)),
     // Urutan cukup dihitung ulang per menit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [rawCourses, Math.floor(now.getTime() / 60_000)]
@@ -307,7 +302,7 @@ export default function PresensiPage() {
   const isTodaySession = dayIndex(pData?.hari || activeCourse?.hari) === todayIdx;
   const room = describeRoom(pData?.ruang || activeCourse?.ruang);
   const scheduleDay = dayName(pData?.hari || activeCourse?.hari);
-  const nextDate = activeTiming ? (activeTiming.state === "done" ? now : activeTiming.date) : null;
+  const nextDate = activeTiming ? activeTiming.date : null;
   const presentToday = Boolean(pData?.present_today) || (activeCourse !== null && justPresent === courseKey(activeCourse));
   let phase: Phase;
   if (presentToday) phase = "present";

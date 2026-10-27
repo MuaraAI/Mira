@@ -80,17 +80,13 @@ export interface SessionTiming {
   label: string;
 }
 
-/**
- * Hitung kapan pertemuan berikutnya untuk mapel mingguan.
- * Kelas hari ini yang sudah selesai dianggap minggu depan untuk keperluan urutan,
- * tapi state-nya tetap "done" supaya UI bisa bilang "Selesai pukul ...".
- */
+/** Hitung kapan pertemuan mapel mingguan: hari ini (berlangsung/segera/nanti/selesai) atau N hari lagi. */
 export function sessionTiming(day: string | null | undefined, jam: string | null | undefined, now: Date): SessionTiming | null {
   const idx = dayIndex(day);
   if (idx === null) return null;
   const range = minutesRange(null, null, jam);
   const nowMin = now.getHours() * 60 + now.getMinutes();
-  let daysAway = (idx - now.getDay() + 7) % 7;
+  const daysAway = (idx - now.getDay() + 7) % 7;
   const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysAway);
 
   if (daysAway === 0 && range) {
@@ -98,8 +94,8 @@ export function sessionTiming(day: string | null | undefined, jam: string | null
     if (nowMin < start - 60) return { daysAway, date, range, state: "upcoming", label: `Hari ini pukul ${clock(start)}` };
     if (nowMin < start) return { daysAway, date, range, state: "soon", label: `Dimulai ${start - nowMin} menit lagi` };
     if (nowMin <= end) return { daysAway, date, range, state: "live", label: `Sedang berlangsung, selesai ${clock(end)}` };
-    daysAway = 7;
-    return { daysAway, date, range, state: "done", label: `Selesai pukul ${clock(end)}` };
+    // Kelas hari ini yang sudah selesai tetap "hari ini" (presensi hari ini tetap yang ditampilkan).
+    return { daysAway, date, range, state: "done", label: `Hari ini, selesai pukul ${clock(end)}` };
   }
   if (daysAway === 0) return { daysAway, date, range, state: "upcoming", label: "Hari ini" };
   const when = daysAway === 1 ? "Besok" : `${DAY_NAMES[idx]} (${daysAway} hari lagi)`;
@@ -119,17 +115,37 @@ export interface RoomInfo {
 }
 
 /**
- * Kode ruang UBSI: berisi huruf (mis. "EL2-P1") = kelas online/daring;
- * hanya angka (mis. "302") = tatap muka, digit depan = lantai, dua digit terakhir = nomor ruang.
+ * Kode ruang UBSI ditentukan dari karakter PERTAMA:
+ * - diawali angka (mis. "302", "304-P1") = kelas tatap muka; digit depan = lantai.
+ *   "302" -> lantai 3 ruang 02; "304-P1" -> lantai 3 ruang 04, bagian P1.
+ * - diawali huruf (mis. "EN2-P1", "EL2-P1") = kelas online/daring.
  */
 export function describeRoom(raw?: string | null): RoomInfo {
   const code = (raw ?? "").trim();
   if (!code || code === "-") return { mode: "unknown", code: "", label: "Ruang belum ada" };
-  if (/^\d{3,4}$/.test(code)) {
-    const floor = code.slice(0, code.length - 2);
-    const room = code.slice(-2);
-    return { mode: "offline", code, floor, room, label: `Tatap muka · Lantai ${Number(floor)}, Ruang ${room}` };
+  if (/^\d/.test(code)) {
+    const digits = code.match(/^\d+/)?.[0] ?? "";
+    const suffix = code.slice(digits.length).replace(/^[-\s]+/, "");
+    if (digits.length >= 3) {
+      const floor = digits.slice(0, digits.length - 2);
+      const room = digits.slice(-2);
+      const part = suffix ? ` (${suffix})` : "";
+      return { mode: "offline", code, floor, room, label: `Tatap muka · Lantai ${Number(floor)}, Ruang ${room}${part}` };
+    }
+    return { mode: "offline", code, label: `Tatap muka · Ruang ${code}` };
   }
-  if (/[a-z]/i.test(code)) return { mode: "online", code, label: `Online · ${code}` };
+  if (/^[a-z]/i.test(code)) return { mode: "online", code, label: `Online · ${code}` };
   return { mode: "unknown", code, label: `Ruang ${code}` };
+}
+
+/** Prioritas mapel untuk dipilih otomatis: hari ini dulu (berlangsung > segera > nanti > selesai), lalu hari berikutnya. */
+export function timingRank(t: SessionTiming | null): number {
+  if (!t) return 99_000;
+  const start = t.range?.[0] ?? 0;
+  if (t.daysAway === 0) {
+    const order = { live: 0, soon: 1, upcoming: 2, done: 3, later: 2 }[t.state];
+    // Untuk kelas selesai, yang paling baru selesai di depan.
+    return order * 10_000 + (t.state === "done" ? 2_000 - start : start);
+  }
+  return 40_000 + t.daysAway * 2_000 + start;
 }

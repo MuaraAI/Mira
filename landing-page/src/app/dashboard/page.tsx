@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
   GraduationCap,
@@ -15,11 +16,11 @@ import {
   School,
   AlertTriangle,
   HelpCircle,
-  UserRound,
+  MessagesSquare,
 } from "lucide-react";
 import { useApi } from "@/lib/api";
 import { findSubmission, formatShortDate, parseDeadline } from "@/lib/assignments";
-import { DosenInfo } from "@/components/DosenInfo";
+import { TodayClassCard, type TodayClass } from "@/components/TodayClassCard";
 import { PixelTrophy } from "@/components/PixelIcons";
 import { splitProgram } from "@/lib/profile";
 import {
@@ -28,7 +29,7 @@ import {
   LoadingState,
   Skeleton,
 } from "@/components/dashboard-ui";
-import { describeRoom } from "@/lib/schedule";
+import { DAY_NAMES, dayIndex, describeRoom, sessionTiming, shortDate } from "@/lib/schedule";
 
 interface StudentProfile {
   nim?: string;
@@ -84,15 +85,74 @@ interface PresenceData {
   ruang?: string;
 }
 
-const DAY_NAMES = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+interface ElearningCourse {
+  id?: string;
+  kode?: string;
+  nama: string;
+  hari?: string;
+  jam?: string;
+  ruang?: string;
+  kode_dosen?: string;
+  token_absen?: string | null;
+}
+
+const PERSIST_12H = 12 * 60 * 60 * 1000;
+
+function greeting(hour: number) {
+  if (hour < 11) return "Selamat pagi";
+  if (hour < 15) return "Selamat siang";
+  if (hour < 18) return "Selamat sore";
+  return "Selamat malam";
+}
+
+const norm = (v?: string | null) => (v ?? "").trim().toLowerCase();
 
 export default function DashboardOverviewPage() {
   const me = useApi<{ nim: string; auth_type?: string }>("/v1/auth/me");
-  const profile = useApi<StudentProfile>("/v1/studentv2/profile");
-  const schedule = useApi<ScheduleItem[]>("/v1/studentv2/schedule");
-  const khs = useApi<KhsData>("/v1/studentv2/khs");
-  const assignments = useApi<AssignmentsData>("/v1/elearning/assignments");
-  const presence = useApi<PresenceData>("/v1/elearning/presence");
+  const profile = useApi<StudentProfile>("/v1/studentv2/profile", { persistMs: PERSIST_12H });
+  const schedule = useApi<ScheduleItem[]>("/v1/studentv2/schedule", { persistMs: PERSIST_12H });
+  const khs = useApi<KhsData>("/v1/studentv2/khs", { persistMs: PERSIST_12H });
+  const assignments = useApi<AssignmentsData>("/v1/elearning/assignments", { persistMs: 6 * 60 * 60 * 1000, refreshMs: 5 * 60_000 });
+  // Token presensi per mapel berasal dari daftar mapel MyBest (dicocokkan dengan jadwal SIAKAD lewat kode/nama).
+  const courses = useApi<ElearningCourse[]>("/v1/elearning/courses", { persistMs: PERSIST_12H });
+
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(new Date()), 30_000);
+    return () => window.clearInterval(t);
+  }, []);
+  const [presentMap, setPresentMap] = useState<Record<string, boolean>>({});
+  const reportStatus = useCallback(
+    (key: string, present: boolean) => setPresentMap((prev) => (prev[key] === present ? prev : { ...prev, [key]: present })),
+    []
+  );
+
+  const todayIdx = now.getDay();
+  const todayClasses: TodayClass[] = useMemo(() => {
+    const list = (schedule.data ?? []).filter((s) => dayIndex(s.hari) === todayIdx);
+    const el = courses.data ?? [];
+    return list
+      .map((s) => {
+        const match =
+          el.find((c) => norm(c.kode) && norm(c.kode) === norm(s.kode) && dayIndex(c.hari) === todayIdx) ||
+          el.find((c) => norm(c.kode) && norm(c.kode) === norm(s.kode)) ||
+          el.find((c) => norm(c.nama) === norm(s.nama));
+        return {
+          key: s.id || `${s.kode}-${s.jam}`,
+          kode: s.kode,
+          nama: s.nama,
+          jam: s.jam,
+          ruang: s.ruang || match?.ruang || "",
+          sks: s.sks,
+          kode_dosen: s.kode_dosen || match?.kode_dosen,
+          token: match?.token_absen ?? null,
+          timing: sessionTiming(s.hari, s.jam, now),
+        };
+      })
+      .sort((a, b) => (a.timing?.range?.[0] ?? 0) - (b.timing?.range?.[0] ?? 0));
+    // Dihitung ulang per menit cukup.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schedule.data, courses.data, todayIdx, Math.floor(now.getTime() / 60_000)]);
 
   if (me.loading && !me.data) {
     return <LoadingState label="Menyiapkan dashboard" />;
@@ -105,334 +165,219 @@ export default function DashboardOverviewPage() {
   const schedulePending = isPending(schedule);
   const khsPending = isPending(khs);
   const assignmentsPending = isPending(assignments);
-  const presencePending = isPending(presence);
 
   const nim = me.data?.nim ?? profile.data?.nim ?? "-";
+  const firstName = (profile.data?.nama || "").trim().split(/\s+/)[0];
   const studentName = profile.data?.nama || `Mahasiswa (${nim})`;
   const { prodi: prodiName, kampus: kampusName } = splitProgram(profile.data);
   const prodi = prodiName || "Data belum tersedia";
   const kampus = kampusName;
-  const semester = profile.data?.semester_aktif || "Data belum tersedia";
-  const kelas = profile.data?.kelas || "Data belum tersedia";
+  const semester = profile.data?.semester_aktif || "-";
+  const kelas = profile.data?.kelas || "";
 
-  const todayIndex = new Date().getDay();
-  const today = DAY_NAMES[todayIndex];
-  const allSchedules = schedule.data ?? [];
-  const todayClasses = allSchedules.filter(
-    (s) => s.hari?.toLowerCase() === today.toLowerCase()
-  );
-
-  const ipkValue = khs.data?.ipk != null ? khs.data.ipk.toFixed(2) : "Data belum tersedia";
-  const totalSks = khs.data?.total_sks != null ? String(khs.data.total_sks) : "Data belum tersedia";
+  const ipkValue = khs.data?.ipk != null ? khs.data.ipk.toFixed(2) : "-";
+  const totalSks = khs.data?.total_sks != null ? String(khs.data.total_sks) : "-";
 
   const tasksList = assignments.data?.tasks ?? [];
   const submissionsList = assignments.data?.submissions ?? [];
   const pendingTasks = tasksList.filter((t) => !findSubmission(t, submissionsList));
 
   // Pengingat: tugas belum dikumpul dengan batas waktu terdekat yang belum lewat.
-  const nowMs = Date.now();
+  const nowMs = now.getTime();
   const nextTask =
     pendingTasks
       .map((t) => ({ t, at: parseDeadline(t.selesai)?.getTime() ?? Infinity }))
       .filter(({ at }) => at >= nowMs)
       .sort((a, b) => a.at - b.at)[0]?.t ?? null;
+  const nextDeadline = nextTask ? parseDeadline(nextTask.selesai) : null;
+  const hoursLeft = nextDeadline ? Math.max(0, Math.round((nextDeadline.getTime() - nowMs) / 3_600_000)) : null;
+
+  const liveClass = todayClasses.find((c) => c.timing?.state === "live") ?? null;
+  const nextClass = todayClasses.find((c) => c.timing?.state === "soon" || c.timing?.state === "upcoming") ?? null;
+  const spotlight = liveClass ?? nextClass;
+  const doneCount = todayClasses.filter((c) => c.timing?.state === "done").length;
+  const presentCount = todayClasses.filter((c) => presentMap[c.key]).length;
+  const absenRelevant = todayClasses.filter((c) => c.timing?.state === "done" || c.timing?.state === "live").length;
+
+  const taughtBy = (kode?: string) =>
+    (schedule.data ?? []).filter((s) => kode && s.kode_dosen === kode).map((s) => ({ nama: s.nama, hari: s.hari, jam: s.jam }));
 
   return (
-    <div className="space-y-8">
-      {/* 1. Header Profil Mahasiswa */}
-      <div className="glass-card p-6 sm:p-8 relative overflow-hidden bg-gradient-to-br from-white via-white to-[#F0F7FB] border border-stroke">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 relative z-10">
-          <div>
-            <div className="flex flex-wrap items-center gap-2 mb-2">
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-pill bg-[#0369A1]/10 border border-[#0369A1]/25 text-[11px] font-mono font-bold text-[#0369A1]">
-                NIM {nim}
-              </span>
-              {profilePending ? (
-                <>
-                  <Skeleton className="h-6 w-24" />
-                  <Skeleton className="h-6 w-14" />
-                </>
-              ) : (
-                <>
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-pill bg-[#F0F7FB] border border-stroke text-[11px] font-semibold text-secondary">
-                    Semester {semester}
-                  </span>
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-pill bg-[#0F766E]/10 border border-[#0F766E]/30 text-[11px] font-semibold text-[#0F766E]">
-                    {profile.data?.status_aktif || "Aktif"}
-                  </span>
-                </>
-              )}
-            </div>
-
-            <h1 className="text-2xl sm:text-3xl font-display font-bold tracking-tight text-foreground break-words">
-              Selamat Datang,{" "}
-              {profilePending ? (
-                <>
-                  <Skeleton className="h-7 w-48 max-w-full sm:h-8 sm:w-64" />
-                  <span className="sr-only">memuat nama mahasiswa</span>
-                </>
-              ) : (
-                studentName
-              )}
+    <div className="space-y-7">
+      {/* 1. Hero: sapaan, identitas singkat, dan sorotan kelas sekarang/berikutnya */}
+      <section className="glass-card relative overflow-hidden p-5 sm:p-7" aria-label="Ringkasan hari ini">
+        {/* Garis air pixel dekoratif di tepi bawah (ringan, CSS murni). */}
+        <span
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-3 opacity-60"
+          style={{ background: "repeating-linear-gradient(90deg, #9CC6E0 0 12px, transparent 12px 16px, #5FA3CC 16px 20px, transparent 20px 32px)" }}
+          aria-hidden="true"
+        />
+        <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr] lg:items-stretch">
+          <div className="min-w-0">
+            <p className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[#0369A1]">{shortDate(now)}</p>
+            <h1 className="mt-2 break-words text-2xl font-display font-bold tracking-tight text-foreground sm:text-3xl">
+              {greeting(now.getHours())},{" "}
+              {profilePending ? <Skeleton className="h-7 w-40 max-w-full align-middle" /> : firstName || studentName}
             </h1>
-
-            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-secondary">
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+              <span className="bg-[#0369A1]/10 px-2.5 py-1 font-mono font-bold text-[#0369A1]">NIM {nim}</span>
               {profilePending ? (
-                <>
-                  <Skeleton className="h-4 w-40" />
-                  <Skeleton className="h-4 w-20" />
-                </>
+                <Skeleton className="h-6 w-40" />
               ) : (
                 <>
-                  <span className="flex items-center gap-1">
-                    <School className="w-3.5 h-3.5 shrink-0 text-[#0369A1]" aria-hidden="true" />
+                  <span className="inline-flex items-center gap-1 bg-[#F0F7FB] px-2.5 py-1 font-semibold text-secondary">
+                    <School className="h-3.5 w-3.5 text-[#0369A1]" aria-hidden="true" />
                     {prodi}
-                    {profile.data?.kelas ? ` · Kelas ${kelas}` : ""}
+                    {kelas ? ` · ${kelas}` : ""}
                   </span>
+                  <span className="bg-[#F0F7FB] px-2.5 py-1 font-semibold text-secondary">Semester {semester}</span>
                   {kampus && (
-                    <span className="flex items-center gap-1">
-                      <MapPin className="w-3.5 h-3.5 shrink-0 text-[#0369A1]" aria-hidden="true" />
+                    <span className="inline-flex items-center gap-1 bg-[#F0F7FB] px-2.5 py-1 font-semibold text-secondary">
+                      <MapPin className="h-3.5 w-3.5 text-[#0369A1]" aria-hidden="true" />
                       {kampus}
                     </span>
                   )}
                 </>
               )}
             </div>
+            <div className="mt-5 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
+              <Link href="/dashboard/jadwal" className="px-btn inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-bold sm:gap-2 sm:px-4 sm:text-sm">
+                <CalendarDays className="h-4 w-4" aria-hidden="true" /> Jadwal
+              </Link>
+              <Link href="/dashboard/komunitas" className="px-btn-ghost inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-bold sm:gap-2 sm:px-4 sm:text-sm">
+                <MessagesSquare className="h-4 w-4" aria-hidden="true" /> Komunitas
+              </Link>
+              <Link href="/dashboard/nilai?flexing=1" className="px-btn-ghost inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-bold sm:gap-2 sm:px-4 sm:text-sm">
+                <PixelTrophy className="h-4 w-4" aria-hidden="true" /> Flexing
+              </Link>
+            </div>
           </div>
 
-          {/* HP: tombol utama selebar kartu, dua tombol lain berdampingan; teks selalu satu baris. */}
-          <div className="grid shrink-0 grid-cols-1 gap-3 min-[360px]:grid-cols-2 sm:flex sm:items-center">
-            <Link
-              href="/dashboard/jadwal"
-              className="min-[360px]:col-span-2 inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap px-3 py-2 rounded-pill text-xs font-semibold transition-all sm:px-4 sm:text-sm bg-[#0369A1] text-white shadow-sm hover:bg-[#075985]"
-            >
-              <CalendarDays className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>Jadwal Lengkap</span>
-            </Link>
-            <Link href="/dashboard/sesi" className="inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap px-3 py-2 rounded-pill text-xs font-semibold transition-all sm:px-4 sm:text-sm border border-stroke bg-white text-secondary hover:bg-[#F0F7FB] hover:text-foreground">
-              <UserRound className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>Profil Saya</span>
-            </Link>
-            <Link href="/dashboard/nilai?flexing=1" className="inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap px-3 py-2 rounded-pill text-xs font-semibold transition-all sm:px-4 sm:text-sm border border-stroke bg-white text-secondary hover:bg-[#F0F7FB] hover:text-foreground">
-              <PixelTrophy className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>Flexing Nilai</span>
-            </Link>
+          {/* Sorotan: kelas yang sedang berlangsung, berikutnya, atau status hari ini */}
+          <div
+            className={`flex flex-col justify-between gap-3 p-4 sm:p-5 ${
+              liveClass ? "bg-[#9A3412]/[0.07] shadow-[inset_4px_0_0_#9A3412]" : "bg-[#F0F7FB] shadow-[inset_4px_0_0_#0369A1]"
+            }`}
+          >
+            {schedulePending ? (
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-6 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+            ) : spotlight ? (
+              <>
+                <div>
+                  <p className={`flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.16em] ${liveClass ? "text-[#9A3412]" : "text-[#0369A1]"}`}>
+                    <span className={`h-1.5 w-1.5 ${liveClass ? "px-cursor bg-[#9A3412]" : "bg-[#0369A1]"}`} aria-hidden="true" />
+                    {liveClass ? "Sedang berlangsung" : "Kelas berikutnya"}
+                  </p>
+                  <p className="mt-1.5 text-lg font-bold leading-snug text-foreground">{spotlight.nama}</p>
+                  <p className="mt-1 text-sm text-secondary">
+                    {spotlight.timing?.label} · {describeRoom(spotlight.ruang).label}
+                  </p>
+                </div>
+                <a href="#heading-kelas-hari-ini" className="inline-flex items-center gap-1 text-xs font-bold text-[#0369A1] hover:underline">
+                  Lihat status absen <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                </a>
+              </>
+            ) : todayClasses.length > 0 ? (
+              <div>
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#0F766E]">Kuliah hari ini selesai</p>
+                <p className="mt-1.5 text-lg font-bold text-foreground">
+                  {doneCount} kelas sudah lewat{presentCount ? `, ${presentCount} sudah absen` : ""}
+                </p>
+                <p className="mt-1 text-sm text-secondary">Cek tugas yang perlu dicicil malam ini.</p>
+              </div>
+            ) : (
+              <div>
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#0F766E]">Hari bebas kuliah</p>
+                <p className="mt-1.5 text-lg font-bold text-foreground">Tidak ada kelas hari {DAY_NAMES[todayIdx]}</p>
+                <p className="mt-1 text-sm text-secondary">Waktu yang pas untuk mencicil tugas.</p>
+              </div>
+            )}
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* 2. Top 4 Quick-Metrics Bar */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {/* Metric 1: IPK & SKS */}
-        <Link
+      {/* 2. Metrik singkat */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <MetricCard
           href="/dashboard/nilai"
-          className="glass-card min-w-0 p-4 sm:p-5 group hover:border-[#0369A1]/40 transition-all hover:translate-y-[-2px]"
-        >
-          <div className="flex items-center justify-between">
-            <span className="min-w-0 text-[10px] sm:text-xs font-mono font-bold uppercase tracking-wider text-secondary">
-              Prestasi Akademik
-            </span>
-            <div className="hidden sm:flex w-8 h-8 shrink-0 rounded-sm bg-[#0369A1]/10 flex items-center justify-center text-[#0369A1] group-hover:bg-[#0369A1] group-hover:text-white transition-colors">
-              <GraduationCap className="w-4 h-4" aria-hidden="true" />
-            </div>
-          </div>
-          <div className="mt-3">
-            {khsPending ? (
-              <Skeleton className="h-8 w-20" />
-            ) : (
-              <>
-                <span className="text-2xl font-display font-bold text-foreground">
-                  {ipkValue}
-                </span>
-                <span className="ml-1 text-xs text-secondary font-mono">/ 4.00</span>
-              </>
-            )}
-          </div>
-          <p className="mt-1 text-xs text-secondary flex items-center justify-between">
-            {khsPending ? <Skeleton className="h-3.5 w-20" /> : <span>{totalSks} SKS Lulus</span>}
-            <span className="text-[#0369A1] font-semibold group-hover:translate-x-0.5 transition-transform hidden sm:flex items-center gap-0.5">
-              KHS <ArrowRight className="w-3 h-3" />
-            </span>
-          </p>
-        </Link>
-
-        {/* Metric 2: Kelas Hari Ini */}
-        <Link
-          href="/dashboard/jadwal"
-          className="glass-card min-w-0 p-4 sm:p-5 group hover:border-[#0369A1]/40 transition-all hover:translate-y-[-2px]"
-        >
-          <div className="flex items-center justify-between">
-            <span className="min-w-0 text-[10px] sm:text-xs font-mono font-bold uppercase tracking-wider text-secondary">
-              Kelas Hari {today}
-            </span>
-            <div className="hidden sm:flex w-8 h-8 shrink-0 rounded-sm bg-[#0369A1]/10 flex items-center justify-center text-[#0369A1] group-hover:bg-[#0369A1] group-hover:text-white transition-colors">
-              <CalendarDays className="w-4 h-4" aria-hidden="true" />
-            </div>
-          </div>
-          <div className="mt-3">
-            {schedulePending ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              <>
-                <span className="text-2xl font-display font-bold text-foreground">
-                  {todayClasses.length}
-                </span>
-                <span className="ml-1 text-xs text-secondary">Kelas</span>
-              </>
-            )}
-          </div>
-          <p className="mt-1 text-xs text-secondary flex items-center justify-between">
-            {schedulePending ? (
-              <Skeleton className="h-3.5 w-24" />
-            ) : (
-              <span>{todayClasses.length > 0 ? "Ada perkuliahan" : "Hari bebas kuliah"}</span>
-            )}
-            <span className="text-[#0369A1] font-semibold group-hover:translate-x-0.5 transition-transform hidden sm:flex items-center gap-0.5">
-              Jadwal <ArrowRight className="w-3 h-3" />
-            </span>
-          </p>
-        </Link>
-
-        {/* Metric 3: Tugas Pending */}
-        <Link
+          label="IPK"
+          icon={GraduationCap}
+          pending={khsPending}
+          value={ipkValue}
+          suffix="/ 4.00"
+          note={`${totalSks} SKS lulus`}
+        />
+        <MetricCard
+          href="#heading-kelas-hari-ini"
+          label="Absen hari ini"
+          icon={UserCheck}
+          pending={schedulePending}
+          value={todayClasses.length ? `${presentCount}/${todayClasses.length}` : "0"}
+          note={
+            !todayClasses.length
+              ? "Tidak ada kelas"
+              : presentCount === todayClasses.length
+                ? "Semua sudah absen"
+                : absenRelevant > presentCount
+                  ? `${absenRelevant - presentCount} kelas belum absen`
+                  : "Menunggu jam kuliah"
+          }
+          tone={todayClasses.length && absenRelevant > presentCount ? "warn" : "ok"}
+        />
+        <MetricCard
           href="/dashboard/tugas"
-          className="glass-card min-w-0 p-4 sm:p-5 group hover:border-[#0369A1]/40 transition-all hover:translate-y-[-2px]"
-        >
-          <div className="flex items-center justify-between">
-            <span className="min-w-0 text-[10px] sm:text-xs font-mono font-bold uppercase tracking-wider text-secondary">
-              Tugas Belum Selesai
-            </span>
-            <div className="hidden sm:flex w-8 h-8 shrink-0 rounded-sm bg-[#9A3412]/10 flex items-center justify-center text-[#9A3412] group-hover:bg-[#9A3412] group-hover:text-white transition-colors">
-              <CheckSquare className="w-4 h-4" aria-hidden="true" />
-            </div>
-          </div>
-          <div className="mt-3">
-            {assignmentsPending ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              <>
-                <span className="text-2xl font-display font-bold text-foreground">
-                  {pendingTasks.length}
-                </span>
-                <span className="ml-1 text-xs text-secondary">Tugas</span>
-              </>
-            )}
-          </div>
-          <p className="mt-1 text-xs text-secondary flex items-center justify-between">
-            {assignmentsPending ? (
-              <Skeleton className="h-3.5 w-24" />
-            ) : (
-              <span>{pendingTasks.length > 0 ? "Perlu dikumpulkan" : "Semua tugas beres"}</span>
-            )}
-            <span className="text-[#0369A1] font-semibold group-hover:translate-x-0.5 transition-transform hidden sm:flex items-center gap-0.5">
-              Tugas <ArrowRight className="w-3 h-3" />
-            </span>
-          </p>
-        </Link>
-
-        {/* Metric 4: Status Sesi Presensi */}
-        <Link
-          href="/dashboard/presensi"
-          className="glass-card min-w-0 p-4 sm:p-5 group hover:border-[#0369A1]/40 transition-all hover:translate-y-[-2px]"
-        >
-          <div className="flex items-center justify-between">
-            <span className="min-w-0 text-[10px] sm:text-xs font-mono font-bold uppercase tracking-wider text-secondary">
-              Sesi MyBest
-            </span>
-            <div className="hidden sm:flex w-8 h-8 shrink-0 rounded-sm bg-[#0F766E]/10 flex items-center justify-center text-[#0F766E] group-hover:bg-[#0F766E] group-hover:text-white transition-colors">
-              <UserCheck className="w-4 h-4" aria-hidden="true" />
-            </div>
-          </div>
-          <div className="mt-3">
-            {presencePending ? (
-              <Skeleton className="h-5 w-28" />
-            ) : (
-              <span className="text-sm font-display font-bold text-foreground truncate block">
-                {presence.data?.status_sesi || "Sesi Ditutup"}
-              </span>
-            )}
-          </div>
-          <p className="mt-1 text-xs text-secondary flex items-center justify-between">
-            <span>Presensi perkuliahan</span>
-            <span className="text-[#0369A1] font-semibold group-hover:translate-x-0.5 transition-transform hidden sm:flex items-center gap-0.5">
-              Presensi <ArrowRight className="w-3 h-3" />
-            </span>
-          </p>
-        </Link>
+          label="Tugas belum selesai"
+          icon={CheckSquare}
+          pending={assignmentsPending}
+          value={String(pendingTasks.length)}
+          note={hoursLeft !== null ? (hoursLeft < 24 ? `Terdekat ${hoursLeft} jam lagi` : `Terdekat ${Math.round(hoursLeft / 24)} hari lagi`) : pendingTasks.length ? "Belum ada deadline" : "Semua beres"}
+          tone={hoursLeft !== null && hoursLeft < 24 ? "warn" : "ok"}
+        />
+        <MetricCard
+          href="/dashboard/jadwal"
+          label="Kelas hari ini"
+          icon={CalendarDays}
+          pending={schedulePending}
+          value={String(todayClasses.length)}
+          note={todayClasses.length ? `${doneCount} selesai · ${todayClasses.length - doneCount} lagi` : "Hari bebas kuliah"}
+        />
       </div>
 
-      {/* 3. Section Kelas Hari Ini */}
-      <section aria-labelledby="heading-kelas-hari-ini">
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-4">
-          <div className="flex items-center gap-2 min-w-0">
-            <Clock className="w-5 h-5 shrink-0 text-[#0369A1]" aria-hidden="true" />
+      {/* 3. Kelas hari ini: status absen langsung + absen sekali ketuk */}
+      <section aria-labelledby="heading-kelas-hari-ini" className="scroll-mt-24">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <Clock className="h-5 w-5 shrink-0 text-[#0369A1]" aria-hidden="true" />
             <h2 id="heading-kelas-hari-ini" className="text-lg font-display font-bold tracking-tight text-foreground">
-              Jadwal Kelas Hari {today}
+              Kelas Hari {DAY_NAMES[todayIdx]}
             </h2>
           </div>
-          <Link
-            href="/dashboard/jadwal"
-            className="text-xs font-semibold text-[#0369A1] hover:underline"
-          >
-            Lihat Semua Jadwal
+          <Link href="/dashboard/jadwal" className="text-xs font-semibold text-[#0369A1] hover:underline">
+            Lihat semua jadwal
           </Link>
         </div>
 
         {schedulePending ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4" aria-hidden="true">
-            <div className="glass-card p-5 space-y-3">
-              <Skeleton className="h-4 w-16" />
-              <Skeleton className="h-5 w-3/4" />
-              <Skeleton className="h-4 w-1/2" />
-            </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2" aria-hidden="true">
+            {[0, 1].map((i) => (
+              <div key={i} className="glass-card space-y-3 p-5">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-5 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-11 w-full" />
+              </div>
+            ))}
           </div>
         ) : todayClasses.length === 0 ? (
-          <EmptyState
-            title={`Tidak ada jadwal kuliah hari ${today}.`}
-            description="Santai dulu, atau cicil tugas di MyBest."
-          />
+          <EmptyState title={`Tidak ada jadwal kuliah hari ${DAY_NAMES[todayIdx]}.`} description="Santai dulu, atau cicil tugas di MyBest." />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {todayClasses.map((s) => (
-              <div key={s.id} className="glass-card p-5 border-l-4 border-l-[#0369A1]">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <span className="font-mono text-xs font-bold text-[#0369A1] px-2 py-0.5 bg-[#0369A1]/10 rounded-sm">
-                      {s.kode}
-                    </span>
-                    <h3 className="mt-1.5 font-bold text-foreground text-base leading-snug">
-                      {s.nama}
-                    </h3>
-                  </div>
-                  <span className="text-xs font-semibold font-mono text-secondary bg-[#F0F7FB] px-2.5 py-1 rounded-sm border border-stroke shrink-0">
-                    {s.sks} SKS
-                  </span>
-                </div>
-
-                <div className="mt-4 pt-3 border-t-2 border-dashed border-px-soft grid grid-cols-2 gap-2 text-xs text-secondary">
-                  <div>
-                    <span className="block text-[10px] font-mono uppercase text-secondary font-semibold">Waktu:</span>
-                    <span className="font-semibold text-foreground">{s.jam}</span>
-                  </div>
-                  <div className="min-w-0">
-                    <span className="block text-[10px] font-mono uppercase text-secondary font-semibold">Ruang:</span>
-                    <span className="font-semibold text-foreground break-words block" title={s.ruang ? `Kode ruang: ${s.ruang}` : undefined}>
-                      {describeRoom(s.ruang).label}
-                    </span>
-                  </div>
-                  <div className="col-span-2 min-w-0">
-                    <span className="block text-[10px] font-mono uppercase text-secondary font-semibold">Dosen:</span>
-                    <DosenInfo kode={s.kode_dosen} />
-                  </div>
-                </div>
-                <Link
-                  href={`/dashboard/presensi?${new URLSearchParams({ kode: s.kode ?? "", mk: s.nama ?? "" }).toString()}`}
-                  className="px-btn-ghost mt-4 inline-flex min-h-10 w-full items-center justify-center gap-1.5 px-3 text-xs font-bold"
-                >
-                  <UserCheck className="h-3.5 w-3.5" aria-hidden="true" />
-                  Absen
-                </Link>
-              </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {todayClasses.map((c) => (
+              <TodayClassCard key={c.key} item={c} taughtBy={taughtBy(c.kode_dosen)} onStatus={reportStatus} />
             ))}
           </div>
         )}
@@ -535,5 +480,51 @@ export default function DashboardOverviewPage() {
         </div>
       </section>
     </div>
+  );
+}
+
+function MetricCard({
+  href,
+  label,
+  icon: Icon,
+  pending,
+  value,
+  suffix,
+  note,
+  tone = "ok",
+}: {
+  href: string;
+  label: string;
+  icon: typeof GraduationCap;
+  pending: boolean;
+  value: string;
+  suffix?: string;
+  note: string;
+  tone?: "ok" | "warn";
+}) {
+  return (
+    <Link href={href} className="glass-card group min-w-0 p-4 transition-transform hover:-translate-y-0.5 sm:p-5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="min-w-0 truncate font-mono text-[10px] font-bold uppercase tracking-wider text-secondary sm:text-[11px]">{label}</span>
+        <span
+          className={`flex h-8 w-8 shrink-0 items-center justify-center transition-colors ${
+            tone === "warn" ? "bg-[#9A3412]/10 text-[#9A3412]" : "bg-[#0369A1]/10 text-[#0369A1] group-hover:bg-[#0369A1] group-hover:text-white"
+          }`}
+        >
+          <Icon className="h-4 w-4" aria-hidden="true" />
+        </span>
+      </div>
+      <div className="mt-3">
+        {pending ? (
+          <Skeleton className="h-8 w-16" />
+        ) : (
+          <>
+            <span className="text-2xl font-display font-bold text-foreground sm:text-3xl">{value}</span>
+            {suffix && <span className="ml-1 font-mono text-xs text-secondary">{suffix}</span>}
+          </>
+        )}
+      </div>
+      <p className={`mt-1 truncate text-xs ${tone === "warn" ? "font-semibold text-[#9A3412]" : "text-secondary"}`}>{pending ? "\u00a0" : note}</p>
+    </Link>
   );
 }

@@ -127,6 +127,7 @@ def parse_courses(html: str) -> list[dict[str, Any]]:
             "kode_dosen": info.get("dosen", "-"),
             "kelompok_praktek": kel_praktek,
             "kode_gabung": kode_gabung,
+            "kelas": pill,
             "jadwal": {
                 "hari": hari,
                 "jam": jam,
@@ -1654,10 +1655,25 @@ async def get_courses(creds: tuple[str, str] = Depends(require_elearning_creds))
         module="elearning",
         name="courses",
         fetch=lambda: pooled_elearning_client.fetch_page("/sch", nim, password),
-        parse=parse_courses,
+        parse=_parse_and_record_courses,
         ttl=settings.TTL_ASSIGNMENTS,
         cache_params={"nim": nim},
     )
+
+
+def _parse_and_record_courses(html: str) -> list[dict[str, Any]]:
+    """Parse jadwal lalu catat jadwal mengajar dosennya (anonim) untuk profil dosen.
+
+    Hanya dipanggil pada fetch baru dari MyBest (bukan saat dilayani dari cache).
+    """
+    courses = parse_courses(html)
+    try:
+        from app.teaching_db import record_courses
+
+        record_courses(courses)
+    except Exception as exc:  # peta mengajar hanya bonus; jadwal mahasiswa tetap dikirim
+        logger.warning("record teaching sessions gagal: %s", exc)
+    return courses
 
 @router.get("/assignments")
 async def get_assignments(
