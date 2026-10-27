@@ -28,6 +28,7 @@ import {
   LoadingState,
   Skeleton,
 } from "@/components/dashboard-ui";
+import { describeRoom } from "@/lib/schedule";
 
 interface StudentProfile {
   nim?: string;
@@ -415,7 +416,9 @@ export default function DashboardOverviewPage() {
                   </div>
                   <div className="min-w-0">
                     <span className="block text-[10px] font-mono uppercase text-secondary font-semibold">Ruang:</span>
-                    <span className="font-semibold text-foreground break-words block">{s.ruang || "-"}</span>
+                    <span className="font-semibold text-foreground break-words block" title={s.ruang ? `Kode ruang: ${s.ruang}` : undefined}>
+                      {describeRoom(s.ruang).label}
+                    </span>
                   </div>
                   <div className="col-span-2 min-w-0">
                     <span className="block text-[10px] font-mono uppercase text-secondary font-semibold">Dosen:</span>

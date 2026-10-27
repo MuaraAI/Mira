@@ -208,6 +208,8 @@ interface ApiState<T> {
   data: T | null;
   loading: boolean;
   error: ApiError | null;
+  /** Path milik `data`; mencegah data mapel lama tampil saat path berganti. */
+  path: string;
 }
 
 interface CacheEntry<T> {
@@ -217,54 +219,83 @@ interface CacheEntry<T> {
 
 const memoryCache = new Map<string, CacheEntry<unknown>>();
 const DEFAULT_TTL_MS = 3 * 60 * 1000; // 3 menit cache RAM di browser
+const PERSIST_PREFIX = "mira_api_cache:";
 
 export function setApiCache<T>(path: string, data: T) {
   memoryCache.set(path, { data, timestamp: Date.now() });
 }
 
+/** Cache di perangkat (localStorage): tampilan instan saat halaman dibuka lagi, lalu diperbarui diam-diam. */
+function readPersisted<T>(path: string, maxAgeMs: number): CacheEntry<T> | null {
+  if (typeof window === "undefined" || !maxAgeMs) return null;
+  try {
+    const raw = localStorage.getItem(PERSIST_PREFIX + path);
+    if (!raw) return null;
+    const entry = JSON.parse(raw) as CacheEntry<T>;
+    return Date.now() - entry.timestamp < maxAgeMs ? entry : null;
+  } catch {
+    return null;
+  }
+}
+
+function writePersisted<T>(path: string, data: T) {
+  try {
+    localStorage.setItem(PERSIST_PREFIX + path, JSON.stringify({ data, timestamp: Date.now() }));
+  } catch {
+    /* penyimpanan penuh/diblokir: cache perangkat hanya bonus */
+  }
+}
+
 export function clearApiCache(pathPrefix?: string) {
   if (!pathPrefix) {
     memoryCache.clear();
-    return;
-  }
-  for (const key of Array.from(memoryCache.keys())) {
-    if (key.startsWith(pathPrefix)) {
-      memoryCache.delete(key);
+  } else {
+    for (const key of Array.from(memoryCache.keys())) {
+      if (key.startsWith(pathPrefix)) memoryCache.delete(key);
     }
   }
+  if (typeof window === "undefined") return;
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(PERSIST_PREFIX + (pathPrefix ?? ""))) localStorage.removeItem(key);
+    }
+  } catch {}
+}
+
+function initialState<T>(path: string, ttl: number, skipCache: boolean, persistMs: number): ApiState<T> {
+  if (!path) return { data: null, loading: false, error: null, path };
+  if (!skipCache && typeof window !== "undefined") {
+    const cached = memoryCache.get(path) as CacheEntry<T> | undefined;
+    if (cached && Date.now() - cached.timestamp < ttl) return { data: cached.data, loading: false, error: null, path };
+    const persisted = readPersisted<T>(path, persistMs);
+    if (persisted) return { data: persisted.data, loading: false, error: null, path };
+  }
+  return { data: null, loading: true, error: null, path };
 }
 
 export function useApi<T>(
   path: string,
-  options?: { ttlMs?: number; skipCache?: boolean; refreshMs?: number | null }
+  options?: { ttlMs?: number; skipCache?: boolean; refreshMs?: number | null; persistMs?: number }
 ) {
   const ttl = options?.ttlMs ?? DEFAULT_TTL_MS;
   const skipCache = options?.skipCache ?? false;
+  const persistMs = options?.persistMs ?? 0;
   // Default: silent-refresh tiap 60 detik (real-time ringan), stop saat tab
   // hidden, langsung refresh saat tab kembali. Halaman presensi override sendiri.
   const refreshMs = options?.refreshMs !== undefined ? options.refreshMs : 60_000;
 
-  const [state, setState] = useState<ApiState<T>>(() => {
-    if (!path) {
-      return { data: null, loading: false, error: null };
-    }
-    if (!skipCache && typeof window !== "undefined") {
-      const cached = memoryCache.get(path) as CacheEntry<T> | undefined;
-      if (cached && Date.now() - cached.timestamp < ttl) {
-        return { data: cached.data, loading: false, error: null };
-      }
-    }
-    return { data: null, loading: true, error: null };
-  });
-
+  const [state, setState] = useState<ApiState<T>>(() => initialState<T>(path, ttl, skipCache, persistMs));
   const [tick, setTick] = useState(0);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  // Sedang memuat data terbaru di belakang layar sementara data lama (cache) tetap tampil.
+  const [revalidating, setRevalidating] = useState(false);
 
   useEffect(() => {
     let alive = true;
 
     if (!path) {
-      setState({ data: null, loading: false, error: null });
+      setState({ data: null, loading: false, error: null, path });
       return;
     }
 
@@ -273,33 +304,42 @@ export function useApi<T>(
 
     // Jika sudah ada cache valid dan bukan dipicu reload() manual (tick === 0), pakai cache langsung
     if (!skipCache && isFresh && tick === 0) {
-      if (state.data !== cached.data) {
-        setState({ data: cached.data, loading: false, error: null });
-      }
+      setState((s) => (s.data === cached.data && s.path === path ? s : { data: cached.data, loading: false, error: null, path }));
       return;
     }
 
-    // Jika tidak ada data atau dipicu reload manual, tampilkan loading hanya bila data belum ada sama sekali
-    if (!cached) {
-      setState((s) => ({ ...s, loading: true, error: null }));
-    }
+    // Data yang sudah tampil untuk path INI tetap tampil (tanpa layar loading); path baru tanpa cache = loading.
+    setState((s) => {
+      if (s.path === path && s.data !== null) return { ...s, error: null };
+      const fallback = cached ?? (skipCache ? null : readPersisted<T>(path, persistMs));
+      return fallback ? { data: fallback.data, loading: false, error: null, path } : { data: null, loading: true, error: null, path };
+    });
+    setRevalidating(true);
 
     apiFetch<T>(path)
       .then((data) => {
         if (!alive) return;
         memoryCache.set(path, { data, timestamp: Date.now() });
+        if (persistMs) writePersisted(path, data);
         setUpdatedAt(new Date());
-        setState({ data, loading: false, error: null });
+        setState((prev) =>
+          prev.path === path && prev.data !== null && JSON.stringify(prev.data) === JSON.stringify(data)
+            ? { ...prev, loading: false, error: null }
+            : { data, loading: false, error: null, path }
+        );
       })
       .catch((error: ApiError) => {
         if (!alive) return;
-        setState((s) => ({ ...s, loading: false, error }));
-      });
+        // Ada data lama untuk path ini: tetap tampilkan, jangan ganti dengan layar error.
+        setState((s) => (s.path === path && s.data !== null ? { ...s, loading: false } : { ...s, loading: false, error, path }));
+      })
+      .finally(() => alive && setRevalidating(false));
 
     return () => {
       alive = false;
     };
-  }, [path, tick, ttl, skipCache]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [path, tick, ttl, skipCache, persistMs]);
 
   // Pembaruan senyap berkala (real-time): tanpa layar loading, data lama tetap tampil sampai data baru tiba.
   // Berhenti saat tab tidak terlihat dan langsung menyegarkan saat tab kembali aktif.
@@ -314,9 +354,14 @@ export function useApi<T>(
         .then((data) => {
           if (!alive) return;
           memoryCache.set(path, { data, timestamp: Date.now() });
+          if (persistMs) writePersisted(path, data);
           setUpdatedAt(new Date());
           // Data sama dengan sebelumnya: jangan render ulang halaman.
-          setState((prev) => (prev.data !== null && JSON.stringify(prev.data) === JSON.stringify(data) ? prev : { data, loading: false, error: null }));
+          setState((prev) =>
+            prev.path === path && prev.data !== null && JSON.stringify(prev.data) === JSON.stringify(data)
+              ? prev
+              : { data, loading: false, error: null, path }
+          );
         })
         .catch(() => {
           /* gagal sesaat: biarkan data terakhir tetap tampil */
@@ -335,14 +380,23 @@ export function useApi<T>(
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onVisible);
     };
-  }, [path, refreshMs]);
+  }, [path, refreshMs, persistMs]);
 
   const reload = useCallback(() => {
     memoryCache.delete(path);
     setTick((t) => t + 1);
   }, [path]);
 
-  return { ...state, reload, updatedAt };
+  // Data milik path lain (path baru saja berganti, render sebelum efek berjalan) tidak pernah dikembalikan.
+  const own = state.path === path;
+  return {
+    data: own ? state.data : null,
+    loading: own ? state.loading : Boolean(path),
+    error: own ? state.error : null,
+    reload,
+    updatedAt,
+    revalidating,
+  };
 }
 
 export function useRequireSession() {

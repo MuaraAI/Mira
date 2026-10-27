@@ -8,11 +8,14 @@ task.
 """
 import asyncio
 import inspect
+import logging
 from typing import Any, Callable, Optional
 
 from fastapi import HTTPException, status
 
 from app.cache import cache
+
+logger = logging.getLogger("app.router_helper")
 from app.envelope import error_response, success_response
 
 _revalidating: set[str] = set()
@@ -36,6 +39,7 @@ async def cached_endpoint(
     swr: bool = True,
     should_cache: Optional[Callable[[Any], bool]] = None,
     allow_stale: bool = True,
+    ttl_for: Optional[Callable[[Any], int]] = None,
 ):
     """Pola standar endpoint: cek cache, fetch upstream dengan lock, fallback LGG.
 
@@ -48,6 +52,7 @@ async def cached_endpoint(
       real-time seperti status presensi), LGG hanya dipakai bila upstream gagal
     - should_cache(data) False -> hasil dikirim tapi tidak disimpan (mis. hasil parsial
       karena sebagian sumber gagal), supaya request berikutnya mencoba lagi
+    - ttl_for(data) -> TTL per hasil (mis. hasil parsial disimpan singkat, bukan dibuang)
     """
     params = cache_params or {}
     cache_key = cache.make_key(module, name, **params)
@@ -57,7 +62,7 @@ async def cached_endpoint(
         data, is_stale = cached
         if is_stale:
             if swr:
-                _schedule_revalidate(cache_key, fetch, parse, ttl, should_cache)
+                _schedule_revalidate(cache_key, fetch, parse, ttl, should_cache, ttl_for)
             return success_response(data=data, cached=True, stale=True)
         return success_response(data=data, cached=True)
 
@@ -75,7 +80,7 @@ async def cached_endpoint(
                 html = await html
             data = parse(html)
             if should_cache is None or should_cache(data):
-                await cache.set(cache_key, data, ttl=ttl)
+                await cache.set(cache_key, data, ttl=ttl_for(data) if ttl_for else ttl)
             return success_response(data=data, cached=False)
         except Exception as e:
             lgg_result = await cache.get_lgg(cache_key)
@@ -86,8 +91,27 @@ async def cached_endpoint(
                 raise e
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=error_response(code="UPSTREAM_ERROR", message=str(e), module=module)
+                # Pesan teknis (sering berbahasa Inggris, mis. "ReadTimeout") hanya untuk log;
+                # pengguna melihat kalimat yang jelas.
+                detail=error_response(code="UPSTREAM_ERROR", message=_upstream_message(module, e), module=module)
             )
+
+
+_UPSTREAM_LABEL = {
+    "elearning": "MyBest",
+    "studentv2": "SIAKAD",
+    "elibrary": "Perpustakaan",
+    "news": "portal berita kampus",
+}
+
+
+def _upstream_message(module: str, exc: Exception) -> str:
+    label = _UPSTREAM_LABEL.get(module, "server kampus")
+    logger.warning("upstream %s gagal: %s: %s", module, type(exc).__name__, exc)
+    name = type(exc).__name__.lower()
+    if "timeout" in name or "timed out" in str(exc).lower():
+        return f"{label} terlalu lama merespons. Coba lagi sebentar."
+    return f"{label} sedang tidak bisa dihubungi. Coba lagi sebentar."
 
 
 def _schedule_revalidate(
@@ -96,6 +120,7 @@ def _schedule_revalidate(
     parse: Callable[[Any], Any],
     ttl: int,
     should_cache: Optional[Callable[[Any], bool]] = None,
+    ttl_for: Optional[Callable[[Any], int]] = None,
 ) -> None:
     if cache_key in _revalidating:
         return
@@ -108,7 +133,7 @@ def _schedule_revalidate(
                 html = await html
             data = parse(html)
             if should_cache is None or should_cache(data):
-                await cache.set(cache_key, data, ttl=ttl)
+                await cache.set(cache_key, data, ttl=ttl_for(data) if ttl_for else ttl)
         except Exception:
             pass  # background refresh: biarkan LGG tetap terpakai
         finally:

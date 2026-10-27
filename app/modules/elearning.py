@@ -17,6 +17,7 @@ logger = logging.getLogger("app.elearning")
 
 _ASSIGNMENT_FETCH_CONCURRENCY = 4
 _ASSIGNMENT_FETCH_ATTEMPTS = 2
+_ASSIGNMENTS_PARTIAL_TTL = 60
 _PRESENCE_REKAP_TTL = 30
 
 from app.config import settings
@@ -534,7 +535,6 @@ def annotate_presence(presence: dict[str, Any], now: Optional[datetime] = None) 
     if present_today:
         presence["can_submit"] = False
         presence["status_sesi"] = "Sudah Absen"
-    presence["server_time"] = now.isoformat()
     return presence
 
 
@@ -1727,7 +1727,11 @@ async def get_assignments(
             parse=lambda data: data,
             ttl=settings.TTL_ASSIGNMENTS,
             cache_params={"nim": nim, "token": "all"},
-            should_cache=lambda data: not data.get("failed_courses") and data.get("courses_count", 1) > 0,
+            # Daftar kosong karena /courses gagal sesaat tidak boleh di-cache. Hasil parsial (sebagian
+            # mapel gagal) tetap di-cache singkat supaya halaman Tugas tidak men-scrape ulang semua
+            # mapel di setiap kunjungan; mapel yang gagal sudah diisi dari data terakhir.
+            should_cache=lambda data: data.get("courses_count", 1) > 0,
+            ttl_for=lambda data: _ASSIGNMENTS_PARTIAL_TTL if data.get("failed_courses") else settings.TTL_ASSIGNMENTS,
         )
 
     return await cached_endpoint(

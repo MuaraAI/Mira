@@ -11,6 +11,7 @@ import {
   LoadingState,
   PageHeader,
 } from "@/components/dashboard-ui";
+import { describeRoom } from "@/lib/schedule";
 
 interface ScheduleItem {
   id: string;
@@ -96,7 +97,9 @@ function ClassCard({ s, status, taught }: { s: ScheduleItem; status?: ClassStatu
         <div className="col-span-2 flex min-w-0 items-center gap-2">
           <MapPin className="h-3.5 w-3.5 shrink-0 text-[#0369A1]" aria-hidden="true" />
           <dt className="sr-only">Ruang</dt>
-          <dd className="min-w-0 break-words text-secondary">{s.ruang || "-"}</dd>
+          <dd className="min-w-0 break-words text-secondary" title={s.ruang ? `Kode ruang: ${s.ruang}` : undefined}>
+            {describeRoom(s.ruang).label}
+          </dd>
         </div>
         <div className="col-span-2 flex min-w-0 items-start gap-2">
           <User className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#0369A1]" aria-hidden="true" />

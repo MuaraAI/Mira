@@ -18,7 +18,7 @@ import { apiFetch, ApiError, useApi } from "@/lib/api";
 import {
   EmptyState,
   ErrorState,
-  LoadingState,
+  Skeleton,
   PageHeader,
   inputClass,
   primaryButtonClass,
@@ -219,7 +219,12 @@ function TaskCard({
 
 export default function TugasPage() {
   useEffect(() => preloadPdfjs(), []);
-  const { data, loading, error, reload } = useApi<AssignmentsData>("/v1/elearning/assignments");
+  // Tugas dikumpulkan dari tiap mapel di MyBest (lambat saat pertama). Simpan di perangkat 6 jam agar
+  // halaman langsung terisi, lalu perbarui diam-diam; cek ulang otomatis cukup tiap 5 menit.
+  const { data, loading, error, reload, revalidating } = useApi<AssignmentsData>("/v1/elearning/assignments", {
+    persistMs: 6 * 60 * 60 * 1000,
+    refreshMs: 5 * 60_000,
+  });
   const [filter, setFilter] = useState<Filter>("pending");
   const [actionMessage, setActionMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [previewTask, setPreviewTask] = useState<TaskItem | null>(null);
@@ -272,7 +277,20 @@ export default function TugasPage() {
     }
   }, [draftCheck.result]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (loading) return <LoadingState label="Memuat daftar tugas perkuliahan" />;
+  if (loading) {
+    return (
+      <div className="space-y-5" aria-busy="true">
+        <PageHeader title="Tugas Kuliah & Deadline" description="Mengambil tugas dari setiap mata kuliah di MyBest. Pertama kali bisa butuh beberapa detik." />
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="glass-card space-y-3 p-4 sm:p-5">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-6 w-3/4" />
+            <Skeleton className="h-4 w-1/2" />
+          </div>
+        ))}
+      </div>
+    );
+  }
   if (error) return <ErrorState error={error} onRetry={reload} />;
 
   const failedCourses = data?.failed_courses ?? [];
@@ -346,6 +364,12 @@ export default function TugasPage() {
         title="Tugas Kuliah & Deadline"
         description={`${allRows.length} tugas semester ini, langsung dari MyBest.`}
       />
+      {revalidating && (
+        <p className="-mt-3 mb-4 flex items-center gap-2 text-xs text-secondary" role="status">
+          <span className="px-cursor h-1.5 w-1.5 bg-[#0369A1]" aria-hidden="true" />
+          Memperbarui dari MyBest...
+        </p>
+      )}
 
       {failedCourses.length > 0 && (
         <div role="alert" className="px-frame flex flex-col gap-3 bg-[#FFF7ED] p-3 text-sm text-[#9A3412] [--px-line:#FDBA74] sm:flex-row sm:items-center sm:justify-between">
