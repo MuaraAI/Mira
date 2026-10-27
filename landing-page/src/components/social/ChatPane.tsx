@@ -1,7 +1,26 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Hash, Pencil, Pin, Search, Users, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  ArrowLeft,
+  Bell,
+  BellOff,
+  Hash,
+  Image as ImageIcon,
+  Link2,
+  LogOut,
+  MoreVertical,
+  Pencil,
+  Pin,
+  Search,
+  Settings2,
+  Type,
+  UserRound,
+  Users,
+  X,
+} from "lucide-react";
+import { FONT_SIZES, useChatPrefs, type ChatFontSize } from "@/lib/chatPrefs";
+import { WallpaperPicker } from "@/components/social/WallpaperPicker";
 import { useDialog } from "@/components/ConfirmDialog";
 import { Avatar } from "@/components/social/Avatar";
 import { Composer } from "@/components/social/Composer";
@@ -9,6 +28,7 @@ import { MessageList } from "@/components/social/MessageList";
 import { MemberList, PinsSheet, ProfileCard, SearchSheet } from "@/components/social/SocialSheets";
 import { SideSheet } from "@/components/SideSheet";
 import {
+  inviteLink,
   lastSeenLabel,
   type AuthorRef,
   type ChannelItem,
@@ -64,6 +84,8 @@ export function ChatPane({
   onTyping,
   onMessageUser,
   onDismissEdits,
+  onSpaceSettings,
+  onLeaveSpace,
 }: {
   active: ActiveConversation;
   state: ConversationState | undefined;
@@ -82,12 +104,18 @@ export function ChatPane({
   onTyping: () => void;
   onMessageUser: (username: string) => void;
   onDismissEdits: () => void;
+  /** Buka pengaturan ruang (channel). */
+  onSpaceSettings?: (spaceId: number) => void;
+  /** Keluar dari ruang (channel, bukan pemilik). */
+  onLeaveSpace?: (spaceId: number) => void;
 }) {
   const { notify } = useDialog();
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [editing, setEditing] = useState<Message | null>(null);
   const [highlight, setHighlight] = useState<number | null>(null);
-  const [sheet, setSheet] = useState<"pins" | "search" | "members" | "profile" | null>(null);
+  const [sheet, setSheet] = useState<"pins" | "search" | "members" | "profile" | "wallpaper" | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const prefs = useChatPrefs();
   const [showMembers, setShowMembers] = useState(true);
   useMinuteTick();
 
@@ -152,7 +180,7 @@ export function ChatPane({
   const headerButton = "flex h-10 w-10 shrink-0 items-center justify-center text-[#3B5A70] transition-colors hover:bg-[#EAF3F9] hover:text-[#072033]";
 
   return (
-    <div className="chat-ui flex h-full min-w-0 flex-1">
+    <div className="chat-ui flex h-full min-w-0 flex-1" style={{ "--chat-fs": `${prefs.fontPx}px` } as React.CSSProperties}>
       <section className="flex min-w-0 flex-1 flex-col bg-white" aria-label={`Percakapan ${title}`}>
         <header className="flex h-[3.75rem] shrink-0 items-center gap-1 border-b-2 border-[#CFE2EE] bg-white px-1.5 sm:px-3">
           <button type="button" onClick={onBack} aria-label="Kembali ke daftar chat" className={`${headerButton} md:hidden`}>
@@ -187,9 +215,65 @@ export function ChatPane({
           <button type="button" onClick={() => setSheet("search")} aria-label="Cari pesan" title="Cari pesan" className={headerButton}>
             <Search className="h-[18px] w-[18px]" aria-hidden="true" />
           </button>
-          <button type="button" onClick={() => setSheet("pins")} aria-label="Pesan disematkan" title="Pesan disematkan" className={headerButton}>
+          <button type="button" onClick={() => setSheet("pins")} aria-label="Pesan disematkan" title="Pesan disematkan" className={`${headerButton} hidden sm:flex`}>
             <Pin className="h-[18px] w-[18px]" aria-hidden="true" />
           </button>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              aria-label="Menu percakapan"
+              title="Menu"
+              className={`${headerButton} ${menuOpen ? "bg-[#EAF3F9] text-[#072033]" : ""}`}
+            >
+              <MoreVertical className="h-5 w-5" aria-hidden="true" />
+            </button>
+            {menuOpen && (
+              <ChatMenu
+                onClose={() => setMenuOpen(false)}
+                items={[
+                  dm && !dm.is_saved && { label: "Lihat profil", icon: UserRound, run: () => setSheet("profile") },
+                  isChannel && { label: "Info ruang & anggota", icon: Users, run: () => setSheet("members") },
+                  { label: "Cari pesan", icon: Search, run: () => setSheet("search") },
+                  { label: "Pesan disematkan", icon: Pin, run: () => setSheet("pins") },
+                  { label: "Wallpaper & kecerahan", icon: ImageIcon, run: () => setSheet("wallpaper") },
+                  "fontsize",
+                  {
+                    label: prefs.isMuted(conversationId) ? "Bunyikan notifikasi" : "Bisukan notifikasi",
+                    icon: prefs.isMuted(conversationId) ? Bell : BellOff,
+                    run: () => {
+                      const willMute = !prefs.isMuted(conversationId);
+                      prefs.toggleMute(conversationId);
+                      notify(willMute ? "Chat dibisukan. Pesan baru tidak menambah hitungan belum dibaca." : "Notifikasi chat aktif lagi", "success");
+                    },
+                  },
+                  active.kind === "channel" && active.space.invite_code && {
+                    label: "Salin link undangan",
+                    icon: Link2,
+                    run: async () => {
+                      try {
+                        await navigator.clipboard.writeText(inviteLink(active.space.invite_code as string));
+                        notify("Link undangan disalin", "success");
+                      } catch {
+                        notify("Gagal menyalin link", "error");
+                      }
+                    },
+                  },
+                  active.kind === "channel" && onSpaceSettings && { label: "Pengaturan ruang", icon: Settings2, run: () => onSpaceSettings(active.space.id) },
+                  active.kind === "channel" && active.space.my_role !== "owner" && onLeaveSpace && {
+                    label: "Keluar dari ruang",
+                    icon: LogOut,
+                    danger: true,
+                    run: () => onLeaveSpace(active.space.id),
+                  },
+                ]}
+                fontSize={prefs.fontSize}
+                onFontSize={prefs.setFontSize}
+              />
+            )}
+          </div>
           {isChannel && (
             <button
               type="button"
@@ -318,6 +402,9 @@ export function ChatPane({
         </aside>
       )}
 
+      <SideSheet open={sheet === "wallpaper"} onClose={() => setSheet(null)} eyebrow="Tampilan chat" title="Wallpaper & kecerahan" titleId="chat-wallpaper-title" width="md">
+        <WallpaperPicker />
+      </SideSheet>
       <PinsSheet open={sheet === "pins"} conversationId={conversationId} me={me} onClose={() => setSheet(null)} onPick={pick} />
       <SearchSheet open={sheet === "search"} conversationId={conversationId} me={me} onClose={() => setSheet(null)} onPick={pick} />
       {dm && !dm.is_saved && (
@@ -336,6 +423,94 @@ export function ChatPane({
           />
         </SideSheet>
       )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ menu titik tiga */
+
+type MenuItem = { label: string; icon: typeof Pin; run: () => void; danger?: boolean };
+
+function ChatMenu({
+  items,
+  fontSize,
+  onFontSize,
+  onClose,
+}: {
+  items: (MenuItem | "fontsize" | false | null | undefined | "")[];
+  fontSize: ChatFontSize;
+  onFontSize: (size: ChatFontSize) => void;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onDown = (e: PointerEvent) => {
+      if (ref.current && !ref.current.parentElement?.contains(e.target as Node)) onClose();
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    ref.current?.querySelector<HTMLElement>("[role=menuitem]")?.focus();
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      ref={ref}
+      role="menu"
+      aria-label="Menu percakapan"
+      className="menu-pop absolute right-0 top-full z-30 mt-1.5 w-64 origin-top-right bg-white py-1 shadow-[0_0_0_2px_#163A55,5px_5px_0_0_#9CC6E0]"
+    >
+      {items.map((item, i) => {
+        if (!item) return null;
+        if (item === "fontsize") {
+          return (
+            <div key="fontsize" className="border-y-2 border-[#EAF3F9] px-3 py-2.5" role="group" aria-label="Ukuran teks">
+              <p className="mb-1.5 flex items-center gap-2 text-[13px] font-medium text-[#3B5A70]">
+                <Type className="h-4 w-4" aria-hidden="true" /> Ukuran teks
+              </p>
+              <div className="grid grid-cols-3 gap-1">
+                {(Object.keys(FONT_SIZES) as ChatFontSize[]).map((size) => (
+                  <button
+                    key={size}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={fontSize === size}
+                    onClick={() => onFontSize(size)}
+                    className={`min-h-9 font-semibold transition-colors ${
+                      fontSize === size ? "bg-[#0369A1] text-white" : "bg-[#F0F7FB] text-[#072033] hover:bg-[#DCEBF5]"
+                    }`}
+                    style={{ fontSize: FONT_SIZES[size].px - 2 }}
+                  >
+                    {FONT_SIZES[size].label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        }
+        const Icon = item.icon;
+        return (
+          <button
+            key={`${item.label}-${i}`}
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              onClose();
+              item.run();
+            }}
+            className={`flex min-h-11 w-full items-center gap-3 px-4 text-left text-[14px] font-medium outline-none transition-colors focus-visible:bg-[#EAF3F9] ${
+              item.danger ? "text-[#BE123C] hover:bg-[#FFF1F2]" : "text-[#072033] hover:bg-[#F0F7FB]"
+            }`}
+          >
+            <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
+            {item.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

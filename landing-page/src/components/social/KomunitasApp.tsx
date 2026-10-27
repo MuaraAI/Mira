@@ -729,6 +729,29 @@ export function KomunitasApp() {
           if (ok && (await runMessage(m.conversation_id, socialApi.remove(m.id)))) debounce("inbox", () => loadInbox().catch(() => {}));
         }}
         wallpaper={wallpaper.style}
+        onSpaceSettings={(spaceId) => {
+          setSheet({ settings: spaceId });
+          if (!members[spaceId]) loadMembers(spaceId);
+        }}
+        onLeaveSpace={async (spaceId) => {
+          const space = inbox.spaces.find((x) => x.id === spaceId);
+          const ok = await confirm({
+            title: `Keluar dari ${space?.name ?? "ruang ini"}?`,
+            message: "Kamu bisa bergabung lagi lewat link undangan.",
+            confirmLabel: "Keluar",
+            tone: "danger",
+          });
+          if (!ok) return;
+          try {
+            await socialApi.leaveSpace(spaceId);
+            setActiveId(null);
+            setView("home");
+            await loadInbox();
+            notify(`Kamu keluar dari ${space?.name ?? "ruang"}`, "success");
+          } catch (err) {
+            notify(errorText(err), "error");
+          }
+        }}
         onDismissEdits={() =>
           setConvs((prev) => (activeId !== null && prev[activeId] ? { ...prev, [activeId]: { ...prev[activeId], edits: [] } } : prev))
         }

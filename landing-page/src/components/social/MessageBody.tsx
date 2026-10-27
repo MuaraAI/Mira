@@ -1,7 +1,18 @@
 "use client";
 
 import { createContext, Fragment, useContext, useEffect, useState } from "react";
-import { Users } from "lucide-react";
+import {
+  BookOpen,
+  CalendarDays,
+  CheckSquare,
+  GraduationCap,
+  Hash,
+  LayoutDashboard,
+  MessagesSquare,
+  Newspaper,
+  UserCheck,
+  Users,
+} from "lucide-react";
 import { SpaceTile } from "@/components/social/Avatar";
 import { inviteCodeFrom, mediaUrl, socialApi, toneFor, type InvitePreview } from "@/lib/social";
 
@@ -69,21 +80,20 @@ function Inline({ text, me, depth = 0 }: { text: string; me?: string; depth?: nu
     } else if (kind === "url") {
       const path = internalPath(token);
       const invite = inviteCodeFrom(token);
+      if (path) {
+        out.push(<InternalLinkPill key={k} url={token} path={path} invite={invite} />);
+        rest = rest.slice(match.index + token.length);
+        continue;
+      }
       out.push(
         <a
           key={k}
           href={token}
-          target={path ? undefined : "_blank"}
-          rel={path ? undefined : "noopener noreferrer nofollow"}
+          target="_blank"
+          rel="noopener noreferrer nofollow"
           className="break-all font-medium text-[#0369A1] underline decoration-[#0369A1]/40 decoration-2 underline-offset-2 hover:decoration-[#0369A1]"
           onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (!links || !path) return;
-            e.preventDefault();
-            if (invite) links.openInvite(invite);
-            else links.openInternal(path);
-          }}
+          onClick={(e) => e.stopPropagation()}
         >
           {token}
         </a>
@@ -256,6 +266,60 @@ export function stripFormatting(text: string): string {
     .replace(/`([^`\n]+)`/g, "$1");
 }
 
+/* ------------------------------------------------------------------ link internal Mira */
+
+const PAGE_LABELS: [RegExp, string, typeof Hash][] = [
+  [/^\/dashboard\/komunitas/, "Komunitas", MessagesSquare],
+  [/^\/dashboard\/tugas/, "Tugas", CheckSquare],
+  [/^\/dashboard\/presensi/, "Presensi", UserCheck],
+  [/^\/dashboard\/jadwal/, "Jadwal", CalendarDays],
+  [/^\/dashboard\/(nilai|flexing)/, "Nilai", GraduationCap],
+  [/^\/dashboard\/materi/, "Bahan Ajar", BookOpen],
+  [/^\/dashboard\/berita/, "Berita Kampus", Newspaper],
+  [/^\/dashboard\/?$/, "Ringkasan", LayoutDashboard],
+];
+
+/** Link ke halaman Mira sendiri ditampilkan sebagai chip berlabel, bukan URL panjang. */
+function InternalLinkPill({ url, path, invite }: { url: string; path: string; invite: string | null }) {
+  const links = useContext(SocialLinkContext);
+  const [groupName, setGroupName] = useState<string | null>(null);
+  useEffect(() => {
+    if (!invite) return;
+    let alive = true;
+    loadInvite(invite).then((p) => alive && setGroupName(p?.name ?? null));
+    return () => {
+      alive = false;
+    };
+  }, [invite]);
+  const match = PAGE_LABELS.find(([re]) => re.test(path.split("?")[0]));
+  const Icon = invite ? Users : match?.[2] ?? Hash;
+  const label = invite ? `Undangan grup${groupName ? ` · ${groupName}` : ""}` : `Mira · ${match?.[1] ?? "Halaman"}`;
+  return (
+    <a
+      href={url}
+      title={url}
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (!links) return;
+        e.preventDefault();
+        if (invite) links.openInvite(invite);
+        else links.openInternal(path);
+      }}
+      className="mx-0.5 inline-flex max-w-full items-center gap-1.5 bg-[#0369A1]/10 px-2 py-0.5 align-middle text-[0.92em] font-semibold text-[#0369A1] shadow-[0_0_0_1.5px_#9CC6E0] transition-colors hover:bg-[#0369A1] hover:text-white"
+    >
+      <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+      <span className="truncate">{label}</span>
+    </a>
+  );
+}
+
+/** Pesan yang isinya hanya satu link undangan: cukup tampilkan kartunya. */
+export function isOnlyInviteLink(text: string): boolean {
+  const t = text.trim();
+  return /^https?:\/\/\S+$/.test(t) && inviteCodeFrom(t.replace(/[).,!?;:'"]+$/, "")) !== null;
+}
+
 /* ------------------------------------------------------------------ kartu undangan grup */
 
 const inviteCache = new Map<string, Promise<InvitePreview | null>>();
@@ -289,8 +353,15 @@ export function InviteCard({ code }: { code: string }) {
   useEffect(() => {
     let alive = true;
     loadInvite(code).then((p) => alive && setPreview(p));
+    // Jumlah anggota & yang online diperbarui berkala selama kartu terlihat.
+    const timer = window.setInterval(() => {
+      if (document.hidden) return;
+      forgetInvite(code);
+      loadInvite(code).then((p) => alive && p && setPreview(p));
+    }, 30_000);
     return () => {
       alive = false;
+      window.clearInterval(timer);
     };
   }, [code]);
 

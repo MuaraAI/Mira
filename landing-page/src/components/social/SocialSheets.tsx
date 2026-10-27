@@ -26,7 +26,7 @@ import { SideSheet } from "@/components/SideSheet";
 import { SheetTabs } from "@/components/SheetTabs";
 import { ghostButtonClass, inputClass, primaryButtonClass } from "@/components/dashboard-ui";
 import { Avatar, SpaceTile } from "@/components/social/Avatar";
-import { useWallpaper, WALLPAPERS } from "@/lib/wallpaper";
+import { WallpaperPicker } from "@/components/social/WallpaperPicker";
 import { MessageBody } from "@/components/social/MessageBody";
 import {
   clockTime,
@@ -316,7 +316,6 @@ export function ProfileSheet({
   onSaved: (profile: SocialProfile, close?: boolean) => void;
 }) {
   const { notify } = useDialog();
-  const wallpaper = useWallpaper();
   const setMedia = async (changes: { avatar?: string | null; banner?: string | null }) => {
     const { profile } = await socialApi.setMyMedia(changes);
     onSaved(profile, false);
@@ -358,48 +357,8 @@ export function ProfileSheet({
       <ProfileForm initial={me} submitLabel="Simpan profil" onSaved={(p) => onSaved(p, true)} />
 
       <section className="mt-6 border-t-2 border-dashed border-[#CFE2EE] pt-5">
-        <h4 className="mb-1 text-[11px] font-bold uppercase tracking-[0.14em] text-[#3B5A70]">Wallpaper chat</h4>
-        <p className="mb-3 text-[13px] text-[#3B5A70]">Tersimpan di perangkat ini saja.</p>
-        <div className="grid grid-cols-4 gap-2">
-          {WALLPAPERS.map((w) => (
-            <button
-              key={w.id}
-              type="button"
-              onClick={() => wallpaper.choose(w.id)}
-              aria-pressed={wallpaper.stored.id === w.id}
-              className={`flex aspect-[3/4] flex-col justify-end p-1 text-[11px] font-semibold text-[#072033] transition-shadow ${
-                wallpaper.stored.id === w.id ? "shadow-[0_0_0_3px_#0369A1]" : "shadow-[0_0_0_2px_#CFE2EE] hover:shadow-[0_0_0_2px_#5FA3CC]"
-              }`}
-              style={w.style}
-            >
-              <span className="bg-white/90 px-1 py-0.5">{w.label}</span>
-            </button>
-          ))}
-          <label
-            className={`flex aspect-[3/4] cursor-pointer flex-col items-center justify-center gap-1 bg-[#F0F7FB] p-1 text-center text-[11px] font-semibold text-[#0369A1] transition-shadow ${
-              wallpaper.stored.id === "custom" ? "shadow-[0_0_0_3px_#0369A1]" : "shadow-[0_0_0_2px_#CFE2EE] hover:shadow-[0_0_0_2px_#5FA3CC]"
-            }`}
-            style={wallpaper.stored.id === "custom" ? wallpaper.style : undefined}
-          >
-            <input
-              type="file"
-              accept="image/*"
-              className="sr-only"
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                e.target.value = "";
-                if (!file) return;
-                try {
-                  await wallpaper.setCustom(file);
-                } catch (err) {
-                  notify(err instanceof Error ? err.message : "Gagal memasang wallpaper", "error");
-                }
-              }}
-            />
-            <ImagePlus className="h-5 w-5" aria-hidden="true" />
-            <span className="bg-white/90 px-1 py-0.5">Gambar sendiri</span>
-          </label>
-        </div>
+        <h4 className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-[#3B5A70]">Tampilan chat</h4>
+        <WallpaperPicker />
       </section>
     </SideSheet>
   );
