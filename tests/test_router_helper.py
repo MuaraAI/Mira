@@ -118,3 +118,53 @@ async def test_allow_stale_false_refetches_instead_of_serving_expired_data(monke
         )
     assert res["data"] == {"v": "baru"}
     assert res["cached"] is False
+
+
+@pytest.mark.asyncio
+async def test_ttl_for_menentukan_ttl_per_hasil(monkeypatch):
+    """Hasil parsial tetap disimpan, tapi dengan TTL pendek (bukan dibuang)."""
+    saved = {}
+
+    async def fake_set(key, payload, ttl=None):
+        saved["ttl"] = ttl
+
+    monkeypatch.setattr(cache, "set", fake_set)
+    with patch("redis.asyncio.from_url", return_value=_mock_redis()):
+        await cached_endpoint(
+            module="elearning", name="parsial",
+            fetch=lambda: {"failed_courses": ["X"]},
+            parse=lambda data: data,
+            ttl=600,
+            ttl_for=lambda data: 60 if data.get("failed_courses") else 600,
+        )
+    assert saved["ttl"] == 60
+
+
+@pytest.mark.asyncio
+async def test_error_upstream_berbahasa_indonesia_tanpa_detail_teknis(monkeypatch):
+    from fastapi import HTTPException
+
+    class ReadTimeout(Exception):
+        pass
+
+    def boom():
+        raise ReadTimeout("The read operation timed out")
+
+    async def no_lgg(key):
+        return None
+
+    monkeypatch.setattr(cache, "get_lgg", no_lgg)
+    with patch("redis.asyncio.from_url", return_value=_mock_redis()):
+        with pytest.raises(HTTPException) as info:
+            await cached_endpoint(module="elearning", name="lambat", fetch=boom, parse=lambda d: d, ttl=60)
+    message = info.value.detail["error"]["message"]
+    assert message == "MyBest terlalu lama merespons. Coba lagi sebentar."
+    assert "ReadTimeout" not in message and "timed out" not in message
+
+
+def test_presensi_tidak_membawa_server_time():
+    """Payload presensi harus stabil antar polling supaya UI tidak render ulang tanpa perubahan."""
+    from app.modules.elearning import annotate_presence
+
+    data = annotate_presence({"riwayat": [], "status_sesi": "Belum Dimulai"})
+    assert "server_time" not in data

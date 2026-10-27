@@ -335,7 +335,7 @@ async def rate_limiting_middleware(request: Request, call_next):
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 content=error_response(
                     code="RATE_LIMIT_EXCEEDED",
-                    message="Rate limit exceeded (max 60 req/min)",
+                    message="Terlalu banyak permintaan dalam satu menit. Tunggu sebentar lalu coba lagi.",
                     module="limiter",
                 ),
             )

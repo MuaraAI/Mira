@@ -4,20 +4,34 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   UserCheck,
   Clock,
+  Building2,
+  Wifi,
   MapPin,
   User,
   CheckCircle2,
   XCircle,
   AlertCircle,
   ChevronDown,
+  CalendarDays,
 } from "lucide-react";
 import { apiFetch, useApi, clearApiCache } from "@/lib/api";
 import {
   EmptyState,
   ErrorState,
-  LoadingState,
   PageHeader,
+  Skeleton,
 } from "@/components/dashboard-ui";
+import {
+  dayIndex,
+  dayName,
+  describeRoom,
+  formatRecordDate,
+  minutesRange,
+  sessionTiming,
+  shortDate,
+  type RoomInfo,
+  type SessionTiming,
+} from "@/lib/schedule";
 import { CourseSelect } from "@/components/CourseSelect";
 import { resolveDosen } from "@/lib/courses";
 import { DosenInfo } from "@/components/DosenInfo";
@@ -69,24 +83,6 @@ interface PresenceData {
 
 type Phase = "present" | "open" | "waiting" | "live" | "ended" | "off";
 
-/** "12:30-15:00" atau jam_masuk/jam_keluar -> menit sejak tengah malam. */
-function minutesRange(start?: string | null, end?: string | null, range?: string | null): [number, number] | null {
-  const pick = (v?: string | null) => {
-    const m = (v ?? "").match(/(\d{1,2})[:.](\d{2})/);
-    return m ? Number(m[1]) * 60 + Number(m[2]) : null;
-  };
-  let a = pick(start);
-  let b = pick(end);
-  if ((a === null || b === null) && range) {
-    const parts = range.match(/(\d{1,2}[:.]\d{2})\s*[-–]\s*(\d{1,2}[:.]\d{2})/);
-    if (parts) {
-      a = pick(parts[1]);
-      b = pick(parts[2]);
-    }
-  }
-  return a !== null && b !== null ? [a, b] : null;
-}
-
 const PHASE_COPY: Record<Phase, { chip: string; button: string }> = {
   present: { chip: "Sudah Absen", button: "Sudah absen hari ini" },
   open: { chip: "Absen Dibuka", button: "Absen Sekarang" },
@@ -96,39 +92,81 @@ const PHASE_COPY: Record<Phase, { chip: string; button: string }> = {
   off: { chip: "Bukan Hari Kuliah", button: "Tidak ada kelas hari ini" },
 };
 
-const DAY_ORDER = ["minggu", "senin", "selasa", "rabu", "kamis", "jumat", "sabtu"];
+/** Mata kuliah tersimpan di perangkat 12 jam (jadwal jarang berubah); presensi 10 menit untuk tampilan instan. */
+const COURSES_PERSIST_MS = 12 * 60 * 60 * 1000;
+const PRESENCE_PERSIST_MS = 10 * 60 * 1000;
+
+function RoomBadge({ info }: { info: RoomInfo }) {
+  const Icon = info.mode === "online" ? Wifi : info.mode === "offline" ? Building2 : MapPin;
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold ${
+        info.mode === "online" ? "bg-[#0369A1]/10 text-[#0369A1]" : info.mode === "offline" ? "bg-[#0F766E]/10 text-[#0F766E]" : "bg-px-tint text-secondary"
+      }`}
+      title={info.code ? `Kode ruang: ${info.code}` : undefined}
+    >
+      <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+      {info.label}
+    </span>
+  );
+}
+
+function PresenceSkeleton() {
+  return (
+    <div className="space-y-6" aria-busy="true" aria-label="Memuat presensi">
+      <div className="glass-card space-y-3 p-4 sm:p-6">
+        <Skeleton className="h-5 w-28" />
+        <Skeleton className="h-7 w-3/4" />
+        <Skeleton className="h-4 w-1/2" />
+        <Skeleton className="h-12 w-full md:w-48" />
+      </div>
+      <div className="glass-card space-y-3 p-4 sm:p-6">
+        {[0, 1, 2].map((i) => (
+          <Skeleton key={i} className="h-10 w-full" />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function PresensiPage() {
   const { confirm } = useDialog();
-  const coursesApi = useApi<CourseItem[]>("/v1/elearning/courses");
+  const coursesApi = useApi<CourseItem[]>("/v1/elearning/courses", { persistMs: COURSES_PERSIST_MS });
   // Cadangan kode dosen dari jadwal SIAKAD.
-  const scheduleApi = useApi<{ kode: string; nama: string; kode_dosen?: string }[]>("/v1/studentv2/schedule");
+  const scheduleApi = useApi<{ kode: string; nama: string; kode_dosen?: string }[]>("/v1/studentv2/schedule", {
+    persistMs: COURSES_PERSIST_MS,
+  });
   const [openRecord, setOpenRecord] = useState<string | null>(null);
   const [selectedCourseKey, setSelectedCourseKey] = useState<string | null>(null);
 
+  // Jam berjalan untuk status sesi dan label "dimulai X menit lagi"; diperbarui tiap 30 detik.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const todayIdx = now.getDay();
+
   const rawCourses = coursesApi.data ?? [];
-  const todayDayIndex = new Date().getDay();
-  const todayName = new Intl.DateTimeFormat("id-ID", { weekday: "long" }).format(new Date());
-
-  // Urutkan mata kuliah:
-  // 1. Hari ini (distance 0) paling depan di posisi pertama
-  // 2. Jika hari ini tidak ada jadwal (libur), prioritaskan hari berikutnya (besok, lusa, dst)
-  const courses = useMemo(() => {
-    function getDistance(courseDay?: string): number {
-      if (!courseDay) return 99;
-      const clean = courseDay.toLowerCase().trim();
-      const idx = DAY_ORDER.indexOf(clean);
-      if (idx === -1) return 99;
-      return (idx - todayDayIndex + 7) % 7;
-    }
-
-    return [...rawCourses].sort((a, b) => {
-      const distA = getDistance(a.hari);
-      const distB = getDistance(b.hari);
-      if (distA !== distB) return distA - distB;
-      return (a.jam || "").localeCompare(b.jam || "");
-    });
-  }, [rawCourses, todayDayIndex]);
+  // Urutan mingguan dimulai dari kelas terdekat: yang berlangsung/akan datang hari ini dulu,
+  // lalu besok, dst. Kelas hari ini yang sudah selesai pindah ke akhir (minggu depan).
+  const timed = useMemo(
+    () =>
+      rawCourses
+        .map((course) => ({ course, timing: sessionTiming(course.hari, course.jam, now) }))
+        .sort((a, b) => {
+          const da = a.timing?.daysAway ?? 99;
+          const db = b.timing?.daysAway ?? 99;
+          if (da !== db) return da - db;
+          return (a.timing?.range?.[0] ?? 9999) - (b.timing?.range?.[0] ?? 9999);
+        }),
+    // Urutan cukup dihitung ulang per menit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rawCourses, Math.floor(now.getTime() / 60_000)]
+  );
+  const courses = useMemo(() => timed.map((t) => t.course), [timed]);
+  const timingOf = (course: CourseItem | null): SessionTiming | null =>
+    course ? timed.find((t) => t.course === course)?.timing ?? null : null;
 
   // Dari tombol "Absen" di Jadwal: /dashboard/presensi?kode=...&mk=... langsung memilih mata kuliahnya.
   const [requested, setRequested] = useState<{ kode: string; mk: string } | null>(null);
@@ -149,16 +187,14 @@ export default function PresensiPage() {
     setRequested(null);
   }, [requested, courses]);
 
+  // Tanpa pilihan manual: otomatis mapel yang sedang/akan berlangsung paling dekat.
   const activeCourse = useMemo(() => {
     if (selectedCourseKey) {
-      return (
-        courses.find((c) => (c.id || c.kode || c.nama) === selectedCourseKey) ||
-        courses[0] ||
-        null
-      );
+      return courses.find((c) => (c.id || c.kode || c.nama) === selectedCourseKey) || courses[0] || null;
     }
     return courses[0] || null;
   }, [courses, selectedCourseKey]);
+  const activeTiming = timingOf(activeCourse);
 
   const token = activeCourse?.token_absen;
 
@@ -166,28 +202,18 @@ export default function PresensiPage() {
   const [justPresent, setJustPresent] = useState<string | null>(null);
   const [serverPresent, setServerPresent] = useState(false);
 
-  // Jam berjalan (menit) untuk menentukan fase sesi; diperbarui tiap 15 detik.
-  const [clock, setClock] = useState(() => new Date());
-  useEffect(() => {
-    const timer = window.setInterval(() => setClock(new Date()), 15_000);
-    return () => window.clearInterval(timer);
-  }, []);
-  const nowMinutes = clock.getHours() * 60 + clock.getMinutes();
-  const courseIsToday = activeCourse?.hari?.toLowerCase().trim() === todayName.toLowerCase();
-  const courseRange = minutesRange(null, null, activeCourse?.jam);
-  // Polling hemat: cepat hanya saat sesi absen bisa dibuka dosen, berhenti begitu sudah absen atau kelas selesai.
-  const afterClass = courseRange !== null && nowMinutes > courseRange[1] + 20;
-  const nearSession = courseIsToday && (!courseRange || (nowMinutes >= courseRange[0] - 5 && nowMinutes <= courseRange[1] + 20));
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
   const alreadyPresent = serverPresent || Boolean(justPresent && activeCourse && justPresent === (activeCourse.id || activeCourse.kode || activeCourse.nama));
-  const refreshMs = !courseIsToday || afterClass || alreadyPresent ? null : nearSession ? 6_000 : 30_000;
+  // Polling hanya saat menunggu dosen membuka absen (menjelang/selama kelas hari ini). Di luar itu tidak
+  // ada pembaruan otomatis, jadi tampilan tidak berubah-ubah sendiri.
+  const watching = !alreadyPresent && (activeTiming?.state === "soon" || activeTiming?.state === "live");
+  const refreshMs = watching ? 15_000 : null;
 
-  const presenceApi = useApi<PresenceData>(
-    token ? `/v1/elearning/presence?token=${token}` : "/v1/elearning/presence",
-    { ttlMs: 2_000, refreshMs }
-  );
+  // Tunggu daftar mapel dulu: tanpa token, backend akan men-scrape ulang daftar mapel + mapel pertama (lambat & sia-sia).
+  const presencePath = activeCourse ? (token ? `/v1/elearning/presence?token=${token}` : "/v1/elearning/presence") : "";
+  const presenceApi = useApi<PresenceData>(presencePath, { ttlMs: 5_000, refreshMs, persistMs: PRESENCE_PERSIST_MS });
   const pData = presenceApi.data;
 
-  const updatedAt = presenceApi.updatedAt;
   useEffect(() => setServerPresent(Boolean(pData?.present_today)), [pData?.present_today]);
 
   const [submitting, setSubmitting] = useState(false);
@@ -239,7 +265,12 @@ export default function PresensiPage() {
   }
 
   if (coursesApi.loading) {
-    return <LoadingState label="Memuat daftar mata kuliah presensi" />;
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Presensi Perkuliahan" description="Absen, riwayat kehadiran, dan rangkuman tiap pertemuan." />
+        <PresenceSkeleton />
+      </div>
+    );
   }
   if (coursesApi.error) {
     return <ErrorState error={coursesApi.error} onRetry={coursesApi.reload} />;
@@ -273,7 +304,10 @@ export default function PresensiPage() {
   const courseKey = (c: CourseItem) => c.id || c.kode || c.nama;
 
   const sessionRange = minutesRange(pData?.jam_masuk, pData?.jam_keluar, activeCourse?.jam);
-  const isTodaySession = (pData?.hari || activeCourse?.hari || "").toLowerCase().trim() === todayName.toLowerCase();
+  const isTodaySession = dayIndex(pData?.hari || activeCourse?.hari) === todayIdx;
+  const room = describeRoom(pData?.ruang || activeCourse?.ruang);
+  const scheduleDay = dayName(pData?.hari || activeCourse?.hari);
+  const nextDate = activeTiming ? (activeTiming.state === "done" ? now : activeTiming.date) : null;
   const presentToday = Boolean(pData?.present_today) || (activeCourse !== null && justPresent === courseKey(activeCourse));
   let phase: Phase;
   if (presentToday) phase = "present";
@@ -282,7 +316,13 @@ export default function PresensiPage() {
   else if (sessionRange && nowMinutes < sessionRange[0]) phase = "waiting";
   else if (sessionRange && nowMinutes > sessionRange[1]) phase = "ended";
   else phase = "live";
-  const copy = PHASE_COPY[phase];
+  const nextDay = activeTiming?.daysAway === 1 ? "besok" : scheduleDay ? `hari ${scheduleDay}` : "sesuai jadwal";
+  const copy =
+    phase === "off"
+      ? { chip: activeTiming?.daysAway === 1 ? "Besok" : scheduleDay ? `Jadwal ${scheduleDay}` : PHASE_COPY.off.chip, button: `Absen dibuka ${nextDay}` }
+      : phase === "ended" && activeTiming
+        ? { chip: PHASE_COPY.ended.chip, button: "Kelas hari ini sudah selesai" }
+        : PHASE_COPY[phase];
   const canAbsen = phase === "open";
 
   return (
@@ -293,12 +333,17 @@ export default function PresensiPage() {
       />
 
       <CourseSelect
-        options={courses.map((c) => ({
-          key: courseKey(c),
-          label: c.nama,
-          sub: [c.hari, c.jam].filter(Boolean).join(" "),
-          badge: c.hari?.toLowerCase().trim() === todayName.toLowerCase() ? "Hari Ini" : undefined,
-        }))}
+        options={courses.map((c) => {
+          const t = timingOf(c);
+          return {
+            key: courseKey(c),
+            label: c.nama,
+            sub: [dayName(c.hari), c.jam, describeRoom(c.ruang).mode === "online" ? "Online" : describeRoom(c.ruang).mode === "offline" ? `R. ${c.ruang}` : ""]
+              .filter(Boolean)
+              .join(" · "),
+            badge: t?.state === "live" ? "Berlangsung" : t?.state === "soon" ? "Segera" : t?.daysAway === 0 ? "Hari Ini" : t?.daysAway === 1 ? "Besok" : undefined,
+          };
+        })}
         value={activeCourse ? courseKey(activeCourse) : null}
         onChange={(key) => {
           setSelectedCourseKey(key);
@@ -309,7 +354,7 @@ export default function PresensiPage() {
       />
 
       {presenceApi.loading ? (
-        <LoadingState label="Memuat rekap presensi..." />
+        <PresenceSkeleton />
       ) : presenceApi.error ? (
         <ErrorState error={presenceApi.error} onRetry={presenceApi.reload} />
       ) : (
@@ -352,20 +397,47 @@ export default function PresensiPage() {
                       />
                     </dd>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <MapPin className="h-3.5 w-3.5 text-[#0369A1]" aria-hidden="true" />
-                    <dt className="sr-only">Ruang</dt>
-                    <dd>
-                      {pData?.ruang || activeCourse?.ruang || "-"}
-                      {pData?.kelas ? ` · ${pData.kelas}` : ""}
-                    </dd>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="h-3.5 w-3.5 text-[#0369A1]" aria-hidden="true" />
-                    <dt className="sr-only">Jadwal</dt>
-                    <dd>{[pData?.hari || activeCourse?.hari, jam].filter(Boolean).join(" ") || "-"}</dd>
-                  </div>
+                  {pData?.kelas && (
+                    <div className="flex items-center gap-1.5">
+                      <dt className="sr-only">Kelas</dt>
+                      <dd className="font-mono">{pData.kelas}</dd>
+                    </div>
+                  )}
                 </dl>
+                {/* Jadwal yang jelas: hari & tanggal pertemuan berikutnya, jam, status waktu, dan jenis ruang. */}
+                <div className="space-y-2 pt-1">
+                  <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-foreground">
+                    <CalendarDays className="h-4 w-4 shrink-0 text-[#0369A1]" aria-hidden="true" />
+                    <span className="font-semibold">
+                      {nextDate ? shortDate(nextDate) : scheduleDay || "-"}
+                    </span>
+                    {jam && (
+                      <span className="inline-flex items-center gap-1 font-mono text-[13px] text-secondary">
+                        <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                        {jam.replace(/\s*-\s*/, " - ")}
+                      </span>
+                    )}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <RoomBadge info={room} />
+                    {activeTiming && (
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold ${
+                          activeTiming.state === "live"
+                            ? "bg-[#9A3412]/10 text-[#9A3412]"
+                            : activeTiming.state === "soon"
+                              ? "bg-[#0369A1]/10 text-[#0369A1]"
+                              : "bg-px-tint text-secondary"
+                        }`}
+                      >
+                        {(activeTiming.state === "live" || activeTiming.state === "soon") && (
+                          <span className="px-cursor h-1.5 w-1.5 bg-current" aria-hidden="true" />
+                        )}
+                        {activeTiming.label}
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <button
@@ -380,11 +452,10 @@ export default function PresensiPage() {
             </div>
 
             {/* Rekap kehadiran */}
-            {refreshMs && (
-              <p className="mt-4 flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-secondary">
-                <span className="px-cursor h-1.5 w-1.5 shrink-0 bg-[#0F766E]" aria-hidden="true" />
-                Diperbarui otomatis
-                {updatedAt && <span className="normal-case tracking-normal">· {updatedAt.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>}
+            {refreshMs && (phase === "live" || phase === "waiting") && (
+              <p className="mt-4 flex items-center gap-2 text-xs text-secondary">
+                <span className="h-1.5 w-1.5 shrink-0 bg-[#0F766E]" aria-hidden="true" />
+                Memantau sesi absen. Tombol aktif otomatis saat dosen membuka absen.
               </p>
             )}
 
@@ -454,7 +525,7 @@ export default function PresensiPage() {
                       >
                         <span className="w-10 shrink-0 font-mono text-sm font-bold text-[#0369A1]">P-{r.pertemuan}</span>
                         <span className="min-w-0 flex-1">
-                          <span className="block font-mono text-xs text-secondary">{r.tanggal}</span>
+                          <span className="block text-xs font-medium text-secondary">{formatRecordDate(r.tanggal)}</span>
                           {summary && !open && <span className="block truncate text-sm text-foreground">{notePreview(summary)}</span>}
                         </span>
                         <span
