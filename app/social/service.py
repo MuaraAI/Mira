@@ -478,11 +478,31 @@ def touch_seen(nim: str) -> None:
         conn.execute("UPDATE social_profiles SET last_seen_at = ? WHERE nim = ?", (_now(), nim))
 
 
+MURA_AVATAR_FILES = frozenset({
+    "mura-buku-tumpuk.png",
+    "mura_empty_library.png",
+    "mura-empty.png",
+    "mura-kuis.png",
+    "mura_maintenance.png",
+    "mura-nilai.png",
+    "mura_stream_broken.png",
+    "mura-tugas-done.png",
+    "mura_welcome.png",
+    "velnime-empty-search.png",
+})
+
+
 def _require_media(media_id: Optional[str]) -> Optional[str]:
     from app.social import media
 
     if media_id is None:
         return None
+    # Preset maskot resmi Mura (disajikan langsung oleh landing page publik).
+    if media_id.startswith("/avatars/mura/"):
+        filename = media_id.split("/")[-1]
+        if filename in MURA_AVATAR_FILES:
+            return media_id
+        raise SocialError("MEDIA_NOT_FOUND", "Preset maskot tidak dikenali", 404)
     if media.path_for(media_id) is None:
         raise SocialError("MEDIA_NOT_FOUND", "Gambar tidak ditemukan, unggah ulang", 404)
     return media_id

@@ -36,6 +36,7 @@ import { Avatar, SpaceTile } from "@/components/social/Avatar";
 import { WallpaperPicker } from "@/components/social/WallpaperPicker";
 import { MessageBody } from "@/components/social/MessageBody";
 import {
+  MURA_AVATARS,
   clockTime,
   compressImage,
   dayLabel,
@@ -361,6 +362,44 @@ export function ProfileSheet({
           )}
         </div>
       )}
+
+      {/* Pilihan Maskot Mura Resmi */}
+      <section className="mb-5 border-t-2 border-dashed border-[#CFE2EE] pt-4">
+        <h4 className="mb-1 text-[11px] font-bold uppercase tracking-[0.14em] text-[#3B5A70]">
+          Pilih Maskot Mura
+        </h4>
+        <p className="mb-3 text-[12px] text-[#5B7A8C]">
+          Gunakan karakter Mura sebagai foto profilmu sekali ketuk.
+        </p>
+        <div className="grid grid-cols-5 gap-2">
+          {MURA_AVATARS.map((m) => {
+            const selected = me.avatar === m.path;
+            return (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => setMedia({ avatar: m.path })}
+                title={m.label}
+                aria-label={`Pilih ${m.label}`}
+                aria-pressed={selected}
+                className={`group relative flex aspect-square flex-col items-center justify-center overflow-hidden bg-[#F0F7FB] p-1.5 transition-all hover:bg-[#DCEBF5] ${
+                  selected
+                    ? "shadow-[0_0_0_2px_#0369A1,2px_2px_0_0_#0369A1]"
+                    : "shadow-[0_0_0_1px_#CFE2EE] hover:shadow-[0_0_0_2px_#5FA3CC]"
+                }`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={m.path}
+                  alt={m.label}
+                  loading="lazy"
+                  className="h-full w-full object-contain transition-transform group-hover:scale-105"
+                />
+              </button>
+            );
+          })}
+        </div>
+      </section>
       <ProfileForm initial={me} submitLabel="Simpan profil" onSaved={(p) => onSaved(p, true)} />
 
       <section className="mt-6 border-t-2 border-dashed border-[#CFE2EE] pt-5">

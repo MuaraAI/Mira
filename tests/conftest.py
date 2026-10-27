@@ -26,3 +26,8 @@ def _patched_init(self, *args, **kwargs):
 def auto_auth_client(monkeypatch):
     monkeypatch.setattr(AsyncClient, "__init__", _patched_init)
     monkeypatch.setattr(settings, "API_KEY", "test-secret-key-12345")
+    # Test suite wajib 100% offline (Iron Rule #2): paksa SQLite in-memory,
+    # jangan biarkan SUPABASE_DB_URL lokal menyentuh remote Supabase di pytest.
+    monkeypatch.setattr(settings, "SUPABASE_DB_URL", "")
+    # Default produksi tanpa MOCK_MODE: pastikan router mock tidak ter-mount by default.
+    monkeypatch.setattr(settings, "MOCK_MODE", False)
