@@ -407,6 +407,14 @@ async def test_space_media_and_invite_preview():
     assert "invite_code" not in preview
     assert (await budi.get("/v1/social/invites/nope")).status_code == 404
 
+    # 6. Preset maskot Mura resmi diterima tanpa unggahan media disk
+    r = await ayu.patch("/v1/social/me/media", json={"avatar": "/avatars/mura/mura-tugas-done.png"})
+    assert r.status_code == 200
+    assert r.json()["data"]["profile"]["avatar"] == "/avatars/mura/mura-tugas-done.png"
+
+    # Preset ngawur ditolak 404
+    assert (await ayu.patch("/v1/social/me/media", json={"avatar": "/avatars/mura/hacker.png"})).status_code == 404
+
 
 @pytest.mark.asyncio
 async def test_deleted_messages_vanish_everywhere():

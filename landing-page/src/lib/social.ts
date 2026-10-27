@@ -407,9 +407,26 @@ export function inviteLink(code: string): string {
 
 export const MAX_BODY = 2000;
 
-/** URL publik gambar Komunitas (avatar/banner) dari id media. */
+/** Maskot Mura resmi yang bisa dipakai sebagai avatar profil komunitas. */
+export const MURA_AVATARS = [
+  { id: "mura_welcome", label: "Mura Menyapa", path: "/avatars/mura/mura_welcome.png" },
+  { id: "mura-empty", label: "Mura Santai", path: "/avatars/mura/mura-empty.png" },
+  { id: "mura-tugas-done", label: "Tugas Beres", path: "/avatars/mura/mura-tugas-done.png" },
+  { id: "mura-buku-tumpuk", label: "Kutu Buku", path: "/avatars/mura/mura-buku-tumpuk.png" },
+  { id: "mura-kuis", label: "Mikir Kuis", path: "/avatars/mura/mura-kuis.png" },
+  { id: "mura-nilai", label: "Pamer Nilai", path: "/avatars/mura/mura-nilai.png" },
+  { id: "mura_empty_library", label: "Perpustakaan", path: "/avatars/mura/mura_empty_library.png" },
+  { id: "mura_maintenance", label: "Oprek", path: "/avatars/mura/mura_maintenance.png" },
+  { id: "mura_stream_broken", label: "Bingung", path: "/avatars/mura/mura_stream_broken.png" },
+  { id: "velnime-empty-search", label: "Velnime", path: "/avatars/mura/velnime-empty-search.png" },
+] as const;
+
+/** URL publik gambar Komunitas (avatar/banner) dari id media atau preset maskot. */
 export function mediaUrl(id: string | null | undefined): string | null {
-  return id ? `${getApiBase()}/v1/social/media/${id}` : null;
+  if (!id) return null;
+  // Preset maskot Mura: path lokal Next.js (/avatars/mura/*.png).
+  if (id.startsWith("/")) return id;
+  return `${getApiBase()}/v1/social/media/${id}`;
 }
 
 /** Ambil kode undangan dari link `.../dashboard/komunitas?join=KODE` (origin mana pun milik Mira). */
