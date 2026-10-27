@@ -211,3 +211,36 @@ def test_parse_presence_sudah_absen_button_is_not_submittable():
 
     html = '<div><div class="col-xl-3"><button class="btn btn-success">Sudah Absen</button></div></div>'
     assert parse_presence(html)["can_submit"] is False
+
+
+# ------------------------------------------------------------------ jadwal: hari & jam berbasis pola
+
+def _sch_fixture() -> str:
+    with open("tests/fixtures/el_sch_v2.html", encoding="utf-8") as f:
+        return f.read()
+
+
+def test_course_day_falls_back_to_header_day_not_class_type():
+    """Header kartu "Kelas Teori Selasa": tanpa baris Hari & Jam, hari harus Selasa, bukan "Teori"."""
+    from app.modules.elearning import parse_courses
+
+    html = _sch_fixture().replace("Selasa, 09:10-10:50", "", 1)
+    first = parse_courses(html)[0]
+    assert first["nama"] == "BAHASA INGGRIS I"
+    assert first["hari"] == "Selasa"
+
+
+def test_course_schedule_without_comma_or_with_dots():
+    from app.modules.elearning import parse_courses
+
+    first = parse_courses(_sch_fixture().replace("Selasa, 09:10-10:50", "Selasa 09.10 - 10.50", 1))[0]
+    assert (first["hari"], first["jam"]) == ("Selasa", "09:10-10:50")
+
+
+def test_course_schedule_regular_format_unchanged():
+    from app.modules.elearning import parse_courses
+
+    first = parse_courses(_sch_fixture())[0]
+    assert (first["hari"], first["jam"]) == ("Selasa", "09:10-10:50")
+    days = {c["hari"] for c in parse_courses(_sch_fixture())}
+    assert days <= {"Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"}

@@ -75,18 +75,17 @@ def parse_courses(html: str) -> list[dict[str, Any]]:
         title_el = card.css(".jadwal-title")
         nama = title_el[0].get_all_text().strip() if title_el else ""
 
-        # "Hari & Jam: Selasa, 09:10-10:50" -> hari + jam; fallback badge hari di header.
-        hari, jam = "", ""
-        schedule_text = info.get("hari & jam", "")
-        if ", " in schedule_text:
-            hari, jam = (p.strip() for p in schedule_text.split(", ", 1))
-        else:
-            hari = schedule_text
+        # "Hari & Jam: Selasa, 09:10-10:50" -> hari + jam. Dicari berdasarkan POLA (nama hari, jam),
+        # bukan posisi kata: header kartu berbunyi "Kelas Teori Selasa", sehingga mengambil kata
+        # ke-2 menghasilkan "Teori" dan mapel hari ini tidak dikenali.
+        hari, jam = _split_schedule(info.get("hari & jam", ""))
+        hdr = card.css(".jadwal-header")
+        header_full = " ".join(hdr[0].get_all_text().split()) if hdr else ""
         if not hari:
-            hdr = card.css(".jadwal-header")
-            if hdr:
-                parts = hdr[0].get_all_text().split()
-                hari = parts[1] if len(parts) > 1 else ""
+            hari, header_jam = _split_schedule(header_full)
+            jam = jam or header_jam
+        if not jam:
+            _, jam = _split_schedule(" ".join(card.get_all_text().split()))
 
         pill_el = card.css(".jadwal-kelas-pill")
         pill = pill_el[0].get_all_text().split(":")[-1].strip() if pill_el else ""
@@ -224,6 +223,19 @@ def parse_courses(html: str) -> list[dict[str, Any]]:
     return courses
 
 _LINKSCAN_DAYS = r"(Senin|Selasa|Rabu|Kamis|Jumat|Sabtu|Minggu)"
+
+_DAY_NAME_RE = re.compile(r"\b(Senin|Selasa|Rabu|Kamis|Jum'?at|Sabtu|Minggu)\b", re.IGNORECASE)
+_TIME_RANGE_RE = re.compile(r"(\d{1,2})[:.](\d{2})\s*[-–]\s*(\d{1,2})[:.](\d{2})")
+
+
+def _split_schedule(text: str) -> tuple[str, str]:
+    """Ambil (hari, jam) dari teks jadwal bebas format: "Selasa, 09:10-10:50", "Selasa 09.10 - 10.50",
+    "Kelas Teori Selasa". Hari dibakukan ("jum'at" -> "Jumat"), jam jadi "HH:MM-HH:MM"; kosong bila tidak ada."""
+    day = _DAY_NAME_RE.search(text or "")
+    hari = day.group(1).replace("'", "").capitalize() if day else ""
+    t = _TIME_RANGE_RE.search(text or "")
+    jam = f"{int(t.group(1)):02d}:{t.group(2)}-{int(t.group(3)):02d}:{t.group(4)}" if t else ""
+    return hari, jam
 
 
 def _parse_courses_linkscan(page: "Adaptor") -> list[dict[str, Any]]:
