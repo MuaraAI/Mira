@@ -489,3 +489,50 @@ def test_migration_adds_columns_to_legacy_db(tmp_path, monkeypatch):
     assert {r[1] for r in conn.execute("PRAGMA table_info(social_profiles)")} >= {"avatar", "banner", "is_online"}
     assert "last_opened_at" in {r[1] for r in conn.execute("PRAGMA table_info(social_participants)")}
     conn.close()
+
+
+# ------------------------------------------------------------------ v3: pengaturan grup
+
+@pytest.mark.asyncio
+async def test_rename_default_channel_and_announcement_mode():
+    ayu, budi = await _user("ayu"), await _user("budi")
+    space = (await ayu.post("/v1/social/spaces", json={"name": "Kelas"})).json()["data"]["space"]
+    general = space["channels"][0]
+    await budi.post("/v1/social/spaces/join", json={"invite_code": space["invite_code"]})
+
+    renamed = (await ayu.patch(f"/v1/social/conversations/{general['id']}", json={"name": "Info Kelas"})).json()["data"]["channel"]
+    assert renamed["name"] == "info-kelas"
+
+    ann = (await ayu.patch(f"/v1/social/conversations/{general['id']}", json={"admin_only": True})).json()["data"]["channel"]
+    assert ann["admin_only"] is True
+    blocked = await budi.post(f"/v1/social/conversations/{general['id']}/messages", json={"body": "halo"})
+    assert blocked.status_code == 403 and blocked.json()["error"]["code"] == "CHANNEL_READ_ONLY"
+    assert (await ayu.post(f"/v1/social/conversations/{general['id']}/messages", json={"body": "Pengumuman"})).status_code == 201
+    # Anggota biasa tidak bisa mengubah channel.
+    assert (await budi.patch(f"/v1/social/conversations/{general['id']}", json={"admin_only": False})).status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_reorder_channels_requires_exact_set():
+    ayu = await _user("ayu")
+    space = (await ayu.post("/v1/social/spaces", json={"name": "Kelas"})).json()["data"]["space"]
+    first = space["channels"][0]["id"]
+    second = (await ayu.post(f"/v1/social/spaces/{space['id']}/channels", json={"name": "tugas"})).json()["data"]["channel"]["id"]
+
+    res = await ayu.post(f"/v1/social/spaces/{space['id']}/channels/order", json={"ids": [second, first]})
+    assert [c["id"] for c in res.json()["data"]["space"]["channels"]] == [second, first]
+    bad = await ayu.post(f"/v1/social/spaces/{space['id']}/channels/order", json={"ids": [second]})
+    assert bad.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_private_spaces_hidden_from_discover_and_public_join_blocked():
+    ayu, budi = await _user("ayu"), await _user("budi")
+    private = (await ayu.post("/v1/social/spaces", json={"name": "Rahasia Kelompok"})).json()["data"]["space"]
+    public = (await ayu.post("/v1/social/spaces", json={"name": "Rahasia Terbuka", "is_public": True})).json()["data"]["space"]
+    found = (await budi.get("/v1/social/spaces/discover", params={"q": "rahasia"})).json()["data"]["spaces"]
+    assert [s["id"] for s in found] == [public["id"]]
+    assert "online_count" in found[0] and "invite_code" not in found[0]
+    # Privat hanya lewat link undangan.
+    assert (await budi.post(f"/v1/social/spaces/{private['id']}/join")).status_code == 404
+    assert (await budi.post("/v1/social/spaces/join", json={"invite_code": private["invite_code"]})).status_code == 200

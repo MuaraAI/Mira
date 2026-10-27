@@ -43,6 +43,21 @@ interface Stored {
   id: string;
   /** data URL WebP untuk id "custom". */
   image?: string;
+  /** 0 = paling gelap, 50 = asli, 100 = paling terang. */
+  brightness?: number;
+}
+
+/** Default: foto sendiri sedikit dicerahkan supaya bubble tetap terbaca; preset tampil apa adanya. */
+export function defaultBrightness(id: string) {
+  return id === "custom" ? 72 : 50;
+}
+
+/** Lapisan warna sesuai kecerahan: di atas 50 makin putih, di bawah 50 makin gelap. */
+function brightnessLayer(value: number): string | null {
+  const v = Math.max(0, Math.min(100, value));
+  if (v === 50) return null;
+  const color = v > 50 ? `rgba(247,250,252,${(((v - 50) / 50) * 0.9).toFixed(3)})` : `rgba(7,32,51,${(((50 - v) / 50) * 0.75).toFixed(3)})`;
+  return `linear-gradient(${color}, ${color})`;
 }
 
 function read(): Stored {
@@ -54,16 +69,22 @@ function read(): Stored {
 }
 
 export function wallpaperStyle(stored: Stored): React.CSSProperties {
+  const layer = brightnessLayer(stored.brightness ?? defaultBrightness(stored.id));
   if (stored.id === "custom" && stored.image) {
-    // Lapisan putih tipis menjaga teks bubble tetap kontras di atas foto apa pun.
     return {
       backgroundColor: "#F7FAFC",
-      backgroundImage: `linear-gradient(rgba(247,250,252,.55), rgba(247,250,252,.55)), url(${stored.image})`,
+      backgroundImage: [layer, `url(${stored.image})`].filter(Boolean).join(", "),
       backgroundSize: "cover",
       backgroundPosition: "center",
     };
   }
-  return (WALLPAPERS.find((w) => w.id === stored.id) ?? WALLPAPERS[0]).style;
+  const preset = (WALLPAPERS.find((w) => w.id === stored.id) ?? WALLPAPERS[0]).style;
+  if (!layer) return preset;
+  // Preset: lapisan kecerahan di atas pola, ukuran lapisan mengikuti layar penuh.
+  const image = preset.backgroundImage ? `${layer}, ${preset.backgroundImage}` : layer;
+  const size = preset.backgroundSize ? `100% 100%, ${preset.backgroundSize}` : undefined;
+  const position = preset.backgroundPosition ? `0 0, ${preset.backgroundPosition}` : undefined;
+  return { ...preset, backgroundImage: image, ...(size ? { backgroundSize: size } : {}), ...(position ? { backgroundPosition: position } : {}) };
 }
 
 export function useWallpaper() {
@@ -101,10 +122,25 @@ export function useWallpaper() {
       bitmap.close();
       const image = canvas.toDataURL("image/webp", 0.72);
       if (image.length > 900_000) throw new Error("Gambar terlalu besar, pilih yang lebih sederhana");
-      save({ id: "custom", image });
+      save({ id: "custom", image, brightness: defaultBrightness("custom") });
     },
     [save]
   );
 
-  return { stored, style: wallpaperStyle(stored), choose: (id: string) => save({ id }), setCustom };
+  const setBrightness = useCallback((brightness: number) => save({ ...read(), brightness }), [save]);
+  const choose = useCallback((id: string) => {
+    const current = read();
+    // Ganti antar preset tetap menyimpan foto sendiri supaya bisa dipilih lagi tanpa upload ulang.
+    save({ id, image: id === "custom" ? current.image : current.image, brightness: defaultBrightness(id) });
+  }, [save]);
+
+  return {
+    stored,
+    style: wallpaperStyle(stored),
+    brightness: stored.brightness ?? defaultBrightness(stored.id),
+    hasCustomImage: Boolean(stored.image),
+    choose,
+    setCustom,
+    setBrightness,
+  };
 }

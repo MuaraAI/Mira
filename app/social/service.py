@@ -369,6 +369,7 @@ def _channel_summary(row: sqlite3.Row) -> dict[str, Any]:
         "name": row["name"],
         "topic": row["topic"],
         "position": row["position"],
+        "admin_only": bool(row["admin_only"]) if "admin_only" in row.keys() else False,
     }
 
 
@@ -793,11 +794,18 @@ def discover_spaces(nim: str, query: str = "") -> list[dict[str, Any]]:
     with transaction() as conn:
         rows = conn.execute(
             "SELECT s.*, (SELECT COUNT(*) FROM social_members m WHERE m.space_id = s.id) AS members, "
+            "(SELECT COUNT(*) FROM social_members m JOIN social_profiles p ON p.nim = m.nim "
+            " WHERE m.space_id = s.id AND p.is_online = 1 AND p.last_seen_at >= ?) AS online, "
             "(SELECT role FROM social_members m WHERE m.space_id = s.id AND m.nim = ?) AS my_role "
             "FROM social_spaces s WHERE s.is_public = 1 AND "
             "(s.name LIKE ? ESCAPE '\\' OR s.description LIKE ? ESCAPE '\\') "
             "ORDER BY members DESC, s.id DESC LIMIT 30",
-            (nim, f"%{escaped}%", f"%{escaped}%"),
+            (
+                (datetime.now(timezone.utc) - ONLINE_WINDOW).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                nim,
+                f"%{escaped}%",
+                f"%{escaped}%",
+            ),
         ).fetchall()
         result = []
         for r in rows:
@@ -809,6 +817,7 @@ def discover_spaces(nim: str, query: str = "") -> list[dict[str, Any]]:
                 "avatar": r["avatar"],
                 "banner": r["banner"],
                 "member_count": r["members"],
+                "online_count": r["online"],
                 "my_role": r["my_role"],
                 "created_at": r["created_at"],
             }
@@ -998,7 +1007,13 @@ def create_channel(nim: str, space_id: int, name: str, topic: str = "") -> Outco
         )
 
 
-def update_channel(nim: str, conversation_id: int, name: Optional[str], topic: Optional[str]) -> Outcome:
+def update_channel(
+    nim: str,
+    conversation_id: int,
+    name: Optional[str],
+    topic: Optional[str],
+    admin_only: Optional[bool] = None,
+) -> Outcome:
     with transaction() as conn:
         conv, _ = _conversation(conn, nim, conversation_id)
         if conv["kind"] != "channel":
@@ -1018,11 +1033,28 @@ def update_channel(nim: str, conversation_id: int, name: Optional[str], topic: O
                 "UPDATE social_conversations SET topic = ? WHERE id = ?",
                 (_clean(topic, 120, "Topik"), conversation_id),
             )
+        if admin_only is not None:
+            conn.execute(
+                "UPDATE social_conversations SET admin_only = ? WHERE id = ?", (1 if admin_only else 0, conversation_id)
+            )
         row = conn.execute("SELECT * FROM social_conversations WHERE id = ?", (conversation_id,)).fetchone()
         return Outcome(
             _channel_summary(row),
             [Event("space.updated", _space_members(conn, conv["space_id"]), {"space_id": conv["space_id"]})],
         )
+
+
+def reorder_channels(nim: str, space_id: int, ids: list[int]) -> Outcome:
+    """Atur urutan channel (admin). `ids` harus berisi tepat semua channel ruang ini."""
+    with transaction() as conn:
+        _require_space_role(conn, space_id, nim, "admin")
+        current = {r["id"] for r in conn.execute("SELECT id FROM social_conversations WHERE space_id = ?", (space_id,))}
+        if set(ids) != current or len(ids) != len(current):
+            raise SocialError("VALIDATION_ERROR", "Daftar channel tidak cocok dengan channel di ruang ini")
+        for position, cid in enumerate(ids):
+            conn.execute("UPDATE social_conversations SET position = ? WHERE id = ?", (position, cid))
+        detail = _space_detail(conn, space_id, _space_role(conn, space_id, nim) or "admin")
+        return Outcome(detail, [Event("space.updated", _space_members(conn, space_id), {"space_id": space_id})])
 
 
 def delete_channel(nim: str, conversation_id: int) -> Outcome:
@@ -1172,7 +1204,9 @@ def send_message(
     nonce = _clean(encryption_nonce, 128, "Nonce") if is_encrypted and encryption_nonce else None
     with transaction() as conn:
         _require_profile(conn, nim)
-        conv, _ = _conversation(conn, nim, conversation_id)
+        conv, role = _conversation(conn, nim, conversation_id)
+        if conv["kind"] == "channel" and "admin_only" in conv.keys() and conv["admin_only"] and ROLE_RANK.get(role or "member", 1) < ROLE_RANK["admin"]:
+            raise SocialError("CHANNEL_READ_ONLY", "Channel ini khusus pengumuman: hanya admin yang bisa mengirim pesan", 403)
         if reply_to_id is not None:
             target = conn.execute(
                 "SELECT conversation_id FROM social_messages WHERE id = ?", (reply_to_id,)

@@ -1,19 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Compass, Hash, MessageCirclePlus, MessagesSquare, Plus, Search, Settings2, UserPlus } from "lucide-react";
+import { BellOff, Compass, Hash, Megaphone, MessageCirclePlus, MessagesSquare, Plus, Search, Settings2, UserPlus } from "lucide-react";
 import { Avatar, PixelTick, SpaceTile } from "@/components/social/Avatar";
 import { stripFormatting } from "@/components/social/MessageBody";
+import { useChatPrefs } from "@/lib/chatPrefs";
 import { listTime, type DmItem, type Inbox, type SpaceItem, type StreamStatus } from "@/lib/social";
 
 export type SidebarView = "home" | number;
 
-function CountBadge({ count, mention = false }: { count: number; mention?: boolean }) {
+function CountBadge({ count, mention = false, muted = false }: { count: number; mention?: boolean; muted?: boolean }) {
   if (!count) return null;
   return (
     <span
       className={`inline-flex h-5 min-w-5 shrink-0 items-center justify-center px-1 font-mono text-[10px] font-bold text-white ${
-        mention ? "bg-[#BE123C]" : "bg-[#0369A1]"
+        mention ? "bg-[#BE123C]" : muted ? "bg-[#9CC6E0]" : "bg-[#0369A1]"
       }`}
     >
       {mention ? "@" : count > 99 ? "99+" : count}
@@ -35,7 +36,10 @@ export function SpaceRail({
   onCreate: () => void;
   onJoin: () => void;
 }) {
-  const dmUnread = inbox.dms.reduce((sum, d) => sum + d.unread, 0);
+  const prefs = useChatPrefs();
+  // Chat yang dibisukan tidak ikut dihitung di total (mention tetap dihitung, seperti WhatsApp).
+  const dmUnread = inbox.dms.reduce((sum, d) => sum + (prefs.isMuted(d.id) ? 0 : d.unread), 0);
+  const spaceUnread = (space: SpaceItem) => space.channels.reduce((n, c) => n + (prefs.isMuted(c.id) ? 0 : c.unread ?? 0), 0);
   const railButton = "group relative flex shrink-0 items-center justify-center";
   return (
     <nav
@@ -88,7 +92,7 @@ export function SpaceRail({
               <span className="absolute -right-1 -top-1">
                 <CountBadge count={space.mentions ?? 0} mention />
               </span>
-            ) : (space.unread ?? 0) > 0 && !active ? (
+            ) : spaceUnread(space) > 0 && !active ? (
               <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 border-2 border-[#EAF3F9] bg-[#0369A1]" aria-hidden="true" />
             ) : null}
           </button>
@@ -233,6 +237,8 @@ export function ConversationColumn({
 }
 
 function DmRow({ dm, me, active, typing, onOpen }: { dm: DmItem; me: string; active: boolean; typing: boolean; onOpen: (id: number) => void }) {
+  const prefs = useChatPrefs();
+  const muted = prefs.isMuted(dm.id);
   const name = dm.is_saved ? "Pesan Tersimpan" : dm.peer.display_name;
   const last = dm.last_message;
   const mine = last?.author.username === me;
@@ -266,7 +272,10 @@ function DmRow({ dm, me, active, typing, onOpen }: { dm: DmItem; me: string; act
               )}
             </span>
             <span className="ml-auto">
-              <CountBadge count={dm.unread} />
+              <span className="inline-flex items-center gap-1">
+                {muted && <BellOff className="h-3.5 w-3.5 text-[#9CC6E0]" aria-label="Dibisukan" />}
+                <CountBadge count={dm.unread} muted={muted} />
+              </span>
             </span>
           </span>
         </span>
@@ -276,6 +285,7 @@ function DmRow({ dm, me, active, typing, onOpen }: { dm: DmItem; me: string; act
 }
 
 function ChannelList({ space, activeId, onOpen }: { space: SpaceItem; activeId: number | null; onOpen: (id: number) => void }) {
+  const prefs = useChatPrefs();
   return (
     <>
       {space.description && <p className="mb-2 px-2 text-xs leading-relaxed text-[#3B5A70]">{space.description}</p>}
@@ -301,9 +311,18 @@ function ChannelList({ space, activeId, onOpen }: { space: SpaceItem; activeId: 
                       : "font-medium text-[#3B5A70] hover:bg-[#F0F7FB] hover:text-[#072033]"
                 }`}
               >
-                <Hash className={`h-4 w-4 shrink-0 ${active ? "text-[#0369A1]" : ""}`} aria-hidden="true" />
+                {channel.admin_only ? (
+                  <Megaphone className={`h-4 w-4 shrink-0 ${active ? "text-[#0369A1]" : ""}`} aria-label="Channel pengumuman" />
+                ) : (
+                  <Hash className={`h-4 w-4 shrink-0 ${active ? "text-[#0369A1]" : ""}`} aria-hidden="true" />
+                )}
                 <span className="min-w-0 flex-1 truncate">{channel.name}</span>
-                {(channel.mentions ?? 0) > 0 ? <CountBadge count={channel.mentions ?? 0} mention /> : !active && <CountBadge count={unread} />}
+                {prefs.isMuted(channel.id) && <BellOff className="h-3.5 w-3.5 shrink-0 text-[#9CC6E0]" aria-label="Dibisukan" />}
+                {(channel.mentions ?? 0) > 0 ? (
+                  <CountBadge count={channel.mentions ?? 0} mention />
+                ) : (
+                  !active && <CountBadge count={unread} muted={prefs.isMuted(channel.id)} />
+                )}
               </button>
             </li>
           );

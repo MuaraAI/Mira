@@ -218,6 +218,8 @@ _ADDED_COLUMNS = (
     ("social_messages", "is_encrypted", "INTEGER NOT NULL DEFAULT 0"),
     ("social_messages", "encryption_nonce", "TEXT"),
     ("social_participants", "last_opened_at", "TEXT"),
+    # Channel pengumuman: hanya admin/pemilik yang boleh mengirim pesan.
+    ("social_conversations", "admin_only", "INTEGER NOT NULL DEFAULT 0"),
 )
 
 

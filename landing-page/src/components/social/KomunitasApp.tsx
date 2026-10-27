@@ -291,6 +291,8 @@ export function KomunitasApp() {
     // URL ikut menyimpan chat aktif; di HP ini juga membuat tombol Back menutup chat seperti Telegram.
     const url = `${window.location.pathname}?c=${id}`;
     if (isMobile() && !pushedChat.current) {
+      // Entri di bawah chat harus daftar chat (tanpa ?c=), termasuk setelah reload di dalam chat.
+      if (new URLSearchParams(window.location.search).get("c")) window.history.replaceState(null, "", window.location.pathname);
       window.history.pushState(null, "", url);
       pushedChat.current = true;
     } else {
@@ -353,7 +355,8 @@ export function KomunitasApp() {
         const data = await loadInbox();
         setPhase("ready");
         if (code) setSheet("join");
-        if (initial && findConv(data, initial) && !isMobile()) openConversation(initial);
+        if (initial && findConv(data, initial)) openConversation(initial);
+        else if (initial) window.history.replaceState(null, "", window.location.pathname);
       })
       .catch((err) => {
         setLoadError(err instanceof ApiError ? err : new ApiError("ERROR", errorText(err), 0));
@@ -729,6 +732,29 @@ export function KomunitasApp() {
           if (ok && (await runMessage(m.conversation_id, socialApi.remove(m.id)))) debounce("inbox", () => loadInbox().catch(() => {}));
         }}
         wallpaper={wallpaper.style}
+        onSpaceSettings={(spaceId) => {
+          setSheet({ settings: spaceId });
+          if (!members[spaceId]) loadMembers(spaceId);
+        }}
+        onLeaveSpace={async (spaceId) => {
+          const space = inbox.spaces.find((x) => x.id === spaceId);
+          const ok = await confirm({
+            title: `Keluar dari ${space?.name ?? "ruang ini"}?`,
+            message: "Kamu bisa bergabung lagi lewat link undangan.",
+            confirmLabel: "Keluar",
+            tone: "danger",
+          });
+          if (!ok) return;
+          try {
+            await socialApi.leaveSpace(spaceId);
+            setActiveId(null);
+            setView("home");
+            await loadInbox();
+            notify(`Kamu keluar dari ${space?.name ?? "ruang"}`, "success");
+          } catch (err) {
+            notify(errorText(err), "error");
+          }
+        }}
         onDismissEdits={() =>
           setConvs((prev) => (activeId !== null && prev[activeId] ? { ...prev, [activeId]: { ...prev[activeId], edits: [] } } : prev))
         }
@@ -843,6 +869,12 @@ export function KomunitasApp() {
           setView(space.id);
           if (space.channels[0]) openConversation(space.channels[0].id);
           notify(`Bergabung ke ${space.name}`, "success");
+        }}
+        onOpen={(spaceId) => {
+          setSheet(null);
+          setView(spaceId);
+          const first = refs.current.inbox?.spaces.find((s) => s.id === spaceId)?.channels[0];
+          if (first) openConversation(first.id);
         }}
       />
       <NewDmSheet open={sheet === "newdm"} onClose={() => setSheet(null)} onPick={messageUser} />

@@ -3,18 +3,25 @@
 import { useEffect, useState } from "react";
 import {
   AtSign,
-  Camera,
-  ImagePlus,
   Bookmark,
+  Camera,
+  ChevronDown,
+  ChevronUp,
   Compass,
   Copy,
   Crown,
   Globe2,
   Hash,
+  ImagePlus,
+  Link2,
   Lock,
+  Megaphone,
   MessagesSquare,
+  Pencil,
+  Plus,
   RefreshCw,
   Search,
+  Share2,
   Shield,
   Trash2,
   UserMinus,
@@ -26,7 +33,7 @@ import { SideSheet } from "@/components/SideSheet";
 import { SheetTabs } from "@/components/SheetTabs";
 import { ghostButtonClass, inputClass, primaryButtonClass } from "@/components/dashboard-ui";
 import { Avatar, SpaceTile } from "@/components/social/Avatar";
-import { useWallpaper, WALLPAPERS } from "@/lib/wallpaper";
+import { WallpaperPicker } from "@/components/social/WallpaperPicker";
 import { MessageBody } from "@/components/social/MessageBody";
 import {
   clockTime,
@@ -316,7 +323,6 @@ export function ProfileSheet({
   onSaved: (profile: SocialProfile, close?: boolean) => void;
 }) {
   const { notify } = useDialog();
-  const wallpaper = useWallpaper();
   const setMedia = async (changes: { avatar?: string | null; banner?: string | null }) => {
     const { profile } = await socialApi.setMyMedia(changes);
     onSaved(profile, false);
@@ -358,48 +364,8 @@ export function ProfileSheet({
       <ProfileForm initial={me} submitLabel="Simpan profil" onSaved={(p) => onSaved(p, true)} />
 
       <section className="mt-6 border-t-2 border-dashed border-[#CFE2EE] pt-5">
-        <h4 className="mb-1 text-[11px] font-bold uppercase tracking-[0.14em] text-[#3B5A70]">Wallpaper chat</h4>
-        <p className="mb-3 text-[13px] text-[#3B5A70]">Tersimpan di perangkat ini saja.</p>
-        <div className="grid grid-cols-4 gap-2">
-          {WALLPAPERS.map((w) => (
-            <button
-              key={w.id}
-              type="button"
-              onClick={() => wallpaper.choose(w.id)}
-              aria-pressed={wallpaper.stored.id === w.id}
-              className={`flex aspect-[3/4] flex-col justify-end p-1 text-[11px] font-semibold text-[#072033] transition-shadow ${
-                wallpaper.stored.id === w.id ? "shadow-[0_0_0_3px_#0369A1]" : "shadow-[0_0_0_2px_#CFE2EE] hover:shadow-[0_0_0_2px_#5FA3CC]"
-              }`}
-              style={w.style}
-            >
-              <span className="bg-white/90 px-1 py-0.5">{w.label}</span>
-            </button>
-          ))}
-          <label
-            className={`flex aspect-[3/4] cursor-pointer flex-col items-center justify-center gap-1 bg-[#F0F7FB] p-1 text-center text-[11px] font-semibold text-[#0369A1] transition-shadow ${
-              wallpaper.stored.id === "custom" ? "shadow-[0_0_0_3px_#0369A1]" : "shadow-[0_0_0_2px_#CFE2EE] hover:shadow-[0_0_0_2px_#5FA3CC]"
-            }`}
-            style={wallpaper.stored.id === "custom" ? wallpaper.style : undefined}
-          >
-            <input
-              type="file"
-              accept="image/*"
-              className="sr-only"
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                e.target.value = "";
-                if (!file) return;
-                try {
-                  await wallpaper.setCustom(file);
-                } catch (err) {
-                  notify(err instanceof Error ? err.message : "Gagal memasang wallpaper", "error");
-                }
-              }}
-            />
-            <ImagePlus className="h-5 w-5" aria-hidden="true" />
-            <span className="bg-white/90 px-1 py-0.5">Gambar sendiri</span>
-          </label>
-        </div>
+        <h4 className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-[#3B5A70]">Tampilan chat</h4>
+        <WallpaperPicker />
       </section>
     </SideSheet>
   );
@@ -479,11 +445,14 @@ export function JoinSheet({
   initialCode,
   onClose,
   onJoined,
+  onOpen,
 }: {
   open: boolean;
   initialCode: string;
   onClose: () => void;
   onJoined: (space: SpaceItem) => void;
+  /** Buka grup yang sudah diikuti langsung dari Jelajahi. */
+  onOpen?: (spaceId: number) => void;
 }) {
   const [tab, setTab] = useState<"invite" | "discover">(initialCode ? "invite" : "discover");
   const [code, setCode] = useState(initialCode);
@@ -521,7 +490,7 @@ export function JoinSheet({
   };
 
   return (
-    <SideSheet open={open} onClose={onClose} eyebrow="Ruang" title="Gabung ruang" titleId="social-join-title" width="md" flush>
+    <SideSheet open={open} onClose={onClose} eyebrow="Komunitas" title="Jelajahi grup" titleId="social-join-title" width="md" flush>
       <SheetTabs
         label="Cara bergabung"
         value={tab}
@@ -540,7 +509,7 @@ export function JoinSheet({
             }}
             className="space-y-4"
           >
-            <Field label="Link atau kode undangan" hint="Minta link undangan ke admin ruang.">
+            <Field label="Link atau kode undangan" hint="Grup privat hanya bisa dimasuki lewat link ini. Minta ke admin grup.">
               <input className={`${inputClass} font-mono`} data-autofocus value={code} onChange={(e) => setCode(e.target.value)} placeholder="https://.../komunitas?join=AbCd123XyZ" />
             </Field>
             <FormError message={error} />
@@ -552,35 +521,28 @@ export function JoinSheet({
           <>
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#3B5A70]" aria-hidden="true" />
-              <input className={`${inputClass} pl-9`} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cari ruang publik" aria-label="Cari ruang publik" />
+              <input type="search" className={`${inputClass} pl-9`} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cari grup publik" aria-label="Cari grup publik" />
             </div>
+            <p className="flex items-center gap-1.5 text-xs text-[#3B5A70]">
+              <Globe2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> Hanya grup publik yang tampil di sini. Grup privat hanya bisa dimasuki lewat link undangan.
+            </p>
             <FormError message={error} />
             {spaces === null ? (
-              <p className="py-6 text-center font-mono text-xs text-[#3B5A70]">Memuat ruang publik...</p>
+              <ul className="grid gap-3 sm:grid-cols-2" aria-busy="true" aria-label="Memuat grup publik">
+                {[0, 1, 2, 3].map((i) => (
+                  <li key={i} className="h-40 animate-pulse bg-[#EAF3F9]" />
+                ))}
+              </ul>
             ) : spaces.length === 0 ? (
               <div className="py-8 text-center">
                 <Compass className="mx-auto h-8 w-8 text-[#9CC6E0]" aria-hidden="true" />
-                <p className="mt-2 text-sm font-semibold text-[#072033]">Belum ada ruang publik</p>
-                <p className="text-xs text-[#3B5A70]">Jadilah yang pertama membuat ruang publik.</p>
+                <p className="mt-2 text-sm font-semibold text-[#072033]">{query.trim() ? "Tidak ada grup yang cocok" : "Belum ada grup publik"}</p>
+                <p className="text-xs text-[#3B5A70]">{query.trim() ? "Coba kata kunci lain." : "Jadilah yang pertama membuat grup publik."}</p>
               </div>
             ) : (
-              <ul className="space-y-2">
+              <ul className="grid gap-3 sm:grid-cols-2">
                 {spaces.map((s) => (
-                  <li key={s.id} className="flex items-center gap-3 bg-white p-3 shadow-[0_0_0_2px_#CFE2EE]">
-                    <SpaceTile name={s.name} src={s.avatar} active={false} compact />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-[#072033]">{s.name}</p>
-                      <p className="truncate text-xs text-[#3B5A70]">{s.description || "Tanpa deskripsi"}</p>
-                      <p className="mt-0.5 font-mono text-[10px] text-[#3B5A70]">{s.member_count} anggota</p>
-                    </div>
-                    {s.my_role ? (
-                      <span className="px-chip bg-[#F0F7FB] px-2 py-1 font-mono text-[10px] font-bold text-[#0F766E]">Anggota</span>
-                    ) : (
-                      <button type="button" onClick={() => join(s.id)} disabled={busy !== null} className={`${ghostButtonClass} min-h-9 px-3 text-xs`}>
-                        {busy === s.id ? "..." : "Gabung"}
-                      </button>
-                    )}
-                  </li>
+                  <DiscoverCard key={s.id} space={s} busy={busy === s.id} disabled={busy !== null} onJoin={() => join(s.id)} onOpen={onOpen ? () => onOpen(s.id) : undefined} />
                 ))}
               </ul>
             )}
@@ -588,6 +550,68 @@ export function JoinSheet({
         )}
       </div>
     </SideSheet>
+  );
+}
+
+function DiscoverCard({
+  space,
+  busy,
+  disabled,
+  onJoin,
+  onOpen,
+}: {
+  space: SpaceItem;
+  busy: boolean;
+  disabled: boolean;
+  onJoin: () => void;
+  onOpen?: () => void;
+}) {
+  const banner = mediaUrl(space.banner);
+  const online = space.online_count ?? 0;
+  return (
+    <li className="flex flex-col overflow-hidden bg-white shadow-[0_0_0_2px_#CFE2EE,4px_4px_0_0_#EAF3F9]">
+      <div
+        className="h-14 shrink-0 bg-[#0369A1] bg-cover bg-center"
+        style={banner ? { backgroundImage: `url(${banner})` } : { backgroundImage: "repeating-linear-gradient(45deg,#0369A1 0 8px,#0B7BBF 8px 16px)" }}
+        aria-hidden="true"
+      />
+      <div className="flex flex-1 flex-col px-3 pb-3">
+        <div className="-mt-6 flex items-end gap-2">
+          <span className="shrink-0 bg-white p-0.5 shadow-[0_0_0_2px_#CFE2EE]">
+            <SpaceTile name={space.name} src={space.avatar} active={false} compact />
+          </span>
+        </div>
+        <p className="mt-2 truncate text-sm font-bold text-[#072033]" title={space.name}>
+          {space.name}
+        </p>
+        <p className="line-clamp-2 min-h-8 text-xs text-[#3B5A70]">{space.description || "Tanpa deskripsi"}</p>
+        <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-[#3B5A70]">
+          <span className="inline-flex items-center gap-1">
+            <Users className="h-3.5 w-3.5" aria-hidden="true" /> {space.member_count} anggota
+          </span>
+          {online > 0 && (
+            <span className="inline-flex items-center gap-1 text-[#0F766E]">
+              <span className="h-2 w-2 bg-[#10B981]" aria-hidden="true" /> {online} online
+            </span>
+          )}
+        </p>
+        <div className="mt-3">
+          {space.my_role ? (
+            onOpen ? (
+              <button type="button" onClick={onOpen} className={`${ghostButtonClass} min-h-10 w-full text-sm`}>
+                Buka grup
+              </button>
+            ) : (
+              <span className="flex min-h-10 items-center justify-center bg-[#F0F7FB] text-xs font-bold text-[#0F766E]">Sudah bergabung</span>
+            )
+          ) : (
+            <button type="button" onClick={onJoin} disabled={disabled} className={`${primaryButtonClass} min-h-10 w-full text-sm`} aria-label={`Gabung ${space.name}`}>
+              {busy ? "Bergabung..." : "Gabung"}
+            </button>
+          )}
+        </div>
+      </div>
+    </li>
   );
 }
 
@@ -768,7 +792,7 @@ export function SpaceSettingsSheet({
 }) {
   const { confirm, notify } = useDialog();
   const isAdmin = space.my_role === "owner" || space.my_role === "admin";
-  const [tab, setTab] = useState<"umum" | "channel" | "anggota">("umum");
+  const [tab, setTab] = useState<"umum" | "undangan" | "channel" | "anggota">("umum");
   const [form, setForm] = useState({ name: space.name, description: space.description, is_public: space.is_public });
   const [channel, setChannel] = useState({ name: "", topic: "" });
   const [error, setError] = useState<string | null>(null);
@@ -806,12 +830,35 @@ export function SpaceSettingsSheet({
 
   const tabs = [
     { key: "umum" as const, label: "Umum" },
+    { key: "undangan" as const, label: "Undangan" },
     ...(isAdmin ? [{ key: "channel" as const, label: "Channel" }] : []),
-    { key: "anggota" as const, label: `Anggota (${space.member_count})` },
+    { key: "anggota" as const, label: `Anggota` },
   ];
 
+  const shareInvite = async () => {
+    if (!space.invite_code) return;
+    const url = inviteLink(space.invite_code);
+    if (typeof navigator.share === "function") {
+      try {
+        await navigator.share({ title: space.name, text: `Gabung grup ${space.name} di Mira`, url });
+        return;
+      } catch {
+        /* dibatalkan: jatuh ke salin */
+      }
+    }
+    copyInvite();
+  };
+
+  const moveChannel = (index: number, delta: number) => {
+    const ids = space.channels.map((c) => c.id);
+    const target = index + delta;
+    if (target < 0 || target >= ids.length) return;
+    [ids[index], ids[target]] = [ids[target], ids[index]];
+    guard(() => socialApi.reorderChannels(space.id, ids));
+  };
+
   return (
-    <SideSheet open={open} onClose={onClose} eyebrow="Pengaturan ruang" title={space.name} titleId="social-space-title" width="md" flush>
+    <SideSheet open={open} onClose={onClose} eyebrow="Pengaturan grup" title={space.name} titleId="social-space-title" width="md" flush>
       <SheetTabs label="Bagian pengaturan" value={tab} onChange={setTab} tabs={tabs} />
       <div className="space-y-5 p-4 sm:p-6">
         <FormError message={error} />
@@ -823,7 +870,7 @@ export function SpaceSettingsSheet({
               avatar={space.avatar}
               banner={space.banner}
               seed={`space-${space.id}`}
-              status={`${space.member_count} anggota · ${space.is_public ? "Ruang publik" : "Ruang privat"}`}
+              status={`${space.member_count} anggota · ${space.is_public ? "Grup publik" : "Grup privat"}`}
               editBanner={
                 isAdmin && (
                   <ImagePickButton
@@ -849,56 +896,48 @@ export function SpaceSettingsSheet({
                 )
               }
             />
-            {space.invite_code && (
-              <section className="space-y-2">
-                <h4 className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[#3B5A70]">Link undangan</h4>
-                <div className="flex gap-2">
-                  <input readOnly value={inviteLink(space.invite_code)} className={`${inputClass} font-mono text-xs`} aria-label="Link undangan" onFocus={(e) => e.target.select()} />
-                  <button type="button" onClick={copyInvite} className={`${ghostButtonClass} shrink-0 px-3`} aria-label="Salin link undangan">
-                    <Copy className="h-4 w-4" aria-hidden="true" />
-                  </button>
-                </div>
-                {isAdmin && (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={async () => {
-                      if (await confirm({ title: "Ganti link undangan?", message: "Link lama langsung tidak berlaku lagi.", confirmLabel: "Ganti link" })) {
-                        guard(() => socialApi.resetInvite(space.id), "Link undangan baru dibuat");
-                      }
-                    }}
-                    className="inline-flex items-center gap-1.5 font-mono text-xs font-semibold text-[#0369A1] hover:text-[#075985]"
-                  >
-                    <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> Buat link baru
-                  </button>
-                )}
-              </section>
-            )}
 
             {isAdmin ? (
               <form
-                className="space-y-4 border-t-2 border-dashed border-[#CFE2EE] pt-5"
+                className="space-y-4"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  guard(() => socialApi.updateSpace(space.id, form), "Ruang diperbarui");
+                  guard(() => socialApi.updateSpace(space.id, form), "Grup diperbarui");
                 }}
               >
-                <Field label="Nama ruang">
+                <Field label="Nama grup">
                   <input className={inputClass} minLength={2} maxLength={40} required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
                 </Field>
                 <Field label="Deskripsi">
-                  <textarea className={`${inputClass} min-h-20 resize-none`} maxLength={200} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+                  <textarea className={`${inputClass} min-h-20 resize-none`} maxLength={200} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Grup ini untuk apa?" />
                 </Field>
-                <label className="flex cursor-pointer items-center gap-3">
-                  <input type="checkbox" checked={form.is_public} onChange={(e) => setForm({ ...form, is_public: e.target.checked })} className="h-5 w-5 accent-[#0369A1]" />
-                  <span className="text-sm text-[#072033]">Tampilkan di Jelajahi (ruang publik)</span>
-                </label>
-                <button type="submit" disabled={busy} className={primaryButtonClass}>
-                  Simpan
+                <fieldset className="grid gap-2 sm:grid-cols-2">
+                  <legend className="mb-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[#3B5A70]">Privasi</legend>
+                  {[
+                    { value: false, icon: Lock, title: "Privat", text: "Hanya bisa masuk lewat link undangan." },
+                    { value: true, icon: Globe2, title: "Publik", text: "Muncul di Jelajahi, siapa pun bisa gabung." },
+                  ].map(({ value, icon: Icon, title, text }) => (
+                    <label
+                      key={title}
+                      className={`flex cursor-pointer items-start gap-2.5 p-3 transition-shadow ${
+                        form.is_public === value ? "bg-[#DCEBF5] shadow-[0_0_0_2px_#0369A1]" : "bg-white shadow-[0_0_0_2px_#CFE2EE] hover:shadow-[0_0_0_2px_#5FA3CC]"
+                      }`}
+                    >
+                      <input type="radio" name="space-privacy" className="sr-only" checked={form.is_public === value} onChange={() => setForm({ ...form, is_public: value })} />
+                      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#0369A1]" aria-hidden="true" />
+                      <span>
+                        <span className="block text-sm font-bold text-[#072033]">{title}</span>
+                        <span className="block text-xs text-[#3B5A70]">{text}</span>
+                      </span>
+                    </label>
+                  ))}
+                </fieldset>
+                <button type="submit" disabled={busy} className={`${primaryButtonClass} w-full sm:w-auto`}>
+                  Simpan perubahan
                 </button>
               </form>
             ) : (
-              <p className="text-sm text-[#3B5A70]">{space.description || "Ruang ini belum punya deskripsi."}</p>
+              <p className="text-sm text-[#3B5A70]">{space.description || "Grup ini belum punya deskripsi."}</p>
             )}
 
             <section className="border-t-2 border-dashed border-[#CFE2EE] pt-5">
@@ -910,14 +949,14 @@ export function SpaceSettingsSheet({
                   onClick={async () => {
                     const ok = await confirm({
                       title: `Hapus ${space.name}?`,
-                      message: "Semua channel dan pesan di ruang ini terhapus permanen untuk semua anggota.",
-                      confirmLabel: "Hapus ruang",
+                      message: "Semua channel dan pesan di grup ini terhapus permanen untuk semua anggota.",
+                      confirmLabel: "Hapus grup",
                       tone: "danger",
                     });
-                    if (ok && (await guard(() => socialApi.deleteSpace(space.id), "Ruang dihapus"))) onLeft();
+                    if (ok && (await guard(() => socialApi.deleteSpace(space.id), "Grup dihapus"))) onLeft();
                   }}
                 >
-                  <Trash2 className="h-4 w-4" aria-hidden="true" /> Hapus ruang
+                  <Trash2 className="h-4 w-4" aria-hidden="true" /> Hapus grup
                 </button>
               ) : (
                 <button
@@ -929,78 +968,235 @@ export function SpaceSettingsSheet({
                     if (ok && (await guard(() => socialApi.leaveSpace(space.id)))) onLeft();
                   }}
                 >
-                  Keluar dari ruang
+                  Keluar dari grup
                 </button>
               )}
             </section>
           </>
         )}
 
+        {tab === "undangan" && (
+          <section className="space-y-4">
+            <div className={`flex items-start gap-3 p-3 ${space.is_public ? "bg-[#0F766E]/10" : "bg-[#F0F7FB]"}`}>
+              {space.is_public ? (
+                <Globe2 className="mt-0.5 h-5 w-5 shrink-0 text-[#0F766E]" aria-hidden="true" />
+              ) : (
+                <Lock className="mt-0.5 h-5 w-5 shrink-0 text-[#0369A1]" aria-hidden="true" />
+              )}
+              <p className="text-sm text-[#072033]">
+                {space.is_public ? (
+                  <>
+                    <b>Grup publik.</b> Siapa pun bisa menemukan dan bergabung lewat Jelajahi. Link di bawah adalah jalan pintas.
+                  </>
+                ) : (
+                  <>
+                    <b>Grup privat.</b> Tidak muncul di Jelajahi: hanya orang yang menerima link ini yang bisa masuk.
+                  </>
+                )}
+              </p>
+            </div>
+            {space.invite_code ? (
+              <>
+                <div className="flex items-center gap-3 bg-white p-3 shadow-[0_0_0_2px_#CFE2EE]">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-[#0369A1]/10 text-[#0369A1]">
+                    <Link2 className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-xs text-[#3B5A70]">Link undangan</span>
+                    <span className="block truncate font-mono text-sm font-semibold text-[#072033]" title={inviteLink(space.invite_code)}>
+                      {space.invite_code}
+                    </span>
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" onClick={copyInvite} className={`${ghostButtonClass} w-full`}>
+                    <Copy className="h-4 w-4" aria-hidden="true" /> Salin link
+                  </button>
+                  <button type="button" onClick={shareInvite} className={`${primaryButtonClass} w-full`}>
+                    <Share2 className="h-4 w-4" aria-hidden="true" /> Bagikan
+                  </button>
+                </div>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={async () => {
+                      if (await confirm({ title: "Ganti link undangan?", message: "Link lama langsung tidak berlaku. Pakai ini kalau link tersebar ke orang yang tidak seharusnya.", confirmLabel: "Ganti link" })) {
+                        guard(() => socialApi.resetInvite(space.id), "Link undangan baru dibuat");
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#0369A1] hover:text-[#075985]"
+                  >
+                    <RefreshCw className="h-4 w-4" aria-hidden="true" /> Buat link baru (link lama mati)
+                  </button>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-[#3B5A70]">Link undangan hanya terlihat oleh anggota grup.</p>
+            )}
+          </section>
+        )}
+
         {tab === "channel" && isAdmin && (
           <>
+            <ul className="space-y-2">
+              {space.channels.map((c, i) => (
+                <ChannelEditor
+                  key={c.id}
+                  channel={c}
+                  first={i === 0}
+                  last={i === space.channels.length - 1}
+                  canDelete={space.channels.length > 1}
+                  busy={busy}
+                  onMove={(delta) => moveChannel(i, delta)}
+                  onSave={(patch) => guard(() => socialApi.updateChannel(c.id, patch), "Channel diperbarui")}
+                  onDelete={async () => {
+                    const ok = await confirm({ title: `Hapus #${c.name}?`, message: "Semua pesan di channel ini ikut terhapus.", confirmLabel: "Hapus", tone: "danger" });
+                    if (ok) guard(() => socialApi.deleteChannel(c.id), "Channel dihapus");
+                  }}
+                />
+              ))}
+            </ul>
             <form
-              className="space-y-3"
+              className="space-y-3 border-t-2 border-dashed border-[#CFE2EE] pt-4"
               onSubmit={async (e) => {
                 e.preventDefault();
                 if (await guard(() => socialApi.createChannel(space.id, channel), "Channel dibuat")) setChannel({ name: "", topic: "" });
               }}
             >
-              <Field label="Channel baru" hint="Huruf kecil dan tanda hubung, contoh: tugas-kelompok">
+              <Field label="Tambah channel" hint="Spasi otomatis jadi tanda hubung, contoh: tugas kelompok jadi tugas-kelompok">
                 <div className="relative">
                   <Hash className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#3B5A70]" aria-hidden="true" />
-                  <input className={`${inputClass} pl-9 font-mono`} maxLength={32} required value={channel.name} onChange={(e) => setChannel({ ...channel, name: e.target.value })} placeholder="nama-channel" />
+                  <input className={`${inputClass} pl-9`} maxLength={32} required value={channel.name} onChange={(e) => setChannel({ ...channel, name: e.target.value })} placeholder="nama channel" />
                 </div>
               </Field>
               <input className={inputClass} maxLength={120} value={channel.topic} onChange={(e) => setChannel({ ...channel, topic: e.target.value })} placeholder="Topik (opsional)" aria-label="Topik channel" />
-              <button type="submit" disabled={busy || !channel.name.trim()} className={primaryButtonClass}>
-                Tambah channel
+              <button type="submit" disabled={busy || !channel.name.trim()} className={`${primaryButtonClass} w-full sm:w-auto`}>
+                <Plus className="h-4 w-4" aria-hidden="true" /> Tambah channel
               </button>
             </form>
-            <ul className="space-y-1.5 border-t-2 border-dashed border-[#CFE2EE] pt-4">
-              {space.channels.map((c) => (
-                <li key={c.id} className="flex items-center gap-2 bg-white px-3 py-2 shadow-[0_0_0_2px_#CFE2EE]">
-                  <Hash className="h-4 w-4 shrink-0 text-[#3B5A70]" aria-hidden="true" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-mono text-sm font-semibold text-[#072033]">{c.name}</span>
-                    {c.topic && <span className="block truncate text-xs text-[#3B5A70]">{c.topic}</span>}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={busy || space.channels.length <= 1}
-                    aria-label={`Hapus channel ${c.name}`}
-                    title={space.channels.length <= 1 ? "Ruang wajib punya minimal satu channel" : "Hapus channel"}
-                    onClick={async () => {
-                      const ok = await confirm({ title: `Hapus #${c.name}?`, message: "Semua pesan di channel ini ikut terhapus.", confirmLabel: "Hapus", tone: "danger" });
-                      if (ok) guard(() => socialApi.deleteChannel(c.id), "Channel dihapus");
-                    }}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center text-[#BE123C] hover:bg-[#FFF1F2] disabled:opacity-40"
-                  >
-                    <Trash2 className="h-4 w-4" aria-hidden="true" />
-                  </button>
-                </li>
-              ))}
-            </ul>
           </>
         )}
 
         {tab === "anggota" && (
-          <MemberList
-            members={members}
-            me={me}
-            myRole={space.my_role}
-            onMessage={(u) => {
-              onClose();
-              onMessage(u);
-            }}
-            onRole={(m, role) => guard(() => socialApi.setRole(space.id, m.username, role), `${m.display_name} sekarang ${ROLE_META[role].label.toLowerCase()}`).then(reloadMembers)}
-            onKick={async (m) => {
-              const ok = await confirm({ title: `Keluarkan ${m.display_name}?`, message: "Dia bisa bergabung lagi kalau punya link undangan.", confirmLabel: "Keluarkan", tone: "danger" });
-              if (ok) guard(() => socialApi.kick(space.id, m.username), `${m.display_name} dikeluarkan`).then(reloadMembers);
-            }}
-          />
+          <>
+            <p className="text-sm text-[#3B5A70]">
+              {space.member_count} anggota.{" "}
+              {space.my_role === "owner" ? "Ketuk ikon perisai untuk menjadikan admin." : isAdmin ? "Admin bisa mengeluarkan anggota biasa." : ""}
+            </p>
+            <MemberList
+              members={members}
+              me={me}
+              myRole={space.my_role}
+              onMessage={(u) => {
+                onClose();
+                onMessage(u);
+              }}
+              onRole={(m, role) => guard(() => socialApi.setRole(space.id, m.username, role), `${m.display_name} sekarang ${ROLE_META[role].label.toLowerCase()}`).then(reloadMembers)}
+              onKick={async (m) => {
+                const ok = await confirm({ title: `Keluarkan ${m.display_name}?`, message: "Dia bisa bergabung lagi kalau punya link undangan.", confirmLabel: "Keluarkan", tone: "danger" });
+                if (ok) guard(() => socialApi.kick(space.id, m.username), `${m.display_name} dikeluarkan`).then(reloadMembers);
+              }}
+            />
+          </>
         )}
       </div>
     </SideSheet>
+  );
+}
+
+/** Satu baris channel: tampilan ringkas, dan ketuk "Ubah" untuk mengganti nama, topik, dan mode pengumuman. */
+function ChannelEditor({
+  channel,
+  first,
+  last,
+  canDelete,
+  busy,
+  onMove,
+  onSave,
+  onDelete,
+}: {
+  channel: SpaceItem["channels"][number];
+  first: boolean;
+  last: boolean;
+  canDelete: boolean;
+  busy: boolean;
+  onMove: (delta: number) => void;
+  onSave: (patch: { name?: string; topic?: string; admin_only?: boolean }) => Promise<boolean>;
+  onDelete: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState({ name: channel.name, topic: channel.topic, admin_only: Boolean(channel.admin_only) });
+  useEffect(() => {
+    if (!editing) setDraft({ name: channel.name, topic: channel.topic, admin_only: Boolean(channel.admin_only) });
+  }, [channel, editing]);
+  const iconButton = "flex h-9 w-9 shrink-0 items-center justify-center text-[#3B5A70] hover:bg-[#EAF3F9] hover:text-[#072033] disabled:opacity-30";
+
+  return (
+    <li className="bg-white shadow-[0_0_0_2px_#CFE2EE]">
+      <div className="flex items-center gap-1 py-1.5 pl-3 pr-1">
+        {channel.admin_only ? (
+          <Megaphone className="h-4 w-4 shrink-0 text-[#9A3412]" aria-label="Channel pengumuman" />
+        ) : (
+          <Hash className="h-4 w-4 shrink-0 text-[#3B5A70]" aria-hidden="true" />
+        )}
+        <span className="ml-1 min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold text-[#072033]">{channel.name}</span>
+          <span className="block truncate text-xs text-[#3B5A70]">
+            {channel.admin_only ? "Pengumuman · hanya admin yang kirim" : channel.topic || "Tanpa topik"}
+          </span>
+        </span>
+        <button type="button" className={iconButton} disabled={busy || first} onClick={() => onMove(-1)} aria-label={`Naikkan ${channel.name}`}>
+          <ChevronUp className="h-4 w-4" aria-hidden="true" />
+        </button>
+        <button type="button" className={iconButton} disabled={busy || last} onClick={() => onMove(1)} aria-label={`Turunkan ${channel.name}`}>
+          <ChevronDown className="h-4 w-4" aria-hidden="true" />
+        </button>
+        <button type="button" className={iconButton} onClick={() => setEditing((v) => !v)} aria-expanded={editing} aria-label={`Ubah ${channel.name}`}>
+          <Pencil className="h-4 w-4" aria-hidden="true" />
+        </button>
+      </div>
+      {editing && (
+        <form
+          className="menu-drop space-y-3 border-t-2 border-[#EAF3F9] p-3"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const patch: { name?: string; topic?: string; admin_only?: boolean } = {};
+            if (draft.name !== channel.name) patch.name = draft.name;
+            if (draft.topic !== channel.topic) patch.topic = draft.topic;
+            if (draft.admin_only !== Boolean(channel.admin_only)) patch.admin_only = draft.admin_only;
+            if (!Object.keys(patch).length || (await onSave(patch))) setEditing(false);
+          }}
+        >
+          <Field label="Nama channel">
+            <input className={inputClass} maxLength={32} required value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+          </Field>
+          <Field label="Topik">
+            <input className={inputClass} maxLength={120} value={draft.topic} onChange={(e) => setDraft({ ...draft, topic: e.target.value })} placeholder="Opsional" />
+          </Field>
+          <label className="flex cursor-pointer items-start gap-3">
+            <input type="checkbox" checked={draft.admin_only} onChange={(e) => setDraft({ ...draft, admin_only: e.target.checked })} className="mt-0.5 h-5 w-5 accent-[#0369A1]" />
+            <span>
+              <span className="block text-sm font-semibold text-[#072033]">Channel pengumuman</span>
+              <span className="block text-xs text-[#3B5A70]">Hanya admin dan pemilik yang bisa mengirim pesan; anggota tetap bisa membaca dan memberi reaksi.</span>
+            </span>
+          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="submit" disabled={busy} className={primaryButtonClass}>
+              Simpan
+            </button>
+            <button type="button" onClick={() => setEditing(false)} className={ghostButtonClass}>
+              Batal
+            </button>
+            {canDelete && (
+              <button type="button" onClick={onDelete} disabled={busy} className="ml-auto inline-flex min-h-11 items-center gap-1.5 px-2 text-sm font-semibold text-[#BE123C] hover:bg-[#FFF1F2]">
+                <Trash2 className="h-4 w-4" aria-hidden="true" /> Hapus
+              </button>
+            )}
+          </div>
+        </form>
+      )}
+    </li>
   );
 }
 

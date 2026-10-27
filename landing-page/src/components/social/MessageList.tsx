@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { ArrowDown, MoreHorizontal, Pin, Reply, SmilePlus } from "lucide-react";
 import { Avatar, PixelTick } from "@/components/social/Avatar";
 import { Emoji, QUICK_REACTIONS, REACTION_LABEL } from "@/components/social/Emoji";
-import { InviteCard, MessageBody, firstInviteCode, stripFormatting } from "@/components/social/MessageBody";
+import { InviteCard, MessageBody, firstInviteCode, isOnlyInviteLink, stripFormatting } from "@/components/social/MessageBody";
 import { MessageMenu, type MenuTarget } from "@/components/social/MessageMenu";
 import { clockTime, dayLabel, replyColor, type Message, type ReactionKey } from "@/lib/social";
 
@@ -425,6 +425,7 @@ function MessageItem({
     mine &&
     (message.local === "sending" ? "sending" : message.local === "failed" ? "failed" : kind === "dm" ? (read ? "read" : "sent") : "sent");
   const invite = !jumbo ? firstInviteCode(message.body) : null;
+  const onlyInvite = !!invite && isOnlyInviteLink(message.body);
   const replyTone = message.reply_to ? replyColor(message.reply_to.author.username) : null;
 
   const meta = (
@@ -529,8 +530,8 @@ function MessageItem({
             </button>
           )}
           <span className="flex flex-wrap items-end gap-y-1">
-            <span className={`min-w-0 break-words [overflow-wrap:anywhere] ${jumbo ? "text-[42px] leading-tight" : "text-[15px] leading-[1.5]"}`}>
-              <MessageBody text={message.body} me={me} />
+            <span className={`min-w-0 break-words [overflow-wrap:anywhere] ${jumbo ? "text-[42px] leading-tight" : "text-[length:var(--chat-fs,15px)] leading-[1.5]"}`}>
+              {onlyInvite ? <span className="text-[13px] font-semibold text-[#3B5A70]">Undangan grup</span> : <MessageBody text={message.body} me={me} />}
             </span>
             {meta}
           </span>
