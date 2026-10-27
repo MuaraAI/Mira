@@ -10,6 +10,7 @@ from typing import Any
 
 from app.cache import cache
 from app.config import settings
+from app.modules.studentv2 import branch_display
 
 _PREFIX = "ubsi:stats:"
 _RETENTION_SECONDS = 35 * 86400
@@ -160,6 +161,10 @@ async def get_public_stats() -> dict[str, Any]:
                 if len(parts) < 5:
                     continue
                 name = ":".join(parts[3:-1])
+                if dimension == "branch":
+                    # Kode mentah SIAKAD ("30") dan nama tampilan ("UBSI Pontianak")
+                    # adalah kampus yang sama: satukan di sumber agar tidak dihitung dobel.
+                    name = branch_display(name) or name
                 grouped.setdefault(name, set()).update(await client.smembers(key))
             output.extend({"name": name, "active_users_30d": len(ids)} for name, ids in grouped.items())
             output.sort(key=lambda item: item["active_users_30d"], reverse=True)
