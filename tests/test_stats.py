@@ -63,6 +63,28 @@ async def _stats_with(fake):
         return await get_public_stats()
 
 
+class BranchFakeRedis(FakeRedis):
+    """Redis tiruan: kode cabang mentah "30" dan nama "UBSI Pontianak" tercatat terpisah."""
+
+    BRANCH_KEYS = [
+        "ubsi:stats:branch:30:2026-10-21",
+        "ubsi:stats:branch:UBSI Pontianak:2026-10-21",
+    ]
+
+    async def keys(self, pattern):
+        if "branch:" in pattern:
+            return list(self.BRANCH_KEYS)
+        return await super().keys(pattern)
+
+
+@pytest.mark.asyncio
+async def test_branch_code_and_display_name_are_merged():
+    """Kode mentah SIAKAD ("30") dan nama tampilan adalah kampus sama: 1 cabang, count digabung."""
+    stats = await _stats_with(BranchFakeRedis())
+    assert [b["name"] for b in stats["branches"]] == ["UBSI Pontianak"]
+    assert stats["branches"][0]["active_users_30d"] == 2
+
+
 @pytest.mark.asyncio
 async def test_public_stats_has_averages_and_all_time_totals():
     data = await _stats_with(FakeRedis())
