@@ -9,11 +9,11 @@ import {
   UserCheck,
   Clock,
   ArrowRight,
+  CheckCircle2,
+  Radio,
   BookOpen,
   Award,
   Library,
-  MapPin,
-  School,
   AlertTriangle,
   HelpCircle,
   MessagesSquare,
@@ -21,7 +21,6 @@ import {
 import { useApi } from "@/lib/api";
 import { findSubmission, formatShortDate, parseDeadline } from "@/lib/assignments";
 import { TodayClassCard, type TodayClass } from "@/components/TodayClassCard";
-import { PixelTrophy } from "@/components/PixelIcons";
 import { splitProgram } from "@/lib/profile";
 import {
   EmptyState,
@@ -167,8 +166,10 @@ export default function DashboardOverviewPage() {
   const assignmentsPending = isPending(assignments);
 
   const nim = me.data?.nim ?? profile.data?.nim ?? "-";
-  const firstName = (profile.data?.nama || "").trim().split(/\s+/)[0];
-  const studentName = profile.data?.nama || `Mahasiswa (${nim})`;
+  const firstName = (profile.data?.nama || "").trim().split(/\s+/)[0] ?? "";
+  // SIAKAD menulis nama dalam huruf kapital ("VERZIO"): tampilkan rapi ("Verzio").
+  const displayName = firstName ? firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase() : `Mahasiswa`;
+  const hasKhs = Boolean(khs.data && (khs.data.total_sks ?? 0) > 0);
   const { prodi: prodiName, kampus: kampusName } = splitProgram(profile.data);
   const prodi = prodiName || "Data belum tersedia";
   const kampus = kampusName;
@@ -204,146 +205,163 @@ export default function DashboardOverviewPage() {
 
   return (
     <div className="space-y-7">
-      {/* 1. Hero: sapaan, identitas singkat, dan sorotan kelas sekarang/berikutnya */}
-      <section className="glass-card relative overflow-hidden p-5 sm:p-7" aria-label="Ringkasan hari ini">
-        {/* Garis air pixel dekoratif di tepi bawah (ringan, CSS murni). */}
-        <span
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-3 opacity-60"
-          style={{ background: "repeating-linear-gradient(90deg, #9CC6E0 0 12px, transparent 12px 16px, #5FA3CC 16px 20px, transparent 20px 32px)" }}
-          aria-hidden="true"
-        />
-        <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr] lg:items-stretch">
-          <div className="min-w-0">
-            <p className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[#0369A1]">{shortDate(now)}</p>
-            <h1 className="mt-2 break-words text-2xl font-display font-bold tracking-tight text-foreground sm:text-3xl">
-              {greeting(now.getHours())},{" "}
-              {profilePending ? <Skeleton className="h-7 w-40 max-w-full align-middle" /> : firstName || studentName}
-            </h1>
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-              <span className="bg-[#0369A1]/10 px-2.5 py-1 font-mono font-bold text-[#0369A1]">NIM {nim}</span>
-              {profilePending ? (
-                <Skeleton className="h-6 w-40" />
-              ) : (
+      {/* 1. Hero: pita aksen dengan sapaan + identitas, lalu sorotan kelas dan pintasan */}
+      <section className="overflow-hidden bg-white shadow-[0_0_0_2px_#163A55,6px_6px_0_0_#9CC6E0]" aria-label="Ringkasan hari ini">
+        <div
+          className="relative px-4 pb-5 pt-4 text-white sm:px-6 sm:pb-6 sm:pt-5"
+          style={{
+            backgroundColor: "#0369A1",
+            backgroundImage:
+              "radial-gradient(rgba(255,255,255,.14) 1.5px, transparent 1.5px), linear-gradient(135deg, #0369A1 0%, #075985 60%, #0B2D46 100%)",
+            backgroundSize: "14px 14px, 100% 100%",
+          }}
+        >
+          <p className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-white/80">{shortDate(now)}</p>
+          <h1 className="mt-1.5 break-words text-[1.6rem] font-display font-bold leading-tight tracking-tight sm:text-3xl">
+            {greeting(now.getHours())},{" "}
+            {profilePending ? <Skeleton className="h-7 w-32 max-w-full align-middle opacity-40" /> : displayName}
+          </h1>
+          {profilePending ? (
+            <Skeleton className="mt-2 h-4 w-56 max-w-full opacity-40" />
+          ) : (
+            <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[13px] text-white/85">
+              <span className="font-mono font-semibold text-white">{nim}</span>
+              <span aria-hidden="true">·</span>
+              <span>
+                {prodi}
+                {kelas ? ` ${kelas}` : ""}
+              </span>
+              <span aria-hidden="true">·</span>
+              <span>Semester {semester}</span>
+              {kampus && (
                 <>
-                  <span className="inline-flex items-center gap-1 bg-[#F0F7FB] px-2.5 py-1 font-semibold text-secondary">
-                    <School className="h-3.5 w-3.5 text-[#0369A1]" aria-hidden="true" />
-                    {prodi}
-                    {kelas ? ` · ${kelas}` : ""}
-                  </span>
-                  <span className="bg-[#F0F7FB] px-2.5 py-1 font-semibold text-secondary">Semester {semester}</span>
-                  {kampus && (
-                    <span className="inline-flex items-center gap-1 bg-[#F0F7FB] px-2.5 py-1 font-semibold text-secondary">
-                      <MapPin className="h-3.5 w-3.5 text-[#0369A1]" aria-hidden="true" />
-                      {kampus}
-                    </span>
-                  )}
+                  <span aria-hidden="true" className="hidden sm:inline">·</span>
+                  <span className="hidden sm:inline">{kampus}</span>
                 </>
               )}
-            </div>
-            <div className="mt-5 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
-              <Link href="/dashboard/jadwal" className="px-btn inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-bold sm:gap-2 sm:px-4 sm:text-sm">
-                <CalendarDays className="h-4 w-4" aria-hidden="true" /> Jadwal
-              </Link>
-              <Link href="/dashboard/komunitas" className="px-btn-ghost inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-bold sm:gap-2 sm:px-4 sm:text-sm">
-                <MessagesSquare className="h-4 w-4" aria-hidden="true" /> Komunitas
-              </Link>
-              <Link href="/dashboard/nilai?flexing=1" className="px-btn-ghost inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-bold sm:gap-2 sm:px-4 sm:text-sm">
-                <PixelTrophy className="h-4 w-4" aria-hidden="true" /> Flexing
-              </Link>
-            </div>
-          </div>
+            </p>
+          )}
+        </div>
 
-          {/* Sorotan: kelas yang sedang berlangsung, berikutnya, atau status hari ini */}
-          <div
-            className={`flex flex-col justify-between gap-3 p-4 sm:p-5 ${
-              liveClass ? "bg-[#9A3412]/[0.07] shadow-[inset_4px_0_0_#9A3412]" : "bg-[#F0F7FB] shadow-[inset_4px_0_0_#0369A1]"
+        {/* Sorotan: kelas sekarang / berikutnya / status hari ini */}
+        <a
+          href="#heading-kelas-hari-ini"
+          className="flex items-center gap-3 border-b-2 border-[#EAF3F9] px-4 py-3.5 transition-colors hover:bg-[#F7FAFC] sm:px-6"
+        >
+          <span
+            className={`flex h-11 w-11 shrink-0 items-center justify-center ${
+              liveClass ? "bg-[#9A3412] text-white" : spotlight ? "bg-[#0369A1]/10 text-[#0369A1]" : "bg-[#0F766E]/10 text-[#0F766E]"
             }`}
+            aria-hidden="true"
           >
+            {liveClass ? <Radio className="h-5 w-5" /> : spotlight ? <Clock className="h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />}
+          </span>
+          <span className="min-w-0 flex-1">
             {schedulePending ? (
-              <div className="space-y-2">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-6 w-3/4" />
-                <Skeleton className="h-4 w-1/2" />
-              </div>
+              <>
+                <Skeleton className="h-3.5 w-24" />
+                <Skeleton className="mt-1.5 h-5 w-3/4" />
+              </>
             ) : spotlight ? (
               <>
-                <div>
-                  <p className={`flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.16em] ${liveClass ? "text-[#9A3412]" : "text-[#0369A1]"}`}>
-                    <span className={`h-1.5 w-1.5 ${liveClass ? "px-cursor bg-[#9A3412]" : "bg-[#0369A1]"}`} aria-hidden="true" />
-                    {liveClass ? "Sedang berlangsung" : "Kelas berikutnya"}
-                  </p>
-                  <p className="mt-1.5 text-lg font-bold leading-snug text-foreground">{spotlight.nama}</p>
-                  <p className="mt-1 text-sm text-secondary">
-                    {spotlight.timing?.label} · {describeRoom(spotlight.ruang).label}
-                  </p>
-                </div>
-                <a href="#heading-kelas-hari-ini" className="inline-flex items-center gap-1 text-xs font-bold text-[#0369A1] hover:underline">
-                  Lihat status absen <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-                </a>
+                <span className={`block text-[11px] font-bold uppercase tracking-[0.12em] ${liveClass ? "text-[#9A3412]" : "text-[#0369A1]"}`}>
+                  {liveClass ? "Sedang berlangsung" : "Kelas berikutnya"}
+                </span>
+                <span className="block truncate text-[15px] font-bold text-foreground">{spotlight.nama}</span>
+                <span className="block truncate text-xs text-secondary">
+                  {spotlight.timing?.label} · {describeRoom(spotlight.ruang).label}
+                </span>
               </>
-            ) : todayClasses.length > 0 ? (
-              <div>
-                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#0F766E]">Kuliah hari ini selesai</p>
-                <p className="mt-1.5 text-lg font-bold text-foreground">
-                  {doneCount} kelas sudah lewat{presentCount ? `, ${presentCount} sudah absen` : ""}
-                </p>
-                <p className="mt-1 text-sm text-secondary">Cek tugas yang perlu dicicil malam ini.</p>
-              </div>
             ) : (
-              <div>
-                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#0F766E]">Hari bebas kuliah</p>
-                <p className="mt-1.5 text-lg font-bold text-foreground">Tidak ada kelas hari {DAY_NAMES[todayIdx]}</p>
-                <p className="mt-1 text-sm text-secondary">Waktu yang pas untuk mencicil tugas.</p>
-              </div>
+              <>
+                <span className="block text-[11px] font-bold uppercase tracking-[0.12em] text-[#0F766E]">
+                  {todayClasses.length ? "Kuliah hari ini selesai" : "Hari bebas kuliah"}
+                </span>
+                <span className="block text-[15px] font-bold text-foreground">
+                  {todayClasses.length
+                    ? `${presentCount} dari ${todayClasses.length} kelas sudah absen`
+                    : `Tidak ada kelas hari ${DAY_NAMES[todayIdx]}`}
+                </span>
+                <span className="block text-xs text-secondary">
+                  {pendingTasks.length ? `${pendingTasks.length} tugas menunggu dicicil` : "Tidak ada tugas yang menunggu"}
+                </span>
+              </>
             )}
-          </div>
-        </div>
+          </span>
+          <ArrowRight className="h-4 w-4 shrink-0 text-secondary" aria-hidden="true" />
+        </a>
+
+        {/* Pintasan ala aplikasi */}
+        <nav aria-label="Pintasan" className="grid grid-cols-4 gap-1 px-2 py-2.5 sm:px-4">
+          {[
+            { href: "/dashboard/jadwal", label: "Jadwal", icon: CalendarDays },
+            { href: "/dashboard/presensi", label: "Presensi", icon: UserCheck },
+            { href: "/dashboard/tugas", label: "Tugas", icon: CheckSquare },
+            { href: "/dashboard/komunitas", label: "Komunitas", icon: MessagesSquare },
+          ].map(({ href, label, icon: Icon }) => (
+            <Link key={href} href={href} className="group flex flex-col items-center gap-1.5 py-1.5 text-center">
+              <span className="flex h-11 w-11 items-center justify-center bg-[#EAF3F9] text-[#0369A1] shadow-[0_0_0_2px_#CFE2EE] transition-[background-color,color,transform] duration-200 group-hover:-translate-y-0.5 group-hover:bg-[#0369A1] group-hover:text-white">
+                <Icon className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <span className="text-[12px] font-semibold text-foreground">{label}</span>
+            </Link>
+          ))}
+        </nav>
       </section>
 
-      {/* 2. Metrik singkat */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      {/* 2. Metrik ringkas */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <MetricCard
           href="/dashboard/nilai"
           label="IPK"
           icon={GraduationCap}
           pending={khsPending}
-          value={ipkValue}
-          suffix="/ 4.00"
-          note={`${totalSks} SKS lulus`}
+          value={hasKhs ? ipkValue : "Belum ada"}
+          small={!hasKhs}
+          suffix={hasKhs ? "/ 4.00" : undefined}
+          note={hasKhs ? `${totalSks} SKS lulus` : "Muncul akhir semester"}
         />
         <MetricCard
           href="#heading-kelas-hari-ini"
-          label="Absen hari ini"
+          label="Absen"
           icon={UserCheck}
           pending={schedulePending}
-          value={todayClasses.length ? `${presentCount}/${todayClasses.length}` : "0"}
+          value={todayClasses.length ? `${presentCount}/${todayClasses.length}` : "-"}
           note={
             !todayClasses.length
               ? "Tidak ada kelas"
               : presentCount === todayClasses.length
                 ? "Semua sudah absen"
                 : absenRelevant > presentCount
-                  ? `${absenRelevant - presentCount} kelas belum absen`
+                  ? `${absenRelevant - presentCount} belum absen`
                   : "Menunggu jam kuliah"
           }
           tone={todayClasses.length && absenRelevant > presentCount ? "warn" : "ok"}
         />
         <MetricCard
           href="/dashboard/tugas"
-          label="Tugas belum selesai"
+          label="Tugas"
           icon={CheckSquare}
           pending={assignmentsPending}
           value={String(pendingTasks.length)}
-          note={hoursLeft !== null ? (hoursLeft < 24 ? `Terdekat ${hoursLeft} jam lagi` : `Terdekat ${Math.round(hoursLeft / 24)} hari lagi`) : pendingTasks.length ? "Belum ada deadline" : "Semua beres"}
+          note={
+            hoursLeft !== null
+              ? hoursLeft < 24
+                ? `Deadline ${hoursLeft} jam lagi`
+                : `Deadline ${Math.round(hoursLeft / 24)} hari lagi`
+              : pendingTasks.length
+                ? "Belum ada deadline"
+                : "Semua beres"
+          }
           tone={hoursLeft !== null && hoursLeft < 24 ? "warn" : "ok"}
         />
         <MetricCard
           href="/dashboard/jadwal"
-          label="Kelas hari ini"
+          label="Kelas"
           icon={CalendarDays}
           pending={schedulePending}
           value={String(todayClasses.length)}
-          note={todayClasses.length ? `${doneCount} selesai · ${todayClasses.length - doneCount} lagi` : "Hari bebas kuliah"}
+          note={todayClasses.length ? (todayClasses.length - doneCount ? `${todayClasses.length - doneCount} lagi hari ini` : "Semua selesai") : "Hari bebas"}
         />
       </div>
 
@@ -491,6 +509,7 @@ function MetricCard({
   value,
   suffix,
   note,
+  small = false,
   tone = "ok",
 }: {
   href: string;
@@ -500,31 +519,35 @@ function MetricCard({
   value: string;
   suffix?: string;
   note: string;
+  small?: boolean;
   tone?: "ok" | "warn";
 }) {
   return (
-    <Link href={href} className="glass-card group min-w-0 p-4 transition-transform hover:-translate-y-0.5 sm:p-5">
-      <div className="flex items-center justify-between gap-2">
-        <span className="min-w-0 truncate font-mono text-[10px] font-bold uppercase tracking-wider text-secondary sm:text-[11px]">{label}</span>
+    <Link
+      href={href}
+      className="group min-w-0 bg-white p-3.5 shadow-[0_0_0_2px_#CFE2EE,4px_4px_0_0_#EAF3F9] transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[0_0_0_2px_#5FA3CC,4px_4px_0_0_#DCEBF5] sm:p-4"
+    >
+      <div className="flex items-center gap-2">
         <span
-          className={`flex h-8 w-8 shrink-0 items-center justify-center transition-colors ${
-            tone === "warn" ? "bg-[#9A3412]/10 text-[#9A3412]" : "bg-[#0369A1]/10 text-[#0369A1] group-hover:bg-[#0369A1] group-hover:text-white"
+          className={`flex h-7 w-7 shrink-0 items-center justify-center ${
+            tone === "warn" ? "bg-[#9A3412]/10 text-[#9A3412]" : "bg-[#0369A1]/10 text-[#0369A1]"
           }`}
         >
           <Icon className="h-4 w-4" aria-hidden="true" />
         </span>
+        <span className="truncate text-[13px] font-semibold text-secondary">{label}</span>
       </div>
-      <div className="mt-3">
+      <div className="mt-2.5 flex items-baseline gap-1">
         {pending ? (
-          <Skeleton className="h-8 w-16" />
+          <Skeleton className="h-7 w-14" />
         ) : (
           <>
-            <span className="text-2xl font-display font-bold text-foreground sm:text-3xl">{value}</span>
-            {suffix && <span className="ml-1 font-mono text-xs text-secondary">{suffix}</span>}
+            <span className={`font-display font-bold leading-none text-foreground ${small ? "text-lg" : "text-[1.7rem]"}`}>{value}</span>
+            {suffix && <span className="font-mono text-[11px] text-secondary">{suffix}</span>}
           </>
         )}
       </div>
-      <p className={`mt-1 truncate text-xs ${tone === "warn" ? "font-semibold text-[#9A3412]" : "text-secondary"}`}>{pending ? "\u00a0" : note}</p>
+      <p className={`mt-1.5 truncate text-xs ${tone === "warn" ? "font-semibold text-[#9A3412]" : "text-secondary"}`}>{pending ? "\u00a0" : note}</p>
     </Link>
   );
 }

@@ -107,8 +107,12 @@ export function TodayClassCard({
 
   return (
     <article
-      className={`glass-card relative flex flex-col p-4 sm:p-5 ${
-        live ? "[--px-line:#9A3412] [--px-drop:#FED7AA]" : present ? "[--px-line:#0F766E] [--px-drop:#99D5CC]" : ""
+      className={`relative flex flex-col bg-white p-4 sm:p-5 ${
+        live
+          ? "shadow-[0_0_0_2px_#9A3412,5px_5px_0_0_#FED7AA]"
+          : present
+            ? "shadow-[0_0_0_2px_#0F766E,5px_5px_0_0_#CCEBE5]"
+            : "shadow-[0_0_0_2px_#CFE2EE,5px_5px_0_0_#EAF3F9]"
       }`}
     >
       <div className="flex items-start justify-between gap-3">
