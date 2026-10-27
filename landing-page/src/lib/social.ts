@@ -72,6 +72,8 @@ export interface ChannelItem {
   name: string;
   topic: string;
   position: number;
+  /** Channel pengumuman: hanya admin yang bisa mengirim. */
+  admin_only?: boolean;
   last_message?: LastMessage | null;
   last_read_id?: number;
   unread?: number;
@@ -88,6 +90,7 @@ export interface SpaceItem {
   avatar: string | null;
   banner: string | null;
   member_count: number;
+  online_count?: number;
   my_role: SpaceRole | null;
   invite_code?: string;
   created_at: string;
@@ -187,7 +190,9 @@ export const socialApi = {
     apiFetch(`${BASE}/spaces/${id}/members/${encodeURIComponent(username)}`, { method: "DELETE" }),
   createChannel: (spaceId: number, body: { name: string; topic: string }) =>
     apiFetch<{ channel: ChannelItem }>(`${BASE}/spaces/${spaceId}/channels`, { json: body }),
-  updateChannel: (id: number, body: Partial<{ name: string; topic: string }>) =>
+  reorderChannels: (spaceId: number, ids: number[]) =>
+    apiFetch<{ space: SpaceItem }>(`${BASE}/spaces/${spaceId}/channels/order`, { json: { ids } }),
+  updateChannel: (id: number, body: Partial<{ name: string; topic: string; admin_only: boolean }>) =>
     apiFetch<{ channel: ChannelItem }>(`${BASE}/conversations/${id}`, { method: "PATCH", json: body }),
   deleteChannel: (id: number) => apiFetch(`${BASE}/conversations/${id}`, { method: "DELETE" }),
 

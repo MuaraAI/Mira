@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { BellOff, Compass, Hash, MessageCirclePlus, MessagesSquare, Plus, Search, Settings2, UserPlus } from "lucide-react";
+import { BellOff, Compass, Hash, Megaphone, MessageCirclePlus, MessagesSquare, Plus, Search, Settings2, UserPlus } from "lucide-react";
 import { Avatar, PixelTick, SpaceTile } from "@/components/social/Avatar";
 import { stripFormatting } from "@/components/social/MessageBody";
 import { useChatPrefs } from "@/lib/chatPrefs";
@@ -311,7 +311,11 @@ function ChannelList({ space, activeId, onOpen }: { space: SpaceItem; activeId: 
                       : "font-medium text-[#3B5A70] hover:bg-[#F0F7FB] hover:text-[#072033]"
                 }`}
               >
-                <Hash className={`h-4 w-4 shrink-0 ${active ? "text-[#0369A1]" : ""}`} aria-hidden="true" />
+                {channel.admin_only ? (
+                  <Megaphone className={`h-4 w-4 shrink-0 ${active ? "text-[#0369A1]" : ""}`} aria-label="Channel pengumuman" />
+                ) : (
+                  <Hash className={`h-4 w-4 shrink-0 ${active ? "text-[#0369A1]" : ""}`} aria-hidden="true" />
+                )}
                 <span className="min-w-0 flex-1 truncate">{channel.name}</span>
                 {prefs.isMuted(channel.id) && <BellOff className="h-3.5 w-3.5 shrink-0 text-[#9CC6E0]" aria-label="Dibisukan" />}
                 {(channel.mentions ?? 0) > 0 ? (

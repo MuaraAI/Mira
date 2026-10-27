@@ -18,6 +18,7 @@ import {
   UserRound,
   Users,
   X,
+  Megaphone,
 } from "lucide-react";
 import { FONT_SIZES, useChatPrefs, type ChatFontSize } from "@/lib/chatPrefs";
 import { WallpaperPicker } from "@/components/social/WallpaperPicker";
@@ -122,6 +123,7 @@ export function ChatPane({
   const conversationId = active.kind === "dm" ? active.dm.id : active.channel.id;
   const isChannel = active.kind === "channel";
   const role = isChannel ? active.space.my_role : null;
+  const readOnly = active.kind === "channel" && Boolean(active.channel.admin_only) && role !== "owner" && role !== "admin";
   const canModerate = role === "owner" || role === "admin";
   const canPin = !isChannel || canModerate;
 
@@ -197,7 +199,11 @@ export function ChatPane({
               <Avatar name={title} seed={dm.peer.username} src={dm.peer.avatar} size="md" online={dm.is_saved ? undefined : dm.peer.online} saved={dm.is_saved} />
             ) : (
               <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-[#EAF3F9] text-[#0369A1]">
-                <Hash className="h-5 w-5" aria-hidden="true" />
+                {active.kind === "channel" && active.channel.admin_only ? (
+                  <Megaphone className="h-5 w-5" aria-hidden="true" />
+                ) : (
+                  <Hash className="h-5 w-5" aria-hidden="true" />
+                )}
               </span>
             )}
             <span className="min-w-0">
@@ -261,7 +267,7 @@ export function ChatPane({
                       }
                     },
                   },
-                  active.kind === "channel" && onSpaceSettings && { label: "Pengaturan ruang", icon: Settings2, run: () => onSpaceSettings(active.space.id) },
+                  active.kind === "channel" && onSpaceSettings && { label: "Pengaturan grup", icon: Settings2, run: () => onSpaceSettings(active.space.id) },
                   active.kind === "channel" && active.space.my_role !== "owner" && onLeaveSpace && {
                     label: "Keluar dari ruang",
                     icon: LogOut,
@@ -367,6 +373,14 @@ export function ChatPane({
           />
         )}
 
+        {readOnly ? (
+          <div className="flex shrink-0 items-center gap-3 border-t-2 border-[#CFE2EE] bg-[#F7FAFC] px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]" role="status">
+            <Megaphone className="h-5 w-5 shrink-0 text-[#9A3412]" aria-hidden="true" />
+            <p className="text-sm text-[#3B5A70]">
+              <b className="text-[#072033]">Channel pengumuman.</b> Hanya admin yang bisa mengirim pesan di sini.
+            </p>
+          </div>
+        ) : (
         <Composer
           placeholder={isChannel ? `Pesan ke #${title}` : dm?.is_saved ? "Tulis catatan" : "Ketik pesan"}
           replyTo={replyTo}
@@ -394,6 +408,7 @@ export function ChatPane({
             return ok;
           }}
         />
+        )}
       </section>
 
       {isChannel && showMembers && (

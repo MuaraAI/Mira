@@ -139,6 +139,11 @@ class ChannelBody(BaseModel):
 class ChannelPatch(BaseModel):
     name: Optional[str] = Field(default=None, max_length=40)
     topic: Optional[str] = Field(default=None, max_length=120)
+    admin_only: Optional[bool] = None
+
+
+class ChannelOrderBody(BaseModel):
+    ids: list[int] = Field(..., min_length=1, max_length=50)
 
 
 class DmBody(BaseModel):
@@ -381,13 +386,19 @@ async def create_channel(request: Request, space_id: int, body: ChannelBody):
     return JSONResponse(status_code=status.HTTP_201_CREATED, content=success_response(data={"channel": channel}))
 
 
+@router.post("/spaces/{space_id}/channels/order")
+async def reorder_channels(request: Request, space_id: int, body: ChannelOrderBody):
+    nim = _session_nim(request)
+    return success_response(data={"space": await _call(service.reorder_channels, nim, space_id, body.ids)})
+
+
 # ---------------------------------------------------------------- conversations
 
 
 @router.patch("/conversations/{conversation_id}")
 async def update_channel(request: Request, conversation_id: int, body: ChannelPatch):
     nim = _session_nim(request)
-    channel = await _call(service.update_channel, nim, conversation_id, body.name, body.topic)
+    channel = await _call(service.update_channel, nim, conversation_id, body.name, body.topic, body.admin_only)
     return success_response(data={"channel": channel})
 
 

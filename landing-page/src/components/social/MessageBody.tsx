@@ -3,6 +3,20 @@
 import { createContext, Fragment, useContext, useEffect, useState } from "react";
 import {
   BookOpen,
+  Camera,
+  ClipboardList,
+  Code2,
+  ExternalLink,
+  FileText,
+  FolderOpen,
+  Globe,
+  MessageCircle,
+  Music2,
+  PlayCircle,
+  Presentation,
+  Send,
+  Sheet,
+  Video,
   CalendarDays,
   CheckSquare,
   GraduationCap,
@@ -85,19 +99,7 @@ function Inline({ text, me, depth = 0 }: { text: string; me?: string; depth?: nu
         rest = rest.slice(match.index + token.length);
         continue;
       }
-      out.push(
-        <a
-          key={k}
-          href={token}
-          target="_blank"
-          rel="noopener noreferrer nofollow"
-          className="break-all font-medium text-[#0369A1] underline decoration-[#0369A1]/40 decoration-2 underline-offset-2 hover:decoration-[#0369A1]"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {token}
-        </a>
-      );
+      out.push(<ExternalLinkChip key={k} url={token} />);
     } else if (kind === "mention") {
       const isMe = !!me && token.slice(1).toLowerCase() === me.toLowerCase();
       out.push(
@@ -306,10 +308,110 @@ function InternalLinkPill({ url, path, invite }: { url: string; path: string; in
         if (invite) links.openInvite(invite);
         else links.openInternal(path);
       }}
-      className="mx-0.5 inline-flex max-w-full items-center gap-1.5 bg-[#0369A1]/10 px-2 py-0.5 align-middle text-[0.92em] font-semibold text-[#0369A1] shadow-[0_0_0_1.5px_#9CC6E0] transition-colors hover:bg-[#0369A1] hover:text-white"
+      className="inline-flex max-w-full items-center gap-1.5 bg-[#0369A1]/10 px-2 py-0.5 align-middle text-[0.92em] font-semibold text-[#0369A1] shadow-[0_0_0_1.5px_#9CC6E0] transition-colors hover:bg-[#0369A1] hover:text-white"
     >
       <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
       <span className="truncate">{label}</span>
+    </a>
+  );
+}
+
+/* ------------------------------------------------------------------ link luar */
+
+type LinkMeta = { label: string; detail: string; icon: typeof Hash; tone: string };
+
+const tones = {
+  wa: "bg-[#25D366]/15 text-[#0B6B3A] shadow-[0_0_0_1.5px_#86DCA8] hover:bg-[#0B6B3A] hover:text-white",
+  tg: "bg-[#229ED9]/15 text-[#075985] shadow-[0_0_0_1.5px_#8ACBEA] hover:bg-[#075985] hover:text-white",
+  red: "bg-[#FF0000]/10 text-[#B91C1C] shadow-[0_0_0_1.5px_#F9A8A8] hover:bg-[#B91C1C] hover:text-white",
+  pink: "bg-[#E1306C]/10 text-[#9D174D] shadow-[0_0_0_1.5px_#F5A8C6] hover:bg-[#9D174D] hover:text-white",
+  google: "bg-[#1A73E8]/10 text-[#1D4ED8] shadow-[0_0_0_1.5px_#A9C7F5] hover:bg-[#1D4ED8] hover:text-white",
+  dark: "bg-[#072033]/[0.07] text-[#072033] shadow-[0_0_0_1.5px_#B9CCD9] hover:bg-[#072033] hover:text-white",
+  plain: "bg-white/70 text-[#0369A1] shadow-[0_0_0_1.5px_#9CC6E0] hover:bg-[#0369A1] hover:text-white",
+};
+
+/** Ringkas jalur URL: "/MuaraAI/Mira/pull/114" -> "MuaraAI/Mira/pull/114", dipotong bila terlalu panjang. */
+function shortPath(u: URL, max = 28): string {
+  const path = decodeURIComponent(u.pathname).replace(/^\/+|\/+$/g, "");
+  if (!path) return "";
+  return path.length > max ? `${path.slice(0, max - 1)}…` : path;
+}
+
+/** Kenali link populer agar tampil sebagai chip berlabel (WhatsApp, Telegram, Google, dst.), bukan URL panjang. */
+export function describeLink(url: string): LinkMeta {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return { label: url, detail: "", icon: Globe, tone: tones.plain };
+  }
+  const host = u.hostname.toLowerCase().replace(/^(www|m)\./, "");
+  const path = shortPath(u);
+  const is = (...hosts: string[]) => hosts.some((h) => host === h || host.endsWith(`.${h}`));
+
+  if (host === "chat.whatsapp.com") return { label: "WhatsApp", detail: "Undangan grup", icon: MessageCircle, tone: tones.wa };
+  if (host === "whatsapp.com" && u.pathname.startsWith("/channel")) return { label: "WhatsApp", detail: "Saluran", icon: MessageCircle, tone: tones.wa };
+  if (is("wa.me", "api.whatsapp.com", "whatsapp.com")) {
+    const phone = (u.pathname.replace(/\D/g, "") || u.searchParams.get("phone") || "").replace(/\D/g, "");
+    return { label: "WhatsApp", detail: phone ? `Chat +${phone}` : "Chat", icon: MessageCircle, tone: tones.wa };
+  }
+  if (is("t.me", "telegram.me", "telegram.org")) {
+    const name = u.pathname.split("/").filter(Boolean)[0] ?? "";
+    const group = name.startsWith("+") || name === "joinchat";
+    return { label: "Telegram", detail: group ? "Undangan grup" : name ? `@${name}` : "", icon: Send, tone: tones.tg };
+  }
+  if (is("youtube.com", "youtu.be")) {
+    const detail = host === "youtu.be" || u.pathname === "/watch" ? "Video" : u.pathname.startsWith("/shorts") ? "Shorts" : u.pathname.startsWith("/@") ? path : "";
+    return { label: "YouTube", detail, icon: PlayCircle, tone: tones.red };
+  }
+  if (is("instagram.com")) {
+    const seg = u.pathname.split("/").filter(Boolean);
+    const detail = seg[0] === "p" || seg[0] === "reel" ? (seg[0] === "p" ? "Postingan" : "Reel") : seg[0] ? `@${seg[0]}` : "";
+    return { label: "Instagram", detail, icon: Camera, tone: tones.pink };
+  }
+  if (is("tiktok.com")) {
+    const user = u.pathname.split("/").find((p) => p.startsWith("@"));
+    return { label: "TikTok", detail: user ?? "Video", icon: Music2, tone: tones.dark };
+  }
+  if (host === "docs.google.com") {
+    const kind = u.pathname.split("/")[1];
+    const map: Record<string, [string, typeof Hash]> = {
+      document: ["Google Docs", FileText],
+      spreadsheets: ["Google Sheets", Sheet],
+      presentation: ["Google Slides", Presentation],
+      forms: ["Google Form", ClipboardList],
+    };
+    const [label, icon] = map[kind] ?? ["Google Docs", FileText];
+    return { label, detail: "", icon, tone: tones.google };
+  }
+  if (host === "forms.gle") return { label: "Google Form", detail: "", icon: ClipboardList, tone: tones.google };
+  if (host === "drive.google.com") return { label: "Google Drive", detail: u.pathname.includes("/folders/") ? "Folder" : "File", icon: FolderOpen, tone: tones.google };
+  if (host === "meet.google.com") return { label: "Google Meet", detail: path, icon: Video, tone: tones.google };
+  if (is("zoom.us")) return { label: "Zoom", detail: u.pathname.startsWith("/j/") ? "Rapat" : "", icon: Video, tone: tones.google };
+  if (is("github.com")) return { label: "GitHub", detail: path, icon: Code2, tone: tones.dark };
+  if (is("bsi.ac.id")) return { label: host, detail: path, icon: GraduationCap, tone: tones.plain };
+  return { label: host, detail: path, icon: Globe, tone: tones.plain };
+}
+
+/** Link luar ditampilkan sebagai chip ringkas yang tidak memanjang di layar kecil; URL lengkap tetap di tooltip. */
+function ExternalLinkChip({ url }: { url: string }) {
+  const meta = describeLink(url);
+  const Icon = meta.icon;
+  return (
+    <a
+      href={url}
+      title={url}
+      target="_blank"
+      rel="noopener noreferrer nofollow"
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+      className={`inline-flex max-w-full items-center gap-1.5 px-2 py-0.5 align-middle text-[0.92em] font-semibold transition-colors ${meta.tone}`}
+    >
+      <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+      <span className={meta.label.length <= 14 ? "shrink-0" : "min-w-0 truncate"}>{meta.label}</span>
+      {/* Detail mengecil lebih dulu agar nama layanan (WhatsApp, GitHub, ...) tetap utuh. */}
+      {meta.detail && <span className="min-w-0 shrink-[100] truncate font-normal opacity-80">{meta.detail}</span>}
+      <ExternalLink className="h-3 w-3 shrink-0 opacity-60" aria-hidden="true" />
     </a>
   );
 }
