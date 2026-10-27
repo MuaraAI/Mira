@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     WEB_BASE_URL: str = "https://mira.muaraai.com"
     TRUSTED_PROXIES: str = "127.0.0.1"
     ROOT_PATH: str = ""
+    # MOCK_MODE=1: mount /v1/mock/* (data demo palsu untuk dashboard demo).
+    # Default OFF — produksi tidak pernah menyajikan data mock.
+    MOCK_MODE: bool = False
 
     # Session Login BSI (Redis-backed, sliding 7 hari)
     SESSION_COOKIE_DOMAIN: str = ""
