@@ -226,13 +226,25 @@ _ADDED_COLUMNS = (
     ("social_conversations", "position", "INTEGER NOT NULL DEFAULT 0"),
 )
 
+# Tabel yang dibuat SETELAH migration Supabase awal. DDL gaya Postgres;
+# dijalankan idempoten saat startup bila tabel belum ada (auto RLS deny-all).
+_PG_EXTRA_TABLES = (
+    (
+        "social_mentions",
+        "CREATE TABLE IF NOT EXISTS social_mentions ("
+        "message_id INTEGER NOT NULL REFERENCES social_messages(id) ON DELETE CASCADE, "
+        "conversation_id INTEGER NOT NULL, nim TEXT NOT NULL, PRIMARY KEY (message_id, nim));"
+        "CREATE INDEX IF NOT EXISTS idx_social_mentions_nim ON social_mentions(nim, conversation_id)",
+    ),
+)
+
 
 def init_social_db() -> None:
     if using_postgres():
         logger.info("Mira Social v3: memakai Supabase Postgres (skema via migration).")
-        # Skema dasar via migration Supabase, tapi kolom tambahan kode harus
-        # ikut ter-apply di PG juga — kalau tidak, tiap kolom baru di
-        # _ADDED_COLUMNS jadi 500 UndefinedColumn di produksi.
+        # Skema dasar via migration Supabase, tapi skema tambahan kode harus
+        # ikut ter-apply di PG juga — kalau tidak, tiap tabel/kolom baru di
+        # sini jadi 500 UndefinedTable/UndefinedColumn di produksi.
         with transaction() as conn:
             added = 0
             for table, column, ddl in _ADDED_COLUMNS:
@@ -244,6 +256,17 @@ def init_social_db() -> None:
                     conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
                     added += 1
                     logger.info("Mira Social v3: kolom %s.%s ditambahkan ke Postgres", table, column)
+            # Tabel baru pasca-migration awal (DDL gaya Postgres).
+            for table, ddl in _PG_EXTRA_TABLES:
+                row = conn.execute(
+                    "SELECT COUNT(*) AS c FROM information_schema.tables WHERE table_schema='public' AND table_name=?",
+                    (table,),
+                ).fetchone()
+                if row["c"] == 0:
+                    conn.execute(ddl)
+                    conn.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
+                    added += 1
+                    logger.info("Mira Social v3: tabel %s ditambahkan ke Postgres", table)
             if added:
                 conn.execute(
                     "UPDATE social_conversations SET position = id WHERE position = 0"
