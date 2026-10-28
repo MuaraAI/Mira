@@ -220,12 +220,32 @@ _ADDED_COLUMNS = (
     ("social_participants", "last_opened_at", "TEXT"),
     # Channel pengumuman: hanya admin/pemilik yang boleh mengirim pesan.
     ("social_conversations", "admin_only", "INTEGER NOT NULL DEFAULT 0"),
+    # Urutan channel dalam ruang (drag & drop admin, PR #114).
+    ("social_conversations", "position", "INTEGER NOT NULL DEFAULT 0"),
 )
 
 
 def init_social_db() -> None:
     if using_postgres():
         logger.info("Mira Social v3: memakai Supabase Postgres (skema via migration).")
+        # Skema dasar via migration Supabase, tapi kolom tambahan kode harus
+        # ikut ter-apply di PG juga — kalau tidak, tiap kolom baru di
+        # _ADDED_COLUMNS jadi 500 UndefinedColumn di produksi.
+        with transaction() as conn:
+            added = 0
+            for table, column, ddl in _ADDED_COLUMNS:
+                row = conn.execute(
+                    "SELECT COUNT(*) AS c FROM information_schema.columns WHERE table_name=? AND column_name=?",
+                    (table, column),
+                ).fetchone()
+                if row["c"] == 0:
+                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
+                    added += 1
+                    logger.info("Mira Social v3: kolom %s.%s ditambahkan ke Postgres", table, column)
+            if added:
+                conn.execute(
+                    "UPDATE social_conversations SET position = id WHERE position = 0"
+                )
         return
 
     db_dir = os.path.dirname(settings.SQLITE_DB_PATH)
