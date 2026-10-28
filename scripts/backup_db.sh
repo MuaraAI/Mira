@@ -28,7 +28,16 @@ tar -czf "$OUT.tar.gz" -C "$(dirname "$DB")" "$(basename "$DB")" -C / opt/ubsi-a
     tar -czf "$OUT.tar.gz" -C "$(dirname "$DB")" "$(basename "$DB")"
 rm -f "$OUT"
 
-# 4. Retensi: buang arsip lebih tua dari KEEP_DAYS hari.
+# 4. Off-site: unggah arsip ke Google Drive (cg:MuaraAI/backups/mira).
+if command -v rclone >/dev/null 2>&1; then
+    rclone copyto "$OUT.tar.gz" "cg:MuaraAI/backups/mira/$(basename "$OUT.tar.gz")" \
+        && rclone delete "cg:MuaraAI/backups/mira" --min-age 30d \
+        && echo "$(date -Is) OFF-SITE OK: cg:MuaraAI/backups/mira/$(basename "$OUT.tar.gz")"
+else
+    echo "$(date -Is) rclone tidak ditemukan, lewati off-site" >&2
+fi
+
+# 5. Retensi lokal: buang arsip lebih tua dari KEEP_DAYS hari.
 find "$DEST" -name 'mira-*.db.tar.gz' -mtime "+$KEEP_DAYS" -delete
 
 SIZE=$(stat -c%s "$OUT.tar.gz")
