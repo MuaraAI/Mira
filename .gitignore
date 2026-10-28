@@ -23,3 +23,6 @@ audit-artifacts/
 *.pem
 *.key
 RELEASE
+# Backup DB (snapshot Mira + arsip umum) — jangan pernah masuk git.
+backups/
+*.tar.gz
