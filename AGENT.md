@@ -167,4 +167,36 @@ npm run dev
 
 ---
 
+## 6. Aturan Workflow Kode & Database Ganda (WAJIB — dipelajari dari insiden produksi)
+
+### 1. Pahami dulu, baru ubah (Graphify wajib)
+* Jika tersedia, gunakan skill **graphify** untuk memahami arsitektur project sebelum menulis kode.
+* Jika `graphify-out/graph.json` sudah ada dan terbaru, **wajib** mulai dari `graphify query "<pertanyaan>"` untuk mencari kode yang berhubungan — jangan langsung grep tebakan.
+
+### 2. Zero hardcoded key, zero fallback key
+* Kredensial HANYA dari `.env` (lihat Iron Rule #1). Contoh yang **DILARANG**:
+  * `os.getenv("API_KEY", "default-rahasia")` — fallback value = celah keamanan.
+  * Menulis URL/token langsung di kode.
+* Env yang hilang harus **gagal cepat dengan pesan jelas**, bukan diam-diam pakai default.
+
+### 3. Skema ganda: SQLite + Supabase Postgres (SUMBER INSIDEN 500 BERULANG)
+* Fitur social berjalan di dua driver (`app/social/db.py`): SQLite saat `SUPABASE_DB_URL` kosong, Postgres saat terisi.
+* **Setiap tabel/kolom baru WAJIB ada di dua jalur:**
+  1. SQLite: `CREATE TABLE` (blok `_CREATE`) atau `_ADDED_COLUMNS`;
+  2. Postgres: `_PG_EXTRA_TABLES` (tabel baru) atau `_ADDED_COLUMNS` (kolom baru) — `init_social_db()` otomatis menyembuhkan Supabase saat startup.
+* Lupa salah satu sisi = `500 UndefinedTable/UndefinedColumn` di produksi (sudah terjadi 2x: `position`, `social_mentions`). **Cek dua jalur ini saat review setiap PR yang menyentuh skema.**
+* Perubahan skema Supabase WAJIB disertai file baru di `supabase/migrations/` (lihat `supabase/README.md`) + dijalankan via MCP `apply_migration`.
+
+### 4. Jangan fix gejala — fix akar masalah
+* Sebelum mengubah kode, **telusuri penyebab aslinya** (log, query, jalur pemanggil). Perbaikan yang hanya menutup gejala = hutang bug baru.
+* Perbaiki di **satu titik yang dilalui semua pemanggil** (contoh: fold cabang di `get_public_stats`, bukan di setiap pemanggil record).
+
+### 5. Dokumentasi ikut kode
+* Setiap perubahan perilaku/endpoint/skema WAJIB memperbarui dokumen terkait (`AGENT.md`, `docs/*.md`, `supabase/README.md`) di **PR yang sama**. Docs kuno = bug.
+
+### 6. Branch + PR, selalu
+* Semua perubahan lewat feature branch → PR → merge (detail di Seksi 3). **Dilarang direct push `main`**, termasuk perubahan "kecil".
+
+---
+
 *Disusun dengan disiplin tinggi oleh Muara AI. Setiap agen yang bekerja di repo ini diharapkan menjunjung tinggi integritas kode, kebersihan git history, dan etika keamanan data kampus.*
