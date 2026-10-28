@@ -169,6 +169,18 @@ npm run dev
 
 ## 6. Aturan Workflow Kode & Database Ganda (WAJIB — dipelajari dari insiden produksi)
 
+### 0. Peta Database — siapa nyimpen apa (JANGAN TERTUKAR)
+| Data | Penyimpanan | Konfigurasi |
+|---|---|---|
+| Akun, personal API key, sesi login dashboard, channel webhook user | **SQLite** (`data/ubsi.db`) | `SQLITE_DB_PATH` |
+| Cache hasil scraping, sesi kampus MyBest/SIAKAD, stats publik, rate-limit, dedup notifikasi | **Redis** (db 2) | `REDIS_URL` |
+| Social v3: profil komunitas, chat, spaces, mention, reaksi, persahabatan | **Supabase Postgres** — fallback SQLite (tabel `social_*`) saat `SUPABASE_DB_URL` kosong | `SUPABASE_DB_URL` |
+| Upload media avatar/banner komunitas | Disk lokal | `data/social_media/` |
+| Backup harian | VPS `/home/ubuntu/backups/mira` + Google Drive `cg:MuaraAI/backups/mira` | cron `backup_db.sh` |
+
+* Pemilih driver social ada di `app/social/db.py` → `using_postgres()`. Kode social HARUS lewat `transaction()`/`connect()` dari modul itu — dilarang bikin koneksi psycopg/sqlite sendiri.
+* `social_*` di SQLite = fallback/offline (test suite & dev). Produksi = Supabase.
+
 ### 1. Pahami dulu, baru ubah (Graphify wajib)
 * Jika tersedia, gunakan skill **graphify** untuk memahami arsitektur project sebelum menulis kode.
 * Jika `graphify-out/graph.json` sudah ada dan terbaru, **wajib** mulai dari `graphify query "<pertanyaan>"` untuk mencari kode yang berhubungan — jangan langsung grep tebakan.
