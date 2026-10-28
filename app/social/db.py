@@ -61,7 +61,9 @@ class _PgConn:
 
     def execute(self, sql: str, params: Any = ()) -> _PgCursor:
         # SQLite memakai '?', psycopg '%s'; SQL kita tidak memuat literal '?' maupun '%'.
-        cur = self._conn.execute(sql.replace("?", "%s"), tuple(params))
+        # LIKE di PG case-sensitive (SQLite case-insensitive): LIKE -> ILIKE agar
+        # perilaku pencarian user/space/pesan identik di kedua driver.
+        cur = self._conn.execute(sql.replace("?", "%s").replace(" LIKE ", " ILIKE "), tuple(params))
         return _PgCursor(cur)
 
     def commit(self) -> None:
