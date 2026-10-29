@@ -187,6 +187,7 @@ CREATE TABLE IF NOT EXISTS social_reactions (
     message_id INTEGER NOT NULL REFERENCES social_messages(id) ON DELETE CASCADE,
     nim TEXT NOT NULL,
     reaction TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     PRIMARY KEY (message_id, nim, reaction)
 );
 
@@ -224,6 +225,8 @@ _ADDED_COLUMNS = (
     ("social_conversations", "admin_only", "INTEGER NOT NULL DEFAULT 0"),
     # Urutan channel dalam ruang (drag & drop admin, PR #114).
     ("social_conversations", "position", "INTEGER NOT NULL DEFAULT 0"),
+    # Waktu reaksi dibuat (selaras Postgres).
+    ("social_reactions", "created_at", "TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))"),
 )
 
 # Tabel yang dibuat SETELAH migration Supabase awal. DDL gaya Postgres;

@@ -267,7 +267,7 @@ def _serialize_messages(conn: sqlite3.Connection, rows: list[sqlite3.Row]) -> li
     for r in conn.execute(
         f"SELECT r.message_id, r.reaction, p.username FROM social_reactions r "
         f"JOIN social_profiles p ON p.nim = r.nim WHERE r.message_id IN ({_placeholders(ids)}) "
-        f"ORDER BY r.rowid",
+        f"ORDER BY r.created_at, r.message_id",
         ids,
     ):
         reactions.setdefault(r["message_id"], {}).setdefault(r["reaction"], []).append(r["username"])
