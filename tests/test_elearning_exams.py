@@ -72,6 +72,10 @@ def test_parse_exam_schedule_full_cards(schedule_html):
     # ujian lewat: tanpa status & tanpa pintu masuk
     assert first["status"] is None
     assert first["can_enter"] is False
+    assert first["cetak_bukti_url"] is not None
+    assert first["cetak_bukti_url"].startswith("/cetak-ujian-pdf/")
+    assert first["token_bukti"] is not None
+    assert len(first["token_bukti"]) > 20
 
     ongoing = data["exams"][1]
     assert ongoing["mata_kuliah"] == "PENGANTAR TEKNOLOGI INFORMASI DAN KOMUNIKASI"
@@ -264,3 +268,34 @@ async def test_fetch_cross_host_rejects_foreign_host(monkeypatch):
         await pooled.fetch_cross_host("https://evil.example.com/steal", "15260001", "pw")
     assert exc.value.status_code == 400
     fake_client.fetch_page.assert_not_called()  # SSO handshake tidak pernah terjadi
+
+
+@pytest.mark.asyncio
+async def test_download_exam_proof_endpoint(monkeypatch):
+    """Endpoint download bukti ujian PDF mengambil file dari ujiankampusa via SSO."""
+    from unittest.mock import MagicMock
+    import httpx
+    from httpx import ASGITransport, AsyncClient
+    from app.main import app
+    from app.deps import require_elearning_creds
+
+    fake_client = MagicMock()
+    fake_resp = httpx.Response(200, content=b"%PDF-1.4 mock pdf content", headers={"content-type": "application/pdf"})
+    fake_client.get_client().get.return_value = fake_resp
+
+    from app.modules import elearning
+    monkeypatch.setattr(elearning.pooled_elearning_client._pool, "get", lambda nim: fake_client)
+    _mock_redis()
+    app.dependency_overrides[require_elearning_creds] = lambda: ("15260001", "pw")
+
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://test",
+        ) as ac:
+            r = await ac.get("/v1/elearning/exams/proof/download?token=dummy_token_12345")
+        assert r.status_code == 200
+        assert r.headers["content-type"] == "application/pdf"
+        assert b"%PDF-1.4" in r.content
+    finally:
+        app.dependency_overrides.pop(require_elearning_creds, None)

@@ -165,10 +165,22 @@ export default function KuisPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col">
-        <PageHeader
-          title="Kuis & Ujian Online"
-          description="Jadwal kuis dan ujian online dari MyBest."
-        />
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <PageHeader
+            title="Kuis & Ujian Online"
+            description="Jadwal kuis dan ujian online dari MyBest."
+          />
+          <a
+            href="https://elearning.bsi.ac.id/storage/Panduan%20Kuis%20MyBest%20Mahasiswa.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 self-start px-3.5 py-1.5 rounded-pill border border-stroke bg-white hover:bg-[#F0F7FB] text-[#0369A1] text-xs font-semibold shadow-sm transition-all"
+          >
+            <BookOpen className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>Panduan Kuis Resmi</span>
+            <ExternalLink className="w-3 h-3 text-secondary" aria-hidden="true" />
+          </a>
+        </div>
 
         {/* Filter Pills */}
         <div className="px-seg">
