@@ -29,6 +29,8 @@ UBSI-API/
 │   ├── cache.py               # Redis Two-Tier Cache (Fresh + Last-Known-Good SWR)
 │   ├── session_pool.py        # Multi-tenant SessionPool per-NIM (5-min idle eviction)
 │   ├── limiter.py             # Sliding-window rate limiter (60 req/menit per client IP)
+│   ├── login_guard.py         # Proteksi login: 10x/menit per IP, blacklist bertingkat, log login harian
+│   ├── password_change.py     # Ganti password SIAKAD/MyBest + deteksi password default
 │   ├── deps.py                # Credential dependency injection (Header > .env fallback)
 │   ├── envelope.py            # Standard clean JSON envelope format
 │   ├── router_helper.py       # Helper cached_endpoint (caching, single-flight mutex, SWR)

@@ -260,6 +260,46 @@ async def get_credentials_for_nim(nim: str) -> Optional[tuple[str, str, str]]:
     return await run_in_threadpool(_sync_credentials_for_nim, nim)
 
 
+def _sync_update_password_for_nim(nim: str, field: str, new_password: str) -> list[str]:
+    conn = _connect()
+    try:
+        rows = conn.execute(
+            "SELECT id, key_hash, encrypted_creds FROM api_keys WHERE nim = ? AND is_active = 1",
+            (nim,),
+        ).fetchall()
+        f = _get_fernet()
+        updated: list[str] = []
+        for row in rows:
+            try:
+                data = json.loads(f.decrypt(row["encrypted_creds"].encode("utf-8")).decode("utf-8"))
+            except Exception:
+                continue
+            data[field] = new_password
+            conn.execute(
+                "UPDATE api_keys SET encrypted_creds = ? WHERE id = ?",
+                (f.encrypt(json.dumps(data).encode("utf-8")).decode("utf-8"), row["id"]),
+            )
+            updated.append(row["key_hash"])
+        conn.commit()
+        return updated
+    finally:
+        conn.close()
+
+
+async def update_password_for_nim(nim: str, field: str, new_password: str) -> int:
+    """Sinkronkan password baru ke semua API Key aktif NIM agar integrasi tidak putus."""
+    if field not in ("studentv2_pass", "elearning_pass"):
+        raise ValueError(f"Field password tidak dikenal: {field}")
+    key_hashes = await run_in_threadpool(_sync_update_password_for_nim, nim, field, new_password)
+    try:
+        client = await cache.get_client()
+        for key_hash in key_hashes:
+            await client.delete(f"ubsi:apikey:{key_hash}")
+    except Exception:
+        pass
+    return len(key_hashes)
+
+
 def _sync_revoke_api_key(nim: str, key_id: int) -> Optional[str]:
     conn = _connect()
     try:

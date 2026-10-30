@@ -78,7 +78,8 @@ Pre-validation endpoint to verify that student credentials actually authenticate
 ### `POST /v1/auth/login`
 Authenticates student credentials live against both SIAKAD and MyBest portals, creates an in-memory session in Redis (sliding 7 days TTL), and issues a session cookie `ubsi_session` plus bearer token.
 - **Access**: Public
-- **Rate Limit**: Max 5 requests/minute per NIM.
+- **Rate Limit**: Max 10 attempts per rolling minute per client IP, plus max 5 requests/minute per NIM.
+- **IP blacklist**: exceeding the per-IP limit bans the IP from this endpoint for 15 minutes, escalating to 1 hour and 24 hours on repeat offenses within 24 hours. Banned requests return `429 IP_BLACKLISTED` with `error.retry_after` (seconds) and a `Retry-After` header, and never reach the campus servers.
 - **Request Body**:
   ```json
   {
@@ -94,10 +95,41 @@ Authenticates student credentials live against both SIAKAD and MyBest portals, c
     "data": {
       "nim": "15260767",
       "token": "ubsi_sess_random_token_32B",
-      "message": "Login berhasil. Session aktif 7 hari (sliding)."
+      "message": "Login berhasil. Session aktif 7 hari (sliding).",
+      "default_password": { "siakad": true, "mybest": false }
     }
   }
   ```
+  `default_password` is `true` for a system still using the campus default password (`Mhs-1945` or `Mhs-2026`).
+
+### `GET /v1/auth/security`
+Account security summary for the dashboard navbar: successful and failed login attempts for this NIM today (Asia/Jakarta), last login time and masked IP, and whether either campus password is still a default one.
+- **Access**: Dashboard Session Token only.
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "date": "2026-10-30",
+      "logins_today": 2,
+      "failed_today": 1,
+      "last_login_at": "2026-10-30T08:12:44+07:00",
+      "last_login_ip": "103.10.*.*",
+      "default_password": { "siakad": true, "mybest": false }
+    }
+  }
+  ```
+
+### `POST /v1/auth/password`
+Changes the SIAKAD or MyBest password directly on the campus server. Mira logs in with the current password, submits the official change-password form (SIAKAD `/mahasiswa/password`, MyBest `/profil`), then proves the change by logging in again with the new password. On success every active Mira session and Personal API Key for the NIM is re-encrypted with the new password.
+- **Access**: Dashboard Session Token only.
+- **Rate Limit**: Max 3 requests/minute per NIM.
+- **Request Body**:
+  ```json
+  { "system": "siakad", "current_password": "Mhs-1945", "new_password": "KuatSekali2026" }
+  ```
+- **Password rules**: 8 to 64 characters, letters and digits, not a default password, different from the current one, must not contain the NIM.
+- **Errors**: `CURRENT_PASSWORD_MISMATCH` (400), `WEAK_PASSWORD` (422), `PASSWORD_REJECTED` (400, campus refused), `PASSWORD_FORM_NOT_FOUND` (400), `UPSTREAM_LOGIN_FAILED` (400), `PASSWORD_STATUS_UNKNOWN` (502, verify by logging in with the new password).
 
 ### `POST /v1/auth/logout`
 Terminates the current device session and clears the session cookie and Redis key.

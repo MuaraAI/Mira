@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import secrets
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -9,6 +10,13 @@ from app.envelope import success_response, error_response
 from app.limiter import limiter
 from app.modules.studentv2 import StudentV2Client, studentv2_client
 from app.modules.elearning import ElearningClient, elearning_client
+from app.login_guard import LOGIN_IP_LIMIT, login_guard
+from app.password_change import (
+    SYSTEMS as PASSWORD_SYSTEMS,
+    change_upstream_password,
+    is_default_password,
+    validate_new_password,
+)
 from app.proxy import get_proxy
 
 logger = logging.getLogger("app.auth")
@@ -134,6 +142,27 @@ async def login(req_body: LoginRequest, request: Request):
     Session disimpan di Redis (TTL 7 hari sliding). Token dikirim via
     cookie HttpOnly `ubsi_session` dan langsung dipakai dashboard.
     """
+    from app.main import extract_client_ip
+
+    client_ip = extract_client_ip(request)
+    decision = await login_guard.check_ip(client_ip)
+    if not decision.allowed:
+        minutes = max(1, -(-decision.retry_after // 60))
+        body = error_response(
+            code="IP_BLACKLISTED",
+            message=(
+                f"IP kamu diblokir sementara karena terlalu banyak percobaan login "
+                f"(maks {LOGIN_IP_LIMIT}x per menit). Coba lagi dalam {minutes} menit."
+            ),
+            module="auth",
+        )
+        body["error"]["retry_after"] = decision.retry_after
+        return JSONResponse(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            headers={"Retry-After": str(decision.retry_after)},
+            content=body,
+        )
+
     rate_key = f"login:{req_body.nim.strip()}"
     if not await limiter.is_allowed(rate_key, limit=5):
         raise HTTPException(
@@ -149,6 +178,8 @@ async def login(req_body: LoginRequest, request: Request):
     sv2_ok, el_ok = await verify_live_credentials(
         nim, req_body.elearning_pass.strip(), req_body.studentv2_pass.strip()
     )
+
+    await login_guard.record_attempt(nim, bool(sv2_ok and el_ok), client_ip)
 
     if not (sv2_ok and el_ok):
         missing = []
@@ -178,6 +209,10 @@ async def login(req_body: LoginRequest, request: Request):
                 "nim": nim,
                 "token": token,
                 "message": "Login berhasil. Session aktif 7 hari (sliding).",
+                "default_password": {
+                    "siakad": is_default_password(req_body.studentv2_pass),
+                    "mybest": is_default_password(req_body.elearning_pass),
+                },
             }
         ),
     )
@@ -364,6 +399,117 @@ async def revoke_my_api_key(request: Request, key_id: int):
             ),
         )
     return success_response(data={"revoked": True, "id": key_id})
+
+
+def _require_session_nim(request: Request) -> str:
+    nim = getattr(request.state, "nim", None)
+    if getattr(request.state, "auth_type", "") != "session" or not nim:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=error_response(
+                code="SESSION_REQUIRED",
+                message="Fitur ini hanya bisa dipakai lewat sesi dashboard",
+                module="auth",
+            ),
+        )
+    return str(nim)
+
+
+@router.get("/security")
+async def security_status(request: Request):
+    """Ringkasan keamanan akun: jumlah login hari ini (WIB) dan status password default."""
+    nim = _require_session_nim(request)
+    activity = await login_guard.activity(nim)
+    return success_response(
+        data={
+            **activity,
+            "default_password": {
+                "siakad": is_default_password(getattr(request.state, "studentv2_pass", "") or ""),
+                "mybest": is_default_password(getattr(request.state, "elearning_pass", "") or ""),
+            },
+        }
+    )
+
+
+class ChangePasswordRequest(BaseModel):
+    system: str = Field(..., pattern="^(siakad|mybest)$", description="Sistem kampus: siakad atau mybest")
+    current_password: str = Field(..., min_length=1, max_length=128)
+    new_password: str = Field(..., min_length=1, max_length=128)
+
+
+_STATE_FIELD = {"siakad": "studentv2_pass", "mybest": "elearning_pass"}
+
+
+@router.post("/password")
+async def change_password(body: ChangePasswordRequest, request: Request):
+    """Ganti password SIAKAD/MyBest di server kampus, lalu sinkronkan ke sesi & API Key Mira."""
+    nim = _require_session_nim(request)
+    field = _STATE_FIELD[body.system]
+    label = PASSWORD_SYSTEMS[body.system]["label"]
+
+    if not await limiter.is_allowed(f"pwchange:{nim}", limit=3):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=error_response(
+                code="RATE_LIMIT_EXCEEDED",
+                message="Terlalu banyak percobaan ganti password. Tunggu 1 menit.",
+                module="auth",
+            ),
+        )
+
+    stored = getattr(request.state, field, "") or ""
+    if not secrets.compare_digest(body.current_password.encode("utf-8"), stored.encode("utf-8")):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_response(
+                code="CURRENT_PASSWORD_MISMATCH",
+                message=f"Password {label} saat ini tidak cocok dengan yang dipakai login.",
+                module="auth",
+            ),
+        )
+
+    problem = validate_new_password(nim, stored, body.new_password)
+    if problem:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=error_response(code="WEAK_PASSWORD", message=problem, module="auth"),
+        )
+
+    loop = asyncio.get_running_loop()
+    result = await loop.run_in_executor(
+        None, change_upstream_password, body.system, nim, stored, body.new_password
+    )
+
+    if result.status != "changed":
+        code = {
+            "rejected": "PASSWORD_REJECTED",
+            "form_missing": "PASSWORD_FORM_NOT_FOUND",
+            "login_failed": "UPSTREAM_LOGIN_FAILED",
+        }.get(result.status, "PASSWORD_STATUS_UNKNOWN")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY if result.status == "unknown" else status.HTTP_400_BAD_REQUEST,
+            detail=error_response(code=code, message=result.message, module="auth"),
+        )
+
+    from app.api_keys_db import update_password_for_nim as update_keys
+    from app.session_store import session_store
+
+    sessions = await session_store.update_password_for_nim(nim, field, body.new_password)
+    try:
+        keys = await update_keys(nim, field, body.new_password)
+    except Exception as err:
+        logger.error("Sinkron password ke API Key gagal untuk %s: %s", nim, err)
+        keys = 0
+    logger.info("Password %s diganti untuk %s (%s sesi, %s API key disinkronkan)", label, nim, sessions, keys)
+    return success_response(
+        data={
+            "system": body.system,
+            "changed": True,
+            "message": result.message,
+            "sessions_updated": sessions,
+            "api_keys_updated": keys,
+        }
+    )
 
 
 def _bearer_token(request: Request) -> str:

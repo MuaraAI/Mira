@@ -168,6 +168,24 @@ class SessionStore:
                 return str(data["nim"]), str(data["studentv2_pass"]), str(data["elearning_pass"])
         return None
 
+    async def update_password_for_nim(self, nim: str, field: str, new_password: str) -> int:
+        """Perbarui password tersimpan di semua sesi aktif NIM setelah ganti password sukses."""
+        if field not in ("studentv2_pass", "elearning_pass"):
+            raise ValueError(f"Field password tidak dikenal: {field}")
+        client = await self.get_client()
+        updated = 0
+        for token_hash in await client.smembers(_INDEX_PREFIX + nim):
+            key = _KEY_PREFIX + token_hash
+            raw = await client.get(key)
+            data = _decrypt_payload(raw, settings.API_KEY) if raw else None
+            if not data:
+                continue
+            data[field] = new_password
+            ttl = await client.ttl(key)
+            await client.set(key, _encrypt_payload(data, settings.API_KEY), ex=ttl if ttl and ttl > 0 else SESSION_TTL_SECONDS)
+            updated += 1
+        return updated
+
     async def delete_all_for_nim(self, nim: str) -> int:
         client = await self.get_client()
         index_key = _INDEX_PREFIX + nim
