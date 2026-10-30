@@ -39,13 +39,6 @@ API_DOCS_DATA: dict[str, Any] = {
                 "payload": {"nim": "string", "email": "string", "system": "mybest | siakad"},
             },
             {
-                "path": "/v1/auth/reset-password",
-                "method": "POST",
-                "auth": "Public",
-                "description": "Setel password baru memakai token dari link reset kampus.",
-                "payload": {"system": "mybest | siakad", "token": "string", "email": "string", "password": "string"},
-            },
-            {
                 "path": "/v1/auth/me",
                 "method": "GET",
                 "auth": "Session / API Key",

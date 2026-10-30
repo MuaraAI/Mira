@@ -31,7 +31,7 @@ UBSI-API/
 │   ├── limiter.py             # Sliding-window rate limiter (60 req/menit per client IP)
 │   ├── login_guard.py         # Proteksi login: 10x/menit per IP, blacklist bertingkat, log login harian
 │   ├── password_change.py     # Ganti password SIAKAD/MyBest + deteksi password default
-│   ├── password_reset.py      # Lupa/reset password via email kampus + cek NIM-email (HMAC)
+│   ├── password_reset.py      # Lupa password: link reset dikirim kampus ke email + cek NIM-email (HMAC)
 │   ├── deps.py                # Credential dependency injection (Header > .env fallback)
 │   ├── envelope.py            # Standard clean JSON envelope format
 │   ├── router_helper.py       # Helper cached_endpoint (caching, single-flight mutex, SWR)

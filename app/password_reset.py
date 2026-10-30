@@ -1,6 +1,7 @@
-"""Lupa password & reset password akun kampus (SIAKAD / MyBest) lewat Mira.
+"""Lupa password akun kampus (SIAKAD / MyBest) lewat Mira.
 
 Kampus hanya meminta email untuk mengirim link reset (berlaku 60 menit, bawaan Laravel).
+Password baru disetel mahasiswa sendiri lewat link di email itu, langsung di situs kampus.
 Mira menambahkan pengecekan NIM <-> email sebelum meneruskan permintaan:
 - Email kampus `<NIM>@bsi.ac.id` harus sama persis dengan NIM.
 - Email yang pernah terbaca dari profil SIAKAD/MyBest disimpan sebagai HMAC (bukan teks asli)
@@ -12,7 +13,6 @@ import logging
 import re
 from dataclasses import dataclass
 from typing import Optional
-from urllib.parse import urlparse
 
 from lxml import html as lxml_html
 
@@ -34,12 +34,10 @@ RESET_SYSTEMS = {
 }
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-TOKEN_RE = re.compile(r"^[A-Za-z0-9]{20,128}$")
 _ERROR_HINT_RE = re.compile(r"red|danger|error|invalid", re.I)
 _SUCCESS_HINT_RE = re.compile(r"green|success|status", re.I)
 _NOT_FOUND_RE = re.compile(r"tidak (dapat )?(me|di)?n?emukan|tidak ditemukan|tidak terdaftar|can't find|cannot find|not found|no user", re.I)
 _THROTTLE_RE = re.compile(r"tunggu|wait|throttle|terlalu banyak|too many", re.I)
-_TOKEN_INVALID_RE = re.compile(r"token|kedaluwarsa|expired|tidak valid|invalid", re.I)
 
 
 def normalize_email(email: str) -> str:
@@ -86,27 +84,9 @@ async def nim_email_mismatch(redis_client, nim: str, email: str) -> bool:
         return False
 
 
-def parse_reset_link(link: str) -> Optional[dict]:
-    """Ambil sistem, token, dan email dari link reset kampus (atau link Mira yang sama polanya)."""
-    if not link:
-        return None
-    try:
-        parsed = urlparse(link.strip())
-    except ValueError:
-        return None
-    m = re.search(r"/reset-password/([A-Za-z0-9]+)", parsed.path)
-    if not m or not TOKEN_RE.match(m.group(1)):
-        return None
-    from urllib.parse import parse_qs
-
-    email = normalize_email((parse_qs(parsed.query).get("email") or [""])[0])
-    system = next((key for key, spec in RESET_SYSTEMS.items() if parsed.netloc.endswith(spec["host"])), None)
-    return {"system": system, "token": m.group(1), "email": email}
-
-
 @dataclass
 class CampusResult:
-    status: str  # "sent" | "reset" | "not_found" | "throttled" | "token_invalid" | "rejected" | "unknown"
+    status: str  # "sent" | "not_found" | "throttled" | "rejected" | "unknown"
     message: str
 
 
@@ -190,43 +170,3 @@ def request_reset_link(system: str, email: str) -> CampusResult:
     finally:
         client.close()
 
-
-def submit_reset(system: str, token: str, email: str, password: str) -> CampusResult:
-    """Kirim password baru ke form reset kampus. Sukses = kampus mengarahkan ke halaman login."""
-    spec = RESET_SYSTEMS[system]
-    label = spec["label"]
-    client = spec["client"](proxy=get_proxy(seed=email))
-    base = client.BASE_URL
-    try:
-        http = client.get_client()
-        reset_url = f"{base}/reset-password/{token}"
-        page = http.get(reset_url, params={"email": email})
-        csrf = re.search(r'name=["\']_token["\']\s+value=["\']([^"\']+)', page.text)
-        if not csrf:
-            return CampusResult("unknown", f"Halaman reset {label} sedang tidak bisa dibuka.")
-        resp = http.post(
-            f"{base}/reset-password",
-            data={
-                "_token": csrf.group(1),
-                "token": token,
-                "email": email,
-                "password": password,
-                "password_confirmation": password,
-            },
-            headers={"Referer": str(page.url)},
-        )
-        final_path = urlparse(str(resp.url)).path.rstrip("/")
-        # Laravel hanya mengarahkan ke /login bila reset sukses; gagal = kembali ke form reset.
-        if final_path.endswith("/login"):
-            return CampusResult("reset", f"Password {label} berhasil direset. Silakan login dengan password baru.")
-        base_err, _ = _page_messages(page.text)
-        errors = [e for e in _page_messages(resp.text)[0] if e not in base_err]
-        text = " ".join(errors)
-        if _TOKEN_INVALID_RE.search(text) or final_path.endswith("/forgot-password"):
-            return CampusResult("token_invalid", "Link reset sudah kedaluwarsa atau sudah dipakai. Minta link baru.")
-        return CampusResult("rejected", errors[0] if errors else f"{label} menolak password baru.")
-    except Exception as err:
-        logger.error("Reset password %s gagal: %s", label, err)
-        return CampusResult("unknown", f"Koneksi ke {label} terputus. Coba lagi sebentar.")
-    finally:
-        client.close()

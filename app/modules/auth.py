@@ -23,11 +23,9 @@ from app.password_reset import (
     EMAIL_RE,
     RESET_LINK_TTL_MINUTES,
     RESET_SYSTEMS,
-    TOKEN_RE,
     nim_email_mismatch,
     normalize_email,
     request_reset_link,
-    submit_reset,
 )
 from app.proxy import get_proxy
 
@@ -534,7 +532,7 @@ def _field_error(status_code: int, code: str, message: str, fields: list[str], *
 
 
 async def _guard_public_auth(request: Request) -> Optional[JSONResponse]:
-    """Endpoint publik (lupa/reset password) berbagi kuota & blacklist IP yang sama dengan login."""
+    """Endpoint publik lupa password berbagi kuota & blacklist IP yang sama dengan login."""
     from app.main import extract_client_ip
 
     decision = await login_guard.check_ip(extract_client_ip(request))
@@ -614,47 +612,6 @@ async def forgot_password(body: ForgotPasswordRequest, request: Request):
         "RESET_REQUEST_FAILED",
         result.message,
         [],
-    )
-
-
-class ResetPasswordRequest(BaseModel):
-    system: str = Field(..., pattern="^(siakad|mybest)$")
-    token: str = Field(..., min_length=1, max_length=128)
-    email: str = Field(..., min_length=1, max_length=254)
-    password: str = Field(..., min_length=1, max_length=128)
-
-
-@router.post("/reset-password")
-async def reset_password(body: ResetPasswordRequest, request: Request):
-    """Setel password baru memakai token dari link reset kampus."""
-    blocked = await _guard_public_auth(request)
-    if blocked:
-        return blocked
-
-    email = normalize_email(body.email)
-    token = body.token.strip()
-    if not TOKEN_RE.match(token) or not EMAIL_RE.match(email):
-        return _field_error(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
-            "INVALID_RESET_LINK",
-            "Link reset tidak valid. Tempel ulang link lengkap dari email.",
-            ["link"],
-        )
-    problem = validate_new_password("", "", body.password)
-    if problem:
-        return _field_error(status.HTTP_422_UNPROCESSABLE_ENTITY, "WEAK_PASSWORD", problem, ["password"])
-
-    loop = asyncio.get_running_loop()
-    result = await loop.run_in_executor(None, submit_reset, body.system, token, email, body.password)
-    if result.status == "reset":
-        return success_response(data={"reset": True, "system": body.system, "message": result.message})
-    if result.status == "token_invalid":
-        return _field_error(status.HTTP_410_GONE, "RESET_LINK_EXPIRED", result.message, ["link"])
-    return _field_error(
-        status.HTTP_502_BAD_GATEWAY if result.status == "unknown" else status.HTTP_400_BAD_REQUEST,
-        "RESET_FAILED",
-        result.message,
-        ["password"] if result.status == "rejected" else [],
     )
 
 
