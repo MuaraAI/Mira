@@ -1,4 +1,4 @@
-"""Lupa password & reset password lewat Mira. 100% offline (kampus dan Redis di-mock)."""
+"""Lupa password lewat Mira. 100% offline (kampus dan Redis di-mock)."""
 import pytest
 from httpx import ASGITransport, AsyncClient
 
@@ -6,15 +6,11 @@ from app.main import app
 from app.password_reset import (
     CampusResult,
     nim_email_mismatch,
-    parse_reset_link,
     remember_nim_email,
     request_reset_link,
-    submit_reset,
 )
 import app.password_reset as password_reset
 from tests.test_login_guard import FakeRedis
-
-TOKEN = "a" * 64
 
 
 @pytest.fixture
@@ -48,16 +44,6 @@ async def test_known_profile_email_rejects_other_nim(fake_redis):
     # Email disimpan sebagai HMAC, bukan teks asli.
     assert "budi@gmail.com" not in str(fake_redis.sets) + str(fake_redis.kv)
 
-
-def test_parse_reset_link_from_campus_email():
-    link = f"https://elearning.bsi.ac.id/reset-password/{TOKEN}?email=budi%40gmail.com"
-    assert parse_reset_link(link) == {"system": "mybest", "token": TOKEN, "email": "budi@gmail.com"}
-    assert parse_reset_link(f"https://students.bsi.ac.id/reset-password/{TOKEN}?email=a%40b.co")["system"] == "siakad"
-    assert parse_reset_link("https://elearning.bsi.ac.id/login") is None
-    assert parse_reset_link("bukan link") is None
-
-
-# ---------- Endpoint lupa password ----------
 
 @pytest.mark.asyncio
 async def test_forgot_password_mismatch_flags_both_fields(fake_redis, monkeypatch):
@@ -117,33 +103,6 @@ async def test_forgot_password_shares_ip_blacklist(fake_redis):
         res = await ac.post("/v1/auth/forgot-password", json={"nim": "15260767", "email": "budi@gmail.com"})
     assert res.status_code == 429
     assert res.json()["error"]["code"] == "IP_BLACKLISTED"
-
-
-# ---------- Endpoint reset password ----------
-
-@pytest.mark.asyncio
-async def test_reset_password_flow(fake_redis, monkeypatch):
-    monkeypatch.setattr("app.modules.auth.submit_reset", lambda *a: CampusResult("reset", "Password MyBest berhasil direset."))
-    payload = {"system": "mybest", "token": TOKEN, "email": "budi@gmail.com", "password": "Kuat2026x"}
-    async with _client() as ac:
-        weak = await ac.post("/v1/auth/reset-password", json={**payload, "password": "Mhs-2026"})
-        bad_link = await ac.post("/v1/auth/reset-password", json={**payload, "token": "../x"})
-        ok = await ac.post("/v1/auth/reset-password", json=payload)
-    assert weak.status_code == 422 and weak.json()["error"]["fields"] == ["password"]
-    assert bad_link.status_code == 422 and bad_link.json()["error"]["fields"] == ["link"]
-    assert ok.status_code == 200 and ok.json()["data"]["reset"] is True
-
-
-@pytest.mark.asyncio
-async def test_reset_password_expired_link(fake_redis, monkeypatch):
-    monkeypatch.setattr("app.modules.auth.submit_reset", lambda *a: CampusResult("token_invalid", "kedaluwarsa"))
-    async with _client() as ac:
-        res = await ac.post(
-            "/v1/auth/reset-password",
-            json={"system": "siakad", "token": TOKEN, "email": "budi@gmail.com", "password": "Kuat2026x"},
-        )
-    assert res.status_code == 410
-    assert res.json()["error"]["code"] == "RESET_LINK_EXPIRED"
 
 
 # ---------- Interaksi form kampus (client palsu) ----------
@@ -209,26 +168,3 @@ def test_request_reset_link_siakad_json(monkeypatch):
     assert posts[0][1]["json"] == {"email": "budi@gmail.com"}
     assert posts[0][1]["headers"]["X-CSRF-TOKEN"] == "abc123"
 
-
-def test_submit_reset_success_when_redirected_to_login(monkeypatch):
-    form = '<form><input type="hidden" name="_token" value="c9"></form>'
-    posts = []
-    monkeypatch.setitem(
-        password_reset.RESET_SYSTEMS["mybest"],
-        "client",
-        _fake_client(form, _Resp("<html>login</html>", "https://elearning.bsi.ac.id/login"), posts),
-    )
-    assert submit_reset("mybest", TOKEN, "budi@gmail.com", "Kuat2026x").status == "reset"
-    sent = posts[0][1]["data"]
-    assert sent["token"] == TOKEN and sent["password_confirmation"] == "Kuat2026x" and sent["_token"] == "c9"
-
-
-def test_submit_reset_expired_token(monkeypatch):
-    form = '<form><input type="hidden" name="_token" value="c9"></form>'
-    back = form + '<div class="text-red-600">Token reset password ini tidak valid.</div>'
-    monkeypatch.setitem(
-        password_reset.RESET_SYSTEMS["mybest"],
-        "client",
-        _fake_client(form, _Resp(back, f"https://elearning.bsi.ac.id/reset-password/{TOKEN}"), []),
-    )
-    assert submit_reset("mybest", TOKEN, "budi@gmail.com", "Kuat2026x").status == "token_invalid"

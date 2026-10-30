@@ -7,25 +7,18 @@ import { ArrowLeft, Check, Eye, EyeOff, LogIn, ShieldBan, X } from "lucide-react
 import { apiFetch, ApiError, useApi, setApiCache } from "@/lib/api";
 import { inputClass, primaryButtonClass } from "@/components/dashboard-ui";
 import { Monogram } from "@/components/Monogram";
-import {
-  ForgotPasswordView,
-  ResetPasswordView,
-  ResetTarget,
-  readSentInfo,
-} from "@/components/auth/PasswordRecovery";
+import { ForgotPasswordView } from "@/components/auth/PasswordRecovery";
 
-export type AuthView = "login" | "forgot" | "reset";
+export type AuthView = "login" | "forgot";
 
 const VIEW_PATH: Record<AuthView, string> = {
   login: "/login",
   forgot: "/lupa-password",
-  reset: "/reset-password",
 };
 
 const VIEW_COPY: Record<AuthView, { title: string; accent: string; subtitle: string }> = {
   login: { title: "Mira", accent: "Portal", subtitle: "Masuk pakai akun SIAKAD dan MyBest." },
   forgot: { title: "Lupa", accent: "Password", subtitle: "Masukkan NIM dan email, link reset dikirim kampus." },
-  reset: { title: "Reset", accent: "Password", subtitle: "Buat password baru untuk akun kampus." },
 };
 
 // iOS men-zoom input di bawah 16px, jadi di HP teks input dibuat 16px.
@@ -304,17 +297,9 @@ function LoginCheck({
   );
 }
 
-export function AuthPortal({
-  initialView = "login",
-  initialReset = null,
-}: {
-  initialView?: AuthView;
-  initialReset?: ResetTarget | null;
-}) {
+export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }) {
   const router = useRouter();
   const [view, setView] = useState<AuthView>(initialView);
-  const [sent, setSent] = useState<ReturnType<typeof readSentInfo>>(null);
-  const [resetTarget] = useState<ResetTarget | null>(initialReset);
   const [nim, setNim] = useState("");
   const [siakadPass, setSiakadPass] = useState("");
   const [mybestPass, setMybestPass] = useState("");
@@ -328,15 +313,7 @@ export function AuthPortal({
   const nimRef = useRef<HTMLInputElement>(null);
   const { blockedUntil, remainingMs, block } = useBlockedUntil();
 
-  useEffect(() => {
-    setSent(readSentInfo());
-    // Link reset berisi token + email: hapus dari address bar & riwayat begitu terbaca.
-    if (window.location.pathname !== VIEW_PATH[initialView] || window.location.search) {
-      window.history.replaceState(null, "", VIEW_PATH[initialView]);
-    }
-  }, [initialView]);
-
-  // URL ikut tampilan (bersih, tanpa token/email) supaya refresh tetap di layar yang sama.
+  // URL ikut tampilan supaya refresh tetap di layar yang sama.
   function go(next: AuthView) {
     setView(next);
     setError(null);
@@ -552,28 +529,7 @@ export function AuthPortal({
 
             <div className="px-card bg-white p-5 [--px-drop:#0369A1] [--px-off:8px] min-[400px]:p-6 sm:p-8">
             {view === "forgot" ? (
-              <ForgotPasswordView
-                initialNim={nim.trim()}
-                onBack={() => go("login")}
-                onHaveLink={() => go("reset")}
-                onSent={(info) => {
-                  setSent(info);
-                  go("reset");
-                }}
-              />
-            ) : view === "reset" ? (
-              <ResetPasswordView
-                initialTarget={resetTarget}
-                sent={sent}
-                onBack={() => go("login")}
-                onResend={() => go("forgot")}
-                onDone={(doneNim) => {
-                  if (doneNim) setNim(doneNim);
-                  setSiakadPass("");
-                  setMybestPass("");
-                  go("login");
-                }}
-              />
+              <ForgotPasswordView initialNim={nim.trim()} onBack={() => go("login")} />
             ) : phase === "checking" ? (
               <LoginCheck nim={nim.trim()} steps={steps} startedAt={startedAt} finished={finished} error={error} onBack={backToForm} />
             ) : (

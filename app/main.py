@@ -197,7 +197,6 @@ async def api_key_auth_middleware(request: Request, call_next):
         "/health",
         "/v1/auth/login",
         "/v1/auth/forgot-password",
-        "/v1/auth/reset-password",
         "/v1/stats",
         "/v1/docs",
         "/v1/notifications/pwa/vapid-key",
