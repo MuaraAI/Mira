@@ -351,7 +351,8 @@ def _set_read(conn: sqlite3.Connection, conversation_id: int, nim: str, message_
     conn.execute(
         "INSERT INTO social_participants (conversation_id, nim, last_read_id) VALUES (?, ?, ?) "
         "ON CONFLICT(conversation_id, nim) DO UPDATE SET "
-        "last_read_id = MAX(last_read_id, excluded.last_read_id)",
+        "last_read_id = CASE WHEN social_participants.last_read_id > excluded.last_read_id "
+        "THEN social_participants.last_read_id ELSE excluded.last_read_id END",
         (conversation_id, nim, message_id),
     )
     row = conn.execute(
