@@ -923,6 +923,10 @@ def parse_exam_schedule(html: str) -> dict[str, Any]:
         enter_link = plan.css('a[href^="/exercise-show/"]')
         status_text = " ".join((enter_link[0].get_all_text() or "").split()) if enter_link else None
         cetak = plan.css('a[href*="/cetak-ujian-pdf/"]')
+        cetak_url = cetak[0].attrib.get("href") if cetak else None
+        token_bukti = None
+        if cetak_url and "/cetak-ujian-pdf/" in cetak_url:
+            token_bukti = cetak_url.split("/cetak-ujian-pdf/", 1)[1].split("?", 1)[0].rstrip("/")
 
         def _digits(value: Optional[str]) -> Optional[str]:
             if not value:
@@ -944,6 +948,8 @@ def parse_exam_schedule(html: str) -> dict[str, Any]:
             "soal_essay": _digits(fields.get("jumlah soal essay")),
             "status": status_text,
             "can_enter": bool(enter_link),
+            "cetak_bukti_url": cetak_url,
+            "token_bukti": token_bukti,
         })
 
     # Empty-state valid HARUS terdeteksi positif: halaman kosong menampilkan
@@ -1925,6 +1931,50 @@ async def get_exam_schedule(
         ttl=60,
         cache_params={"nim": nim, "type": exam_type},
     )
+
+
+@router.get("/exams/proof/download")
+async def download_exam_proof(
+    request: Request,
+    token: str = Query(..., description="Token encrypted bukti ujian dari jadwal ujian"),
+    creds: tuple[str, str] = Depends(require_elearning_creds),
+):
+    """Download PDF bukti ujian resmi dari ujiankampusa.bsi.ac.id/cetak-ujian-pdf/{token}."""
+    clean_token = extract_clean_token(token) or token.strip("/")
+    nim, password = creds
+    target_url = f"https://ujiankampusa.bsi.ac.id/cetak-ujian-pdf/{clean_token}"
+
+    async def _fetch():
+        client = pooled_elearning_client._pool.get(nim)
+
+        def _do_fetch():
+            client.fetch_page("/halaman-ujian", nim, password)  # SSO session handshake
+            resp = client.get_client().get(target_url)
+            if resp.status_code != 200:
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail=error_response(
+                        code="DOWNLOAD_FAILED",
+                        message=f"Gagal mengunduh berkas bukti ujian (status {resp.status_code})",
+                        module="elearning",
+                    ),
+                )
+            return resp
+
+        resp = await retry_async(_do_fetch, attempts=2, base_delay=1.0)
+        content_type = resp.headers.get("content-type", "application/pdf")
+        filename = f"Bukti_Ujian_{clean_token[:12]}.pdf"
+        return Response(
+            content=resp.content,
+            media_type=content_type,
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Content-Length": str(len(resp.content)),
+            },
+        )
+
+    key = f"exam_proof:{nim}:{clean_token}"
+    return await serve_cached(request, key, _fetch)
 
 # Rekap Nilai Tugas & Kuis (Per Pertemuan)
 
