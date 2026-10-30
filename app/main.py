@@ -193,7 +193,15 @@ async def api_key_auth_middleware(request: Request, call_next):
 
     # 2. Allow /health + /v1/auth/login + /v1/docs without auth (resilient to trailing slash)
     # /v1/notifications/pwa/vapid-key publik: browser butuh kunci ini SEBELUM auth ada
-    public_paths = {"/health", "/v1/auth/login", "/v1/stats", "/v1/docs", "/v1/notifications/pwa/vapid-key"}
+    public_paths = {
+        "/health",
+        "/v1/auth/login",
+        "/v1/auth/forgot-password",
+        "/v1/auth/reset-password",
+        "/v1/stats",
+        "/v1/docs",
+        "/v1/notifications/pwa/vapid-key",
+    }
     if request.url.path.rstrip("/") in public_paths:
         return await call_next(request)
     # Gambar Komunitas (avatar/banner) dimuat lewat <img>, jadi publik; nama file berupa hash isi.

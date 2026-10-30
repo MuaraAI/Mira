@@ -21,19 +21,22 @@ export class ApiError extends Error {
   status: number;
   /** Detik sampai boleh mencoba lagi (dikirim server saat IP diblokir sementara). */
   retryAfter?: number;
+  /** Nama field input yang salah, dipakai untuk menandai/menggetarkan input terkait. */
+  fields?: string[];
 
-  constructor(code: string, message: string, status: number, retryAfter?: number) {
+  constructor(code: string, message: string, status: number, retryAfter?: number, fields?: string[]) {
     super(message);
     this.code = code;
     this.status = status;
     this.retryAfter = retryAfter;
+    this.fields = fields;
   }
 }
 
 interface EnvelopePayload {
   data?: unknown;
-  detail?: { error?: { code?: string; message?: string; retry_after?: number } };
-  error?: { code?: string; message?: string; retry_after?: number };
+  detail?: { error?: { code?: string; message?: string; retry_after?: number; fields?: string[] } };
+  error?: { code?: string; message?: string; retry_after?: number; fields?: string[] };
 }
 
 export function readSessionToken(): string | null {
@@ -111,7 +114,8 @@ export async function apiFetch<T>(
       err?.code ?? `HTTP_${res.status}`,
       err?.message ?? `Permintaan gagal dengan status ${res.status}.`,
       res.status,
-      typeof err?.retry_after === "number" ? err.retry_after : undefined
+      typeof err?.retry_after === "number" ? err.retry_after : undefined,
+      Array.isArray(err?.fields) ? err.fields : undefined
     );
   }
   return payload?.data as T;

@@ -1,6 +1,8 @@
 import asyncio
 import logging
+import re
 import secrets
+from typing import Optional
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -16,6 +18,16 @@ from app.password_change import (
     change_upstream_password,
     is_default_password,
     validate_new_password,
+)
+from app.password_reset import (
+    EMAIL_RE,
+    RESET_LINK_TTL_MINUTES,
+    RESET_SYSTEMS,
+    TOKEN_RE,
+    nim_email_mismatch,
+    normalize_email,
+    request_reset_link,
+    submit_reset,
 )
 from app.proxy import get_proxy
 
@@ -509,6 +521,140 @@ async def change_password(body: ChangePasswordRequest, request: Request):
             "sessions_updated": sessions,
             "api_keys_updated": keys,
         }
+    )
+
+
+def _field_error(status_code: int, code: str, message: str, fields: list[str], **extra) -> JSONResponse:
+    """Error dengan daftar field yang salah, dipakai UI untuk efek getar pada input terkait."""
+    body = error_response(code=code, message=message, module="auth")
+    body["error"]["fields"] = fields
+    body["error"].update(extra)
+    headers = {"Retry-After": str(extra["retry_after"])} if "retry_after" in extra else None
+    return JSONResponse(status_code=status_code, content=body, headers=headers)
+
+
+async def _guard_public_auth(request: Request) -> Optional[JSONResponse]:
+    """Endpoint publik (lupa/reset password) berbagi kuota & blacklist IP yang sama dengan login."""
+    from app.main import extract_client_ip
+
+    decision = await login_guard.check_ip(extract_client_ip(request))
+    if decision.allowed:
+        return None
+    minutes = max(1, -(-decision.retry_after // 60))
+    return _field_error(
+        status.HTTP_429_TOO_MANY_REQUESTS,
+        "IP_BLACKLISTED",
+        f"IP kamu diblokir sementara karena terlalu banyak percobaan. Coba lagi dalam {minutes} menit.",
+        [],
+        retry_after=decision.retry_after,
+    )
+
+
+class ForgotPasswordRequest(BaseModel):
+    nim: str = Field(..., min_length=1, max_length=20)
+    email: str = Field(..., min_length=1, max_length=254)
+    system: str = Field("mybest", pattern="^(siakad|mybest)$")
+
+
+@router.post("/forgot-password")
+async def forgot_password(body: ForgotPasswordRequest, request: Request):
+    """Minta link reset password ke email terdaftar, setelah NIM dan email dicek cocok."""
+    blocked = await _guard_public_auth(request)
+    if blocked:
+        return blocked
+
+    nim = body.nim.strip()
+    email = normalize_email(body.email)
+    label = RESET_SYSTEMS[body.system]["label"]
+    bad = [f for f, ok in (("nim", re.fullmatch(r"\d{6,12}", nim)), ("email", EMAIL_RE.match(email))) if not ok]
+    if bad:
+        return _field_error(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "INVALID_INPUT",
+            "NIM harus berupa angka." if bad == ["nim"] else "Format email belum benar." if bad == ["email"] else "Periksa NIM dan email.",
+            bad,
+        )
+
+    redis_client = await login_guard.get_client()
+    if await nim_email_mismatch(redis_client, nim, email):
+        return _field_error(
+            status.HTTP_400_BAD_REQUEST,
+            "NIM_EMAIL_MISMATCH",
+            "NIM dan email tidak cocok. Pakai email yang terdaftar untuk NIM ini.",
+            ["nim", "email"],
+        )
+
+    if not await limiter.is_allowed(f"forgot:{body.system}:{email}", limit=1):
+        return _field_error(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "RATE_LIMIT_EXCEEDED",
+            "Link baru saja diminta. Tunggu 1 menit sebelum minta lagi.",
+            [],
+            retry_after=60,
+        )
+
+    loop = asyncio.get_running_loop()
+    result = await loop.run_in_executor(None, request_reset_link, body.system, email)
+    if result.status == "sent":
+        return success_response(
+            data={
+                "sent": True,
+                "system": body.system,
+                "email": email,
+                "expires_in_minutes": RESET_LINK_TTL_MINUTES,
+                "message": f"Link reset {label} dikirim ke {email}. Berlaku {RESET_LINK_TTL_MINUTES} menit.",
+            }
+        )
+    if result.status == "not_found":
+        return _field_error(status.HTTP_404_NOT_FOUND, "EMAIL_NOT_REGISTERED", result.message, ["email"])
+    if result.status == "throttled":
+        return _field_error(status.HTTP_429_TOO_MANY_REQUESTS, "RATE_LIMIT_EXCEEDED", result.message, [], retry_after=60)
+    return _field_error(
+        status.HTTP_502_BAD_GATEWAY if result.status == "unknown" else status.HTTP_400_BAD_REQUEST,
+        "RESET_REQUEST_FAILED",
+        result.message,
+        [],
+    )
+
+
+class ResetPasswordRequest(BaseModel):
+    system: str = Field(..., pattern="^(siakad|mybest)$")
+    token: str = Field(..., min_length=1, max_length=128)
+    email: str = Field(..., min_length=1, max_length=254)
+    password: str = Field(..., min_length=1, max_length=128)
+
+
+@router.post("/reset-password")
+async def reset_password(body: ResetPasswordRequest, request: Request):
+    """Setel password baru memakai token dari link reset kampus."""
+    blocked = await _guard_public_auth(request)
+    if blocked:
+        return blocked
+
+    email = normalize_email(body.email)
+    token = body.token.strip()
+    if not TOKEN_RE.match(token) or not EMAIL_RE.match(email):
+        return _field_error(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "INVALID_RESET_LINK",
+            "Link reset tidak valid. Tempel ulang link lengkap dari email.",
+            ["link"],
+        )
+    problem = validate_new_password("", "", body.password)
+    if problem:
+        return _field_error(status.HTTP_422_UNPROCESSABLE_ENTITY, "WEAK_PASSWORD", problem, ["password"])
+
+    loop = asyncio.get_running_loop()
+    result = await loop.run_in_executor(None, submit_reset, body.system, token, email, body.password)
+    if result.status == "reset":
+        return success_response(data={"reset": True, "system": body.system, "message": result.message})
+    if result.status == "token_invalid":
+        return _field_error(status.HTTP_410_GONE, "RESET_LINK_EXPIRED", result.message, ["link"])
+    return _field_error(
+        status.HTTP_502_BAD_GATEWAY if result.status == "unknown" else status.HTTP_400_BAD_REQUEST,
+        "RESET_FAILED",
+        result.message,
+        ["password"] if result.status == "rejected" else [],
     )
 
 

@@ -631,7 +631,19 @@ async def get_profile(creds: tuple[str, str] = Depends(require_studentv2_creds))
         )
     except Exception:
         pass
+    await _remember_profile_email(nim, (res.get("data") or {}).get("email"))
     return res
+
+
+async def _remember_profile_email(nim: str, email: Optional[str]) -> None:
+    """Simpan HMAC email profil agar lupa password bisa menolak NIM dan email yang tidak cocok."""
+    try:
+        from app.login_guard import login_guard
+        from app.password_reset import remember_nim_email
+
+        await remember_nim_email(await login_guard.get_client(), nim, email)
+    except Exception:
+        pass
 
 @router.get("/khs")
 async def get_khs(creds: tuple[str, str] = Depends(require_studentv2_creds)):

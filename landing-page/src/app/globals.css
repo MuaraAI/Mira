@@ -464,6 +464,12 @@ html { scrollbar-color: var(--px-water-mid) var(--px-tint); scrollbar-width: thi
 @keyframes login-form-in { from { opacity: 0; transform: translateY(8px); } }
 .login-form-in { animation: login-form-in .32s var(--ease-px) both; }
 
+/* Field salah (mis. NIM dan email tidak cocok): getar singkat + garis merah. */
+@keyframes field-shake { 15%, 55% { transform: translateX(-7px); } 35%, 75% { transform: translateX(7px); } 90% { transform: translateX(-2px); } }
+.field-shake { animation: field-shake .45s cubic-bezier(.36, .07, .19, .97) both; }
+.px-input.field-error, .px-input.field-error:hover { background: #FFF7F8; box-shadow: 0 -2px 0 0 #E11D48, 0 2px 0 0 #E11D48, -2px 0 0 0 #E11D48, 2px 0 0 0 #E11D48; }
+.px-input.field-error:focus { box-shadow: 0 -2px 0 0 #E11D48, 0 2px 0 0 #E11D48, -2px 0 0 0 #E11D48, 2px 0 0 0 #E11D48, 4px 4px 0 0 #FFE4E6; }
+
 /* Skeleton: stepped shimmer block shown until real data arrives. */
 @keyframes px-skeleton { to { background-position: -32px 0; } }
 .px-skeleton { background: repeating-linear-gradient(90deg, var(--px-tint) 0 8px, var(--px-highlight) 8px 16px); background-size: 32px 100%; animation: px-skeleton 0.9s steps(4, end) infinite; }
