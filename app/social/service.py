@@ -544,7 +544,7 @@ def set_presence(nim: str, online: bool) -> Optional[Event]:
         row = conn.execute("SELECT username FROM social_profiles WHERE nim = ?", (nim,)).fetchone()
         now = _now()
         conn.execute(
-            "UPDATE social_profiles SET is_online = ?, last_seen_at = ? WHERE nim = ?", (1 if online else 0, now, nim)
+            "UPDATE social_profiles SET is_online = ?, last_seen_at = ? WHERE nim = ?", (bool(online), now, nim)
         )
         if not row:
             return None
@@ -815,14 +815,16 @@ def discover_spaces(nim: str, query: str = "") -> list[dict[str, Any]]:
         rows = conn.execute(
             "SELECT s.*, (SELECT COUNT(*) FROM social_members m WHERE m.space_id = s.id) AS members, "
             "(SELECT COUNT(*) FROM social_members m JOIN social_profiles p ON p.nim = m.nim "
-            " WHERE m.space_id = s.id AND p.is_online = 1 AND p.last_seen_at >= ?) AS online, "
+            " WHERE m.space_id = s.id AND p.is_online = ? AND p.last_seen_at >= ?) AS online, "
             "(SELECT role FROM social_members m WHERE m.space_id = s.id AND m.nim = ?) AS my_role "
-            "FROM social_spaces s WHERE s.is_public = 1 AND "
+            "FROM social_spaces s WHERE s.is_public = ? AND "
             "(s.name LIKE ? ESCAPE '\\' OR s.description LIKE ? ESCAPE '\\') "
             "ORDER BY members DESC, s.id DESC LIMIT 30",
             (
+                True,
                 (datetime.now(timezone.utc) - ONLINE_WINDOW).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 nim,
+                True,
                 f"%{escaped}%",
                 f"%{escaped}%",
             ),
@@ -878,7 +880,7 @@ def join_by_invite(nim: str, invite_code: str) -> Outcome:
 def join_public(nim: str, space_id: int) -> Outcome:
     with transaction() as conn:
         space = conn.execute(
-            "SELECT * FROM social_spaces WHERE id = ? AND is_public = 1", (space_id,)
+            "SELECT * FROM social_spaces WHERE id = ? AND is_public = ?", (space_id, True)
         ).fetchone()
         if not space:
             raise SocialError("SPACE_NOT_FOUND", "Ruang publik tidak ditemukan", 404)
@@ -938,8 +940,8 @@ def invite_preview(nim: str, invite_code: str) -> dict[str, Any]:
         data.pop("invite_code", None)
         data["online_count"] = conn.execute(
             "SELECT COUNT(*) AS c FROM social_members m JOIN social_profiles p ON p.nim = m.nim "
-            "WHERE m.space_id = ? AND p.is_online = 1 AND p.last_seen_at >= ?",
-            (space["id"], (datetime.now(timezone.utc) - ONLINE_WINDOW).strftime("%Y-%m-%dT%H:%M:%SZ")),
+            "WHERE m.space_id = ? AND p.is_online = ? AND p.last_seen_at >= ?",
+            (space["id"], True, (datetime.now(timezone.utc) - ONLINE_WINDOW).strftime("%Y-%m-%dT%H:%M:%SZ")),
         ).fetchone()["c"]
         data["joined"] = role is not None
         return data
@@ -1055,7 +1057,7 @@ def update_channel(
             )
         if admin_only is not None:
             conn.execute(
-                "UPDATE social_conversations SET admin_only = ? WHERE id = ?", (1 if admin_only else 0, conversation_id)
+                "UPDATE social_conversations SET admin_only = ? WHERE id = ?", (int(bool(admin_only)), conversation_id)
             )
         row = conn.execute("SELECT * FROM social_conversations WHERE id = ?", (conversation_id,)).fetchone()
         return Outcome(
