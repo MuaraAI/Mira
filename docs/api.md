@@ -131,6 +131,20 @@ Changes the SIAKAD or MyBest password directly on the campus server. Mira logs i
 - **Password rules**: 8 to 64 characters, letters and digits, not a default password, different from the current one, must not contain the NIM.
 - **Errors**: `CURRENT_PASSWORD_MISMATCH` (400), `WEAK_PASSWORD` (422), `PASSWORD_REJECTED` (400, campus refused), `PASSWORD_FORM_NOT_FOUND` (400), `UPSTREAM_LOGIN_FAILED` (400), `PASSWORD_STATUS_UNKNOWN` (502, verify by logging in with the new password).
 
+### `POST /v1/auth/forgot-password`
+Asks SIAKAD or MyBest to email a password reset link (valid 60 minutes, campus default). Mira first checks that the NIM and email belong together: a `<NIM>@bsi.ac.id` address must match the NIM exactly, and emails previously read from the student's SIAKAD/MyBest profile (stored only as HMAC) must match.
+- **Access**: Public. Shares the login IP limit and blacklist (10/minute per IP). Max 1 request/minute per email.
+- **Request Body**: `{ "nim": "15260767", "email": "nama@gmail.com", "system": "mybest" }` (`system`: `mybest` default, or `siakad`)
+- **Errors** carry `error.fields` so the UI can highlight inputs: `NIM_EMAIL_MISMATCH` (400, `["nim","email"]`), `INVALID_INPUT` (422), `EMAIL_NOT_REGISTERED` (404, `["email"]`), `RATE_LIMIT_EXCEEDED` / `IP_BLACKLISTED` (429).
+
+### `POST /v1/auth/reset-password`
+Sets a new password using the token from the campus reset link (`https://<campus>/reset-password/<token>?email=...`). Mira submits the official campus reset form; success means the campus redirected to its login page.
+- **Access**: Public. Shares the login IP limit and blacklist.
+- **Request Body**: `{ "system": "mybest", "token": "<64 hex>", "email": "nama@gmail.com", "password": "KuatSekali2026" }`
+- **Errors**: `INVALID_RESET_LINK` (422, `["link"]`), `WEAK_PASSWORD` (422, `["password"]`), `RESET_LINK_EXPIRED` (410, `["link"]`), `RESET_FAILED` (400/502).
+
+The web app also accepts the Mira form of the link, `/reset-password/<token>?email=...&sys=mybest|siakad`, and strips the token from the address bar on load.
+
 ### `POST /v1/auth/logout`
 Terminates the current device session and clears the session cookie and Redis key.
 - **Access**: Session Token Required (`Authorization: Bearer <token>` or cookie `ubsi_session`).

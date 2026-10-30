@@ -2833,7 +2833,7 @@ async def post_new_discussion(
 async def get_elearning_profile(creds: tuple[str, str] = Depends(require_elearning_creds)):
     """Ambil data profil dan kontak akun MyBest LMS mahasiswa."""
     nim, password = creds
-    return await cached_endpoint(
+    res = await cached_endpoint(
         module="elearning",
         name="profile",
         fetch=lambda: pooled_elearning_client.fetch_page("/profil", nim, password),
@@ -2841,6 +2841,15 @@ async def get_elearning_profile(creds: tuple[str, str] = Depends(require_elearni
         ttl=settings.TTL_ASSIGNMENTS,
         cache_params={"nim": nim},
     )
+    # HMAC email profil untuk validasi NIM-email di fitur lupa password.
+    try:
+        from app.login_guard import login_guard
+        from app.password_reset import remember_nim_email
+
+        await remember_nim_email(await login_guard.get_client(), nim, (res.get("data") or {}).get("email"))
+    except Exception:
+        pass
+    return res
 
 
 @router.get("/makeups")
