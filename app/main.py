@@ -127,6 +127,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             await limiter._client.aclose()
         from app.session_store import session_store
         await session_store.close()
+        from app.login_guard import login_guard
+        await login_guard.close()
         from app.social import events as social_events
         await social_events.close()
     except Exception:

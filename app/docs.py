@@ -28,7 +28,7 @@ API_DOCS_DATA: dict[str, Any] = {
                 "path": "/v1/auth/login",
                 "method": "POST",
                 "auth": "Public",
-                "description": "Login mandiri menggunakan NIM dan password SIAKAD & MyBest. Mengembalikan session token AES-256-GCM (sliding 7 hari).",
+                "description": "Login mandiri menggunakan NIM dan password SIAKAD & MyBest. Mengembalikan session token AES-256-GCM (sliding 7 hari). Maks 10 percobaan/menit per IP; lebih dari itu IP diblokir sementara.",
                 "payload": {"nim": "string", "studentv2_pass": "string", "elearning_pass": "string"},
             },
             {
@@ -36,6 +36,19 @@ API_DOCS_DATA: dict[str, Any] = {
                 "method": "GET",
                 "auth": "Session / API Key",
                 "description": "Cek identitas dan status login aktif mahasiswa.",
+            },
+            {
+                "path": "/v1/auth/security",
+                "method": "GET",
+                "auth": "Session Token",
+                "description": "Jumlah login sukses/gagal hari ini (WIB), login terakhir, dan status password default kampus.",
+            },
+            {
+                "path": "/v1/auth/password",
+                "method": "POST",
+                "auth": "Session Token",
+                "description": "Ganti password SIAKAD/MyBest langsung di server kampus, diverifikasi dengan login ulang.",
+                "payload": {"system": "siakad | mybest", "current_password": "string", "new_password": "string"},
             },
             {
                 "path": "/v1/auth/keys",

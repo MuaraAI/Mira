@@ -16,8 +16,9 @@ import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { Monogram } from "@/components/Monogram";
 import { FocusDialog } from "@/components/FocusDialog";
 import { lockScroll } from "@/lib/scroll-lock";
+import { LoginTodayBadge } from "@/components/SecurityWidgets";
 
-export function DashboardMobileNav({ nim }: { nim?: string | null }) {
+export function DashboardMobileNav({ nim, authed = false }: { nim?: string | null; authed?: boolean }) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -63,14 +64,17 @@ export function DashboardMobileNav({ nim }: { nim?: string | null }) {
           </div>
         </Link>
 
-        <Link
-          href="/dashboard/notifikasi"
-          aria-label="Buka pengaturan notifikasi"
-          aria-current={pathname.startsWith("/dashboard/notifikasi") ? "page" : undefined}
-          className="px-frame flex min-h-[44px] min-w-[44px] items-center justify-center bg-white text-foreground [--px-line:#CFE2EE] hover:bg-px-tint"
-        >
-          <BellRing className="h-5 w-5" aria-hidden="true" />
-        </Link>
+        <div className="flex items-center gap-2.5">
+          {authed && <LoginTodayBadge compact />}
+          <Link
+            href="/dashboard/notifikasi"
+            aria-label="Buka pengaturan notifikasi"
+            aria-current={pathname.startsWith("/dashboard/notifikasi") ? "page" : undefined}
+            className="px-frame flex min-h-[44px] min-w-[44px] items-center justify-center bg-white text-foreground [--px-line:#CFE2EE] hover:bg-px-tint"
+          >
+            <BellRing className="h-5 w-5" aria-hidden="true" />
+          </Link>
+        </div>
       </header>
 
       {/* Mobile Drawer (Slide-Over) */}

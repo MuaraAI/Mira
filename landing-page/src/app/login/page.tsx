@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, Eye, EyeOff, LogIn, X } from "lucide-react";
+import { ArrowLeft, Check, Eye, EyeOff, LogIn, ShieldBan, X } from "lucide-react";
 import { apiFetch, ApiError, useApi, setApiCache } from "@/lib/api";
 import { inputClass, primaryButtonClass } from "@/components/dashboard-ui";
 import { Monogram } from "@/components/Monogram";
@@ -31,6 +31,63 @@ const IDLE_STEPS: Record<StepKey, StepState> = {
 };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Server memblokir IP yang spam login; simpan batas waktunya agar refresh halaman tidak bisa mengakali.
+const BLOCK_KEY = "mira_login_blocked_until";
+
+function readBlockedUntil(): number | null {
+  try {
+    const until = Number(localStorage.getItem(BLOCK_KEY) || 0);
+    return until > Date.now() ? until : null;
+  } catch {
+    return null;
+  }
+}
+
+function formatCountdown(ms: number) {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const sec = total % 60;
+  const mmss = `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  return h > 0 ? `${h}:${mmss}` : mmss;
+}
+
+/** Hitung mundur blokir IP; kembali null saat blokir habis. */
+function useBlockedUntil() {
+  const [until, setUntil] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    setUntil(readBlockedUntil());
+  }, []);
+
+  useEffect(() => {
+    if (!until) return;
+    const timer = window.setInterval(() => {
+      const t = Date.now();
+      setNow(t);
+      if (t >= until) {
+        setUntil(null);
+        try {
+          localStorage.removeItem(BLOCK_KEY);
+        } catch {}
+      }
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [until]);
+
+  const block = (seconds: number) => {
+    const next = Date.now() + seconds * 1000;
+    try {
+      localStorage.setItem(BLOCK_KEY, String(next));
+    } catch {}
+    setNow(Date.now());
+    setUntil(next);
+  };
+
+  return { blockedUntil: until, remainingMs: until ? until - now : 0, block };
+}
 
 function PasswordField({
   id,
@@ -240,6 +297,7 @@ export default function LoginPage() {
   const [startedAt, setStartedAt] = useState(0);
   const [finished, setFinished] = useState(false);
   const nimRef = useRef<HTMLInputElement>(null);
+  const { blockedUntil, remainingMs, block } = useBlockedUntil();
 
   // Sudah login: langsung ke dashboard tanpa render form login
   const { data: me, loading: checkingSession } = useApi<{ nim: string }>("/v1/auth/me");
@@ -284,6 +342,7 @@ export default function LoginPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (blockedUntil || submitting) return;
     if (!agree) {
       setError(
         new ApiError(
@@ -336,7 +395,13 @@ export default function LoginPage() {
       router.replace("/dashboard");
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : new ApiError("ERROR", "Login gagal. Coba lagi.", 0);
-      if (apiErr.code === "INVALID_CREDENTIALS") {
+      if (apiErr.retryAfter && apiErr.status === 429) {
+        block(apiErr.retryAfter);
+      }
+      if (apiErr.status === 429) {
+        // Ditolak sebelum menyentuh server kampus.
+        mark({ form: "failed", siakad: "pending", mybest: "pending" });
+      } else if (apiErr.code === "INVALID_CREDENTIALS") {
         // Pesan server menyebut sistem mana yang menolak: "password SIAKAD dan MyBest salah".
         mark({
           siakad: apiErr.message.includes("SIAKAD") ? "failed" : "done",
@@ -446,7 +511,20 @@ export default function LoginPage() {
                   Password dicek langsung ke SIAKAD dan MyBest, lalu disimpan terenkripsi selama sesi aktif (7 hari) supaya kamu nggak perlu login ulang.
                 </p>
 
-                {error && (
+                {blockedUntil && (
+                  <div className="px-frame mb-6 flex items-start gap-3 bg-[#FFF1F2] px-4 py-3 [--px-line:#FDA4AF]" role="alert">
+                    <ShieldBan className="mt-0.5 h-5 w-5 shrink-0 text-[#BE123C]" aria-hidden="true" />
+                    <div className="min-w-0">
+                      <p className="font-mono text-xs font-bold uppercase tracking-widest text-[#BE123C]">IP diblokir sementara</p>
+                      <p className="mt-0.5 text-sm text-[#9F1239]">
+                        Terlalu banyak percobaan login dari jaringan ini. Coba lagi dalam{" "}
+                        <span className="font-mono font-bold tabular-nums">{formatCountdown(remainingMs)}</span>.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {error && !blockedUntil && (
                   <div className="px-frame mb-6 bg-[#FFF1F2] px-4 py-3 [--px-line:#FDA4AF]" role="alert">
                     <p className="font-mono text-xs font-bold uppercase tracking-widest text-[#BE123C]">
                       {error.code}
@@ -528,17 +606,21 @@ export default function LoginPage() {
 
                   <button
                     type="submit"
-                    disabled={submitting}
-                    className={`${primaryButtonClass} min-h-12 w-full mt-2`}
+                    disabled={submitting || Boolean(blockedUntil)}
+                    className={`${primaryButtonClass} min-h-12 w-full mt-2 disabled:opacity-60`}
                   >
-                    <LogIn className="h-4 w-4" aria-hidden="true" />
-                    {submitting ? "Memeriksa kredensial kampus" : "Masuk"}
+                    {blockedUntil ? <ShieldBan className="h-4 w-4" aria-hidden="true" /> : <LogIn className="h-4 w-4" aria-hidden="true" />}
+                    {blockedUntil
+                      ? `Diblokir ${formatCountdown(remainingMs)}`
+                      : submitting
+                        ? "Memeriksa kredensial kampus"
+                        : "Masuk"}
                   </button>
                 </form>
 
                 <p className="mt-6 border-t-2 border-dashed border-px-soft pt-4 text-xs text-secondary leading-relaxed">
-                  Login dibatasi 5 percobaan per menit per NIM. Session aktif 7 hari dan diperpanjang
-                  otomatis selama akun tetap digunakan.
+                  Maksimal 10 percobaan login per menit per IP. Lebih dari itu, IP diblokir otomatis
+                  (15 menit, naik jadi 1 jam lalu 24 jam bila diulang). Sesi aktif 7 hari.
                 </p>
               </div>
             )}

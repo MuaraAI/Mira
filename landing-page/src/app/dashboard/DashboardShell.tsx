@@ -8,6 +8,7 @@ import { ErrorState, LoadingState } from "@/components/dashboard-ui";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { DashboardMobileNav } from "@/components/DashboardMobileNav";
 import PwaPushBanner from "@/components/PwaPushBanner";
+import { DefaultPasswordBanner, LoginTodayBadge } from "@/components/SecurityWidgets";
 import { DialogProvider } from "@/components/ConfirmDialog";
 import { useLogout } from "@/lib/logout";
 
@@ -76,7 +77,7 @@ function ShellLayout({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Mobile Navigation (Topbar, Bottom bar & Drawer) */}
-      <DashboardMobileNav nim={nim} />
+      <DashboardMobileNav nim={nim} authed={authed} />
 
       {/* Main Content Area */}
       <div className={`flex-1 flex flex-col min-w-0 ${chatRoute ? "lg:pl-16" : "lg:pl-64"}`}>
@@ -94,6 +95,7 @@ function ShellLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-3">
+            {authed && <LoginTodayBadge />}
             <div className="px-chip flex items-center gap-1.5 px-2.5 py-1 bg-[#F0F7FB] text-[11px] font-mono text-[#0369A1] font-semibold">
               <ShieldCheck className="w-3.5 h-3.5 text-[#0369A1]" aria-hidden="true" />
               <span>Sesi aktif</span>
@@ -125,6 +127,7 @@ function ShellLayout({ children }: { children: React.ReactNode }) {
             <ErrorState error={error} onRetry={reload} />
           ) : authed ? (
             <div key={pathname} className="page-in">
+              {!chatRoute && <DefaultPasswordBanner />}
               {!chatRoute && <PwaPushBanner />}
               {children}
             </div>

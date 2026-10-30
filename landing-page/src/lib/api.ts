@@ -19,18 +19,21 @@ export function getApiBase(): string {
 export class ApiError extends Error {
   code: string;
   status: number;
+  /** Detik sampai boleh mencoba lagi (dikirim server saat IP diblokir sementara). */
+  retryAfter?: number;
 
-  constructor(code: string, message: string, status: number) {
+  constructor(code: string, message: string, status: number, retryAfter?: number) {
     super(message);
     this.code = code;
     this.status = status;
+    this.retryAfter = retryAfter;
   }
 }
 
 interface EnvelopePayload {
   data?: unknown;
-  detail?: { error?: { code?: string; message?: string } };
-  error?: { code?: string; message?: string };
+  detail?: { error?: { code?: string; message?: string; retry_after?: number } };
+  error?: { code?: string; message?: string; retry_after?: number };
 }
 
 export function readSessionToken(): string | null {
@@ -107,7 +110,8 @@ export async function apiFetch<T>(
     throw new ApiError(
       err?.code ?? `HTTP_${res.status}`,
       err?.message ?? `Permintaan gagal dengan status ${res.status}.`,
-      res.status
+      res.status,
+      typeof err?.retry_after === "number" ? err.retry_after : undefined
     );
   }
   return payload?.data as T;
