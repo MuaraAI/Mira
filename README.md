@@ -57,6 +57,7 @@ Layanan kuliah UBSI tersebar di enam portal berbeda dan sesinya habis setiap 15 
 | Brute force per akun | Maks 5 percobaan per menit per NIM |
 | Password default | Akun yang masih memakai `Mhs-1945` atau `Mhs-2026` diingatkan di setiap halaman dan bisa langsung ganti password dari Mira |
 | Aktivitas | Jumlah login sukses dan gagal hari ini tampil di navbar desktop dan mobile |
+| Lupa password | Reset lewat NIM + email terdaftar. NIM dan email yang tidak cocok ditolak sebelum diteruskan ke kampus |
 | Isolasi | Sesi dan cookie kampus terpisah per NIM |
 | Webhook | Proteksi SSRF: blokir IP privat dan validasi DNS |
 

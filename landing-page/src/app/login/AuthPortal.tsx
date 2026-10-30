@@ -7,6 +7,26 @@ import { ArrowLeft, Check, Eye, EyeOff, LogIn, ShieldBan, X } from "lucide-react
 import { apiFetch, ApiError, useApi, setApiCache } from "@/lib/api";
 import { inputClass, primaryButtonClass } from "@/components/dashboard-ui";
 import { Monogram } from "@/components/Monogram";
+import {
+  ForgotPasswordView,
+  ResetPasswordView,
+  ResetTarget,
+  readSentInfo,
+} from "@/components/auth/PasswordRecovery";
+
+export type AuthView = "login" | "forgot" | "reset";
+
+const VIEW_PATH: Record<AuthView, string> = {
+  login: "/login",
+  forgot: "/lupa-password",
+  reset: "/reset-password",
+};
+
+const VIEW_COPY: Record<AuthView, { title: string; accent: string; subtitle: string }> = {
+  login: { title: "Mira", accent: "Portal", subtitle: "Masuk pakai akun SIAKAD dan MyBest." },
+  forgot: { title: "Lupa", accent: "Password", subtitle: "Masukkan NIM dan email, link reset dikirim kampus." },
+  reset: { title: "Reset", accent: "Password", subtitle: "Buat password baru untuk akun kampus." },
+};
 
 // iOS men-zoom input di bawah 16px, jadi di HP teks input dibuat 16px.
 const fieldClass = `${inputClass} min-h-12 text-base sm:text-sm`;
@@ -284,8 +304,17 @@ function LoginCheck({
   );
 }
 
-export default function LoginPage() {
+export function AuthPortal({
+  initialView = "login",
+  initialReset = null,
+}: {
+  initialView?: AuthView;
+  initialReset?: ResetTarget | null;
+}) {
   const router = useRouter();
+  const [view, setView] = useState<AuthView>(initialView);
+  const [sent, setSent] = useState<ReturnType<typeof readSentInfo>>(null);
+  const [resetTarget] = useState<ResetTarget | null>(initialReset);
   const [nim, setNim] = useState("");
   const [siakadPass, setSiakadPass] = useState("");
   const [mybestPass, setMybestPass] = useState("");
@@ -299,13 +328,30 @@ export default function LoginPage() {
   const nimRef = useRef<HTMLInputElement>(null);
   const { blockedUntil, remainingMs, block } = useBlockedUntil();
 
+  useEffect(() => {
+    setSent(readSentInfo());
+    // Link reset berisi token + email: hapus dari address bar & riwayat begitu terbaca.
+    if (window.location.pathname !== VIEW_PATH[initialView] || window.location.search) {
+      window.history.replaceState(null, "", VIEW_PATH[initialView]);
+    }
+  }, [initialView]);
+
+  // URL ikut tampilan (bersih, tanpa token/email) supaya refresh tetap di layar yang sama.
+  function go(next: AuthView) {
+    setView(next);
+    setError(null);
+    window.history.replaceState(null, "", VIEW_PATH[next]);
+    window.scrollTo({ top: 0 });
+  }
+
   // Sudah login: langsung ke dashboard tanpa render form login
   const { data: me, loading: checkingSession } = useApi<{ nim: string }>("/v1/auth/me");
+  const onLogin = view === "login";
   useEffect(() => {
-    if (me?.nim && phase === "form") router.replace("/dashboard");
-  }, [me, router, phase]);
+    if (onLogin && me?.nim && phase === "form") router.replace("/dashboard");
+  }, [me, router, phase, onLogin]);
 
-  if (checkingSession && !me) {
+  if (onLogin && checkingSession && !me) {
     return (
       <div className="flex flex-col min-h-screen bg-background text-foreground items-center justify-center p-4">
         <div className="grid-overlay" aria-hidden="true" />
@@ -317,7 +363,7 @@ export default function LoginPage() {
     );
   }
 
-  if (me?.nim && phase === "form") {
+  if (onLogin && me?.nim && phase === "form") {
     return (
       <div className="flex flex-col min-h-screen bg-background text-foreground items-center justify-center p-4">
         <div className="grid-overlay" aria-hidden="true" />
@@ -474,12 +520,13 @@ export default function LoginPage() {
               </span>
               <div className="min-w-0">
                 <h1 className="font-display text-3xl font-bold uppercase leading-none tracking-[-0.03em] sm:text-4xl">
-                  Mira <span className="text-[#0369A1]">Portal</span>
+                  {VIEW_COPY[view].title} <span className="text-[#0369A1]">{VIEW_COPY[view].accent}</span>
                 </h1>
-                <p className="mt-1.5 text-sm text-secondary">Masuk pakai akun SIAKAD dan MyBest.</p>
+                <p className="mt-1.5 text-sm text-secondary">{VIEW_COPY[view].subtitle}</p>
               </div>
             </div>
 
+            {onLogin && (
             <ol className="mb-4 grid grid-cols-2 gap-3" aria-label="Tahap login">
               {[
                 { n: 1, label: "Akun kampus", on: phase === "form" },
@@ -501,9 +548,33 @@ export default function LoginPage() {
                 </li>
               ))}
             </ol>
+            )}
 
             <div className="px-card bg-white p-5 [--px-drop:#0369A1] [--px-off:8px] min-[400px]:p-6 sm:p-8">
-            {phase === "checking" ? (
+            {view === "forgot" ? (
+              <ForgotPasswordView
+                initialNim={nim.trim()}
+                onBack={() => go("login")}
+                onHaveLink={() => go("reset")}
+                onSent={(info) => {
+                  setSent(info);
+                  go("reset");
+                }}
+              />
+            ) : view === "reset" ? (
+              <ResetPasswordView
+                initialTarget={resetTarget}
+                sent={sent}
+                onBack={() => go("login")}
+                onResend={() => go("forgot")}
+                onDone={(doneNim) => {
+                  if (doneNim) setNim(doneNim);
+                  setSiakadPass("");
+                  setMybestPass("");
+                  go("login");
+                }}
+              />
+            ) : phase === "checking" ? (
               <LoginCheck nim={nim.trim()} steps={steps} startedAt={startedAt} finished={finished} error={error} onBack={backToForm} />
             ) : (
               <div className="login-form-in">
@@ -563,14 +634,25 @@ export default function LoginPage() {
                     autoComplete="current-password"
                   />
 
-                  <PasswordField
-                    id="elearning_pass"
-                    label="Password MyBest"
-                    name="elearning_pass"
-                    value={mybestPass}
-                    onChange={setMybestPass}
-                    autoComplete="current-password"
-                  />
+                  <div>
+                    <PasswordField
+                      id="elearning_pass"
+                      label="Password MyBest"
+                      name="elearning_pass"
+                      value={mybestPass}
+                      onChange={setMybestPass}
+                      autoComplete="current-password"
+                    />
+                    <div className="mt-1 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => go("forgot")}
+                        className="inline-flex min-h-10 items-center font-mono text-xs font-semibold text-[#0369A1] hover:underline"
+                      >
+                        Lupa password?
+                      </button>
+                    </div>
+                  </div>
 
                   <label htmlFor="agree" className="flex cursor-pointer items-start gap-3 pt-1">
                     <input
