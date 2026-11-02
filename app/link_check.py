@@ -278,25 +278,29 @@ async def probe_youtube(client: httpx.AsyncClient, vid: str) -> tuple[str, Optio
     except Exception as e:
         return "unknown", None, f"Gagal menghubungi YouTube: {e}"
 
-    # Langkah 2: Bedakan Publik vs Tidak Publik (Hanya link)
+    # Langkah 2: Bedakan Publik vs Tidak Publik (Hanya link / unlisted)
     try:
-        player_url = "https://www.youtube.com/youtubei/v1/player"
-        payload = {
-            "videoId": vid,
-            "context": {"client": {"clientName": "WEB", "clientVersion": "2.20240101.00.00"}},
-        }
-        resp = await client.post(player_url, json=payload)
+        watch_url = f"https://www.youtube.com/watch?v={vid}"
+        resp = await client.get(
+            watch_url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                "Accept-Language": "id,en;q=0.9",
+            },
+        )
         if resp.status_code == 200:
-            p_data = resp.json()
-            micro = p_data.get("microformat", {}).get("playerMicroformatRenderer", {})
-            if micro.get("isUnlisted") is True:
+            html = resp.text
+            if (
+                "PRIVACY_UNLISTED" in html
+                or '"isUnlisted":true' in html
+                or '"isUnlisted": true' in html
+            ):
                 return (
                     "unlisted",
                     title,
-                    "Video Tidak Publik (Hanya yang punya link): Dosen bisa menontonnya.",
+                    "Video Tidak Publik (Hanya yang punya link): Dosen bisa membukanya.",
                 )
-            elif micro.get("isUnlisted") is False:
-                return "public", title, "Video Publik: Siapa pun bisa mencari dan menontonnya."
+            return "public", title, "Video Publik: Siapa pun bisa mencari dan menontonnya."
     except Exception:
         pass
 

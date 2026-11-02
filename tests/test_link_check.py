@@ -235,8 +235,8 @@ async def test_youtube_link_probing_public_unlisted_private():
     def handler_unlisted(request: httpx.Request) -> httpx.Response:
         if "oembed" in str(request.url):
             return httpx.Response(200, json={"title": "Video Tugas Unlisted", "author_name": "Yuken"})
-        if "youtubei/v1/player" in str(request.url):
-            return httpx.Response(200, json={"microformat": {"playerMicroformatRenderer": {"isUnlisted": True}}})
+        if "watch" in str(request.url):
+            return httpx.Response(200, text='<html><body><script>{"iconType":"PRIVACY_UNLISTED"}</script></body></html>')
         return httpx.Response(404)
 
     async with client_for(handler_unlisted) as client:
@@ -251,8 +251,8 @@ async def test_youtube_link_probing_public_unlisted_private():
     def handler_public(request: httpx.Request) -> httpx.Response:
         if "oembed" in str(request.url):
             return httpx.Response(200, json={"title": "Video Publik", "author_name": "Author"})
-        if "youtubei/v1/player" in str(request.url):
-            return httpx.Response(200, json={"microformat": {"playerMicroformatRenderer": {"isUnlisted": False}}})
+        if "watch" in str(request.url):
+            return httpx.Response(200, text='<html><body><script>{"isUnlisted":false}</script></body></html>')
         return httpx.Response(404)
 
     async with client_for(handler_public) as client:
