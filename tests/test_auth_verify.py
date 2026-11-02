@@ -12,7 +12,7 @@ async def test_verify_rejects_non_master_key():
         res = await ac.post(
             "/v1/auth/verify",
             headers={"X-API-Key": "muara_ubsi_member_key"},
-            json={"nim": "15260767", "elearning_pass": "p1", "studentv2_pass": "p2"}
+            json={"nim": "12345678", "elearning_pass": "p1", "studentv2_pass": "p2"}
         )
         assert res.status_code == 401
         assert res.json()["error"]["code"] == "UNAUTHORIZED"
@@ -23,7 +23,7 @@ async def test_verify_without_key_returns_401():
     async with AsyncClient(transport=transport, base_url="http://test", headers={"_skip_auto_auth": "1"}) as ac:
         res = await ac.post(
             "/v1/auth/verify",
-            json={"nim": "15260767", "elearning_pass": "p1", "studentv2_pass": "p2"}
+            json={"nim": "12345678", "elearning_pass": "p1", "studentv2_pass": "p2"}
         )
         assert res.status_code == 401
 
@@ -38,12 +38,12 @@ async def test_verify_success_both_services():
             res = await ac.post(
                 "/v1/auth/verify",
                 headers={"X-API-Key": "master_secret"},
-                json={"nim": "15260767", "elearning_pass": "pass_el", "studentv2_pass": "pass_sv"}
+                json={"nim": "12345678", "elearning_pass": "pass_el", "studentv2_pass": "pass_sv"}
             )
             assert res.status_code == 200
             data = res.json()["data"]
             assert data["valid"] is True
-            assert data["nim"] == "15260767"
+            assert data["nim"] == "12345678"
             assert data["elearning"]["valid"] is True
             assert data["studentv2"]["valid"] is True
 
@@ -58,7 +58,7 @@ async def test_verify_partial_failure():
             res = await ac.post(
                 "/v1/auth/verify",
                 headers={"X-API-Key": "master_secret"},
-                json={"nim": "15260767", "elearning_pass": "wrong_el", "studentv2_pass": "pass_sv"}
+                json={"nim": "12345678", "elearning_pass": "wrong_el", "studentv2_pass": "pass_sv"}
             )
             assert res.status_code == 200
             data = res.json()["data"]
@@ -77,7 +77,7 @@ async def test_verify_rate_limit_per_nim_exceeded():
             res = await ac.post(
                 "/v1/auth/verify",
                 headers={"X-API-Key": "master_secret"},
-                json={"nim": "15260767", "elearning_pass": "p1", "studentv2_pass": "p2"}
+                json={"nim": "12345678", "elearning_pass": "p1", "studentv2_pass": "p2"}
             )
             assert res.status_code == 429
             assert res.json()["error"]["code"] == "RATE_LIMIT_EXCEEDED"

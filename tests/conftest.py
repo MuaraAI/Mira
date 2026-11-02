@@ -14,10 +14,10 @@ def _patched_init(self, *args, **kwargs):
     if not skip and "X-API-Key" not in headers:
         headers["X-API-Key"] = "test-secret-key-12345"
     if not skip and "X-Studentv2-NIM" not in headers and "x-studentv2-nim" not in headers:
-        headers["X-Studentv2-NIM"] = "15260767"
+        headers["X-Studentv2-NIM"] = "12345678"
         headers["X-Studentv2-Pass"] = "secret"
     if not skip and "X-Elearning-NIM" not in headers and "x-elearning-nim" not in headers:
-        headers["X-Elearning-NIM"] = "15260767"
+        headers["X-Elearning-NIM"] = "12345678"
         headers["X-Elearning-Pass"] = "secret"
     kwargs["headers"] = headers
     _original_init(self, *args, **kwargs)

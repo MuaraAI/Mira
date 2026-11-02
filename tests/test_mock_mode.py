@@ -37,8 +37,8 @@ def test_mock_profile_payload_is_fake_and_marked():
     assert body["success"] is True
     assert body["data"]["mock"] is True
     assert body["data"]["nim"] == "00.0.0000"
-    # Tidak boleh ada NIM/nama orang sungguhan.
-    assert "15260767" not in res.text
+    # Tidak boleh ada NIM/nama mahasiswa sungguhan.
+    assert "12345678" not in res.text
 
 
 def test_mock_schedule_courses_khs_presence_shapes():

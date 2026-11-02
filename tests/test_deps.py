@@ -7,25 +7,25 @@ from app.deps import require_elearning_creds, require_studentv2_creds
 def test_tier1_session_credentials():
     scope = {"type": "http", "headers": [], "state": {}}
     req = Request(scope)
-    req.state.nim = "15260767"
+    req.state.nim = "12345678"
     req.state.elearning_pass = "session_el_pass"
     req.state.studentv2_pass = "session_sv_pass"
     
     el_nim, el_pwd = require_elearning_creds(req)
-    assert el_nim == "15260767"
+    assert el_nim == "12345678"
     assert el_pwd == "session_el_pass"
     
     sv_nim, sv_pwd = require_studentv2_creds(req)
-    assert sv_nim == "15260767"
+    assert sv_nim == "12345678"
     assert sv_pwd == "session_sv_pass"
 
 def test_tier2_header_override():
     scope = {
         "type": "http",
         "headers": [
-            (b"x-elearning-nim", b"15260888"),
+            (b"x-elearning-nim", b"12345679"),
             (b"x-elearning-pass", b"header_el_pass"),
-            (b"x-studentv2-nim", b"15260999"),
+            (b"x-studentv2-nim", b"12345699"),
             (b"x-studentv2-pass", b"header_sv_pass"),
         ],
         "state": {}
@@ -33,11 +33,11 @@ def test_tier2_header_override():
     req = Request(scope)
     
     el_nim, el_pwd = require_elearning_creds(req)
-    assert el_nim == "15260888"
+    assert el_nim == "12345679"
     assert el_pwd == "header_el_pass"
     
     sv_nim, sv_pwd = require_studentv2_creds(req)
-    assert sv_nim == "15260999"
+    assert sv_nim == "12345699"
     assert sv_pwd == "header_sv_pass"
 
 def test_missing_credentials_raises_401():

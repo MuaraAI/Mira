@@ -60,6 +60,7 @@ export function clearSessionToken(): void {
     sessionStorage.removeItem("ubsi_session_token");
     localStorage.removeItem("ubsi_session_token");
   } catch {}
+  clearApiCache();
 }
 
 export async function apiFetch<T>(
@@ -233,11 +234,11 @@ export function setApiCache<T>(path: string, data: T) {
   memoryCache.set(path, { data, timestamp: Date.now() });
 }
 
-/** Cache di perangkat (localStorage): tampilan instan saat halaman dibuka lagi, lalu diperbarui diam-diam. */
+/** Cache sesi di perangkat (sessionStorage): tampilan instan saat navigasi, dibersihkan saat sesi/tab ditutup. */
 function readPersisted<T>(path: string, maxAgeMs: number): CacheEntry<T> | null {
   if (typeof window === "undefined" || !maxAgeMs) return null;
   try {
-    const raw = localStorage.getItem(PERSIST_PREFIX + path);
+    const raw = sessionStorage.getItem(PERSIST_PREFIX + path);
     if (!raw) return null;
     const entry = JSON.parse(raw) as CacheEntry<T>;
     return Date.now() - entry.timestamp < maxAgeMs ? entry : null;
@@ -248,7 +249,7 @@ function readPersisted<T>(path: string, maxAgeMs: number): CacheEntry<T> | null 
 
 function writePersisted<T>(path: string, data: T) {
   try {
-    localStorage.setItem(PERSIST_PREFIX + path, JSON.stringify({ data, timestamp: Date.now() }));
+    sessionStorage.setItem(PERSIST_PREFIX + path, JSON.stringify({ data, timestamp: Date.now() }));
   } catch {
     /* penyimpanan penuh/diblokir: cache perangkat hanya bonus */
   }
@@ -264,6 +265,10 @@ export function clearApiCache(pathPrefix?: string) {
   }
   if (typeof window === "undefined") return;
   try {
+    for (let i = sessionStorage.length - 1; i >= 0; i--) {
+      const key = sessionStorage.key(i);
+      if (key?.startsWith(PERSIST_PREFIX + (pathPrefix ?? ""))) sessionStorage.removeItem(key);
+    }
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const key = localStorage.key(i);
       if (key?.startsWith(PERSIST_PREFIX + (pathPrefix ?? ""))) localStorage.removeItem(key);

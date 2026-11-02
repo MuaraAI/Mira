@@ -18,7 +18,7 @@ def reset_clients():
 
 @pytest.mark.asyncio
 async def test_get_courses_success(monkeypatch):
-    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_NIM", "12345678")
     monkeypatch.setenv("ELEARNING_PASS", "secret")
 
     mock_html = (FIXTURES / "el_sch.html").read_text(encoding="utf-8")
@@ -41,7 +41,7 @@ async def test_get_courses_success(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_assignments_with_token(monkeypatch):
-    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_NIM", "12345678")
     monkeypatch.setenv("ELEARNING_PASS", "secret")
 
     mock_html = (FIXTURES / "el_assignment_1.html").read_text(encoding="utf-8")
@@ -63,7 +63,7 @@ async def test_get_assignments_with_token(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_grades_all_courses(monkeypatch):
-    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_NIM", "12345678")
     monkeypatch.setenv("ELEARNING_PASS", "secret")
 
     sch_html = (FIXTURES / "el_sch.html").read_text(encoding="utf-8")
@@ -100,7 +100,7 @@ async def test_get_grades_all_courses(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_grades_with_token(monkeypatch):
-    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_NIM", "12345678")
     monkeypatch.setenv("ELEARNING_PASS", "secret")
 
     grades_html = (FIXTURES / "el_assignment_grades.html").read_text(encoding="utf-8")
@@ -131,7 +131,7 @@ async def test_get_grades_with_token(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_course_grades_success(monkeypatch):
-    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_NIM", "12345678")
     monkeypatch.setenv("ELEARNING_PASS", "secret")
 
     sch_html = (FIXTURES / "el_sch.html").read_text(encoding="utf-8")
@@ -168,7 +168,7 @@ async def test_get_course_grades_success(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_course_grades_not_found(monkeypatch):
-    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_NIM", "12345678")
     monkeypatch.setenv("ELEARNING_PASS", "secret")
 
     sch_html = (FIXTURES / "el_sch.html").read_text(encoding="utf-8")
@@ -190,7 +190,7 @@ async def test_get_course_grades_not_found(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_presence_and_materials_and_quiz(monkeypatch):
-    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_NIM", "12345678")
     monkeypatch.setenv("ELEARNING_PASS", "secret")
 
     mock_absen_html = (FIXTURES / "el_absen_1.html").read_text(encoding="utf-8")
@@ -222,7 +222,7 @@ async def test_get_presence_and_materials_and_quiz(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_post_presence_active_session(monkeypatch):
-    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_NIM", "12345678")
     monkeypatch.setenv("ELEARNING_PASS", "secret")
 
     mock_active_html = (FIXTURES / "el_absen_active.html").read_text(encoding="utf-8")
@@ -251,7 +251,7 @@ async def test_post_presence_active_session(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_post_presence_inactive_session(monkeypatch):
-    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_NIM", "12345678")
     monkeypatch.setenv("ELEARNING_PASS", "secret")
 
     mock_selesai_html = (FIXTURES / "el_absen_1.html").read_text(encoding="utf-8")
@@ -274,7 +274,7 @@ async def test_post_presence_inactive_session(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_quiz_questions(monkeypatch):
-    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_NIM", "12345678")
     monkeypatch.setenv("ELEARNING_PASS", "secret")
 
     mock_ujian_html = (FIXTURES / "el_halaman_ujian.html").read_text(encoding="utf-8")
@@ -319,7 +319,7 @@ async def test_get_quiz_questions_rejects_path_traversal_and_protocol_relative()
 
 @pytest.mark.asyncio
 async def test_get_quiz_questions_accepts_valid_campus_path(monkeypatch):
-    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_NIM", "12345678")
     monkeypatch.setenv("ELEARNING_PASS", "secret")
     mock_ujian_html = (FIXTURES / "el_halaman_ujian.html").read_text(encoding="utf-8")
     mock_redis = AsyncMock()
@@ -337,7 +337,7 @@ async def test_get_quiz_questions_accepts_valid_campus_path(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_post_quiz_answer(monkeypatch):
-    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_NIM", "12345678")
     monkeypatch.setenv("ELEARNING_PASS", "secret")
 
     mock_post_resp = AsyncMock()
@@ -365,7 +365,7 @@ async def test_post_quiz_answer(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_post_upload_assignment(monkeypatch):
-    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_NIM", "12345678")
     monkeypatch.setenv("ELEARNING_PASS", "secret")
 
     mock_upload_resp = AsyncMock()
@@ -408,7 +408,7 @@ async def test_post_upload_assignment(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_download_assignment_file_safe_url(monkeypatch):
-    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_NIM", "12345678")
     monkeypatch.setenv("ELEARNING_PASS", "secret")
 
     mock_resp = AsyncMock()
@@ -438,7 +438,7 @@ async def test_download_assignment_file_ssrf_rejected():
 
 @pytest.mark.asyncio
 async def test_download_assignment_file_with_id_and_file(monkeypatch):
-    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_NIM", "12345678")
     monkeypatch.setenv("ELEARNING_PASS", "secret")
 
     mock_resp = AsyncMock()
@@ -459,7 +459,7 @@ async def test_download_assignment_file_with_id_and_file(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_download_material_file_with_id_and_file(monkeypatch):
-    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_NIM", "12345678")
     monkeypatch.setenv("ELEARNING_PASS", "secret")
 
     mock_resp = AsyncMock()
@@ -480,7 +480,7 @@ async def test_download_material_file_with_id_and_file(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_submit_assignment_link_success(monkeypatch):
-    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_NIM", "12345678")
     monkeypatch.setenv("ELEARNING_PASS", "secret")
 
     mock_res = {
@@ -492,7 +492,7 @@ async def test_submit_assignment_link_success(monkeypatch):
     }
 
     mock_redis = AsyncMock()
-    mock_redis.keys.return_value = ["ubsi:elearning:assignments:15260767"]
+    mock_redis.keys.return_value = ["ubsi:elearning:assignments:12345678"]
     mock_redis.delete.return_value = 1
 
     with patch("app.modules.elearning.pooled_elearning_client.submit_assignment_link", return_value=mock_res), \
@@ -516,7 +516,7 @@ async def test_submit_assignment_link_success(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_submit_assignment_link_upstream_redirect_to_login_fails(monkeypatch):
-    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_NIM", "12345678")
     monkeypatch.setenv("ELEARNING_PASS", "secret")
     from fastapi import HTTPException
 
@@ -534,7 +534,7 @@ async def test_submit_assignment_link_upstream_redirect_to_login_fails(monkeypat
 
 @pytest.mark.asyncio
 async def test_submit_assignment_link_invalid_url(monkeypatch):
-    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_NIM", "12345678")
     monkeypatch.setenv("ELEARNING_PASS", "secret")
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
@@ -571,7 +571,7 @@ async def test_submit_assignment_link_rejects_userinfo_and_private_targets():
 
 @pytest.mark.asyncio
 async def test_get_discussions_success(monkeypatch):
-    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_NIM", "12345678")
     monkeypatch.setenv("ELEARNING_PASS", "secret")
 
     mock_html = """
@@ -604,13 +604,13 @@ async def test_get_discussions_success(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_discussion_comments_success(monkeypatch):
-    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_NIM", "12345678")
     monkeypatch.setenv("ELEARNING_PASS", "secret")
 
     mock_html = """
     <ul>
         <li class="chat-left">
-            <div class="chat-avatar"><div class="chat-name">15260847</div></div>
+            <div class="chat-avatar"><div class="chat-name">12345679</div></div>
             <div class="chat-text">
                 <div class="chat-name">RENKYNA AFTANIA NASUTION</div>
                 <p>Hello here is my response.</p>
@@ -618,9 +618,9 @@ async def test_get_discussion_comments_success(monkeypatch):
             </div>
         </li>
         <li class="chat-right">
-            <div class="chat-avatar"><div class="chat-name">15260767</div></div>
+            <div class="chat-avatar"><div class="chat-name">12345678</div></div>
             <div class="chat-text">
-                <div class="chat-name">YUKEN VELINO</div>
+                <div class="chat-name">MAHASISWA DUMMY</div>
                 <p>My invitation and response.</p>
                 <div class="chat-hour">2026-10-13 12:00:00</div>
             </div>
@@ -641,18 +641,18 @@ async def test_get_discussion_comments_success(monkeypatch):
     data = res.json()
     assert data["success"] is True
     assert len(data["data"]) == 2
-    assert data["data"][0]["nim"] == "15260847"
+    assert data["data"][0]["nim"] == "12345679"
     assert data["data"][0]["is_self"] is False
-    assert data["data"][1]["nim"] == "15260767"
+    assert data["data"][1]["nim"] == "12345678"
     assert data["data"][1]["is_self"] is True
 
 @pytest.mark.asyncio
 async def test_post_discussion_comment_success(monkeypatch):
-    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_NIM", "12345678")
     monkeypatch.setenv("ELEARNING_PASS", "secret")
 
     mock_redis = AsyncMock()
-    mock_redis.keys.return_value = ["ubsi:elearning:discussions:15260767"]
+    mock_redis.keys.return_value = ["ubsi:elearning:discussions:12345678"]
     mock_redis.delete.return_value = 1
 
     with patch("app.modules.elearning.pooled_elearning_client.post_discussion_comment", return_value={"status": "success", "message": "OK"}), \
@@ -673,13 +673,13 @@ async def test_post_discussion_comment_success(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_elearning_profile_success(monkeypatch):
-    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_NIM", "12345678")
     monkeypatch.setenv("ELEARNING_PASS", "secret")
 
     mock_html = """
     <form>
-        <input name="name" value="YUKEN VELINO" />
-        <input name="email" value="yuken@test.com" />
+        <input name="name" value="MAHASISWA DUMMY" />
+        <input name="email" value="mahasiswa@bsi.ac.id" />
     </form>
     """
     mock_redis = AsyncMock()
@@ -695,12 +695,12 @@ async def test_get_elearning_profile_success(monkeypatch):
     assert res.status_code == 200
     data = res.json()
     assert data["success"] is True
-    assert data["data"]["nama"] == "YUKEN VELINO"
-    assert data["data"]["email"] == "yuken@test.com"
+    assert data["data"]["nama"] == "MAHASISWA DUMMY"
+    assert data["data"]["email"] == "mahasiswa@bsi.ac.id"
 
 @pytest.mark.asyncio
 async def test_get_makeup_classes_success(monkeypatch):
-    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_NIM", "12345678")
     monkeypatch.setenv("ELEARNING_PASS", "secret")
 
     mock_html = """
@@ -738,7 +738,7 @@ async def test_get_guides_success():
 
 
 async def _get_all_assignments(monkeypatch, fake_fetch, saved):
-    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_NIM", "12345678")
     monkeypatch.setenv("ELEARNING_PASS", "secret")
 
     async def fake_set(key, payload, ttl=None):
@@ -804,7 +804,7 @@ async def test_assignments_report_failed_courses_and_skip_cache(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_presence_rekap_is_cached_between_polls(monkeypatch):
-    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_NIM", "12345678")
     monkeypatch.setenv("ELEARNING_PASS", "secret")
     page_html = (FIXTURES / "el_absen_active.html").read_text(encoding="utf-8") + "<script>x('rekap-side/REKAPTOK')</script>"
     store: dict = {}
@@ -838,7 +838,7 @@ async def test_presence_rekap_is_cached_between_polls(monkeypatch):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             for _ in range(2):
                 # kunci presence sendiri dibuang di antara polling (TTL 3 detik), rekap tetap tersimpan
-                store.pop(cache.make_key("elearning", "presence", token="custom_token", nim="15260767"), None)
+                store.pop(cache.make_key("elearning", "presence", token="custom_token", nim="12345678"), None)
                 res = await ac.get("/v1/elearning/presence?token=custom_token")
                 assert res.status_code == 200
     assert rekap_calls["n"] == 1

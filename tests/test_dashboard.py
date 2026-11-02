@@ -20,7 +20,7 @@ def reset_clients():
 
 @pytest.mark.asyncio
 async def test_dashboard_menggabungkan_empat_seksi(monkeypatch):
-    monkeypatch.setenv("STUDENTV2_NIM", "15260225")
+    monkeypatch.setenv("STUDENTV2_NIM", "12345678")
     monkeypatch.setenv("STUDENTV2_PASS", "secret")
 
     jadwal = (FIXTURES / "sv2_jadwal.html").read_text(encoding="utf-8")
@@ -55,7 +55,7 @@ async def test_dashboard_menggabungkan_empat_seksi(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_dashboard_tetap_sukses_saat_satu_seksi_gagal(monkeypatch):
-    monkeypatch.setenv("STUDENTV2_NIM", "15260225")
+    monkeypatch.setenv("STUDENTV2_NIM", "12345678")
     monkeypatch.setenv("STUDENTV2_PASS", "secret")
 
     jadwal = (FIXTURES / "sv2_jadwal.html").read_text(encoding="utf-8")

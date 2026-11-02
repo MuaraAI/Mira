@@ -57,7 +57,7 @@ async def test_poll_user_notifications_dispatches_schedule_for_active_user():
 
     active_channel = {
         "id": 7,
-        "nim": "15260767",
+        "nim": "12345678",
         "type": "custom",
         "categories": ["matkul-besok"],
         "config": {"url": "https://example.com/webhook"},
@@ -66,7 +66,7 @@ async def test_poll_user_notifications_dispatches_schedule_for_active_user():
         patch("app.modules.news.list_active_by_category", new=AsyncMock(return_value=[active_channel])),
         patch(
             "app.modules.news.session_store.get_credentials_for_nim",
-            new=AsyncMock(return_value=("15260767", "student-pass", "elearning-pass")),
+            new=AsyncMock(return_value=("12345678", "student-pass", "elearning-pass")),
         ),
         patch(
             "app.modules.news.studentv2_client.fetch_page",
@@ -109,7 +109,7 @@ async def test_user_notification_falls_back_to_personal_api_key_credentials():
 
     active_channel = {
         "id": 8,
-        "nim": "15260767",
+        "nim": "12345678",
         "type": "custom",
         "categories": ["matkul-besok"],
         "config": {"url": "https://example.com/webhook"},
@@ -117,7 +117,7 @@ async def test_user_notification_falls_back_to_personal_api_key_credentials():
     with (
         patch("app.modules.news.list_active_by_category", new=AsyncMock(return_value=[active_channel])),
         patch("app.modules.news.session_store.get_credentials_for_nim", new=AsyncMock(return_value=None)),
-        patch("app.api_keys_db.get_credentials_for_nim", new=AsyncMock(return_value=("15260767", "student-pass", "elearning-pass"))),
+        patch("app.api_keys_db.get_credentials_for_nim", new=AsyncMock(return_value=("12345678", "student-pass", "elearning-pass"))),
         patch("app.modules.news.studentv2_client.fetch_page", new=AsyncMock(return_value="<html>schedule</html>")),
         patch("app.modules.news.parse_schedule", return_value=[{"nama": "Dasar Pemrograman", "hari": _tomorrow_name(), "jam": "08:00", "ruang": "A1"}]),
         patch("app.modules.news.dispatch_webhook_notification", new=AsyncMock(return_value=True)) as dispatch,
@@ -148,7 +148,7 @@ async def test_user_notification_dispatches_nilai_keluar():
 
     active_channel = {
         "id": 10,
-        "nim": "15260767",
+        "nim": "12345678",
         "type": "custom",
         "categories": ["nilai-keluar"],
         "config": {"url": "https://example.com/webhook"},
@@ -158,7 +158,7 @@ async def test_user_notification_dispatches_nilai_keluar():
     ]
     with (
         patch("app.modules.news.list_active_by_category", new=AsyncMock(return_value=[active_channel])),
-        patch("app.modules.news.session_store.get_credentials_for_nim", new=AsyncMock(return_value=("15260767", "sv", "el"))),
+        patch("app.modules.news.session_store.get_credentials_for_nim", new=AsyncMock(return_value=("12345678", "sv", "el"))),
         patch("app.modules.studentv2.studentv2_client.fetch_page", new=AsyncMock(return_value="<html>grades</html>")),
         patch("app.modules.studentv2.parse_grades", return_value=mock_grades),
         patch("app.modules.news.dispatch_webhook_notification", new=AsyncMock(return_value=True)) as dispatch,
@@ -180,14 +180,14 @@ async def test_user_notification_dispatches_jadwal_ujian():
 
     active_channel = {
         "id": 11,
-        "nim": "15260767",
+        "nim": "12345678",
         "type": "custom",
         "categories": ["jadwal-ujian"],
         "config": {"url": "https://example.com/webhook"},
     }
     with (
         patch("app.modules.news.list_active_by_category", new=AsyncMock(return_value=[active_channel])),
-        patch("app.modules.news.session_store.get_credentials_for_nim", new=AsyncMock(return_value=("15260767", "sv", "el"))),
+        patch("app.modules.news.session_store.get_credentials_for_nim", new=AsyncMock(return_value=("12345678", "sv", "el"))),
         patch("app.modules.studentv2.studentv2_client.fetch_page", new=AsyncMock(side_effect=["<html>uts</html>", "<html>uas</html>", "<table>jadwal</table>"])),
         patch("app.modules.studentv2.parse_uts", return_value={"jadwal_online_url": "https://uts.bsi.ac.id/jadwal", "soal_offline_url": None}),
         patch("app.modules.studentv2.parse_uas", return_value={"jadwal_online_url": None, "soal_offline_url": None}),
@@ -210,10 +210,10 @@ async def test_worker_pushes_to_pwa_subscribers_without_any_webhook_channel():
     from app.modules.news import _produce_user_category
     from app.pwa_push_db import add_subscription
 
-    await add_subscription("15260225", "https://fcm.googleapis.com/fcm/send/abc", "k", "a", "HP")
+    await add_subscription("12345679", "https://fcm.googleapis.com/fcm/send/abc", "k", "a", "HP")
     with (
         patch("app.modules.news.list_active_by_category", new=AsyncMock(return_value=[])),
-        patch("app.modules.news.session_store.get_credentials_for_nim", new=AsyncMock(return_value=("15260225", "sp", "ep"))),
+        patch("app.modules.news.session_store.get_credentials_for_nim", new=AsyncMock(return_value=("12345679", "sp", "ep"))),
         patch("app.modules.news.studentv2_client.fetch_page", new=AsyncMock(return_value="<html/>")),
         patch("app.modules.news.parse_schedule", return_value=[{"nama": "Basis Data", "hari": _tomorrow_name(), "jam": "08:00", "ruang": "A1"}]),
         patch("app.pwa_webpush.dispatch_pwa_to_nim", new=AsyncMock(return_value=1)) as push,
@@ -225,7 +225,7 @@ async def test_worker_pushes_to_pwa_subscribers_without_any_webhook_channel():
         assert await _produce_user_category("matkul-besok") == 1
 
     push.assert_awaited_once()
-    assert push.await_args.args[0] == "15260225"
+    assert push.await_args.args[0] == "12345679"
     assert "Basis Data" in push.await_args.args[1]["body"]
 
 
@@ -235,11 +235,11 @@ async def test_h1_reminder_is_skipped_outside_evening_window(monkeypatch):
     from app.pwa_push_db import add_subscription
 
     monkeypatch.setattr("app.modules.news._h1_slot", lambda now=None: None)
-    await add_subscription("15260225", "https://fcm.googleapis.com/fcm/send/abc", "k", "a", "HP")
+    await add_subscription("12345679", "https://fcm.googleapis.com/fcm/send/abc", "k", "a", "HP")
     fetch = AsyncMock(return_value="<html/>")
     with (
         patch("app.modules.news.list_active_by_category", new=AsyncMock(return_value=[])),
-        patch("app.modules.news.session_store.get_credentials_for_nim", new=AsyncMock(return_value=("15260225", "sp", "ep"))),
+        patch("app.modules.news.session_store.get_credentials_for_nim", new=AsyncMock(return_value=("12345679", "sp", "ep"))),
         patch("app.modules.news.studentv2_client.fetch_page", new=fetch),
         patch("app.modules.news.cache.get_client") as get_client,
     ):
@@ -281,8 +281,8 @@ async def test_h1_reminder_sends_once_per_slot(monkeypatch):
     fetch = AsyncMock(return_value="<html/>")
     with (
         patch("app.modules.news.list_active_by_category", new=AsyncMock(return_value=[])),
-        patch("app.pwa_push_db.list_nims_with_category", new=AsyncMock(return_value=["15260767"])),
-        patch("app.modules.news.session_store.get_credentials_for_nim", new=AsyncMock(return_value=("15260767", "sp", "ep"))),
+        patch("app.pwa_push_db.list_nims_with_category", new=AsyncMock(return_value=["12345678"])),
+        patch("app.modules.news.session_store.get_credentials_for_nim", new=AsyncMock(return_value=("12345678", "sp", "ep"))),
         patch("app.modules.news.studentv2_client.fetch_page", new=fetch),
         patch("app.modules.news.parse_schedule", return_value=[{"nama": "Dasar Pemrograman", "hari": _tomorrow_name(), "jam": "08:00", "ruang": "A1"}]),
         patch("app.modules.news.build_schedule_notification", return_value={"title": "Jadwal Besok", "description": "Ada kelas", "link": "x"}),
@@ -295,8 +295,8 @@ async def test_h1_reminder_sends_once_per_slot(monkeypatch):
 
     with (
         patch("app.modules.news.list_active_by_category", new=AsyncMock(return_value=[])),
-        patch("app.pwa_push_db.list_nims_with_category", new=AsyncMock(return_value=["15260767"])),
-        patch("app.modules.news.session_store.get_credentials_for_nim", new=AsyncMock(return_value=("15260767", "sp", "ep"))),
+        patch("app.pwa_push_db.list_nims_with_category", new=AsyncMock(return_value=["12345678"])),
+        patch("app.modules.news.session_store.get_credentials_for_nim", new=AsyncMock(return_value=("12345678", "sp", "ep"))),
         patch("app.modules.news.studentv2_client.fetch_page", new=fetch),
         patch("app.modules.news.parse_schedule", return_value=[{"nama": "Dasar Pemrograman", "hari": _tomorrow_name(), "jam": "08:00", "ruang": "A1"}]),
         patch("app.modules.news.build_schedule_notification", return_value={"title": "Jadwal Besok", "description": "Ada kelas", "link": "x"}),
@@ -364,7 +364,7 @@ class _NxRedis:
         return self.kv[key]
 
 
-QUIZ_CATEGORY = {"id": 21, "nim": "15260767", "type": "custom", "categories": ["quiz-tugas"], "config": {"url": "https://example.com/webhook"}}
+QUIZ_CATEGORY = {"id": 21, "nim": "12345678", "type": "custom", "categories": ["quiz-tugas"], "config": {"url": "https://example.com/webhook"}}
 
 
 def _quiz_fetch_factory(exercise_html):
@@ -388,7 +388,7 @@ async def test_user_notification_dispatches_new_quiz(monkeypatch):
 
     with (
         patch("app.modules.news.list_active_by_category", new=AsyncMock(return_value=[QUIZ_CATEGORY])),
-        patch("app.modules.news.session_store.get_credentials_for_nim", new=AsyncMock(return_value=("15260767", "sv", "el"))),
+        patch("app.modules.news.session_store.get_credentials_for_nim", new=AsyncMock(return_value=("12345678", "sv", "el"))),
         patch("app.modules.elearning.pooled_elearning_client.fetch_page", side_effect=_quiz_fetch_factory(exercise)),
         patch("app.modules.news.dispatch_webhook_notification", new=AsyncMock(return_value=True)) as dispatch,
         patch("app.modules.news.cache.get_client", return_value=_NxRedis()),
@@ -413,7 +413,7 @@ async def test_known_quiz_is_not_renotified(monkeypatch):
 
     with (
         patch("app.modules.news.list_active_by_category", new=AsyncMock(return_value=[QUIZ_CATEGORY])),
-        patch("app.modules.news.session_store.get_credentials_for_nim", new=AsyncMock(return_value=("15260767", "sv", "el"))),
+        patch("app.modules.news.session_store.get_credentials_for_nim", new=AsyncMock(return_value=("12345678", "sv", "el"))),
         patch("app.modules.elearning.pooled_elearning_client.fetch_page", side_effect=_quiz_fetch_factory(exercise)),
         patch("app.modules.news.dispatch_webhook_notification", new=AsyncMock(return_value=True)) as dispatch,
         patch("app.modules.news.cache.get_client", return_value=redis),
@@ -431,14 +431,14 @@ async def test_jadwal_ujian_gate_suppresses_fake_notification():
 
     active_channel = {
         "id": 12,
-        "nim": "15260767",
+        "nim": "12345678",
         "type": "custom",
         "categories": ["jadwal-ujian"],
         "config": {"url": "https://example.com/webhook"},
     }
     with (
         patch("app.modules.news.list_active_by_category", new=AsyncMock(return_value=[active_channel])),
-        patch("app.modules.news.session_store.get_credentials_for_nim", new=AsyncMock(return_value=("15260767", "sv", "el"))),
+        patch("app.modules.news.session_store.get_credentials_for_nim", new=AsyncMock(return_value=("12345678", "sv", "el"))),
         patch("app.modules.studentv2.studentv2_client.fetch_page", new=AsyncMock(side_effect=[
             "<html>uts</html>", "<html>uas</html>",
             "<script>Swal.fire({text: 'Mohon Maaf Jadwal UTS Belum Dapat Dilihat'});</script>"

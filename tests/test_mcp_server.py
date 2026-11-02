@@ -57,7 +57,7 @@ async def test_mcp_call_tool_propagates_headers_to_all_tools():
 
     mock_resp = AsyncMock()
     mock_resp.status_code = 200
-    mock_resp.json = MagicMock(return_value={"success": True, "data": {"nim": "15260767"}})
+    mock_resp.json = MagicMock(return_value={"success": True, "data": {"nim": "12345678"}})
 
     with patch("httpx.AsyncClient.get", return_value=mock_resp) as mock_get:
         # Panggil ubsi_whoami melalui tool manager seperti panggilan asli MCP streamable HTTP
@@ -179,7 +179,7 @@ async def test_mcp_presence_and_quiz_write_tools():
         "success": True,
         "data": {
             "success": True,
-            "filename": "tugas_15260767.pdf",
+            "filename": "tugas_12345678.pdf",
             "message": "Berkas berhasil diunggah.",
         },
     })
@@ -187,13 +187,13 @@ async def test_mcp_presence_and_quiz_write_tools():
     with patch("httpx.AsyncClient.post", return_value=mock_resp_upload):
         res_up = await ubsi_upload_assignment(
             token_tugas="tok_tugas_123",
-            filename="tugas_15260767.pdf",
+            filename="tugas_12345678.pdf",
             file_base64="ZHVtbXk=",
             session_token="tok_sess",
         )
         parsed_up = json.loads(res_up)
         assert parsed_up["success"] is True
-        assert parsed_up["data"]["filename"] == "tugas_15260767.pdf"
+        assert parsed_up["data"]["filename"] == "tugas_12345678.pdf"
 
     # Test course grades tool
     mock_resp_cgrades = AsyncMock()
@@ -274,8 +274,8 @@ async def test_mcp_presence_and_quiz_write_tools():
         "success": True,
         "data": [
             {
-                "nim": "15260767",
-                "nama": "YUKEN VELINO",
+                "nim": "12345678",
+                "nama": "MAHASISWA DUMMY",
                 "komentar": "Invitation text here",
                 "tanggal": "2026-10-13 09:32:46",
                 "is_self": True,
@@ -286,7 +286,7 @@ async def test_mcp_presence_and_quiz_write_tools():
         res_c = await ubsi_get_discussion_comments(token="tok_kom_123", session_token="tok_sess")
         parsed_c = json.loads(res_c)
         assert parsed_c["success"] is True
-        assert parsed_c["data"][0]["nama"] == "YUKEN VELINO"
+        assert parsed_c["data"][0]["nama"] == "MAHASISWA DUMMY"
 
     mock_resp_post_comm = AsyncMock()
     mock_resp_post_comm.status_code = 200
@@ -328,14 +328,14 @@ async def test_mcp_presence_and_quiz_write_tools():
     mock_resp_prof.status_code = 200
     mock_resp_prof.json = MagicMock(return_value={
         "success": True,
-        "data": {"nama": "YUKEN VELINO", "email": "yuken@test.com"},
+        "data": {"nama": "MAHASISWA DUMMY", "email": "mahasiswa@bsi.ac.id"},
     })
     from app.mcp_server import ubsi_get_elearning_profile, ubsi_get_makeup_classes, ubsi_get_elearning_guides
     with patch("httpx.AsyncClient.get", return_value=mock_resp_prof):
         res_prof = await ubsi_get_elearning_profile(session_token="tok_sess")
         parsed_prof = json.loads(res_prof)
         assert parsed_prof["success"] is True
-        assert parsed_prof["data"]["nama"] == "YUKEN VELINO"
+        assert parsed_prof["data"]["nama"] == "MAHASISWA DUMMY"
 
     # Test makeup classes tool
     mock_resp_mu = AsyncMock()

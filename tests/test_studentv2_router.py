@@ -18,7 +18,7 @@ def reset_clients():
 
 @pytest.mark.asyncio
 async def test_get_schedule_cached_and_fresh(monkeypatch):
-    monkeypatch.setenv("STUDENTV2_NIM", "15260767")
+    monkeypatch.setenv("STUDENTV2_NIM", "12345678")
     monkeypatch.setenv("STUDENTV2_PASS", "secret")
     
     mock_html = (FIXTURES / "sv2_jadwal.html").read_text(encoding="utf-8")
@@ -42,7 +42,7 @@ async def test_get_schedule_cached_and_fresh(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_grades_success(monkeypatch):
-    monkeypatch.setenv("STUDENTV2_NIM", "15260767")
+    monkeypatch.setenv("STUDENTV2_NIM", "12345678")
     monkeypatch.setenv("STUDENTV2_PASS", "secret")
     
     mock_html = (FIXTURES / "sv2_nilai_murni.html").read_text(encoding="utf-8")
@@ -64,7 +64,7 @@ async def test_get_grades_success(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_news_and_announcements(monkeypatch):
-    monkeypatch.setenv("STUDENTV2_NIM", "15260767")
+    monkeypatch.setenv("STUDENTV2_NIM", "12345678")
     monkeypatch.setenv("STUDENTV2_PASS", "secret")
     
     mock_news_html = (FIXTURES / "sv2_berita.html").read_text(encoding="utf-8")
@@ -89,7 +89,7 @@ async def test_get_news_and_announcements(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_studentv2_lgg_fallback_on_upstream_error(monkeypatch):
-    monkeypatch.setenv("STUDENTV2_NIM", "15260767")
+    monkeypatch.setenv("STUDENTV2_NIM", "12345678")
     monkeypatch.setenv("STUDENTV2_PASS", "secret")
 
     import json
@@ -125,7 +125,7 @@ async def test_studentv2_lgg_fallback_on_upstream_error(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_profile(monkeypatch):
-    monkeypatch.setenv("STUDENTV2_NIM", "15260767")
+    monkeypatch.setenv("STUDENTV2_NIM", "12345678")
     monkeypatch.setenv("STUDENTV2_PASS", "secret")
 
     mock_html = (FIXTURES / "sv2_data_pribadi.html").read_text(encoding="utf-8")
@@ -142,12 +142,12 @@ async def test_get_profile(monkeypatch):
     assert res.status_code == 200
     body = res.json()
     assert body["success"] is True
-    assert body["data"]["nim"] == "15260767"
-    assert body["data"]["nama"] == "YUKEN VELINO"
+    assert body["data"]["nim"] == "12345678"
+    assert body["data"]["nama"] == "MAHASISWA DUMMY"
 
 @pytest.mark.asyncio
 async def test_get_khs(monkeypatch):
-    monkeypatch.setenv("STUDENTV2_NIM", "15260767")
+    monkeypatch.setenv("STUDENTV2_NIM", "12345678")
     monkeypatch.setenv("STUDENTV2_PASS", "secret")
 
     mock_html = (FIXTURES / "sv2_khs.html").read_text(encoding="utf-8")
@@ -168,7 +168,7 @@ async def test_get_khs(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_krs(monkeypatch):
-    monkeypatch.setenv("STUDENTV2_NIM", "15260767")
+    monkeypatch.setenv("STUDENTV2_NIM", "12345678")
     monkeypatch.setenv("STUDENTV2_PASS", "secret")
 
     mock_html = (FIXTURES / "sv2_krs.html").read_text(encoding="utf-8")
@@ -190,7 +190,7 @@ async def test_get_krs(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_uts(monkeypatch):
-    monkeypatch.setenv("STUDENTV2_NIM", "15260767")
+    monkeypatch.setenv("STUDENTV2_NIM", "12345678")
     monkeypatch.setenv("STUDENTV2_PASS", "secret")
 
     mock_html = (FIXTURES / "sv2_uts.html").read_text(encoding="utf-8")
@@ -211,7 +211,7 @@ async def test_get_uts(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_uas(monkeypatch):
-    monkeypatch.setenv("STUDENTV2_NIM", "15260767")
+    monkeypatch.setenv("STUDENTV2_NIM", "12345678")
     monkeypatch.setenv("STUDENTV2_PASS", "secret")
 
     mock_html = """
@@ -238,7 +238,7 @@ async def test_get_uas(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_calendar(monkeypatch):
-    monkeypatch.setenv("STUDENTV2_NIM", "15260767")
+    monkeypatch.setenv("STUDENTV2_NIM", "12345678")
     monkeypatch.setenv("STUDENTV2_PASS", "secret")
 
     mock_html = """
@@ -263,7 +263,7 @@ async def test_get_calendar(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_prodi_contacts(monkeypatch):
-    monkeypatch.setenv("STUDENTV2_NIM", "15260767")
+    monkeypatch.setenv("STUDENTV2_NIM", "12345678")
     monkeypatch.setenv("STUDENTV2_PASS", "secret")
 
     mock_html = """
@@ -290,7 +290,7 @@ async def test_get_prodi_contacts(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_certificates(monkeypatch):
-    monkeypatch.setenv("STUDENTV2_NIM", "15260767")
+    monkeypatch.setenv("STUDENTV2_NIM", "12345678")
     monkeypatch.setenv("STUDENTV2_PASS", "secret")
 
     mock_html = """
@@ -317,7 +317,7 @@ async def test_get_certificates(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_lecturers(monkeypatch):
-    monkeypatch.setenv("STUDENTV2_NIM", "15260767")
+    monkeypatch.setenv("STUDENTV2_NIM", "12345678")
     monkeypatch.setenv("STUDENTV2_PASS", "secret")
 
     mock_html = """

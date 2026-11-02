@@ -90,7 +90,7 @@ def mock_news_scraper(monkeypatch):
     )
 
 
-async def _login(ac: AsyncClient, fake_redis: FakeRedis, nim: str = "15260767") -> str:
+async def _login(ac: AsyncClient, fake_redis: FakeRedis, nim: str = "12345678") -> str:
     res = await ac.post(
         "/v1/auth/login",
         json={"nim": nim, "studentv2_pass": "sv_pass", "elearning_pass": "el_pass"},
@@ -107,7 +107,7 @@ async def test_login_success_sets_cookie_and_stores_session(fake_redis):
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         res = await ac.post(
             "/v1/auth/login",
-            json={"nim": "15260767", "studentv2_pass": "sv", "elearning_pass": "el"},
+            json={"nim": "12345678", "studentv2_pass": "sv", "elearning_pass": "el"},
         )
         assert res.status_code == 200
         assert "ubsi_session" in res.cookies
@@ -122,7 +122,7 @@ async def test_login_success_sets_cookie_and_stores_session(fake_redis):
         from app.session_store import _decrypt_payload
         payload = _decrypt_payload(raw_val, settings.API_KEY)
         assert payload is not None
-        assert payload["nim"] == "15260767"
+        assert payload["nim"] == "12345678"
 
 
 @pytest.mark.asyncio
@@ -135,7 +135,7 @@ async def test_login_invalid_credentials_returns_401(monkeypatch):
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         res = await ac.post(
             "/v1/auth/login",
-            json={"nim": "15260767", "studentv2_pass": "wrong", "elearning_pass": "el"},
+            json={"nim": "12345678", "studentv2_pass": "wrong", "elearning_pass": "el"},
         )
         assert res.status_code == 401
         assert res.json()["error"]["code"] == "INVALID_CREDENTIALS"
@@ -150,7 +150,7 @@ async def test_login_rate_limited_per_nim(fake_redis, monkeypatch):
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         res = await ac.post(
             "/v1/auth/login",
-            json={"nim": "15260767", "studentv2_pass": "sv", "elearning_pass": "el"},
+            json={"nim": "12345678", "studentv2_pass": "sv", "elearning_pass": "el"},
         )
         assert res.status_code == 429
         assert res.json()["error"]["code"] == "RATE_LIMIT_EXCEEDED"
@@ -304,7 +304,7 @@ async def test_channels_crud_flow(fake_redis, tmp_path):
 async def test_channel_categories_can_be_updated_only_by_owner(fake_redis):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        owner_token = await _login(ac, fake_redis, nim="15260767")
+        owner_token = await _login(ac, fake_redis, nim="12345678")
         owner_headers = {"Authorization": f"Bearer {owner_token}"}
         created = await ac.post(
             "/v1/channels",
@@ -333,7 +333,7 @@ async def test_channel_categories_can_be_updated_only_by_owner(fake_redis):
         assert invalid.status_code == 400
         assert invalid.json()["error"]["code"] == "VALIDATION_ERROR"
 
-        other_token = await _login(ac, fake_redis, nim="15260768")
+        other_token = await _login(ac, fake_redis, nim="12345679")
         forbidden = await ac.patch(
             f"/v1/channels/{channel_id}",
             headers={"Authorization": f"Bearer {other_token}"},
@@ -399,13 +399,13 @@ async def test_custom_webhook_ssrf_rejected(fake_redis):
 async def test_active_channels_by_category_query(fake_redis):
     from app.channels_db import add_channel, set_channel_active, list_active_by_category
 
-    ch_id = await add_channel("15260767", "custom", ["berita-kampus"], {"url": "https://example.com/h"})
-    await set_channel_active("15260767", ch_id, True)
+    ch_id = await add_channel("12345678", "custom", ["berita-kampus"], {"url": "https://example.com/h"})
+    await set_channel_active("12345678", ch_id, True)
 
     matched = await list_active_by_category("berita-kampus")
     assert len(matched) == 1
     assert matched[0]["id"] == ch_id
-    assert matched[0]["nim"] == "15260767"
+    assert matched[0]["nim"] == "12345678"
 
     unmatched = await list_active_by_category("tugas-baru")
     assert len(unmatched) == 0

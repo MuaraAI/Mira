@@ -2349,7 +2349,7 @@ def _ensure_download_within_limit(resp: Any) -> None:
 
 class UploadAssignmentPayload(BaseModel):
     token_tugas: str = Field(..., pattern=r"^[A-Za-z0-9+/=_-]+$", description="Token tugas dari /assignments atau /courses")
-    filename: str = Field(..., pattern=r"^[A-Za-z0-9_.-]+$", description="Nama file (contoh: tugas_p5_15260767.zip / .pdf)")
+    filename: str = Field(..., pattern=r"^[A-Za-z0-9_.-]+$", description="Nama file (contoh: tugas_p5_12345678.zip / .pdf)")
     file_base64: str = Field(..., min_length=1, max_length=14_000_000, description="Isi file yang di-encode base64, maksimum 10 MB decoded")
     catatan: Optional[str] = Field(default=None, max_length=1000, description="Keterangan atau catatan tambahan untuk dosen")
 
