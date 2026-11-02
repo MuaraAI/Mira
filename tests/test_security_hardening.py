@@ -37,4 +37,4 @@ async def test_mcp_api_get_normalizes_error_status():
 
 
 def test_session_payload_never_accepts_legacy_plaintext_json():
-    assert _decrypt_payload('{"nim":"15260767"}', "server-secret") is None
+    assert _decrypt_payload('{"nim":"12345678"}', "server-secret") is None

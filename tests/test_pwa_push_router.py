@@ -100,7 +100,7 @@ def _valid_keys() -> dict[str, str]:
     }
 
 
-async def _login(ac: AsyncClient, nim: str = "15260767") -> str:
+async def _login(ac: AsyncClient, nim: str = "12345678") -> str:
     res = await ac.post(
         "/v1/auth/login",
         json={"nim": nim, "studentv2_pass": "sv_pass", "elearning_pass": "el_pass"},
@@ -191,7 +191,7 @@ async def test_subscribe_list_delete_device_flow(fake_redis):
         assert res.status_code in (400, 422)
 
         # NIM lain tidak bisa hapus device milik owner
-        token2 = await _login(ac, nim="15260673")
+        token2 = await _login(ac, nim="12345679")
         res = await ac.delete(
             f"/v1/notifications/pwa/devices/{device_id}",
             headers={"Authorization": f"Bearer {token2}"},
@@ -240,8 +240,8 @@ async def test_test_push_sends_to_all_devices_and_reports(fake_redis):
     from app.pwa_push_db import add_subscription
 
     vk = _valid_keys()
-    await add_subscription("15260767", "https://fcm.googleapis.com/fcm/send/d1", vk["p256dh"], vk["auth"], "HP")
-    await add_subscription("15260767", "https://fcm.googleapis.com/fcm/send/d2", vk["p256dh"], vk["auth"], "Laptop")
+    await add_subscription("12345678", "https://fcm.googleapis.com/fcm/send/d1", vk["p256dh"], vk["auth"], "HP")
+    await add_subscription("12345678", "https://fcm.googleapis.com/fcm/send/d2", vk["p256dh"], vk["auth"], "Laptop")
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         token = await _login(ac)

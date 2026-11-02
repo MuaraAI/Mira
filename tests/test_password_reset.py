@@ -29,18 +29,18 @@ def _client():
 
 @pytest.mark.asyncio
 async def test_campus_email_must_match_nim(fake_redis):
-    assert await nim_email_mismatch(fake_redis, "15260767", "15260999@bsi.ac.id")
-    assert not await nim_email_mismatch(fake_redis, "15260767", "15260767@BSI.ac.id")
+    assert await nim_email_mismatch(fake_redis, "12345678", "12345699@bsi.ac.id")
+    assert not await nim_email_mismatch(fake_redis, "12345678", "12345678@BSI.ac.id")
 
 
 @pytest.mark.asyncio
 async def test_known_profile_email_rejects_other_nim(fake_redis):
-    await remember_nim_email(fake_redis, "15260767", "Budi@Gmail.com ")
-    assert not await nim_email_mismatch(fake_redis, "15260767", "budi@gmail.com")
-    assert await nim_email_mismatch(fake_redis, "15260767", "orang.lain@gmail.com")
-    assert await nim_email_mismatch(fake_redis, "15269999", "budi@gmail.com")
+    await remember_nim_email(fake_redis, "12345678", "Budi@Gmail.com ")
+    assert not await nim_email_mismatch(fake_redis, "12345678", "budi@gmail.com")
+    assert await nim_email_mismatch(fake_redis, "12345678", "orang.lain@gmail.com")
+    assert await nim_email_mismatch(fake_redis, "99999999", "budi@gmail.com")
     # NIM tanpa data: tidak bisa dipastikan, biarkan kampus yang memutuskan.
-    assert not await nim_email_mismatch(fake_redis, "15260000", "siapa@gmail.com")
+    assert not await nim_email_mismatch(fake_redis, "00000000", "siapa@gmail.com")
     # Email disimpan sebagai HMAC, bukan teks asli.
     assert "budi@gmail.com" not in str(fake_redis.sets) + str(fake_redis.kv)
 
@@ -50,7 +50,7 @@ async def test_forgot_password_mismatch_flags_both_fields(fake_redis, monkeypatc
     called = []
     monkeypatch.setattr("app.modules.auth.request_reset_link", lambda *a: called.append(a))
     async with _client() as ac:
-        res = await ac.post("/v1/auth/forgot-password", json={"nim": "15260767", "email": "15260111@bsi.ac.id"})
+        res = await ac.post("/v1/auth/forgot-password", json={"nim": "12345678", "email": "12345611@bsi.ac.id"})
     assert res.status_code == 400
     assert res.json()["error"]["code"] == "NIM_EMAIL_MISMATCH"
     assert res.json()["error"]["fields"] == ["nim", "email"]
@@ -76,9 +76,9 @@ async def test_forgot_password_sends_link(fake_redis, monkeypatch):
     monkeypatch.setattr("app.modules.auth.request_reset_link", fake_request)
     async with _client() as ac:
         res = await ac.post(
-            "/v1/auth/forgot-password", json={"nim": "15260767", "email": " Budi@Gmail.com", "system": "mybest"}
+            "/v1/auth/forgot-password", json={"nim": "12345678", "email": " Budi@Gmail.com", "system": "mybest"}
         )
-        again = await ac.post("/v1/auth/forgot-password", json={"nim": "15260767", "email": "budi@gmail.com"})
+        again = await ac.post("/v1/auth/forgot-password", json={"nim": "12345678", "email": "budi@gmail.com"})
     assert res.status_code == 200, res.text
     assert res.json()["data"]["expires_in_minutes"] == 60
     assert calls == [("mybest", "budi@gmail.com")]
@@ -91,7 +91,7 @@ async def test_forgot_password_unregistered_email_flags_email(fake_redis, monkey
         "app.modules.auth.request_reset_link", lambda *a: CampusResult("not_found", "Email ini tidak terdaftar di MyBest.")
     )
     async with _client() as ac:
-        res = await ac.post("/v1/auth/forgot-password", json={"nim": "15260767", "email": "budi@gmail.com"})
+        res = await ac.post("/v1/auth/forgot-password", json={"nim": "12345678", "email": "budi@gmail.com"})
     assert res.status_code == 404
     assert res.json()["error"]["fields"] == ["email"]
 
@@ -100,7 +100,7 @@ async def test_forgot_password_unregistered_email_flags_email(fake_redis, monkey
 async def test_forgot_password_shares_ip_blacklist(fake_redis):
     await fake_redis.set("ubsi:login_guard:ban:127.0.0.1", "1", ex=900)
     async with _client() as ac:
-        res = await ac.post("/v1/auth/forgot-password", json={"nim": "15260767", "email": "budi@gmail.com"})
+        res = await ac.post("/v1/auth/forgot-password", json={"nim": "12345678", "email": "budi@gmail.com"})
     assert res.status_code == 429
     assert res.json()["error"]["code"] == "IP_BLACKLISTED"
 

@@ -5,8 +5,6 @@ description: Agent skill for consuming, extending, and operating Mira (Academic 
 metadata:
   repository: https://github.com/MuaraAI/Mira
   author: Yuken Velino (@Curzyori)
-  nim: "15260767"
-  class: 15.1C.30
   program: Informatika
   faculty: Teknik & Informatika
   institution: Universitas Bina Sarana Informatika (UBSI) Kampus Kota Pontianak
@@ -23,10 +21,10 @@ Panduan operasional dan referensi teknis bagi AI Coding Agent dan pengembang yan
 ## 1. Project & Author Overview
 
 - **Repository**: [https://github.com/MuaraAI/UBSI-API](https://github.com/MuaraAI/UBSI-API) (Public)
-- **Author**: **Yuken Velino** ([@Curzyori](https://github.com/Curzyori)) — Lead Developer & Creator · NIM: `15260767` · Kelas: `15.1C.30` · Informatika · FTI UBSI Pontianak.
+- **Author**: **Yuken Velino** ([@Curzyori](https://github.com/Curzyori)) — Lead Developer & Creator · Informatika · FTI UBSI Pontianak.
 - **Contributors**:
-  - **Verzio** ([@MyKineID](https://github.com/MyKineID)) — Contributor · NIM: `15260225` · Kelas: `15.1B.30` · Informatika · FTI UBSI Pontianak.
-  - **Muhammad Raffli Aldiansyah** ([@Seeyaa77](https://github.com/Seeyaa77)) — Contributor · NIM: `15260161` · Kelas: `15.1A.30` · Informatika · FTI UBSI Pontianak.
+  - **Verzio** ([@MyKineID](https://github.com/MyKineID)) — Contributor · Informatika · FTI UBSI Pontianak.
+  - **Muhammad Raffli Aldiansyah** ([@Seeyaa77](https://github.com/Seeyaa77)) — Contributor · Informatika · FTI UBSI Pontianak.
 - **Tujuan**: Otomatisasi personal dan jembatan data terstruktur JSON (jadwal, nilai, tugas, materi) untuk bot asisten mahasiswa dan developer tanpa navigasi manual.
 - **Dokumentasi Lengkap**:
   - [`README.md`](../README.md) — Gambaran umum produk, ringkasan endpoint, dan quick start.

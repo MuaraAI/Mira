@@ -134,7 +134,7 @@ def _client():
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test", headers={"_skip_auto_auth": "1"})
 
 
-def _creds(nim="15260767", sv="Mhs-1945", el="rahasia99"):
+def _creds(nim="12345678", sv="Mhs-1945", el="rahasia99"):
     return {"nim": nim, "studentv2_pass": sv, "elearning_pass": el}
 
 
@@ -201,7 +201,7 @@ async def test_login_endpoint_blacklists_ip_after_ten_per_minute(fake_redis):
         for i in range(LOGIN_IP_LIMIT):
             res = await ac.post("/v1/auth/login", json=_creds(nim=f"1526{i:04d}"))
             assert res.status_code == 200
-        res = await ac.post("/v1/auth/login", json=_creds(nim="15269999"))
+        res = await ac.post("/v1/auth/login", json=_creds(nim="99999999"))
     assert res.status_code == 429
     err = res.json()["error"]
     assert err["code"] == "IP_BLACKLISTED"
@@ -265,11 +265,11 @@ def test_default_password_detection():
         ("12345678", False),
         ("Mhs-2026", False),
         ("Kuat2026x", True),
-        ("abc15260767x1", False),
+        ("abc12345678x1", False),
     ],
 )
 def test_validate_new_password(new, ok):
-    assert (validate_new_password("15260767", "Mhs-1945", new) is None) is ok
+    assert (validate_new_password("12345678", "Mhs-1945", new) is None) is ok
 
 
 SIAKAD_FORM = """
@@ -381,7 +381,7 @@ def test_change_upstream_password_verified_by_real_relogin(monkeypatch):
 
     monkeypatch.setattr(_Http, "post", post_and_apply)
     monkeypatch.setitem(__import__("app.password_change", fromlist=["SYSTEMS"]).SYSTEMS["siakad"], "client", cls)
-    result = change_upstream_password("siakad", "15260767", "Mhs-1945", "Kuat2026x")
+    result = change_upstream_password("siakad", "12345678", "Mhs-1945", "Kuat2026x")
     assert result.status == "changed"
     assert posts[0][1]["password_lama"] == "Mhs-1945"
 
@@ -390,7 +390,7 @@ def test_change_upstream_password_rejected_when_new_login_fails(monkeypatch):
     posts = []
     cls = _fake_client_cls({"Mhs-1945"}, posts)
     monkeypatch.setitem(__import__("app.password_change", fromlist=["SYSTEMS"]).SYSTEMS["siakad"], "client", cls)
-    result = change_upstream_password("siakad", "15260767", "Mhs-1945", "Kuat2026x")
+    result = change_upstream_password("siakad", "12345678", "Mhs-1945", "Kuat2026x")
     assert result.status == "rejected"
     assert len(posts) == 1
 
@@ -431,7 +431,7 @@ async def test_change_password_endpoint_updates_session(fake_redis, monkeypatch)
         )
         assert res.status_code == 200, res.text
         assert res.json()["data"]["sessions_updated"] == 1
-        assert calls == [("siakad", "15260767", "Mhs-1945", "Kuat2026x")]
+        assert calls == [("siakad", "12345678", "Mhs-1945", "Kuat2026x")]
 
         sec = await ac.get("/v1/auth/security", headers=headers)
     assert sec.json()["data"]["default_password"] == {"siakad": False, "mybest": False}

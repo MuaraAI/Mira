@@ -25,18 +25,18 @@ def _pwa_db(tmp_path, monkeypatch):
 async def test_default_categories_all_on_at_subscribe():
     from app.channel_validation import ALLOWED_CATEGORIES
 
-    await add_subscription("15260767", "https://fcm.googleapis.com/fcm/send/a", "k", "a", "HP")
+    await add_subscription("12345678", "https://fcm.googleapis.com/fcm/send/a", "k", "a", "HP")
     from app.pwa_push_db import list_categories
 
-    cats = await list_categories("15260767")
+    cats = await list_categories("12345678")
     assert set(cats) == set(ALLOWED_CATEGORIES)
-    assert "15260767" in await list_nims_with_category("berita-kampus")
+    assert "12345678" in await list_nims_with_category("berita-kampus")
 
 
 @pytest.mark.asyncio
 async def test_dispatch_prunes_404_and_keeps_201():
-    await add_subscription("15260767", "https://fcm.googleapis.com/fcm/send/dead", "k", "a", "Old")
-    await add_subscription("15260767", "https://fcm.googleapis.com/fcm/send/alive", "k", "a", "New")
+    await add_subscription("12345678", "https://fcm.googleapis.com/fcm/send/dead", "k", "a", "Old")
+    await add_subscription("12345678", "https://fcm.googleapis.com/fcm/send/alive", "k", "a", "New")
 
     async def fake_send(sub, payload, ttl=86400):
         if sub["endpoint"].endswith("dead"):
@@ -44,12 +44,12 @@ async def test_dispatch_prunes_404_and_keeps_201():
         return True, 201
 
     with patch("app.pwa_webpush.send_web_push", AsyncMock(side_effect=fake_send)):
-        delivered = await dispatch_pwa_to_nim("15260767", {"title": "t", "body": "b"})
+        delivered = await dispatch_pwa_to_nim("12345678", {"title": "t", "body": "b"})
 
     assert delivered == 1
-    subs = await list_subscriptions("15260767")
+    subs = await list_subscriptions("12345678")
     assert len(subs) == 1
-    endpoints = await get_active_subscriptions_for_nim("15260767")
+    endpoints = await get_active_subscriptions_for_nim("12345678")
     assert endpoints[0]["endpoint"].endswith("alive")
 
 
@@ -57,7 +57,7 @@ async def test_dispatch_prunes_404_and_keeps_201():
 async def test_broadcast_news_article_fans_out_to_pwa(monkeypatch):
     from app.modules.news import broadcast_news_article
 
-    await add_subscription("15260767", "https://fcm.googleapis.com/fcm/send/n1", "k", "a", "HP")
+    await add_subscription("12345678", "https://fcm.googleapis.com/fcm/send/n1", "k", "a", "HP")
 
     with patch(
         "app.pwa_webpush.dispatch_pwa_to_category",
@@ -81,7 +81,7 @@ async def test_trigger_reminder_includes_pwa_push(tmp_path, monkeypatch):
     monkeypatch.setattr("app.config.settings.SQLITE_DB_PATH", str(tmp_path / "t2.db"))
     init_db()
     init_pwa_db()
-    await add_subscription("15260767", "https://fcm.googleapis.com/fcm/send/r1", "k", "a", "HP")
+    await add_subscription("12345678", "https://fcm.googleapis.com/fcm/send/r1", "k", "a", "HP")
 
     class FakeRedis:
         def __init__(self):
@@ -133,7 +133,7 @@ async def test_trigger_reminder_includes_pwa_push(tmp_path, monkeypatch):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         res = await ac.post(
             "/v1/auth/login",
-            json={"nim": "15260767", "studentv2_pass": "p", "elearning_pass": "p"},
+            json={"nim": "12345678", "studentv2_pass": "p", "elearning_pass": "p"},
         )
         token = res.cookies.get("ubsi_session")
         with patch(

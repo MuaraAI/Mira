@@ -57,7 +57,7 @@ Pre-validation endpoint to verify that student credentials actually authenticate
 - **Request Body**:
   ```json
   {
-    "nim": "15260767",
+    "nim": "12345678",
     "elearning_pass": "mybest_password",
     "studentv2_pass": "siakad_password"
   }
@@ -68,7 +68,7 @@ Pre-validation endpoint to verify that student credentials actually authenticate
     "success": true,
     "data": {
       "valid": true,
-      "nim": "15260767",
+      "nim": "12345678",
       "elearning": { "valid": true, "message": null },
       "studentv2": { "valid": true, "message": null }
     }
@@ -83,7 +83,7 @@ Authenticates student credentials live against both SIAKAD and MyBest portals, c
 - **Request Body**:
   ```json
   {
-    "nim": "15260767",
+    "nim": "12345678",
     "studentv2_pass": "siakad_password",
     "elearning_pass": "mybest_password"
   }
@@ -93,7 +93,7 @@ Authenticates student credentials live against both SIAKAD and MyBest portals, c
   {
     "success": true,
     "data": {
-      "nim": "15260767",
+      "nim": "12345678",
       "token": "ubsi_sess_random_token_32B",
       "message": "Login berhasil. Session aktif 7 hari (sliding).",
       "default_password": { "siakad": true, "mybest": false }
@@ -134,7 +134,7 @@ Changes the SIAKAD or MyBest password directly on the campus server. Mira logs i
 ### `POST /v1/auth/forgot-password`
 Asks SIAKAD or MyBest to email a password reset link (valid 60 minutes, campus default). Mira first checks that the NIM and email belong together: a `<NIM>@bsi.ac.id` address must match the NIM exactly, and emails previously read from the student's SIAKAD/MyBest profile (stored only as HMAC) must match. The student opens the link from that email and sets the new password on the campus site itself; Mira never sees the new password.
 - **Access**: Public. Shares the login IP limit and blacklist (10/minute per IP). Max 1 request/minute per email.
-- **Request Body**: `{ "nim": "15260767", "email": "nama@gmail.com", "system": "mybest" }` (`system`: `mybest` default, or `siakad`)
+- **Request Body**: `{ "nim": "12345678", "email": "nama@gmail.com", "system": "mybest" }` (`system`: `mybest` default, or `siakad`)
 - **Errors** carry `error.fields` so the UI can highlight inputs: `NIM_EMAIL_MISMATCH` (400, `["nim","email"]`), `INVALID_INPUT` (422), `EMAIL_NOT_REGISTERED` (404, `["email"]`), `RATE_LIMIT_EXCEEDED` / `IP_BLACKLISTED` (429).
 
 ### `POST /v1/auth/logout`
@@ -396,7 +396,7 @@ Submits/uploads student assignment submission file (PDF, DOCX, ZIP, etc.) to MyB
   ```json
   {
     "token_tugas": "tok_upload_123",
-    "filename": "tugas_p5_15260767.zip",
+    "filename": "tugas_p5_12345678.zip",
     "file_base64": "base64_encoded_file_bytes",
     "catatan": "Keterangan tugas opsional"
   }

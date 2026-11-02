@@ -38,7 +38,7 @@ def class_label(
     profile: Optional[dict[str, Any]] = None,
     krs: Optional[dict[str, Any]] = None,
 ) -> Optional[str]:
-    """Label kelas siap tampil: utamakan kelompok ujian KRS (mis. 15.1C.30.A), fallback kelas.lokal."""
+    """Label kelas siap tampil: utamakan kelompok ujian KRS (mis. 15.1A.01.A), fallback kelas.lokal."""
     if krs:
         kelompok = (krs.get("kelompok_ujian") or "").strip()
         if kelompok:

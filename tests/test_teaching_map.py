@@ -28,14 +28,14 @@ def test_parse_and_record_stores_teaching_without_student_identity(tmp_path):
 
     with open("tests/fixtures/el_sch_v2.html", encoding="utf-8") as f:
         courses = _parse_and_record_courses(f.read())
-    assert courses and courses[0]["kelas"] == "15.1C.30"
+    assert courses and courses[0]["kelas"] == "15.1A.01"
 
     conn = sqlite3.connect(settings.SQLITE_DB_PATH)
     cols = [r[1] for r in conn.execute("PRAGMA table_info(teaching_sessions)")]
     rows = conn.execute("SELECT kode_dosen, nama_mtk, kelas, hari, jam, ruang FROM teaching_sessions").fetchall()
     conn.close()
     assert not any("nim" in c or "token" in c for c in cols)
-    assert ("TDL", "BAHASA INGGRIS I", "15.1C.30", "Selasa", "09:10-10:50", "EN2-P1") in rows
+    assert ("TDL", "BAHASA INGGRIS I", "15.1A.01", "Selasa", "09:10-10:50", "EN2-P1") in rows
 
 
 def test_record_is_idempotent_and_skips_invalid_rows():

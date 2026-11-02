@@ -34,10 +34,10 @@ _PROFILE: dict[str, Any] = {
     "tahun_masuk": "2026",
     "pilihan_waktu": "Reguler",
     "lokasi_cabang": "UBSI Pontianak",
-    "kelas": "1C.30",
+    "kelas": "1A.01",
     "lokal": "1",
-    "class_code": "15.1C.30.A",
-    "campus_branch": "30",
+    "class_code": "15.1A.01.A",
+    "campus_branch": "01",
     "major": "Teknik Informatika",
     "status": "Aktif",
     "semester": 1,
@@ -58,8 +58,8 @@ _COURSES: list[dict[str, Any]] = [
 _ASSIGNMENTS: dict[str, Any] = {
     "mock": True,
     "tasks": [
-        {"id": "mocktask1", "kode": "INF101", "kelas": "1C.30", "judul": "Tugas 1: Layout HTML", "deskripsi": "Buat halaman profil pribadi.", "pertemuan": "3", "mulai": "2026-10-20 08:00", "selesai": "2026-10-30 23:59", "file_soal_url": None, "file_soal_id": None, "mata_kuliah": "PEMROGRAMAN WEB"},
-        {"id": "mocktask2", "kode": "INF102", "kelas": "1C.30", "judul": "Tugas 1: ERD Perpustakaan", "deskripsi": "Rancang ERD sistem perpustakaan.", "pertemuan": "3", "mulai": "2026-10-21 08:00", "selesai": "2026-11-02 23:59", "file_soal_url": None, "file_soal_id": None, "mata_kuliah": "BASIS DATA"},
+        {"id": "mocktask1", "kode": "INF101", "kelas": "1A.01", "judul": "Tugas 1: Layout HTML", "deskripsi": "Buat halaman profil pribadi.", "pertemuan": "3", "mulai": "2026-10-20 08:00", "selesai": "2026-10-30 23:59", "file_soal_url": None, "file_soal_id": None, "mata_kuliah": "PEMROGRAMAN WEB"},
+        {"id": "mocktask2", "kode": "INF102", "kelas": "1A.01", "judul": "Tugas 1: ERD Perpustakaan", "deskripsi": "Rancang ERD sistem perpustakaan.", "pertemuan": "3", "mulai": "2026-10-21 08:00", "selesai": "2026-11-02 23:59", "file_soal_url": None, "file_soal_id": None, "mata_kuliah": "BASIS DATA"},
     ],
     "submissions": [
         {"id": "mocksub1", "kode": "INF101", "judul": "Tugas 0: Perkenalan", "selesai": "2026-10-15 21:04", "mata_kuliah": "PEMROGRAMAN WEB"},

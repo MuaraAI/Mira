@@ -37,12 +37,12 @@ class _DummyUpstream(UpstreamSession):
 def test_f02_upstream_session_binds_credential_hash():
     """F-02: Warm UpstreamSession must not be reused when a different password is supplied."""
     up = _DummyUpstream()
-    assert up.ensure_session("15260767", "correct-pass") is True
-    assert up.ensure_session("15260767", "correct-pass") is True
+    assert up.ensure_session("12345678", "correct-pass") is True
+    assert up.ensure_session("12345678", "correct-pass") is True
     assert len(up.login_attempts) == 1
 
     # Wrong password for the same NIM must NOT reuse the warm session
-    assert up.ensure_session("15260767", "wrong-pass") is False
+    assert up.ensure_session("12345678", "wrong-pass") is False
     assert len(up.login_attempts) == 2
 
 
@@ -73,13 +73,13 @@ def test_f02_deps_blocks_header_override_for_non_master_auth():
         {
             "type": "http",
             "headers": [
-                (b"x-studentv2-nim", b"15260767"),
+                (b"x-studentv2-nim", b"12345678"),
                 (b"x-studentv2-pass", b"master-override"),
             ],
             "state": {"_auth_ran": True, "is_master": True},
         }
     )
-    assert require_studentv2_creds(req_master) == ("15260767", "master-override")
+    assert require_studentv2_creds(req_master) == ("12345678", "master-override")
 
 
 @pytest.mark.asyncio
@@ -122,12 +122,12 @@ async def test_f08_pwa_devices_masks_endpoint_and_upsert_keeps_row_id(tmp_path, 
     init_pwa_db()
 
     ep1 = "https://fcm.googleapis.com/fcm/send/secret_capability_token_111111"
-    id1 = await add_subscription("15260767", ep1, "k1", "a1", "Device 1")
+    id1 = await add_subscription("12345678", ep1, "k1", "a1", "Device 1")
     assert id1 > 0
 
     for idx in range(2, 6):
         await add_subscription(
-            "15260767",
+            "12345678",
             f"https://fcm.googleapis.com/fcm/send/secret_capability_token_{idx}_long_suffix",
             f"k{idx}",
             f"a{idx}",
@@ -135,10 +135,10 @@ async def test_f08_pwa_devices_masks_endpoint_and_upsert_keeps_row_id(tmp_path, 
         )
 
     # Re-subscribing ep1 when 5 devices exist must return id1 (> 0) and NOT evict ep1
-    id1_again = await add_subscription("15260767", ep1, "k1_new", "a1_new", "Device 1")
+    id1_again = await add_subscription("12345678", ep1, "k1_new", "a1_new", "Device 1")
     assert id1_again == id1
 
-    masked_devices = await list_subscriptions("15260767", active_only=True, mask_endpoint=True)
+    masked_devices = await list_subscriptions("12345678", active_only=True, mask_endpoint=True)
     assert len(masked_devices) == 5
     assert any(d["id"] == id1 for d in masked_devices)
     for d in masked_devices:
@@ -150,7 +150,7 @@ async def test_f08_pwa_devices_masks_endpoint_and_upsert_keeps_row_id(tmp_path, 
 async def test_f09_session_key_id_uses_nim_not_token_prefix():
     """F-09: Multiple session tokens for the same NIM share a single rate-limit bucket."""
     fake_session = {
-        "nim": "15260767",
+        "nim": "12345678",
         "studentv2_pass": "pw",
         "elearning_pass": "pw",
     }
@@ -173,7 +173,7 @@ async def test_f09_session_key_id_uses_nim_not_token_prefix():
                 headers={"_skip_auto_auth": "1", "Authorization": "Bearer sess_token_beta_222"},
             )
 
-    assert seen_identifiers == ["key:session:15260767", "key:session:15260767"]
+    assert seen_identifiers == ["key:session:12345678", "key:session:12345678"]
 
 
 def test_f10_storage_url_requires_https_and_sanitizes_headers():
@@ -219,7 +219,7 @@ async def test_f14_api_key_redis_cache_uses_key_hash_and_wildcard_origin_blocked
 
     fake_redis = AsyncMock()
     with patch("app.api_keys_db.cache.get_client", AsyncMock(return_value=fake_redis)):
-        await create_api_key("15260767", "Test Key", "sv2_pw", "el_pw")
+        await create_api_key("12345678", "Test Key", "sv2_pw", "el_pw")
 
     assert fake_redis.set.await_count == 1
     redis_key = fake_redis.set.await_args.args[0]
@@ -229,7 +229,7 @@ async def test_f14_api_key_redis_cache_uses_key_hash_and_wildcard_origin_blocked
 
     # Wildcard ALLOWED_ORIGINS must not allow untrusted Origin to use ambient cookie auth
     monkeypatch.setattr(settings, "ALLOWED_ORIGINS", "*")
-    with patch("app.session_store.session_store.resolve", AsyncMock(return_value={"nim": "15260767", "studentv2_pass": "a", "elearning_pass": "b"})), \
+    with patch("app.session_store.session_store.resolve", AsyncMock(return_value={"nim": "12345678", "studentv2_pass": "a", "elearning_pass": "b"})), \
          patch("app.main.limiter.is_allowed", AsyncMock(return_value=True)):
         async with AsyncClient(
             transport=ASGITransport(app=app),

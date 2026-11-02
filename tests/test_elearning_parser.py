@@ -61,7 +61,7 @@ def test_parse_courses_v2_jadwal_card():
     assert teori["token_absen"] and teori["token_learning"] and teori["token_assignment"] and teori["token_diskusi"]
 
     praktek = next(c for c in courses if c["nama"] == "DASAR PEMROGRAMAN")
-    assert praktek["kelompok_praktek"] == "DPG.15.1C.30.A"
+    assert praktek["kelompok_praktek"] == "DPG.15.1A.01.A"
     assert praktek["hari"] == "Kamis"
 
     gabung = next(c for c in courses if c["nama"] == "PENDIDIKAN PANCASILA")

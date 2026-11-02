@@ -24,13 +24,13 @@ def test_get_proxy_unconfigured(monkeypatch):
     monkeypatch.setattr(settings, "SCRAPER_PROXY", "")
     monkeypatch.setattr(settings, "SCRAPER_PROXY_POOL", "")
     assert get_proxy() is None
-    assert get_proxy(seed="15260767") is None
+    assert get_proxy(seed="12345678") is None
 
 def test_get_proxy_single_proxy(monkeypatch):
     monkeypatch.setattr(settings, "SCRAPER_PROXY", "103.5.6.7:8080")
     monkeypatch.setattr(settings, "SCRAPER_PROXY_POOL", "")
     assert get_proxy() == "http://103.5.6.7:8080"
-    assert get_proxy(seed="15260767") == "http://103.5.6.7:8080"
+    assert get_proxy(seed="12345678") == "http://103.5.6.7:8080"
 
 def test_get_proxy_pool_random_and_sticky(monkeypatch):
     pool_str = "10.0.0.1:8080, 10.0.0.2:8080, socks5://10.0.0.3:1080"
@@ -48,7 +48,7 @@ def test_get_proxy_pool_random_and_sticky(monkeypatch):
     assert chosen in expected
     
     # Sticky seed: same NIM always yields same proxy
-    nim_a = "15260767"
+    nim_a = "12345678"
     proxy_a_1 = get_proxy(seed=nim_a)
     proxy_a_2 = get_proxy(seed=nim_a)
     assert proxy_a_1 == proxy_a_2

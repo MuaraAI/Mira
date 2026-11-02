@@ -121,14 +121,14 @@ async def test_class_alert_is_sent_once_and_released_when_nobody_receives(monkey
     monkeypatch.setattr(notifier, "_release", fake_release)
     monkeypatch.setattr(notifier, "deliver", deliver)
 
-    assert await notifier._send_class_alerts("15260225", SCHEDULE, at(7, 20)) == 1
-    assert await notifier._send_class_alerts("15260225", SCHEDULE, at(7, 21)) == 0  # menit berikutnya: sudah terkirim
+    assert await notifier._send_class_alerts("12345678", SCHEDULE, at(7, 20)) == 1
+    assert await notifier._send_class_alerts("12345678", SCHEDULE, at(7, 21)) == 0  # menit berikutnya: sudah terkirim
     assert deliver.await_count == 1
     assert deliver.await_args.args[1] == "kelas-mulai"
 
     # Tidak ada tujuan yang menerima: klaim dilepas supaya dicoba lagi menit depan.
     deliver.return_value = 0
-    assert await notifier._send_class_alerts("15260225", SCHEDULE, at(7, 30)) == 0
+    assert await notifier._send_class_alerts("12345678", SCHEDULE, at(7, 30)) == 0
     assert released
 
 

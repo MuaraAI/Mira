@@ -18,9 +18,9 @@ def reset_clients():
 
 @pytest.mark.asyncio
 async def test_full_pipeline_integration(monkeypatch):
-    monkeypatch.setenv("STUDENTV2_NIM", "15260767")
+    monkeypatch.setenv("STUDENTV2_NIM", "12345678")
     monkeypatch.setenv("STUDENTV2_PASS", "secret")
-    monkeypatch.setenv("ELEARNING_NIM", "15260767")
+    monkeypatch.setenv("ELEARNING_NIM", "12345678")
     monkeypatch.setenv("ELEARNING_PASS", "secret")
 
     mock_redis = AsyncMock()

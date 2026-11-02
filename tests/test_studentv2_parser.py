@@ -59,8 +59,8 @@ def test_parse_announcements():
 def test_parse_profile():
     html = (FIXTURES / "sv2_data_pribadi.html").read_text(encoding="utf-8")
     profile = parse_profile(html)
-    assert profile["nim"] == "15260767"
-    assert profile["nama"] == "YUKEN VELINO"
+    assert profile["nim"] == "12345678"
+    assert profile["nama"] == "MAHASISWA DUMMY"
     assert profile["tempat_lahir"] == "JAKARTA"
     assert profile["desa_kelurahan"] == "Menteng"
     assert profile["rt_rw"] == "01/02"
@@ -81,9 +81,9 @@ def test_class_label_and_branch_display():
     assert branch_display(None) is None
 
     # Prioritas label kelas: kelompok ujian KRS > kelas.lokal > kelas saja.
-    assert class_label(krs={"kelompok_ujian": "15.1C.30.A"}) == "15.1C.30.A"
-    assert class_label(profile={"kelas": "1C", "lokal": "30"}) == "1C.30"
-    assert class_label(profile={"kelas": "1C"}) == "1C"
+    assert class_label(krs={"kelompok_ujian": "15.1A.01.A"}) == "15.1A.01.A"
+    assert class_label(profile={"kelas": "1A", "lokal": "01"}) == "1A.01"
+    assert class_label(profile={"kelas": "1A"}) == "1A"
     assert class_label() is None
 
 def test_parse_khs():
@@ -113,7 +113,7 @@ def test_parse_krs():
     assert len(krs["items"]) == 6
     assert krs["total_sks"] == 18
     assert krs["semester"] == 1
-    assert krs["kelompok_ujian"] == "15.1C.30.A"
+    assert krs["kelompok_ujian"] == "15.1A.01.A"
     assert krs["items"][0]["kode"] == "101"
 
 def test_parse_uts():

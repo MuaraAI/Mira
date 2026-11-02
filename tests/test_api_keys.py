@@ -74,8 +74,8 @@ def setup_test_env(tmp_path, monkeypatch):
 @pytest.mark.asyncio
 async def test_api_key_lifecycle_direct():
     # 1. Create Key (New keys should use muara_mira_ prefix)
-    key_info = await create_api_key("15260767", "Bot Discord", "pass_sv2", "pass_el")
-    assert key_info["nim"] == "15260767"
+    key_info = await create_api_key("12345678", "Bot Discord", "pass_sv2", "pass_el")
+    assert key_info["nim"] == "12345678"
     assert key_info["name"] == "Bot Discord"
     assert key_info["key"].startswith("muara_mira_")
     plain_key = key_info["key"]
@@ -90,7 +90,7 @@ async def test_api_key_lifecycle_direct():
         assert "pass_el" not in str(val), "Password kampus tidak boleh bocor plaintext di Redis!"
 
     # 2. List Keys
-    keys = await list_api_keys("15260767")
+    keys = await list_api_keys("12345678")
     assert len(keys) == 1
     assert keys[0]["id"] == key_info["id"]
     assert "key" not in keys[0]  # Plain key never returned in list
@@ -99,7 +99,7 @@ async def test_api_key_lifecycle_direct():
     # 3. Resolve Key
     resolved = await resolve_api_key(plain_key)
     assert resolved is not None
-    assert resolved["nim"] == "15260767"
+    assert resolved["nim"] == "12345678"
     assert resolved["studentv2_pass"] == "pass_sv2"
     assert resolved["elearning_pass"] == "pass_el"
 
@@ -111,12 +111,12 @@ async def test_api_key_lifecycle_direct():
     assert await resolve_api_key("not_muara_prefix") is None
 
     # 5. Revoke Key
-    revoked = await revoke_api_key("15260767", key_info["id"])
+    revoked = await revoke_api_key("12345678", key_info["id"])
     assert revoked is True
     assert await resolve_api_key(plain_key) is None
 
     # 6. List after revoke
-    keys_after = await list_api_keys("15260767")
+    keys_after = await list_api_keys("12345678")
     assert len(keys_after) == 0
 
 
@@ -148,7 +148,7 @@ async def test_api_key_legacy_migration():
         INSERT INTO api_keys (nim, name, key_hash, key_prefix, encrypted_creds, is_active, created_at)
         VALUES (?, ?, ?, ?, ?, 1, datetime('now'))
         """,
-        ("15260999", "Legacy Bot", legacy_hash, _mask_key(legacy_plain), enc_creds),
+        ("12345699", "Legacy Bot", legacy_hash, _mask_key(legacy_plain), enc_creds),
     )
     conn.commit()
     conn.close()
@@ -156,7 +156,7 @@ async def test_api_key_legacy_migration():
     # 2. Resolve via resolve_api_key (auto migration happens!)
     resolved = await resolve_api_key(legacy_plain)
     assert resolved is not None
-    assert resolved["nim"] == "15260999"
+    assert resolved["nim"] == "12345699"
     assert resolved["studentv2_pass"] == "leg_sv2"
     assert resolved["elearning_pass"] == "leg_el"
 
@@ -164,7 +164,7 @@ async def test_api_key_legacy_migration():
     new_hash = _hash_key(legacy_plain)
     assert len(new_hash) == 128
     conn2 = _connect()
-    row = conn2.execute("SELECT key_hash FROM api_keys WHERE nim = ?", ("15260999",)).fetchone()
+    row = conn2.execute("SELECT key_hash FROM api_keys WHERE nim = ?", ("12345699",)).fetchone()
     conn2.close()
     assert row["key_hash"] == new_hash
 
@@ -176,7 +176,7 @@ async def test_api_key_endpoints_async():
     ) as client:
         # 1. Create session
         session_token = await session_store.create(
-            nim="15260767",
+            nim="12345678",
             studentv2_pass="pass_sv2_real",
             elearning_pass="pass_el_real",
         )
@@ -201,13 +201,13 @@ async def test_api_key_endpoints_async():
         apikey_headers = {"Authorization": f"Bearer {plain_key}"}
         res_me = await client.get("/v1/auth/me", headers=apikey_headers)
         assert res_me.status_code == 200
-        assert res_me.json()["data"]["nim"] == "15260767"
+        assert res_me.json()["data"]["nim"] == "12345678"
         assert res_me.json()["data"]["auth_type"] == "api_key"
 
         # Also test X-API-Key header
         res_me_x = await client.get("/v1/auth/me", headers={"x-api-key": plain_key})
         assert res_me_x.status_code == 200
-        assert res_me_x.json()["data"]["nim"] == "15260767"
+        assert res_me_x.json()["data"]["nim"] == "12345678"
 
         # Personal keys may use data routes but cannot manage key lifecycle.
         assert (await client.get("/v1/auth/keys", headers=apikey_headers)).status_code == 403
