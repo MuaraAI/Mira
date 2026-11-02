@@ -131,7 +131,9 @@ def _public_profile(row: sqlite3.Row) -> dict[str, Any]:
     keys = row.keys()
     show_nim = bool(row["show_nim"]) if "show_nim" in keys else False
     show_class = bool(row["show_class"]) if "show_class" in keys else False
-    avatar = row["avatar_preset"] if "avatar_preset" in keys else "mura-welcome"
+    avatar = row["avatar_preset"] if "avatar_preset" in keys else "mura_welcome"
+    if avatar == "mura-welcome":
+        avatar = "mura_welcome"
     data = {
         "username": row["username"],
         "display_name": row["display_name"],
@@ -436,7 +438,9 @@ def upsert_me(
     branch = _clean(campus_branch or "UBSI Pontianak", 80, "Cabang kampus")
     prodi = _clean(major or "Informatika", 80, "Program studi")
     c_code = _clean(class_code, 20, "Kode kelas") if class_code else None
-    avatar = _clean(avatar_preset or "mura-welcome", 40, "Avatar")
+    avatar = _clean(avatar_preset or "mura_welcome", 40, "Avatar")
+    if avatar == "mura-welcome":
+        avatar = "mura_welcome"
     pubkey = _clean(e2ee_public_key, 256, "Kunci publik E2EE") if e2ee_public_key else None
     with transaction() as conn:
         taken = conn.execute(
