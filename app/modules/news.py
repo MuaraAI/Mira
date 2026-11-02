@@ -268,6 +268,13 @@ async def _produce_user_category(
         try:
             payload = None
             claimed_quiz_ids: list[str] = []
+            claimed_task_ids: list[str] = []
+
+            async def _release_claimed_items():
+                for qid in claimed_quiz_ids:
+                    await _release(f"ubsi:notify:quizseen:{nim}:{qid}")
+                for tid in claimed_task_ids:
+                    await _release(f"ubsi:notify:taskseen:{nim}:{tid}")
             if category == "matkul-besok":
                 h1_slot = _h1_slot()
                 if h1_slot is None:
@@ -336,6 +343,7 @@ async def _produce_user_category(
                     if not tid:
                         continue
                     if await _claim(f"ubsi:notify:taskseen:{nim}:{tid}", 14 * 24 * 3600):
+                        claimed_task_ids.append(str(tid))
                         new_tasks.append(t)
 
                 if new_quizzes:
@@ -406,6 +414,7 @@ async def _produce_user_category(
                         "link": f"{settings.WEB_BASE_URL}/dashboard/ujian",
                     }
             if not payload:
+                await _release_claimed_items()
                 continue
             from zoneinfo import ZoneInfo
             from app.notifier import _claim, _release
@@ -415,12 +424,15 @@ async def _produce_user_category(
             dedupe_key = f"ubsi:notify:sent:{nim}:{category}:{date_key}" + slot_suffix
             # Klaim atomik (SET NX) sebelum deliver: anti dobel saat 2 worker bangun bareng
             if not await _claim(dedupe_key, 172800):
+                await _release_claimed_items()
                 continue
             import hashlib
             content_key = "ubsi:notify:content:%s:%s:%s" % (
                 nim, hashlib.sha1((payload["title"] + payload["description"]).encode()).hexdigest()[:16], date_key
             ) + slot_suffix
             if not await _claim(content_key, 172800):
+                await _release(dedupe_key)
+                await _release_claimed_items()
                 continue  # kategori berbeda dengan isi sama (mis. quiz-tugas dan tugas-baru): kirim sekali
             matching = [item for item in channels if str(item["nim"]) == nim]
             try:
@@ -432,8 +444,7 @@ async def _produce_user_category(
             except Exception:
                 await _release(dedupe_key)
                 await _release(content_key)
-                for qid in claimed_quiz_ids:
-                    await _release(f"ubsi:notify:quizseen:{nim}:{qid}")
+                await _release_claimed_items()
                 raise
             if delivered:
                 sent += 1
@@ -441,8 +452,7 @@ async def _produce_user_category(
                 # Gagal total: lepas klaim supaya slot berikutnya bisa mencoba lagi
                 await _release(dedupe_key)
                 await _release(content_key)
-                for qid in claimed_quiz_ids:
-                    await _release(f"ubsi:notify:quizseen:{nim}:{qid}")
+                await _release_claimed_items()
         except Exception:
             logger.exception("User notification producer failed for NIM %s category %s", nim, category)
     return sent

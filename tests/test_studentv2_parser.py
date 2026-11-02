@@ -61,9 +61,9 @@ def test_parse_profile():
     profile = parse_profile(html)
     assert profile["nim"] == "15260767"
     assert profile["nama"] == "YUKEN VELINO"
-    assert profile["tempat_lahir"] == "SUNGAI BELIDAK"
-    assert profile["desa_kelurahan"] == "Kalimas"
-    assert profile["rt_rw"] == "09/03"
+    assert profile["tempat_lahir"] == "JAKARTA"
+    assert profile["desa_kelurahan"] == "Menteng"
+    assert profile["rt_rw"] == "01/02"
     assert "Informatika" in profile["program_studi"]
     assert profile["semester_aktif"] == "1"
     assert profile["status_aktif"] == "Aktif"

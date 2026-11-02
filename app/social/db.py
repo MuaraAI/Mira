@@ -235,8 +235,8 @@ _PG_EXTRA_TABLES = (
     (
         "social_mentions",
         "CREATE TABLE IF NOT EXISTS social_mentions ("
-        "message_id INTEGER NOT NULL REFERENCES social_messages(id) ON DELETE CASCADE, "
-        "conversation_id INTEGER NOT NULL, nim TEXT NOT NULL, PRIMARY KEY (message_id, nim));"
+        "message_id BIGINT NOT NULL REFERENCES social_messages(id) ON DELETE CASCADE, "
+        "conversation_id BIGINT NOT NULL, nim TEXT NOT NULL, PRIMARY KEY (message_id, nim));"
         "CREATE INDEX IF NOT EXISTS idx_social_mentions_nim ON social_mentions(nim, conversation_id)",
     ),
 )
@@ -256,7 +256,11 @@ def init_social_db() -> None:
                     (table, column),
                 ).fetchone()
                 if row["c"] == 0:
-                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
+                    pg_ddl = (
+                        ddl.replace("(strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))", "now()")
+                        .replace("TEXT NOT NULL DEFAULT now()", "TIMESTAMPTZ NOT NULL DEFAULT now()")
+                    )
+                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {pg_ddl}")
                     added += 1
                     logger.info("Mira Social v3: kolom %s.%s ditambahkan ke Postgres", table, column)
             # Tabel baru pasca-migration awal (DDL gaya Postgres).

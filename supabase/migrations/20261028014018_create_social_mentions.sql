@@ -3,8 +3,8 @@
 -- agar startup otomatis membuatnya di environment baru.
 
 CREATE TABLE IF NOT EXISTS social_mentions (
-    message_id INTEGER NOT NULL REFERENCES social_messages(id) ON DELETE CASCADE,
-    conversation_id INTEGER NOT NULL,
+    message_id BIGINT NOT NULL REFERENCES social_messages(id) ON DELETE CASCADE,
+    conversation_id BIGINT NOT NULL,
     nim TEXT NOT NULL,
     PRIMARY KEY (message_id, nim)
 );
