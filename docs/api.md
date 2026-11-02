@@ -342,6 +342,11 @@ Searchable directory of 1,350+ lecturers with initials code and full name.
 - **Query Parameter**: `search` (optional)
 - **Cache TTL**: 1 hour (3600 seconds)
 
+### `GET /v1/lecturers/{kode}/schedule`
+Retrieves a specific lecturer's teaching schedule by their 3-letter initials code (`kode`, e.g. `TDL`, `YVN`). Returns day, time, course name, room, and class groups.
+- **Path Parameter**: `kode` (required, 3-letter lecturer code)
+- **Cache TTL**: 1 hour (3600 seconds)
+
 ---
 
 ## 3. Elearning (MyBest LMS)
@@ -476,6 +481,10 @@ Exam schedule for one exam type from the BSI Online Exam portal. Each card inclu
 - **Path Parameter**: `exam_type` = `latihan | uts | uas | uts-pengganti | uas-pengganti | her | her-pengganti | her-khusus`
 - **Cache TTL**: 1 minute (60 seconds)
 - **Note**: the exam entry URL is intentionally never exposed; entering an exam requires the official browser flow (geolocation + IP verification).
+
+### `GET /v1/elearning/exams/proof/download`
+Downloads the official exam attendance proof PDF (`bukti ujian`) from `ujiankampusa` via internal SSO handshake and streams it as `application/pdf` attachment.
+- **Query Parameter**: `token` (required, encrypted token from `GET /v1/elearning/exams/{exam_type}` `token_bukti`)
 
 ### `GET /v1/elearning/quiz/questions`
 Retrieves exam questions, countdown timer, CSRF token, and multiple-choice options (A, B, C, D).
@@ -789,7 +798,7 @@ Tipe event: `message.created` (dengan flag `mentioned`), `message.updated` (fiel
 
 **Pesan dihapus** tidak dikembalikan lagi oleh riwayat dan kutipan balasan; preview daftar chat mundur ke pesan terakhir yang masih ada. **Pesan diedit** orang lain sejak percakapan terakhir dibuka dikembalikan di `recent_edits` pada `GET .../messages` (halaman pertama).
 
-## 8. Model Context Protocol (MCP) Server
+## 9. Model Context Protocol (MCP) Server
 
 UBSI API exposes an official Model Context Protocol (MCP) Server with **80 AI Agent tools** (40 primary `mira_*` + 40 legacy alias `ubsi_*`) over Streamable HTTP:
 - Endpoint: `https://api.muaraai.com/v1/mira/mcp` (legacy alias: `/v1/ubsi-api/mcp`)
