@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Check, CheckCircle2, Copy, ExternalLink, Eye, FileText, FolderOpen, Github, Link2, Loader2, RefreshCw } from "lucide-react";
+import { Check, CheckCircle2, Copy, ExternalLink, Eye, FileText, FolderOpen, Github, Link2, Loader2, RefreshCw, Youtube } from "lucide-react";
 import { parseShareLink, safeExternalHref, type LinkCheck } from "@/lib/links";
 import { LinkAccessWarning } from "@/components/LinkAccessWarning";
 import { LinkPreviewSheet } from "@/components/LinkPreviewSheet";
 
 function ProviderIcon({ provider, label }: { provider: string; label: string }) {
   const cls = "h-5 w-5";
+  if (provider === "youtube") return <Youtube className={`${cls} text-[#BE123C]`} aria-hidden="true" />;
   if (provider === "github") return <Github className={cls} aria-hidden="true" />;
   if (/folder/i.test(label)) return <FolderOpen className={cls} aria-hidden="true" />;
   if (provider === "google_drive" || provider === "google_docs") return <FileText className={cls} aria-hidden="true" />;
@@ -33,6 +34,7 @@ function StatusPill({ access, checking }: { access: LinkCheck["access"] | null; 
   }
   const map: Record<LinkCheck["access"], { text: string; cls: string }> = {
     public: { text: "Publik", cls: "bg-[#0F766E] text-white" },
+    unlisted: { text: "Hanya link", cls: "bg-[#0369A1] text-white" },
     private: { text: "Belum publik", cls: "bg-[#BE123C] text-white" },
     missing: { text: "Tidak ada", cls: "bg-[#BE123C] text-white" },
     invalid: { text: "Tidak valid", cls: "bg-[#BE123C] text-white" },
@@ -85,7 +87,7 @@ export function LinkCard({
     <div className="space-y-2">
       <div
         className={`flex items-center gap-3 bg-white p-3 shadow-[0_-2px_0_0_var(--c),0_2px_0_0_var(--c),-2px_0_0_0_var(--c),2px_0_0_0_var(--c)] ${compact ? "" : "sm:p-4"}`}
-        style={{ ["--c" as string]: danger ? "#FDA4AF" : check?.access === "public" ? "#99D5CC" : "#D9E5ED" }}
+        style={{ ["--c" as string]: danger ? "#FDA4AF" : check?.access === "unlisted" ? "#9CC6E0" : check?.access === "public" ? "#99D5CC" : "#D9E5ED" }}
       >
         <span className={`px-icon h-10 w-10 shrink-0 ${danger ? "!bg-[#FFF1F2] !text-[#BE123C]" : ""}`}>
           <ProviderIcon provider={provider} label={label} />
@@ -103,8 +105,8 @@ export function LinkCard({
       </div>
 
       <LinkAccessWarning check={check} provider={provider} />
-      {check?.access === "public" && (
-        <p className="flex items-center gap-1.5 text-xs text-[#0F766E]">
+      {(check?.access === "public" || check?.access === "unlisted") && (
+        <p className={`flex items-center gap-1.5 text-xs ${check.access === "unlisted" ? "text-[#0369A1]" : "text-[#0F766E]"}`}>
           <CheckCircle2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           {check.message}
         </p>

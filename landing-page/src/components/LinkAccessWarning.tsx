@@ -19,6 +19,13 @@ export function LinkAccessWarning({ check, provider }: { check: LinkCheck | null
           <li>Pastikan perannya <strong>Pelihat (Viewer)</strong>, lalu klik <strong>Selesai</strong> dan tekan Cek ulang.</li>
         </ol>
       )}
+      {provider === "youtube" && check.access === "private" && (
+        <ol className="mt-2 list-decimal space-y-0.5 pl-5">
+          <li>Buka <strong>YouTube Studio</strong> (studio.youtube.com) lalu masuk ke menu <strong>Konten</strong>.</li>
+          <li>Cari video tugasmu, klik pada kolom <strong>Visibilitas</strong> (yang saat ini bertuliskan <em>Pribadi</em>).</li>
+          <li>Ubah menjadi <strong>Tidak Publik (Hanya yang punya link)</strong> atau <strong>Publik</strong>, lalu klik <strong>Simpan</strong> dan tekan Cek ulang.</li>
+        </ol>
+      )}
     </div>
   );
 }

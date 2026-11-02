@@ -167,7 +167,8 @@ def parse_share_link(raw_url: str) -> Optional[dict[str, Any]]:
         if vid and re.fullmatch(r"[A-Za-z0-9_-]{11}", vid):
             return {**base, "provider": "youtube", "kind": "video", "label": "Video YouTube", "id": vid,
                     "normalized_url": f"https://www.youtube.com/watch?v={vid}",
-                    "preview_url": f"https://www.youtube-nocookie.com/embed/{vid}"}
+                    "preview_url": f"https://www.youtube-nocookie.com/embed/{vid}",
+                    "probe_url": f"https://www.youtube.com/watch?v={vid}"}
         return {**base, "provider": "youtube", "label": "Tautan YouTube"}
 
     for domain, name in _WEB_PROVIDERS.items():
@@ -244,6 +245,64 @@ async def probe_full(client: httpx.AsyncClient, url: str) -> tuple[str, Optional
     return (*classify_response(0, "", "", via_login), None) if via_login else ("unknown", None, "Terlalu banyak pengalihan.", None)
 
 
+async def probe_youtube(client: httpx.AsyncClient, vid: str) -> tuple[str, Optional[str], str]:
+    """Periksa status video YouTube: public | unlisted | private | missing | unknown.
+
+    1. oEmbed check (cepat, tanpa login/API key):
+       - 401 Unauthorized -> 'private' (video disetel Pribadi, dosen tidak bisa melihat).
+       - 404/400 Not Found -> 'missing' (video tidak ditemukan / sudah dihapus).
+       - 200 OK -> video bisa ditonton. Judul didapat dari response oEmbed.
+    2. InnerTube player API:
+       - Membedakan 'public' (Publik) vs 'unlisted' (Tidak Publik / Hanya link).
+    """
+    oembed_url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={vid}&format=json"
+    title = None
+    try:
+        r = await client.get(oembed_url)
+        if r.status_code == 401:
+            return (
+                "private",
+                None,
+                "Video bersifat Pribadi (Private): Dosen tidak akan bisa menontonnya. Ubah ke Publik atau Tidak Publik di YouTube Studio.",
+            )
+        if r.status_code in (404, 400):
+            return "missing", None, "Video tidak ditemukan atau sudah dihapus dari YouTube."
+        if r.status_code == 200:
+            try:
+                data = r.json()
+                title = data.get("title")
+            except Exception:
+                pass
+        else:
+            return "unknown", None, f"Status video tidak bisa dipastikan (HTTP {r.status_code})."
+    except Exception as e:
+        return "unknown", None, f"Gagal menghubungi YouTube: {e}"
+
+    # Langkah 2: Bedakan Publik vs Tidak Publik (Hanya link)
+    try:
+        player_url = "https://www.youtube.com/youtubei/v1/player"
+        payload = {
+            "videoId": vid,
+            "context": {"client": {"clientName": "WEB", "clientVersion": "2.20240101.00.00"}},
+        }
+        resp = await client.post(player_url, json=payload)
+        if resp.status_code == 200:
+            p_data = resp.json()
+            micro = p_data.get("microformat", {}).get("playerMicroformatRenderer", {})
+            if micro.get("isUnlisted") is True:
+                return (
+                    "unlisted",
+                    title,
+                    "Video Tidak Publik (Hanya yang punya link): Dosen bisa menontonnya.",
+                )
+            elif micro.get("isUnlisted") is False:
+                return "public", title, "Video Publik: Siapa pun bisa mencari dan menontonnya."
+    except Exception:
+        pass
+
+    return "public", title, "Video YouTube: Bisa dibuka oleh siapa saja yang memiliki link."
+
+
 def _cache_key(probe_url: str) -> str:
     return "ubsi:linkcheck:" + hashlib.sha1(probe_url.encode()).hexdigest()
 
@@ -271,6 +330,31 @@ async def check_link(
             "access": "invalid", "title": None, "message": "Masukkan URL lengkap, misalnya https://drive.google.com/...",
         }
     result = _result_from(info)
+    if info["provider"] == "youtube" and info.get("id"):
+        key = _cache_key(f"youtube:{info['id']}")
+        if redis is not None and not refresh:
+            try:
+                cached = await redis.get(key)
+                if cached:
+                    return {**result, **json.loads(cached)}
+            except Exception:
+                pass
+        access, title, message = await probe_youtube(client, info["id"])
+        can_prev = access in ("public", "unlisted")
+        data = {k: result[k] for k in _STRUCTURE_KEYS}
+        data.update({
+            "access": access,
+            "title": title or result["label"],
+            "message": message,
+            "can_preview": can_prev,
+        })
+        if redis is not None:
+            try:
+                await redis.set(key, json.dumps(data), ex=600 if can_prev else 60)
+            except Exception:
+                pass
+        return {**result, **data}
+
     probe_url = info["probe_url"]
     if not probe_url:
         if info["provider"] in ("google_drive", "google_docs"):

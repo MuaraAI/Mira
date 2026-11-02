@@ -16,6 +16,7 @@ const PREVIEW_HOSTS = new Set(["drive.google.com", "docs.google.com", "www.youtu
 
 const ACCESS_TEXT: Record<LinkCheck["access"], string> = {
   public: "Publik: siapa pun yang punya link bisa membukanya",
+  unlisted: "Tidak publik: siapa pun yang memiliki link bisa menontonnya",
   private: "Belum publik: orang lain diminta login atau tidak punya akses",
   missing: "Tidak ditemukan atau sudah dihapus",
   invalid: "Bukan link yang valid",
