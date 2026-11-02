@@ -196,8 +196,9 @@ def test_published_google_docs_use_embed_urls_and_youtube_has_embed():
     sheet = parse_share_link(f"https://docs.google.com/spreadsheets/d/e/{FID}/pubhtml")
     assert "widget=true" in sheet["preview_url"]
     yt = parse_share_link("https://youtu.be/dQw4w9WgXcQ?t=10")
+    assert yt is not None
     assert yt["provider"] == "youtube" and yt["preview_url"] == "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"
-    assert yt["probe_url"] is None
+    assert yt["probe_url"] == "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 
 
 @pytest.mark.asyncio
@@ -228,10 +229,55 @@ async def test_open_id_private_stays_file_and_not_previewable():
 
 
 @pytest.mark.asyncio
-async def test_youtube_link_is_previewable_without_probing():
-    def boom(request):
-        raise AssertionError("YouTube tidak boleh di-fetch")
+async def test_youtube_link_probing_public_unlisted_private():
+    """Pemeriksaan link YouTube: membedakan public, unlisted (hanya link), dan private."""
+    # 1. Unlisted video
+    def handler_unlisted(request: httpx.Request) -> httpx.Response:
+        if "oembed" in str(request.url):
+            return httpx.Response(200, json={"title": "Video Tugas Unlisted", "author_name": "Yuken"})
+        if "youtubei/v1/player" in str(request.url):
+            return httpx.Response(200, json={"microformat": {"playerMicroformatRenderer": {"isUnlisted": True}}})
+        return httpx.Response(404)
 
-    async with client_for(boom) as client:
-        result = await check_link("https://www.youtube.com/watch?v=dQw4w9WgXcQ", client)
-    assert result["can_preview"] is True and result["access"] == "unknown"
+    async with client_for(handler_unlisted) as client:
+        res = await check_link("https://youtu.be/CA5XqtANzoU", client)
+    assert res["provider"] == "youtube"
+    assert res["access"] == "unlisted"
+    assert res["can_preview"] is True
+    assert res["title"] == "Video Tugas Unlisted"
+    assert "Hanya yang punya link" in res["message"]
+
+    # 2. Public video
+    def handler_public(request: httpx.Request) -> httpx.Response:
+        if "oembed" in str(request.url):
+            return httpx.Response(200, json={"title": "Video Publik", "author_name": "Author"})
+        if "youtubei/v1/player" in str(request.url):
+            return httpx.Response(200, json={"microformat": {"playerMicroformatRenderer": {"isUnlisted": False}}})
+        return httpx.Response(404)
+
+    async with client_for(handler_public) as client:
+        res = await check_link("https://www.youtube.com/watch?v=dQw4w9WgXcQ", client)
+    assert res["access"] == "public"
+    assert res["can_preview"] is True
+    assert res["title"] == "Video Publik"
+
+    # 3. Private video (oEmbed returns 401)
+    def handler_private(request: httpx.Request) -> httpx.Response:
+        if "oembed" in str(request.url):
+            return httpx.Response(401, text="Unauthorized")
+        return httpx.Response(404)
+
+    async with client_for(handler_private) as client:
+        res = await check_link("https://www.youtube.com/watch?v=privat12345", client)
+    assert res["access"] == "private"
+    assert res["can_preview"] is False
+    assert "Pribadi" in res["message"]
+
+    # 4. Missing / Deleted video (oEmbed returns 404)
+    def handler_missing(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(404, text="Not Found")
+
+    async with client_for(handler_missing) as client:
+        res = await check_link("https://www.youtube.com/watch?v=missin12345", client)
+    assert res["access"] == "missing"
+    assert res["can_preview"] is False

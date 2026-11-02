@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch } from "@/lib/api";
 
-export type LinkAccess = "public" | "private" | "missing" | "unknown" | "invalid";
+export type LinkAccess = "public" | "unlisted" | "private" | "missing" | "unknown" | "invalid";
 
 export interface LinkCheck {
   url: string;

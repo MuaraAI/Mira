@@ -513,11 +513,11 @@ export default function TugasPage() {
                   value={linkInput}
                   onChange={(e) => setLinkInput(e.target.value)}
                   onBlur={tidyInput}
-                  placeholder="https://drive.google.com/drive/folders/..."
+                  placeholder="https://drive.google.com/... atau https://youtu.be/..."
                   className={`${inputClass} min-h-12 text-base sm:text-sm`}
                 />
                 <p className="text-[11px] leading-relaxed text-secondary">
-                  Tempel link file atau folder Google Drive, Docs, atau GitHub; link dirapikan otomatis. Pastikan akses Drive disetel ke <em>&quot;Siapa saja yang memiliki link&quot;</em> supaya dosen bisa membukanya.
+                  Tempel link Google Drive, Docs, GitHub, atau video YouTube; link dirapikan dan dicek otomatis. Pastikan video YouTube disetel ke <em>Publik</em> atau <em>Tidak Publik (Hanya yang punya link)</em>, jangan <em>Pribadi</em>.
                 </p>
               </div>
 
