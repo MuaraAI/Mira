@@ -110,6 +110,9 @@ function PasswordField({
   onChange,
   autoComplete,
   disabled,
+  required = true,
+  action,
+  hint,
 }: {
   id: string;
   label: string;
@@ -118,36 +121,45 @@ function PasswordField({
   onChange: (v: string) => void;
   autoComplete: string;
   disabled?: boolean;
+  required?: boolean;
+  action?: React.ReactNode;
+  hint?: React.ReactNode;
 }) {
   const [show, setShow] = useState(false);
   return (
     <div>
-      <label htmlFor={id} className="mb-2 block text-sm font-semibold text-foreground">
-        {label}
-      </label>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <label htmlFor={id} className="block text-sm font-semibold text-foreground">
+          {label}
+        </label>
+        {action}
+      </div>
       <div className="relative">
         <input
           id={id}
           name={name}
           type={show ? "text" : "password"}
-          required
+          required={required}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           autoComplete={autoComplete}
-          placeholder="xxxxx"
+          placeholder={disabled ? "Dilewati (bisa diisi nanti)" : "xxxxx"}
           disabled={disabled}
-          className={`${fieldClass} pr-12`}
+          className={`${fieldClass} pr-12 ${disabled ? "bg-muted/50 cursor-not-allowed opacity-60" : ""}`}
         />
-        <button
-          type="button"
-          onClick={() => setShow((s) => !s)}
-          aria-label={show ? `Sembunyikan ${label}` : `Tampilkan ${label}`}
-          aria-pressed={show}
-          className="absolute inset-y-0 right-0 flex min-w-12 items-center justify-center text-secondary transition-colors hover:text-[#0369A1]"
-        >
-          {show ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
-        </button>
+        {!disabled && (
+          <button
+            type="button"
+            onClick={() => setShow((s) => !s)}
+            aria-label={show ? `Sembunyikan ${label}` : `Tampilkan ${label}`}
+            aria-pressed={show}
+            className="absolute inset-y-0 right-0 flex min-w-12 items-center justify-center text-secondary transition-colors hover:text-[#0369A1]"
+          >
+            {show ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
+          </button>
+        )}
       </div>
+      {hint && <div className="mt-1">{hint}</div>}
     </div>
   );
 }
@@ -303,6 +315,7 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
   const [nim, setNim] = useState("");
   const [siakadPass, setSiakadPass] = useState("");
   const [mybestPass, setMybestPass] = useState("");
+  const [skipSiakad, setSkipSiakad] = useState(false);
   const [agree, setAgree] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
@@ -384,18 +397,34 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
     setPhase("checking");
 
     await sleep(350);
-    // SIAKAD dan MyBest diverifikasi paralel di server, jadi keduanya berjalan bersamaan.
-    mark({ form: "done", siakad: "running", mybest: "running" });
+    const effectiveSiakad = skipSiakad ? "" : siakadPass.trim();
+    // Jika SIAKAD dilewati, tandai done langsung tanpa menunggu upstream
+    if (!effectiveSiakad) {
+      mark({ form: "done", siakad: "done", mybest: "running" });
+    } else {
+      mark({ form: "done", siakad: "running", mybest: "running" });
+    }
 
     try {
-      const res = await apiFetch<{ nim: string; token?: string }>("/v1/auth/login", {
+      const res = await apiFetch<{
+        nim: string;
+        token?: string;
+        systems?: { siakad: boolean; mybest: boolean };
+        warnings?: string[];
+      }>("/v1/auth/login", {
         json: {
           nim: nim.trim(),
-          studentv2_pass: siakadPass,
-          elearning_pass: mybestPass,
+          studentv2_pass: effectiveSiakad,
+          elearning_pass: mybestPass.trim(),
         },
       });
-      mark({ siakad: "done" });
+
+      // SIAKAD: sukses jika sistemnya true, kalau salah tandai gagal sesaat tapi tetap lanjut
+      if (res?.systems?.siakad === false && effectiveSiakad) {
+        mark({ siakad: "failed" });
+      } else {
+        mark({ siakad: "done" });
+      }
       await sleep(180);
       mark({ mybest: "done", session: "running" });
 
@@ -408,7 +437,11 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
       // Prime cache /v1/auth/me seketika agar saat redirect ke /dashboard,
       // useRequireSession() langsung 0ms (authed = true) tanpa tunggu roundtrip network lagi.
       if (res?.nim) {
-        setApiCache("/v1/auth/me", { nim: res.nim, auth_type: "session" });
+        setApiCache("/v1/auth/me", {
+          nim: res.nim,
+          auth_type: "session",
+          systems: res.systems ?? { siakad: Boolean(effectiveSiakad), mybest: true },
+        });
       }
       await sleep(300);
       mark({ session: "done", redirect: "running" });
@@ -425,10 +458,9 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
         // Ditolak sebelum menyentuh server kampus.
         mark({ form: "failed", siakad: "pending", mybest: "pending" });
       } else if (apiErr.code === "INVALID_CREDENTIALS") {
-        // Pesan server menyebut sistem mana yang menolak: "password SIAKAD dan MyBest salah".
         mark({
-          siakad: apiErr.message.includes("SIAKAD") ? "failed" : "done",
-          mybest: apiErr.message.includes("MyBest") ? "failed" : "done",
+          siakad: "failed",
+          mybest: "failed",
         });
       } else {
         mark({ siakad: "failed", mybest: "failed" });
@@ -588,6 +620,27 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
                     value={siakadPass}
                     onChange={setSiakadPass}
                     autoComplete="current-password"
+                    disabled={skipSiakad}
+                    required={!skipSiakad}
+                    action={
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSkipSiakad((prev) => !prev);
+                          if (!skipSiakad) setSiakadPass("");
+                        }}
+                        className="inline-flex items-center font-mono text-[11px] font-semibold text-[#0369A1] hover:underline"
+                      >
+                        {skipSiakad ? "Isi sekarang" : "Lewati SIAKAD"}
+                      </button>
+                    }
+                    hint={
+                      <p className="font-mono text-[11px] text-secondary">
+                        {skipSiakad
+                          ? "SIAKAD dilewati. Fitur jadwal & nilai akan terkunci sampai kamu menghubungkannya."
+                          : "Opsional. Jika gagal atau belum ingat, kamu bisa lewati dulu."}
+                      </p>
+                    }
                   />
 
                   <div>

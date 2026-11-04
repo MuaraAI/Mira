@@ -1,12 +1,13 @@
 "use client";
 
 import { LogIn, LogOut, ShieldAlert, ShieldCheck, ShieldX, School } from "lucide-react";
-import { useApi } from "@/lib/api";
+import { useApi, AuthMeResponse } from "@/lib/api";
 import { useLogout } from "@/lib/logout";
 import { DosenInfo } from "@/components/DosenInfo";
 import { splitProgram } from "@/lib/profile";
 import { useSecurityStatus } from "@/lib/security";
 import { ChangePasswordCard } from "@/components/ChangePasswordCard";
+import { LockedSiakadCard } from "@/components/LockedSiakadCard";
 import {
   ErrorState,
   LoadingState,
@@ -27,7 +28,7 @@ interface StudentProfile {
 }
 
 export default function SesiPage() {
-  const meApi = useApi<{ nim: string; auth_type?: string }>("/v1/auth/me");
+  const meApi = useApi<AuthMeResponse>("/v1/auth/me");
   const profileApi = useApi<StudentProfile>("/v1/studentv2/profile");
   const securityApi = useSecurityStatus();
 
@@ -51,6 +52,18 @@ export default function SesiPage() {
         title="Sesi & Keamanan Akun"
         description="Aktivitas login, ganti password kampus, profil, dan keluar dari perangkat."
       />
+
+      {meApi.data?.systems?.siakad === false && (
+        <LockedSiakadCard
+          title="Akun SIAKAD Belum Terhubung"
+          description="Kamu login menggunakan akun MyBest saja. Hubungkan akun SIAKAD untuk membuka profil lengkap, dosen PA, jadwal kuliah, nilai, KRS, dan kartu ujian."
+          onConnected={() => {
+            meApi.reload();
+            profileApi.reload();
+            securityApi.reload();
+          }}
+        />
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <LoginActivityCard security={securityApi.data} />

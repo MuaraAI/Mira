@@ -18,10 +18,11 @@ import {
   HelpCircle,
   MessagesSquare,
 } from "lucide-react";
-import { useApi } from "@/lib/api";
+import { useApi, AuthMeResponse } from "@/lib/api";
 import { findSubmission, formatShortDate, parseDeadline } from "@/lib/assignments";
 import { TodayClassCard, type TodayClass } from "@/components/TodayClassCard";
 import { splitProgram } from "@/lib/profile";
+import { LockedSiakadCard } from "@/components/LockedSiakadCard";
 import {
   EmptyState,
   ErrorState,
@@ -107,7 +108,7 @@ function greeting(hour: number) {
 const norm = (v?: string | null) => (v ?? "").trim().toLowerCase();
 
 export default function DashboardOverviewPage() {
-  const me = useApi<{ nim: string; auth_type?: string }>("/v1/auth/me");
+  const me = useApi<AuthMeResponse>("/v1/auth/me");
   const profile = useApi<StudentProfile>("/v1/studentv2/profile", { persistMs: PERSIST_12H });
   const schedule = useApi<ScheduleItem[]>("/v1/studentv2/schedule", { persistMs: PERSIST_12H });
   const khs = useApi<KhsData>("/v1/studentv2/khs", { persistMs: PERSIST_12H });
@@ -205,6 +206,18 @@ export default function DashboardOverviewPage() {
 
   return (
     <div className="space-y-7">
+      {schedule.error?.status === 401 && (
+        <LockedSiakadCard
+          title="Akun SIAKAD Belum Terhubung"
+          description="Kamu login menggunakan akun MyBest saja. Hubungkan akun SIAKAD untuk memuat jadwal kuliah otomatis, status presensi per jam, dan IPK semester."
+          onConnected={() => {
+            schedule.reload();
+            profile.reload();
+            khs.reload();
+          }}
+        />
+      )}
+
       {/* 1. Hero: pita aksen dengan sapaan + identitas, lalu sorotan kelas dan pintasan */}
       <section className="overflow-hidden bg-white shadow-[0_0_0_2px_#163A55,6px_6px_0_0_#9CC6E0]" aria-label="Ringkasan hari ini">
         <div

@@ -33,6 +33,30 @@ logger = logging.getLogger("app.auth")
 router = APIRouter(prefix="/v1/auth", tags=["auth"])
 studentv2_client = StudentV2Client()
 
+async def verify_siakad_login(nim: str, studentv2_pass: str) -> bool:
+    """Uji satu kredensial SIAKAD secara live. Dipakai /login dan /credentials."""
+    loop = asyncio.get_running_loop()
+
+    def _test_sv2():
+        try:
+            if hasattr(studentv2_client.login, "assert_called"):
+                return studentv2_client.login(nim, studentv2_pass)
+            proxy = get_proxy(seed=nim)
+            client = StudentV2Client(proxy=proxy)
+            try:
+                ok = client.login(nim, studentv2_pass)
+            finally:
+                client.close()
+            if not ok:
+                logger.warning("SIAKAD login returned False for NIM %s", nim)
+            return ok
+        except Exception as err:
+            logger.error("SIAKAD login exception for NIM %s: %s", nim, err)
+            return False
+
+    return bool(await loop.run_in_executor(None, _test_sv2))
+
+
 class VerifyCredentialsRequest(BaseModel):
     nim: str = Field(..., min_length=3, description="NIM Mahasiswa")
     elearning_pass: str = Field(..., min_length=1, description="Password MyBest Elearning")
@@ -94,26 +118,11 @@ async def verify_credentials(req_body: VerifyCredentialsRequest, request: Reques
 async def verify_live_credentials(nim: str, elearning_pass: str, studentv2_pass: str) -> tuple[bool, bool]:
     """Verifikasi kredensial kampus secara live (SIAKAD + MyBest paralel).
 
-    Return (sv2_ok, el_ok). Dipakai /v1/auth/verify dan /v1/auth/login.
+    Return (sv2_ok, el_ok). SIAKAD boleh kosong (opsional): pass kosong
+    di-skip tanpa menembak server kampus, sv2_ok = False (terkunci).
+    Dipakai /v1/auth/verify dan /v1/auth/login.
     """
     loop = asyncio.get_running_loop()
-
-    def _test_sv2():
-        try:
-            if hasattr(studentv2_client.login, "assert_called"):
-                return studentv2_client.login(nim, studentv2_pass)
-            proxy = get_proxy(seed=nim)
-            client = StudentV2Client(proxy=proxy)
-            try:
-                ok = client.login(nim, studentv2_pass)
-            finally:
-                client.close()
-            if not ok:
-                logger.warning("SIAKAD login returned False for NIM %s", nim)
-            return ok
-        except Exception as err:
-            logger.error("SIAKAD login exception for NIM %s: %s", nim, err)
-            return False
 
     def _test_el():
         try:
@@ -132,16 +141,16 @@ async def verify_live_credentials(nim: str, elearning_pass: str, studentv2_pass:
             logger.error("Elearning login exception for NIM %s: %s", nim, err)
             return False
 
-    sv2_ok, el_ok = await asyncio.gather(
-        loop.run_in_executor(None, _test_sv2),
-        loop.run_in_executor(None, _test_el),
-    )
-    return bool(sv2_ok), bool(el_ok)
+    el_task = loop.run_in_executor(None, _test_el)
+    sv_task = verify_siakad_login(nim, studentv2_pass) if studentv2_pass else None
+    el_ok = bool(await el_task)
+    sv2_ok = bool(await sv_task) if sv_task else False
+    return sv2_ok, el_ok
 
 
 class LoginRequest(BaseModel):
     nim: str = Field(..., min_length=3, description="NIM Mahasiswa")
-    studentv2_pass: str = Field(..., min_length=1, description="Password SIAKAD Students")
+    studentv2_pass: str = Field("", description="Password SIAKAD Students (opsional: kosongkan untuk lewati)")
     elearning_pass: str = Field(..., min_length=1, description="Password MyBest Elearning")
 
 
@@ -185,32 +194,37 @@ async def login(req_body: LoginRequest, request: Request):
         )
 
     nim = req_body.nim.strip()
-    sv2_ok, el_ok = await verify_live_credentials(
-        nim, req_body.elearning_pass.strip(), req_body.studentv2_pass.strip()
-    )
+    raw_sv_pass = (req_body.studentv2_pass or "").strip()
+    el_pass = req_body.elearning_pass.strip()
+    siakad_attempted = bool(raw_sv_pass)
 
-    await login_guard.record_attempt(nim, bool(sv2_ok and el_ok), client_ip)
+    sv2_ok, el_ok = await verify_live_credentials(nim, el_pass, raw_sv_pass)
 
-    if not (sv2_ok and el_ok):
-        missing = []
-        if not sv2_ok:
-            missing.append("SIAKAD")
-        if not el_ok:
-            missing.append("MyBest")
+    # Brute-force & login guard: hitung sukses jika MyBest valid (dan SIAKAD valid jika diisi)
+    attempt_success = bool(el_ok and (sv2_ok or not siakad_attempted))
+    await login_guard.record_attempt(nim, attempt_success, client_ip)
+
+    # MyBest wajib: gagal -> tolak 401
+    if not el_ok:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=error_response(
                 code="INVALID_CREDENTIALS",
-                message="Kredensial kampus tidak valid (password " + " dan ".join(missing) + " salah)",
+                message="Kredensial kampus tidak valid (password MyBest salah)",
                 module="auth",
             ),
         )
 
+    # Opsi A: SIAKAD diisi tapi salah -> login tetap sukses, SIAKAD terkunci (pass kosong),
+    # sertakan warning ramah agar user tahu fitur SIAKAD belum aktif.
+    effective_sv_pass = raw_sv_pass if sv2_ok else ""
+    warnings: list[str] = []
+    if siakad_attempted and not sv2_ok:
+        warnings.append("Password SIAKAD salah. Fitur SIAKAD terkunci; hubungkan ulang di Sesi & Keamanan.")
+
     from app.session_store import session_store
 
-    token = await session_store.create(
-        nim, req_body.studentv2_pass.strip(), req_body.elearning_pass.strip()
-    )
+    token = await session_store.create(nim, effective_sv_pass, el_pass)
 
     response = JSONResponse(
         status_code=status.HTTP_200_OK,
@@ -219,9 +233,14 @@ async def login(req_body: LoginRequest, request: Request):
                 "nim": nim,
                 "token": token,
                 "message": "Login berhasil. Session aktif 7 hari (sliding).",
+                "systems": {
+                    "siakad": bool(effective_sv_pass),
+                    "mybest": True,
+                },
+                "warnings": warnings,
                 "default_password": {
-                    "siakad": is_default_password(req_body.studentv2_pass),
-                    "mybest": is_default_password(req_body.elearning_pass),
+                    "siakad": is_default_password(effective_sv_pass) if effective_sv_pass else False,
+                    "mybest": is_default_password(el_pass),
                 },
             }
         ),
@@ -309,7 +328,13 @@ async def me(request: Request):
     is_master = getattr(request.state, "is_master", False)
     auth_type = getattr(request.state, "auth_type", "session")
     if is_master:
-        return success_response(data={"identity": "master", "nim": None})
+        return success_response(
+            data={
+                "identity": "master",
+                "nim": None,
+                "systems": {"siakad": True, "mybest": True},
+            }
+        )
     if not nim:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -317,7 +342,18 @@ async def me(request: Request):
                 code="UNAUTHORIZED", message="Belum login", module="auth"
             ),
         )
-    return success_response(data={"nim": nim, "auth_type": auth_type})
+    sv_pass = getattr(request.state, "studentv2_pass", "") or ""
+    el_pass = getattr(request.state, "elearning_pass", "") or ""
+    return success_response(
+        data={
+            "nim": nim,
+            "auth_type": auth_type,
+            "systems": {
+                "siakad": bool(sv_pass),
+                "mybest": bool(el_pass),
+            },
+        }
+    )
 
 
 class CreateApiKeyRequest(BaseModel):
@@ -351,10 +387,11 @@ async def create_my_api_key(request: Request, body: CreateApiKeyRequest):
             code="SESSION_REQUIRED", message="Pembuatan API Key harus melalui sesi dashboard", module="auth"
         ))
     nim = getattr(request.state, "nim", None)
-    sv2_pass = getattr(request.state, "studentv2_pass", None)
-    el_pass = getattr(request.state, "elearning_pass", None)
+    sv2_pass = getattr(request.state, "studentv2_pass", None) or ""
+    el_pass = getattr(request.state, "elearning_pass", None) or ""
 
-    if not nim or not sv2_pass or not el_pass:
+    # MyBest wajib; SIAKAD boleh kosong (key tetap bisa dibuat, tapi endpoint studentv2 terkunci)
+    if not nim or not el_pass:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=error_response(
@@ -430,13 +467,83 @@ async def security_status(request: Request):
     """Ringkasan keamanan akun: jumlah login hari ini (WIB) dan status password default."""
     nim = _require_session_nim(request)
     activity = await login_guard.activity(nim)
+    sv_pass = getattr(request.state, "studentv2_pass", "") or ""
+    el_pass = getattr(request.state, "elearning_pass", "") or ""
     return success_response(
         data={
             **activity,
-            "default_password": {
-                "siakad": is_default_password(getattr(request.state, "studentv2_pass", "") or ""),
-                "mybest": is_default_password(getattr(request.state, "elearning_pass", "") or ""),
+            "systems": {
+                "siakad": bool(sv_pass),
+                "mybest": bool(el_pass),
             },
+            "default_password": {
+                "siakad": is_default_password(sv_pass) if sv_pass else False,
+                "mybest": is_default_password(el_pass) if el_pass else False,
+            },
+        }
+    )
+
+
+class ConnectCredentialsRequest(BaseModel):
+    system: str = Field(..., pattern="^(siakad)$", description="Sistem kampus yang ingin dihubungkan (saat ini: siakad)")
+    password: str = Field(..., min_length=1, max_length=128, description="Password akun kampus")
+
+
+@router.post("/credentials")
+async def connect_credentials(body: ConnectCredentialsRequest, request: Request):
+    """Hubungkan kredensial SIAKAD belakangan setelah login lewat MyBest saja.
+
+    Verifikasi live ke server kampus -> sinkronkan ke semua sesi aktif NIM & API Key.
+    """
+    nim = _require_session_nim(request)
+
+    if not await limiter.is_allowed(f"connect:{nim}", limit=5):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=error_response(
+                code="RATE_LIMIT_EXCEEDED",
+                message="Terlalu banyak percobaan menghubungkan akun. Tunggu 1 menit.",
+                module="auth",
+            ),
+        )
+
+    pwd = body.password.strip()
+    ok = await verify_siakad_login(nim, pwd)
+    if not ok:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_response(
+                code="INVALID_CREDENTIALS",
+                message="Password SIAKAD salah atau akun tidak ditemukan",
+                module="auth",
+            ),
+        )
+
+    from app.session_store import session_store
+    from app.api_keys_db import update_password_for_nim as update_keys
+
+    sessions = await session_store.update_password_for_nim(nim, "studentv2_pass", pwd)
+    try:
+        keys = await update_keys(nim, "studentv2_pass", pwd)
+    except Exception as err:
+        logger.error("Gagal sinkron password SIAKAD ke API Key untuk %s: %s", nim, err)
+        keys = 0
+
+    # Mutasi in-memory request.state agar handler middleware selanjutnya di request ini sinkron
+    request.state.studentv2_pass = pwd
+
+    logger.info("SIAKAD dihubungkan untuk %s (%s sesi, %s API key)", nim, sessions, keys)
+    return success_response(
+        data={
+            "system": body.system,
+            "connected": True,
+            "message": "Akun SIAKAD berhasil dihubungkan. Semua fitur akademik terbuka.",
+            "systems": {
+                "siakad": True,
+                "mybest": bool(getattr(request.state, "elearning_pass", "")),
+            },
+            "sessions_updated": sessions,
+            "api_keys_updated": keys,
         }
     )
 
@@ -468,6 +575,15 @@ async def change_password(body: ChangePasswordRequest, request: Request):
         )
 
     stored = getattr(request.state, field, "") or ""
+    if not stored:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_response(
+                code="SYSTEM_NOT_CONNECTED",
+                message=f"Akun {label} belum terhubung di sesi ini. Hubungkan dulu di Sesi & Keamanan.",
+                module="auth",
+            ),
+        )
     if not secrets.compare_digest(body.current_password.encode("utf-8"), stored.encode("utf-8")):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

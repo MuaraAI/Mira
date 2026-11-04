@@ -64,7 +64,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
 function ShellLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { logout, busy } = useLogout();
-  const { authed, checking, error, reload, nim } = useRequireSession();
+  const { authed, checking, error, reload, nim, hasSiakad } = useRequireSession();
   const title = getPageTitle(pathname);
   // Komunitas adalah aplikasi chat: pakai lebar penuh dan tinggi layar, tanpa banner dan footer.
   const chatRoute = pathname.startsWith("/dashboard/komunitas");
@@ -73,11 +73,11 @@ function ShellLayout({ children }: { children: React.ReactNode }) {
     <div className="portal-type min-h-screen bg-background text-foreground flex flex-col lg:flex-row">
       {/* Desktop Sidebar (lg breakpoint >= 1024px) */}
       <div className={`hidden lg:block lg:fixed lg:inset-y-0 lg:z-30 ${chatRoute ? "lg:w-16" : "lg:w-64"}`}>
-        <DashboardSidebar nim={nim} compact={chatRoute} />
+        <DashboardSidebar nim={nim} hasSiakad={hasSiakad} compact={chatRoute} />
       </div>
 
       {/* Mobile Navigation (Topbar, Bottom bar & Drawer) */}
-      <DashboardMobileNav nim={nim} authed={authed} />
+      <DashboardMobileNav nim={nim} hasSiakad={hasSiakad} authed={authed} />
 
       {/* Main Content Area */}
       <div className={`flex-1 flex flex-col min-w-0 ${chatRoute ? "lg:pl-16" : "lg:pl-64"}`}>

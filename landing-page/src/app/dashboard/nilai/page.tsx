@@ -17,7 +17,8 @@ import {
   EyeOff,
 } from "lucide-react";
 import { toPng } from "html-to-image";
-import { useApi } from "@/lib/api";
+import { useApi, ApiError } from "@/lib/api";
+import { LockedSiakadCard } from "@/components/LockedSiakadCard";
 import { gradeValue } from "@/lib/assignments";
 import {
   EmptyState,
@@ -192,7 +193,28 @@ export default function NilaiPage() {
   if (khsApi.loading && gradesApi.loading && elearningApi.loading) {
     return <LoadingState label="Memuat transkrip nilai akademik" />;
   }
-  if (khsApi.error) return <ErrorState error={khsApi.error} onRetry={khsApi.reload} />;
+  if (khsApi.error) {
+    if (khsApi.error.status === 401) {
+      return (
+        <div className="space-y-6">
+          <PageHeader
+            title="Transkrip Nilai Akademik"
+            description="KHS semester, nilai mata kuliah SIAKAD, dan rekap tugas MyBest."
+          />
+          <LockedSiakadCard
+            title="Transkrip Nilai Terkunci"
+            description="Nilai KHS dan transkrip semester diambil dari SIAKAD. Hubungkan akun SIAKAD untuk melihat IPK, SKS, nilai huruf tiap mata kuliah, dan membuat kartu pencapaian."
+            onConnected={() => {
+              khsApi.reload();
+              gradesApiRaw.reload();
+              profileApi.reload();
+            }}
+          />
+        </div>
+      );
+    }
+    return <ErrorState error={khsApi.error} onRetry={khsApi.reload} />;
+  }
 
   const khs = khsApi.data;
   const khsItems = khs?.items ?? [];

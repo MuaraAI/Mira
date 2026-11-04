@@ -228,8 +228,8 @@ async def test_login_reports_default_password_and_counts_today(fake_redis, monke
         assert ok.json()["data"]["default_password"] == {"siakad": True, "mybest": False}
         token = ok.json()["data"]["token"]
 
-        monkeypatch.setattr("app.modules.auth.verify_live_credentials", AsyncMock(return_value=(False, True)))
-        bad = await ac.post("/v1/auth/login", json=_creds(sv="salah"))
+        monkeypatch.setattr("app.modules.auth.verify_live_credentials", AsyncMock(return_value=(True, False)))
+        bad = await ac.post("/v1/auth/login", json=_creds(el="salah"))
         assert bad.status_code == 401
 
         sec = await ac.get("/v1/auth/security", headers={"Authorization": f"Bearer {token}"})

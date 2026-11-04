@@ -1,7 +1,8 @@
 "use client";
 
 import { FileSpreadsheet, Layers, Award, Calendar } from "lucide-react";
-import { useApi } from "@/lib/api";
+import { useApi, ApiError } from "@/lib/api";
+import { LockedSiakadCard } from "@/components/LockedSiakadCard";
 import {
   EmptyState,
   ErrorState,
@@ -27,7 +28,24 @@ export default function KrsPage() {
   const { data, loading, error, reload } = useApi<KrsData>("/v1/studentv2/krs");
 
   if (loading) return <LoadingState label="Memuat Kartu Rencana Studi (KRS)" />;
-  if (error) return <ErrorState error={error} onRetry={reload} />;
+  if (error) {
+    if (error.status === 401) {
+      return (
+        <div className="space-y-6">
+          <PageHeader
+            title="Kartu Rencana Studi (KRS)"
+            description="Mata kuliah yang kamu ambil semester ini, dari SIAKAD."
+          />
+          <LockedSiakadCard
+            title="KRS Terkunci"
+            description="Data KRS (Kartu Rencana Studi) diambil langsung dari SIAKAD. Hubungkan akun SIAKAD untuk melihat daftar mata kuliah aktif, total SKS semester, dan kelompok ruang ujian."
+            onConnected={reload}
+          />
+        </div>
+      );
+    }
+    return <ErrorState error={error} onRetry={reload} />;
+  }
 
   const krs = data;
   const items = krs?.items ?? [];

@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { BookOpen, Clock, MapPin, User, UserCheck } from "lucide-react";
-import { useApi } from "@/lib/api";
+import { useApi, ApiError } from "@/lib/api";
+import { LockedSiakadCard } from "@/components/LockedSiakadCard";
 import { DosenInfo } from "@/components/DosenInfo";
 import {
   EmptyState,
@@ -178,7 +179,21 @@ export default function JadwalPage() {
   }, [schedule, now]);
 
   if (loading) return <LoadingState label="Memuat jadwal kuliah" />;
-  if (error) return <ErrorState error={error} onRetry={reload} />;
+  if (error) {
+    if (error.status === 401) {
+      return (
+        <div className="space-y-6">
+          <PageHeader title="Jadwal Kuliah" description="Jadwal perkuliahan mingguan dari SIAKAD." />
+          <LockedSiakadCard
+            title="Jadwal Kuliah Terkunci"
+            description="Jadwal kuliah diambil langsung dari SIAKAD. Hubungkan akun SIAKAD kamu untuk melihat jadwal mingguan, ruang kelas, dan dosen pengampu."
+            onConnected={reload}
+          />
+        </div>
+      );
+    }
+    return <ErrorState error={error} onRetry={reload} />;
+  }
 
   if (schedule.length === 0) {
     return (

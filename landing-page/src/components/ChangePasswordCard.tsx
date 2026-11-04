@@ -78,10 +78,16 @@ export function ChangePasswordCard({
   const [error, setError] = useState<ApiError | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // Default ke sistem yang masih memakai password default.
+  const siakadConnected = status?.systems?.siakad !== false;
+
+  // Default ke mybest jika siakad belum terhubung, atau ke sistem yang masih memakai password default.
   useEffect(() => {
+    if (!siakadConnected) {
+      setSystem("mybest");
+      return;
+    }
     if (status?.default_password.mybest && !status.default_password.siakad) setSystem("mybest");
-  }, [status?.default_password.mybest, status?.default_password.siakad]);
+  }, [status?.default_password.mybest, status?.default_password.siakad, siakadConnected]);
 
   const checks = passwordChecks(nim, current, next);
   const confirmOk = confirm.length > 0 && confirm === next;
@@ -131,6 +137,7 @@ export function ChangePasswordCard({
         {(Object.keys(PASSWORD_SYSTEM_LABEL) as PasswordSystem[]).map((key) => {
           const active = system === key;
           const isDefault = status?.default_password[key];
+          const isLocked = key === "siakad" && !siakadConnected;
           return (
             <button
               key={key}
@@ -146,21 +153,36 @@ export function ChangePasswordCard({
               }`}
             >
               {PASSWORD_SYSTEM_LABEL[key]}
-              {isDefault && (
+              {isLocked ? (
+                <span className="bg-[#CFE2EE] px-1.5 py-0.5 text-[10px] uppercase text-[#072033]">terkunci</span>
+              ) : isDefault ? (
                 <span className="bg-[#F59E0B] px-1.5 py-0.5 text-[10px] uppercase text-[#451A03]">default</span>
-              )}
+              ) : null}
             </button>
           );
         })}
       </div>
 
-      {status?.default_password[system] && (
+      {system === "siakad" && !siakadConnected && (
+        <div className="bg-[#FFFBEB] p-4 text-xs leading-relaxed text-[#78350F] shadow-[inset_0_0_0_2px_#FCD34D] space-y-1.5">
+          <p className="font-bold flex items-center gap-2">
+            <ShieldAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
+            Akun SIAKAD belum terhubung di sesi ini.
+          </p>
+          <p>
+            Kamu login menggunakan akun MyBest saja. Hubungkan akun SIAKAD terlebih dahulu untuk bisa mengganti passwordnya.
+          </p>
+        </div>
+      )}
+
+      {system === "siakad" && !siakadConnected ? null : status?.default_password[system] ? (
         <p className="flex items-start gap-2 bg-[#FFFBEB] p-3 text-xs leading-relaxed text-[#78350F] shadow-[inset_0_0_0_2px_#FCD34D]">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           Password {label} kamu masih default kampus. Segera ganti.
         </p>
-      )}
+      ) : null}
 
+      {system === "siakad" && !siakadConnected ? null : (
       <form onSubmit={submit} className="space-y-4" noValidate>
         <SecretInput
           id="pw-current"
@@ -227,6 +249,7 @@ export function ChangePasswordCard({
           Proses ini bisa makan waktu hingga 30 detik.
         </p>
       </form>
+      )}
     </section>
   );
 }
