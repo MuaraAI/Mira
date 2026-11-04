@@ -18,7 +18,15 @@ import { FocusDialog } from "@/components/FocusDialog";
 import { lockScroll } from "@/lib/scroll-lock";
 import { LoginTodayBadge } from "@/components/SecurityWidgets";
 
-export function DashboardMobileNav({ nim, authed = false }: { nim?: string | null; authed?: boolean }) {
+export function DashboardMobileNav({
+  nim,
+  hasSiakad = true,
+  authed = false,
+}: {
+  nim?: string | null;
+  hasSiakad?: boolean;
+  authed?: boolean;
+}) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -114,6 +122,7 @@ export function DashboardMobileNav({ nim, authed = false }: { nim?: string | nul
             <div className="min-h-0 flex-1">
               <DashboardSidebar
                 nim={nim}
+                hasSiakad={hasSiakad}
                 showBrand={false}
                 hideHrefs={quickNav.map((item) => item.href)}
                 onItemClick={() => setIsOpen(false)}

@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { Award, ExternalLink, FileText, CheckCircle2, AlertCircle } from "lucide-react";
-import { useApi } from "@/lib/api";
+import { useApi, ApiError } from "@/lib/api";
 import { safeExternalHref } from "@/lib/links";
+import { LockedSiakadCard } from "@/components/LockedSiakadCard";
 import {
   EmptyState,
   ErrorState,
@@ -34,7 +35,28 @@ export default function UjianPage() {
   if (utsApi.loading && scheduleApi.loading && uasApi.loading) {
     return <LoadingState label="Memuat informasi kartu ujian" />;
   }
-  if (utsApi.error && uasApi.error) return <ErrorState error={utsApi.error} onRetry={utsApi.reload} />;
+  if (utsApi.error && uasApi.error) {
+    if (utsApi.error.status === 401 || uasApi.error.status === 401) {
+      return (
+        <div className="space-y-6">
+          <PageHeader
+            title="Kartu Ujian (UTS & UAS)"
+            description="Ruang ujian, link jadwal ujian online, dan unduh soal dari SIAKAD."
+          />
+          <LockedSiakadCard
+            title="Kartu Ujian Terkunci"
+            description="Informasi kartu UTS dan UAS diambil dari SIAKAD. Hubungkan akun SIAKAD untuk melihat ruang ujian, link jadwal ujian daring, dan unduh berkas soal."
+            onConnected={() => {
+              utsApi.reload();
+              uasApi.reload();
+              scheduleApi.reload();
+            }}
+          />
+        </div>
+      );
+    }
+    return <ErrorState error={utsApi.error} onRetry={utsApi.reload} />;
+  }
 
   const currentExam = activeTab === "uts" ? utsApi.data : uasApi.data;
   const courses = scheduleApi.data ?? [];

@@ -129,13 +129,13 @@ async def test_login_success_sets_cookie_and_stores_session(fake_redis):
 async def test_login_invalid_credentials_returns_401(monkeypatch):
     monkeypatch.setattr(
         "app.modules.auth.verify_live_credentials",
-        AsyncMock(return_value=(False, True)),
+        AsyncMock(return_value=(True, False)),
     )
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         res = await ac.post(
             "/v1/auth/login",
-            json={"nim": "12345678", "studentv2_pass": "wrong", "elearning_pass": "el"},
+            json={"nim": "12345678", "studentv2_pass": "sv", "elearning_pass": "wrong"},
         )
         assert res.status_code == 401
         assert res.json()["error"]["code"] == "INVALID_CREDENTIALS"

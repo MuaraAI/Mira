@@ -412,9 +412,19 @@ export function useApi<T>(
   };
 }
 
+export interface AuthMeResponse {
+  nim: string | null;
+  auth_type?: string;
+  identity?: string;
+  systems?: {
+    siakad: boolean;
+    mybest: boolean;
+  };
+}
+
 export function useRequireSession() {
   const router = useRouter();
-  const { data, loading, error, reload } = useApi<{ nim: string; auth_type?: string }>(
+  const { data, loading, error, reload } = useApi<AuthMeResponse>(
     "/v1/auth/me"
   );
 
@@ -431,6 +441,9 @@ export function useRequireSession() {
   return {
     nim: data?.nim ?? null,
     authType: data?.auth_type ?? null,
+    systems: data?.systems ?? { siakad: false, mybest: false },
+    hasSiakad: Boolean(data?.systems?.siakad),
+    hasMybest: Boolean(data?.systems?.mybest),
     checking: loading,
     authed: !loading && !error,
     error,

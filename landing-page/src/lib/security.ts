@@ -11,6 +11,7 @@ export interface SecurityStatus {
   failed_today: number;
   last_login_at: string | null;
   last_login_ip: string | null;
+  systems?: { siakad: boolean; mybest: boolean };
   default_password: { siakad: boolean; mybest: boolean };
 }
 

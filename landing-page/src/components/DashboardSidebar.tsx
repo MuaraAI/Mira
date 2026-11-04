@@ -79,14 +79,23 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
   },
 ];
 
+export const SIAKAD_REQUIRED_PATHS = new Set([
+  "/dashboard/jadwal",
+  "/dashboard/nilai",
+  "/dashboard/krs",
+  "/dashboard/ujian",
+]);
+
 export function DashboardSidebar({
   nim,
+  hasSiakad = true,
   onItemClick,
   showBrand = true,
   hideHrefs = [],
   compact = false,
 }: {
   nim?: string | null;
+  hasSiakad?: boolean;
   onItemClick?: () => void;
   /** Hanya ikon (lebar 64px), dipakai halaman Komunitas agar area chat lebih lega. */
   compact?: boolean;
@@ -130,23 +139,33 @@ export function DashboardSidebar({
             <ul className="space-y-px">
               {group.items.map(({ href, label, icon: Icon, exact, badge }) => {
                 const active = exact ? pathname === href : pathname.startsWith(href);
+                const isLocked = !hasSiakad && SIAKAD_REQUIRED_PATHS.has(href);
+                const effectiveBadge = isLocked ? "Kunci" : badge;
                 return (
                   <li key={href}>
                     <Link
                       href={href}
                       onClick={onItemClick}
                       aria-current={active ? "page" : undefined}
-                      title={compact ? label : undefined}
+                      title={compact ? (isLocked ? `${label} (butuh SIAKAD)` : label) : undefined}
                       className={`flex min-h-11 items-center gap-2.5 font-mono text-xs ${compact ? "justify-center px-0 lg:min-h-10" : "px-2.5"} transition-[background-color,color,box-shadow] duration-200 lg:min-h-8 ${
                         active
                           ? "bg-px-highlight font-semibold text-foreground shadow-[inset_3px_0_0_#0369A1]"
                           : "font-medium text-secondary hover:bg-[#F0F7FB] hover:text-foreground hover:shadow-[inset_3px_0_0_#9CC6E0]"
                       }`}
                     >
-                      <Icon className={`h-4 w-4 shrink-0 ${active ? "text-[#0369A1]" : "text-secondary"}`} aria-hidden="true" />
+                      <Icon className={`h-4 w-4 shrink-0 ${active ? "text-[#0369A1]" : isLocked ? "text-amber-600" : "text-secondary"}`} aria-hidden="true" />
                       <span className={compact ? "sr-only" : "truncate"}>{label}</span>
-                      {badge && !compact && (
-                        <span className="px-chip ml-auto bg-white px-1.5 py-0.5 font-mono text-[10px] text-[#0369A1]">{badge}</span>
+                      {effectiveBadge && !compact && (
+                        <span
+                          className={`px-chip ml-auto px-1.5 py-0.5 font-mono text-[10px] ${
+                            isLocked
+                              ? "bg-amber-100 text-amber-800 border border-amber-300 font-semibold"
+                              : "bg-white text-[#0369A1]"
+                          }`}
+                        >
+                          {effectiveBadge}
+                        </span>
                       )}
                     </Link>
                   </li>
