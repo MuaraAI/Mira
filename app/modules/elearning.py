@@ -769,22 +769,164 @@ def parse_elearning_profile(html: str) -> dict[str, Any]:
         "email": email,
     }
 
+_MONTHS_ID = {
+    "jan": 1, "januari": 1, "january": 1,
+    "feb": 2, "februari": 2, "february": 2, "pebruari": 2,
+    "mar": 3, "maret": 3, "march": 3,
+    "apr": 4, "april": 4,
+    "mei": 5, "may": 5,
+    "jun": 6, "juni": 6, "june": 6,
+    "jul": 7, "juli": 7, "july": 7,
+    "agu": 8, "agt": 8, "agus": 8, "agustus": 8, "aug": 8, "august": 8,
+    "sep": 9, "sept": 9, "september": 9,
+    "okt": 10, "oktober": 10, "oct": 10, "october": 10,
+    "nov": 11, "nopember": 11, "november": 11,
+    "des": 12, "desember": 12, "dec": 12, "december": 12,
+}
+_DATE_NUMERIC_RE = re.compile(r"\b(\d{4})-(\d{1,2})-(\d{1,2})\b|\b(\d{1,2})[-/](\d{1,2})[-/](\d{4})\b")
+_DATE_WORDS_RE = re.compile(r"\b(\d{1,2})\s+([A-Za-z]{3,9})\.?\s+(\d{4})\b")
+_ABSEN_HREF_RE = re.compile(r"^(?:https?://elearning\.bsi\.ac\.id)?/(absen[a-z0-9-]{0,40})/([^/?#\s]+)", re.IGNORECASE)
+_DAY_BY_WEEKDAY = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
+
+
+def _parse_date_any(text: str) -> Optional[str]:
+    """Tanggal pertama di teks bebas -> "YYYY-MM-DD" ("2026-11-05", "05-11-2026", "5 November 2026", "Kamis, 05 Nov 2026")."""
+    raw = text or ""
+    m = _DATE_NUMERIC_RE.search(raw)
+    parts: Optional[tuple[int, int, int]] = None
+    if m:
+        parts = (int(m.group(1)), int(m.group(2)), int(m.group(3))) if m.group(1) else (int(m.group(6)), int(m.group(5)), int(m.group(4)))
+    else:
+        for w in _DATE_WORDS_RE.finditer(raw):
+            month = _MONTHS_ID.get(w.group(2).lower())
+            if month:
+                parts = (int(w.group(3)), month, int(w.group(1)))
+                break
+    if not parts:
+        return None
+    try:
+        return datetime(parts[0], parts[1], parts[2]).strftime("%Y-%m-%d")
+    except ValueError:
+        return None
+
+
+def _absen_link(node: Any) -> tuple[Optional[str], Optional[str]]:
+    """(path, token) dari link absen pertama di dalam node, mis. ("absen-mhs", "eyJ...")."""
+    for a in node.css("a[href]"):
+        m = _ABSEN_HREF_RE.match((a.attrib.get("href") or "").strip())
+        if m:
+            return m.group(1).lower(), m.group(2)
+    return None, None
+
+
+def _makeup_record(fields: dict[str, str], text: str, node: Any) -> Optional[dict[str, Any]]:
+    """Satu kuliah pengganti dari label->nilai yang dikenali plus teks mentah kartu/baris."""
+
+    def pick(*names: str) -> str:
+        usable = {k: v.strip() for k, v in fields.items() if v and v.strip() and v.strip() != "-"}
+        for name in names:
+            if name in usable:
+                return usable[name]
+            for key, val in usable.items():
+                if key.startswith(name + " ") or key.startswith(name + "_"):
+                    return val
+        return ""
+
+    jadwal_text = pick("jadwal pengganti", "tanggal pengganti", "jadwal", "tanggal", "waktu", "hari") or text
+    tanggal = _parse_date_any(pick("tanggal pengganti", "tgl pengganti", "jadwal pengganti", "tanggal", "tgl", "jadwal", "waktu")) or _parse_date_any(text)
+    hari, jam = _split_schedule(jadwal_text)
+    if not jam:
+        jam_masuk = pick("jam masuk", "mulai")
+        jam_keluar = pick("jam keluar", "selesai")
+        if jam_masuk and jam_keluar:
+            _, jam = _split_schedule(f"{jam_masuk}-{jam_keluar}")
+        if not jam:
+            _, jam = _split_schedule(pick("jam") or text)
+    if tanggal:
+        hari = _DAY_BY_WEEKDAY[datetime.strptime(tanggal, "%Y-%m-%d").weekday()]
+    elif not hari:
+        hari, _ = _split_schedule(text)
+
+    nama = pick("mata kuliah", "matakuliah", "nama mtk", "nama matakuliah", "mtk")
+    kode = pick("kode mtk", "kode matakuliah", "kode mk", "kode")
+    if not nama and not kode:
+        return None
+    absen_path, absen_token = _absen_link(node)
+    ruang = pick("ruang pengganti", "no ruang", "ruang", "ruangan")
+    dosen = pick("kode dosen", "dosen")
+    keterangan = pick("keterangan", "alasan", "status", "ket")
+    item_id = hashlib.sha256(f"{kode}:{nama}:{tanggal or jadwal_text}:{jam}".encode()).hexdigest()[:12]
+    return {
+        "id": item_id,
+        "kode": kode or "-",
+        "mata_kuliah": nama or "-",
+        "jadwal": " ".join(jadwal_text.split()) or "-",
+        "tanggal": tanggal,
+        "hari": hari or None,
+        "jam": jam or None,
+        "ruang": ruang or None,
+        "dosen": dosen or None,
+        "kelas": pick("kelas") or None,
+        "keterangan": keterangan,
+        "token_absen": absen_token,
+        "absen_path": absen_path,
+    }
+
+
 def parse_makeup_classes(html: str) -> list[dict[str, Any]]:
-    """Ekstraksi jadwal kuliah pengganti (make-up classes) dari MyBest."""
+    """Jadwal kuliah pengganti (make-up classes) dari MyBest `/kuliah-pengganti`.
+
+    Tahan beberapa layout: kartu `jadwal-card` (label/nilai), `pricing-plan` lama, dan tabel
+    dengan header. Tanggal dibakukan ke ISO supaya dashboard bisa memprioritaskan kuliah
+    pengganti hari ini; link absen (`/absen-.../{token}`) ikut diambil untuk absen pengganti.
+    """
     page = Adaptor(html)
-    records = []
-    tables = page.css("table")
-    for t in tables:
-        for r in t.css("tr")[1:]:
-            cols = [c.get_all_text().strip() for c in r.css("td")]
-            if len(cols) >= 3:
-                records.append({
-                    "kode": cols[0] if len(cols) > 0 else "-",
-                    "mata_kuliah": cols[1] if len(cols) > 1 else "-",
-                    "jadwal": cols[2] if len(cols) > 2 else "-",
-                    "keterangan": cols[3] if len(cols) > 3 else "",
-                })
-    return records
+    records: list[dict[str, Any]] = []
+
+    for card in page.css("div.jadwal-card, div.pricing-plan"):
+        fields: dict[str, str] = {}
+        for row in card.css(".jadwal-info-row"):
+            lab = row.css(".jadwal-info-label")
+            val = row.css(".jadwal-info-val")
+            if lab and val:
+                fields[lab[0].get_all_text().strip().strip(":").strip().lower()] = val[0].get_all_text().strip()
+        text = " ".join(card.get_all_text().split())
+        for m in re.finditer(r"(Kode MTK|Kode Dosen|No Ruang|Ruang|Tanggal|Jam|Kelas)\s*:\s*([^:]+?)(?=\s+[A-Z][A-Za-z ]{1,20}\s*:|$)", text):
+            fields.setdefault(m.group(1).lower(), m.group(2).strip())
+        title = card.css(".jadwal-title, .pricing-title")
+        if title:
+            fields.setdefault("mata kuliah", title[0].get_all_text().strip())
+        rec = _makeup_record(fields, text, card)
+        if rec:
+            records.append(rec)
+
+    if not records:
+        for table in page.css("table"):
+            headers = [" ".join(th.get_all_text().split()).lower() for th in table.css("th")]
+            for row in table.css("tr"):
+                cells = row.css("td")
+                if len(cells) < 3:
+                    continue
+                cols = [" ".join(c.get_all_text().split()) for c in cells]
+                if headers and len(headers) >= len(cols):
+                    offset = len(headers) - len(cols)
+                    fields = {h: cols[i - offset] for i, h in enumerate(headers) if i >= offset and h}
+                else:
+                    # Tanpa header: urutan lama Kode | Mata Kuliah | Jadwal | Keterangan.
+                    fields = {"kode": cols[0], "mata kuliah": cols[1], "jadwal": cols[2]}
+                    if len(cols) > 3:
+                        fields["keterangan"] = cols[3]
+                rec = _makeup_record(fields, " ".join(cols), row)
+                if rec:
+                    records.append(rec)
+
+    seen: set[str] = set()
+    unique = []
+    for rec in records:
+        if rec["id"] not in seen:
+            seen.add(rec["id"])
+            unique.append(rec)
+    return unique
 
 def get_official_guides() -> list[dict[str, str]]:
     """Daftar buku panduan resmi MyBest perkuliahan mahasiswa UBSI."""
@@ -1777,13 +1919,18 @@ async def get_assignments(
         cache_params={"token": clean_token, "nim": nim},
     )
 
+_ABSEN_PATH_PATTERN = r"^absen[a-z0-9-]{0,40}$"
+
+
 @router.get("/presence")
 async def get_presence(
     token: Optional[str] = Query(default=None, description="Token terenkripsi presensi mata kuliah dari /courses (diawali 'eyJ...')"),
+    path: str = Query(default="absen-mhs", pattern=_ABSEN_PATH_PATTERN, description="Halaman absen MyBest: 'absen-mhs' (reguler) atau path absen kuliah pengganti dari /makeups."),
     creds: tuple[str, str] = Depends(require_elearning_creds)
 ):
     nim, password = creds
     clean_token = extract_clean_token(token)
+    absen_path = path.lower()
 
     if not clean_token:
         courses_res = await get_courses(creds)
@@ -1799,7 +1946,7 @@ async def get_presence(
         clean_token = first_token
 
     async def _fetch_presence():
-        html = await pooled_elearning_client.fetch_page(f"/absen-mhs/{clean_token}", nim, password)
+        html = await pooled_elearning_client.fetch_page(f"/{absen_path}/{clean_token}", nim, password)
         presence = parse_presence(html)
 
         # Ambil riwayat presensi lengkap via DataTables AJAX (/rekap-side/{token}).
@@ -1829,7 +1976,7 @@ async def get_presence(
         fetch=_fetch_presence,
         parse=lambda data: data,
         ttl=settings.TTL_PRESENCE,
-        cache_params={"token": clean_token, "nim": nim},
+        cache_params={"token": clean_token, "nim": nim} if absen_path == "absen-mhs" else {"token": clean_token, "nim": nim, "absen": absen_path},
         allow_stale=False,
     )
 
@@ -2056,7 +2203,7 @@ async def get_course_grades(
 
 # Write Operations & Interactive Quiz
 
-async def invalidate_elearning_user_cache(nim: str, token: Optional[str] = None) -> None:
+async def invalidate_elearning_user_cache(nim: str, token: Optional[str] = None, absen_path: str = "absen-mhs") -> None:
     """Invalidasi cache elearning khusus untuk NIM ini tanpa mengganggu mahasiswa lain."""
     from app.cache import cache
     try:
@@ -2076,6 +2223,11 @@ async def invalidate_elearning_user_cache(nim: str, token: Optional[str] = None)
                     f"{cache.make_key('elearning', endpoint, nim=nim, token=token)}:fresh",
                     f"{cache.make_key('elearning', endpoint, nim=nim, token=token)}:lgg",
                 ])
+        if token and absen_path != "absen-mhs":
+            keys_to_del.extend([
+                f"{cache.make_key('elearning', 'presence', nim=nim, token=token, absen=absen_path)}:fresh",
+                f"{cache.make_key('elearning', 'presence', nim=nim, token=token, absen=absen_path)}:lgg",
+            ])
         client = await cache.get_client()
         await client.delete(*keys_to_del)
     except Exception as exc:
@@ -2083,7 +2235,7 @@ async def invalidate_elearning_user_cache(nim: str, token: Optional[str] = None)
 
 
 async def submit_presence(
-    nim: str, password: str, token: Optional[str] = None
+    nim: str, password: str, token: Optional[str] = None, absen_path: str = "absen-mhs"
 ) -> dict[str, Any]:
     """Eksekusi presensi (pencet tombol absen) pada sesi kuliah yang aktif."""
     target_token = token
@@ -2113,7 +2265,7 @@ async def submit_presence(
                 "message": "Tidak ditemukan sesi mata kuliah yang sedang membuka presensi saat ini.",
             }
     else:
-        html = await pooled_elearning_client.fetch_page(f"/absen-mhs/{target_token}", nim, password)
+        html = await pooled_elearning_client.fetch_page(f"/{absen_path}/{target_token}", nim, password)
         info = inspect_session_status(html)
 
     if not info["can_submit"]:
@@ -2125,7 +2277,7 @@ async def submit_presence(
             "message": f"Presensi tidak dapat dilakukan karena status sesi: {info['status_raw']}",
         }
 
-    action_url = info.get("form_action") or f"/absen-mhs/{target_token}"
+    action_url = info.get("form_action") or f"/{absen_path}/{target_token}"
     inputs = dict(info.get("form_inputs") or {})
     # Force nilai=1 (Pengajaran Sesuai) — the dict comprehension in
     # inspect_session_status picks the LAST input value, which is "0" (Tidak Sesuai).
@@ -2144,7 +2296,7 @@ async def submit_presence(
                 "message": "Gagal mencatat presensi: sesi MyBest kedaluwarsa atau upstream menolak.",
             }
 
-        await invalidate_elearning_user_cache(nim, target_token)
+        await invalidate_elearning_user_cache(nim, target_token, absen_path)
 
         return {
             "success": True,
@@ -2235,12 +2387,13 @@ async def submit_quiz_answer(
 @router.post("/presence")
 async def post_presence(
     token: Optional[str] = Query(default=None, description="Token terenkripsi presensi mata kuliah dari /courses (diawali 'eyJ...')"),
+    path: str = Query(default="absen-mhs", pattern=_ABSEN_PATH_PATTERN, description="Halaman absen MyBest: 'absen-mhs' (reguler) atau path absen kuliah pengganti."),
     creds: tuple[str, str] = Depends(require_elearning_creds)
 ):
-    """Pencet / submit presensi perkuliahan pada kelas aktif."""
+    """Pencet / submit presensi perkuliahan (reguler atau kuliah pengganti) pada kelas aktif."""
     nim, password = creds
     clean_token = extract_clean_token(token)
-    result = await submit_presence(nim, password, clean_token)
+    result = await submit_presence(nim, password, clean_token, path.lower())
     return success_response(data=result)
 
 @router.get("/quiz/questions")

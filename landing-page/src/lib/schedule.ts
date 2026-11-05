@@ -102,6 +102,35 @@ export function sessionTiming(day: string | null | undefined, jam: string | null
   return { daysAway, date, range, state: "later", label: range ? `${when}, ${clock(range[0])}` : when };
 }
 
+/** "2026-11-05" -> Date lokal (tanpa geser zona waktu), atau null. */
+export function parseIsoDate(value?: string | null): Date | null {
+  const m = (value ?? "").match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
+}
+
+/**
+ * Timing pertemuan pada TANGGAL tertentu (mis. kuliah pengganti), bukan pola mingguan.
+ * Null bila tanggalnya sudah lewat.
+ */
+export function dateTiming(date: Date, jam: string | null | undefined, now: Date): SessionTiming | null {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const daysAway = Math.round((target.getTime() - today.getTime()) / 86_400_000);
+  if (daysAway < 0) return null;
+  const range = minutesRange(null, null, jam);
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  if (daysAway === 0 && range) {
+    const [start, end] = range;
+    if (nowMin < start - 60) return { daysAway, date: target, range, state: "upcoming", label: `Hari ini pukul ${clock(start)}` };
+    if (nowMin < start) return { daysAway, date: target, range, state: "soon", label: `Dimulai ${start - nowMin} menit lagi` };
+    if (nowMin <= end) return { daysAway, date: target, range, state: "live", label: `Sedang berlangsung, selesai ${clock(end)}` };
+    return { daysAway, date: target, range, state: "done", label: `Hari ini, selesai pukul ${clock(end)}` };
+  }
+  if (daysAway === 0) return { daysAway, date: target, range, state: "upcoming", label: "Hari ini" };
+  const when = daysAway === 1 ? "Besok" : `${shortDate(target)} (${daysAway} hari lagi)`;
+  return { daysAway, date: target, range, state: "later", label: range ? `${when}, ${clock(range[0])}` : when };
+}
+
 /* ------------------------------------------------------------------ ruang */
 
 export interface RoomInfo {

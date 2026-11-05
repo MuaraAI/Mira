@@ -13,6 +13,7 @@ import {
   AlertCircle,
   ChevronDown,
   CalendarDays,
+  Repeat,
 } from "lucide-react";
 import { apiFetch, useApi, clearApiCache } from "@/lib/api";
 import {
@@ -22,8 +23,10 @@ import {
   Skeleton,
 } from "@/components/dashboard-ui";
 import {
+  dateTiming,
   dayIndex,
   dayName,
+  parseIsoDate,
   describeRoom,
   formatRecordDate,
   minutesRange,
@@ -51,6 +54,39 @@ interface CourseItem {
   kode_dosen?: string;
   dosen_code?: string;
   token_absen?: string | null;
+}
+
+/** Kuliah pengganti terdaftar di MyBest (/v1/elearning/makeups). */
+interface MakeupItem {
+  id: string;
+  kode?: string;
+  mata_kuliah?: string;
+  jadwal?: string;
+  tanggal?: string | null;
+  hari?: string | null;
+  jam?: string | null;
+  ruang?: string | null;
+  dosen?: string | null;
+  keterangan?: string;
+  token_absen?: string | null;
+  absen_path?: string | null;
+}
+
+interface TimedCourse {
+  course: CourseItem;
+  timing: SessionTiming | null;
+  /** Diisi bila pertemuan terdekat mapel ini adalah kuliah pengganti. */
+  makeup: MakeupItem | null;
+}
+
+const normText = (v?: string | null) => (v ?? "").toLowerCase().replace(/\s+/g, " ").trim();
+
+function makeupMatches(course: CourseItem, m: MakeupItem): boolean {
+  const kode = normText(m.kode);
+  if (kode && kode !== "-" && (normText(course.kode) === kode || normText(course.kode_mtk) === kode)) return true;
+  const a = normText(course.nama);
+  const b = normText(m.mata_kuliah);
+  return Boolean(a && b && b !== "-" && (a === b || a.includes(b) || b.includes(a)));
 }
 
 interface PresenceRecord {
@@ -96,6 +132,7 @@ const PHASE_COPY: Record<Phase, { chip: string; button: string }> = {
 /** Mata kuliah tersimpan di perangkat 12 jam (jadwal jarang berubah); presensi 10 menit untuk tampilan instan. */
 const COURSES_PERSIST_MS = 12 * 60 * 60 * 1000;
 const PRESENCE_PERSIST_MS = 10 * 60 * 1000;
+const MAKEUP_PERSIST_MS = 30 * 60 * 1000;
 
 function RoomBadge({ info }: { info: RoomInfo }) {
   const Icon = info.mode === "online" ? Wifi : info.mode === "offline" ? Building2 : MapPin;
@@ -134,9 +171,11 @@ export default function PresensiPage() {
   const { confirm } = useDialog();
   const coursesApi = useApi<CourseItem[]>("/v1/elearning/courses", { persistMs: COURSES_PERSIST_MS });
   // Cadangan kode dosen dari jadwal SIAKAD.
-  const scheduleApi = useApi<{ kode: string; nama: string; kode_dosen?: string }[]>("/v1/studentv2/schedule", {
-    persistMs: COURSES_PERSIST_MS,
-  });
+  const scheduleApi = useApi<{ kode: string; nama: string; kode_dosen?: string; hari?: string; jam?: string; ruang?: string }[]>(
+    "/v1/studentv2/schedule",
+    { persistMs: COURSES_PERSIST_MS }
+  );
+  const makeupsApi = useApi<MakeupItem[]>("/v1/elearning/makeups", { persistMs: MAKEUP_PERSIST_MS });
   const [openRecord, setOpenRecord] = useState<string | null>(null);
   const [selectedCourseKey, setSelectedCourseKey] = useState<string | null>(null);
 
@@ -149,19 +188,62 @@ export default function PresensiPage() {
   const todayIdx = now.getDay();
 
   const rawCourses = coursesApi.data ?? [];
+  const makeups = makeupsApi.data ?? [];
+  const schedule = scheduleApi.data ?? [];
   // Presensi hari ini selalu di depan (berlangsung > segera > nanti > sudah selesai), baru hari berikutnya.
-  const timed = useMemo(
-    () =>
-      rawCourses
-        .map((course) => ({ course, timing: sessionTiming(course.hari, course.jam, now) }))
-        .sort((a, b) => timingRank(a.timing) - timingRank(b.timing)),
+  // Kuliah pengganti dihitung per TANGGAL: pengganti hari ini mengalahkan jadwal reguler besok.
+  const timed = useMemo<TimedCourse[]>(() => {
+    const matched = new Set<string>();
+    const entries: TimedCourse[] = rawCourses.map((course) => {
+      // Hari/jam MyBest kadang kosong: pakai jadwal SIAKAD mapel yang sama sebagai cadangan.
+      let { hari, jam } = course;
+      if (dayIndex(hari) === null) {
+        const k = normText(course.kode_mtk || course.kode);
+        const s = schedule.find((x) => (k && normText(x.kode) === k) || normText(x.nama) === normText(course.nama));
+        if (s) {
+          hari = s.hari || hari;
+          jam = jam || s.jam;
+        }
+      }
+      const base = hari === course.hari && jam === course.jam ? course : { ...course, hari, jam };
+      let best: TimedCourse = { course: base, timing: sessionTiming(hari, jam, now), makeup: null };
+      for (const m of makeups) {
+        if (!makeupMatches(course, m)) continue;
+        matched.add(m.id);
+        const date = parseIsoDate(m.tanggal);
+        const t = date ? dateTiming(date, m.jam, now) : null;
+        if (t && (best.timing === null || timingRank(t) < timingRank(best.timing))) best = { ...best, timing: t, makeup: m };
+      }
+      return best;
+    });
+    // Kuliah pengganti yang tidak cocok dengan mapel mana pun tetap bisa dipilih bila tanggalnya belum lewat.
+    for (const m of makeups) {
+      if (matched.has(m.id)) continue;
+      const date = parseIsoDate(m.tanggal);
+      const t = date ? dateTiming(date, m.jam, now) : null;
+      if (!t) continue;
+      entries.push({
+        course: {
+          id: `pengganti-${m.id}`,
+          kode: m.kode && m.kode !== "-" ? m.kode : undefined,
+          nama: m.mata_kuliah && m.mata_kuliah !== "-" ? m.mata_kuliah : "Kuliah Pengganti",
+          hari: m.hari ?? undefined,
+          jam: m.jam ?? undefined,
+          ruang: m.ruang ?? undefined,
+          kode_dosen: m.dosen ?? undefined,
+          token_absen: m.token_absen,
+        },
+        timing: t,
+        makeup: m,
+      });
+    }
+    return entries.sort((a, b) => timingRank(a.timing) - timingRank(b.timing));
     // Urutan cukup dihitung ulang per menit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rawCourses, Math.floor(now.getTime() / 60_000)]
-  );
+  }, [rawCourses, makeups, schedule, Math.floor(now.getTime() / 60_000)]);
   const courses = useMemo(() => timed.map((t) => t.course), [timed]);
-  const timingOf = (course: CourseItem | null): SessionTiming | null =>
-    course ? timed.find((t) => t.course === course)?.timing ?? null : null;
+  const entryOf = (course: CourseItem | null): TimedCourse | null => (course ? timed.find((t) => t.course === course) ?? null : null);
+  const timingOf = (course: CourseItem | null): SessionTiming | null => entryOf(course)?.timing ?? null;
 
   // Dari tombol "Absen" di Jadwal: /dashboard/presensi?kode=...&mk=... langsung memilih mata kuliahnya.
   const [requested, setRequested] = useState<{ kode: string; mk: string } | null>(null);
@@ -190,8 +272,13 @@ export default function PresensiPage() {
     return courses[0] || null;
   }, [courses, selectedCourseKey]);
   const activeTiming = timingOf(activeCourse);
+  const activeMakeup = entryOf(activeCourse)?.makeup ?? null;
 
-  const token = activeCourse?.token_absen;
+  // Absen pengganti: pakai link absen dari halaman Kuliah Pengganti bila ada, selain itu token mapel reguler.
+  const makeupToken = activeMakeup?.token_absen || null;
+  const token = makeupToken || activeCourse?.token_absen;
+  const absenPath = makeupToken && activeMakeup?.absen_path ? activeMakeup.absen_path : "absen-mhs";
+  const absenQuery = token ? `token=${token}${absenPath !== "absen-mhs" ? `&path=${encodeURIComponent(absenPath)}` : ""}` : "";
 
   // Kunci mata kuliah yang baru saja diabsen; menjaga tampilan "sudah absen" sampai rekap MyBest ikut terbarui.
   const [justPresent, setJustPresent] = useState<string | null>(null);
@@ -205,7 +292,7 @@ export default function PresensiPage() {
   const refreshMs = watching ? 15_000 : null;
 
   // Tunggu daftar mapel dulu: tanpa token, backend akan men-scrape ulang daftar mapel + mapel pertama (lambat & sia-sia).
-  const presencePath = activeCourse ? (token ? `/v1/elearning/presence?token=${token}` : "/v1/elearning/presence") : "";
+  const presencePath = activeCourse ? (token ? `/v1/elearning/presence?${absenQuery}` : "/v1/elearning/presence") : "";
   const presenceApi = useApi<PresenceData>(presencePath, { ttlMs: 5_000, refreshMs, persistMs: PRESENCE_PERSIST_MS });
   const pData = presenceApi.data;
 
@@ -234,8 +321,8 @@ export default function PresensiPage() {
   async function handleSubmitPresence() {
     if (!token) return;
     const ok = await confirm({
-      title: "Kirim presensi sekarang?",
-      message: `Kehadiranmu untuk ${activeCourse?.nama ?? "mata kuliah ini"} akan dicatat di MyBest.`,
+      title: activeMakeup ? "Kirim absen kuliah pengganti?" : "Kirim presensi sekarang?",
+      message: `Kehadiranmu untuk ${activeCourse?.nama ?? "mata kuliah ini"}${activeMakeup ? " (kuliah pengganti)" : ""} akan dicatat di MyBest.`,
       confirmLabel: "Kirim presensi",
     });
     if (!ok) return;
@@ -244,7 +331,7 @@ export default function PresensiPage() {
     setSubmitError(null);
     try {
       const result = await apiFetch<{ success: boolean; message?: string }>(
-        `/v1/elearning/presence?token=${token}`,
+        `/v1/elearning/presence?${absenQuery}`,
         { method: "POST" }
       );
       if (!result.success) throw new Error(result.message || "Presensi tidak berhasil dikirim.");
@@ -292,16 +379,24 @@ export default function PresensiPage() {
   const totalPertemuan = records.length;
   const persentase = totalPertemuan > 0 ? Math.round((hadirCount / totalPertemuan) * 100) : 0;
   const dosen = resolveDosen(activeCourse, scheduleApi.data, pData?.dosen);
-  const jam =
-    pData?.jam_masuk && pData?.jam_keluar ? `${pData.jam_masuk} - ${pData.jam_keluar}` : activeCourse?.jam || "";
+  const jam = activeMakeup?.jam
+    ? activeMakeup.jam
+    : pData?.jam_masuk && pData?.jam_keluar
+      ? `${pData.jam_masuk} - ${pData.jam_keluar}`
+      : activeCourse?.jam || "";
   const segments = 16;
   const filled = Math.round((persentase / 100) * segments);
   const courseKey = (c: CourseItem) => c.id || c.kode || c.nama;
 
-  const sessionRange = minutesRange(pData?.jam_masuk, pData?.jam_keluar, activeCourse?.jam);
-  const isTodaySession = dayIndex(pData?.hari || activeCourse?.hari) === todayIdx;
-  const room = describeRoom(pData?.ruang || activeCourse?.ruang);
-  const scheduleDay = dayName(pData?.hari || activeCourse?.hari);
+  // Kuliah pengganti memakai tanggal/jam/ruang penggantinya, bukan jadwal reguler di halaman absen.
+  const sessionRange = activeMakeup
+    ? minutesRange(null, null, activeMakeup.jam) ?? minutesRange(pData?.jam_masuk, pData?.jam_keluar, activeCourse?.jam)
+    : minutesRange(pData?.jam_masuk, pData?.jam_keluar, activeCourse?.jam);
+  const isTodaySession = activeMakeup
+    ? activeTiming?.daysAway === 0
+    : dayIndex(pData?.hari || activeCourse?.hari) === todayIdx || activeTiming?.daysAway === 0;
+  const room = describeRoom(activeMakeup?.ruang || pData?.ruang || activeCourse?.ruang);
+  const scheduleDay = dayName(activeMakeup?.hari || pData?.hari || activeCourse?.hari);
   const nextDate = activeTiming ? activeTiming.date : null;
   const presentToday = Boolean(pData?.present_today) || (activeCourse !== null && justPresent === courseKey(activeCourse));
   let phase: Phase;
@@ -311,7 +406,14 @@ export default function PresensiPage() {
   else if (sessionRange && nowMinutes < sessionRange[0]) phase = "waiting";
   else if (sessionRange && nowMinutes > sessionRange[1]) phase = "ended";
   else phase = "live";
-  const nextDay = activeTiming?.daysAway === 1 ? "besok" : scheduleDay ? `hari ${scheduleDay}` : "sesuai jadwal";
+  const nextDay =
+    activeTiming?.daysAway === 1
+      ? "besok"
+      : activeMakeup && nextDate
+        ? shortDate(nextDate)
+        : scheduleDay
+          ? `hari ${scheduleDay}`
+          : "sesuai jadwal";
   const copy =
     phase === "off"
       ? { chip: activeTiming?.daysAway === 1 ? "Besok" : scheduleDay ? `Jadwal ${scheduleDay}` : PHASE_COPY.off.chip, button: `Absen dibuka ${nextDay}` }
@@ -319,6 +421,17 @@ export default function PresensiPage() {
         ? { chip: PHASE_COPY.ended.chip, button: "Kelas hari ini sudah selesai" }
         : PHASE_COPY[phase];
   const canAbsen = phase === "open";
+
+  // Semua kuliah pengganti yang belum lewat, urut tanggal; dipetakan ke mapel agar absennya bisa langsung dibuka.
+  const upcomingMakeups = makeups
+    .map((m) => {
+      const date = parseIsoDate(m.tanggal);
+      const t = date ? dateTiming(date, m.jam, now) : null;
+      const c = timed.find((e) => e.makeup?.id === m.id)?.course || courses.find((rc) => makeupMatches(rc, m)) || null;
+      return t ? { makeup: m, timing: t, course: c } : null;
+    })
+    .filter((x): x is { makeup: MakeupItem; timing: SessionTiming; course: CourseItem | null } => x !== null)
+    .sort((a, b) => a.timing.date.getTime() - b.timing.date.getTime() || (a.timing.range?.[0] ?? 0) - (b.timing.range?.[0] ?? 0));
 
   return (
     <div className="space-y-6">
@@ -336,7 +449,10 @@ export default function PresensiPage() {
             sub: [dayName(c.hari), c.jam, describeRoom(c.ruang).mode === "online" ? "Online" : describeRoom(c.ruang).mode === "offline" ? `R. ${c.ruang}` : ""]
               .filter(Boolean)
               .join(" · "),
-            badge: t?.state === "live" ? "Berlangsung" : t?.state === "soon" ? "Segera" : t?.daysAway === 0 ? "Hari Ini" : t?.daysAway === 1 ? "Besok" : undefined,
+            badge: (() => {
+              const base = t?.state === "live" ? "Berlangsung" : t?.state === "soon" ? "Segera" : t?.daysAway === 0 ? "Hari Ini" : t?.daysAway === 1 ? "Besok" : undefined;
+              return entryOf(c)?.makeup ? (base ? `Pengganti · ${base}` : "Pengganti") : base;
+            })(),
           };
         })}
         value={activeCourse ? courseKey(activeCourse) : null}
@@ -375,6 +491,12 @@ export default function PresensiPage() {
                     <span className={`h-1.5 w-1.5 ${phase === "open" || phase === "live" ? "px-cursor bg-white" : phase === "present" ? "bg-white" : "bg-secondary/60"}`} aria-hidden="true" />
                     {copy.chip}
                   </span>
+                  {activeMakeup && (
+                    <span className="inline-flex items-center gap-1.5 bg-[#7C3AED]/10 px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-[#6D28D9]">
+                      <Repeat className="h-3 w-3" aria-hidden="true" />
+                      Kuliah Pengganti
+                    </span>
+                  )}
                 </div>
                 <h2 id="presensi-course-title" className="text-lg font-display font-bold leading-snug text-foreground sm:text-xl">
                   {activeCourse?.nama || pData?.matakuliah}
@@ -415,6 +537,9 @@ export default function PresensiPage() {
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
                     <RoomBadge info={room} />
+                    {activeMakeup?.keterangan && (
+                      <span className="inline-flex items-center gap-1.5 bg-px-tint px-2 py-0.5 text-xs text-secondary">{activeMakeup.keterangan}</span>
+                    )}
                     {activeTiming && (
                       <span
                         className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold ${
@@ -489,6 +614,62 @@ export default function PresensiPage() {
             >
               {submitError || submitMessage}
             </div>
+          )}
+
+          {upcomingMakeups.length > 0 && (
+            <section aria-labelledby="pengganti-title">
+              <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <h3 id="pengganti-title" className="flex items-center gap-2 text-base font-display font-bold text-foreground">
+                  <Repeat className="h-4 w-4 text-[#6D28D9]" aria-hidden="true" />
+                  Jadwal Kuliah Pengganti
+                </h3>
+                <span className="font-mono text-xs text-secondary">{upcomingMakeups.length} terjadwal</span>
+              </div>
+              <ol className="glass-card divide-y-2 divide-dashed divide-px-soft">
+                {upcomingMakeups.map(({ makeup: m, timing: t, course: c }) => {
+                  const selected = activeMakeup?.id === m.id;
+                  return (
+                    <li key={m.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:px-5">
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <p className="truncate text-sm font-bold text-foreground">{c?.nama || m.mata_kuliah}</p>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-secondary">
+                          <span className="inline-flex items-center gap-1 font-semibold text-foreground">
+                            <CalendarDays className="h-3.5 w-3.5 text-[#0369A1]" aria-hidden="true" />
+                            {shortDate(t.date)}
+                          </span>
+                          {m.jam && (
+                            <span className="inline-flex items-center gap-1 font-mono">
+                              <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                              {m.jam.replace(/\s*-\s*/, " - ")}
+                            </span>
+                          )}
+                          {m.ruang && <RoomBadge info={describeRoom(m.ruang)} />}
+                          <span className={t.state === "live" || t.state === "soon" ? "font-semibold text-[#9A3412]" : ""}>{t.label}</span>
+                        </div>
+                        {m.keterangan && <p className="text-xs text-secondary">{m.keterangan}</p>}
+                      </div>
+                      {c && (
+                        <button
+                          type="button"
+                          disabled={selected}
+                          onClick={() => {
+                            setSelectedCourseKey(courseKey(c));
+                            setOpenRecord(null);
+                            setSubmitMessage(null);
+                            setSubmitError(null);
+                            window.scrollTo({ top: 0, behavior: "smooth" });
+                          }}
+                          className="px-btn inline-flex min-h-10 shrink-0 items-center justify-center gap-2 px-4 text-xs font-bold"
+                        >
+                          <UserCheck className="h-4 w-4" aria-hidden="true" />
+                          {selected ? "Sedang dibuka" : "Buka absen pengganti"}
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            </section>
           )}
 
           {/* Riwayat pertemuan: satu baris per pertemuan, rangkuman bisa dibuka */}
