@@ -132,9 +132,11 @@ function ClassCard({ s, status, taught }: { s: ScheduleItem; status?: ClassStatu
 }
 
 export default function JadwalPage() {
-  const { data, loading, error, reload } = useApi<ScheduleItem[]>("/v1/studentv2/schedule");
+  const siakadApi = useApi<ScheduleItem[]>("/v1/studentv2/schedule");
+  const elearningApi = useApi<ScheduleItem[]>("/v1/elearning/courses");
   const [tab, setTab] = useState<"today" | "week">("today");
   const [now, setNow] = useState<Date | null>(null);
+  const [connectOpen, setConnectOpen] = useState(false);
 
   // Jam dihitung di browser saja (hindari mismatch SSR) dan diperbarui tiap menit.
   useEffect(() => {
@@ -143,7 +145,23 @@ export default function JadwalPage() {
     return () => window.clearInterval(timer);
   }, []);
 
-  const schedule = useMemo(() => data ?? [], [data]);
+  const hasSiakadData = Boolean(siakadApi.data && siakadApi.data.length > 0);
+  const isSiakad401 = siakadApi.error?.status === 401;
+
+  const schedule = useMemo(() => {
+    if (hasSiakadData) return siakadApi.data!;
+    if (elearningApi.data && elearningApi.data.length > 0) return elearningApi.data;
+    return siakadApi.data ?? elearningApi.data ?? [];
+  }, [hasSiakadData, siakadApi.data, elearningApi.data]);
+
+  const source = hasSiakadData ? "siakad" : (elearningApi.data && elearningApi.data.length > 0 ? "elearning" : null);
+
+  const loading = (siakadApi.loading && !siakadApi.data) && (elearningApi.loading && !elearningApi.data);
+  const reload = () => {
+    siakadApi.reload();
+    elearningApi.reload();
+  };
+
   const today = now ? JS_DAY_NAMES[now.getDay()] : "";
   const minutesNow = now ? now.getHours() * 60 + now.getMinutes() : 0;
 
@@ -179,30 +197,30 @@ export default function JadwalPage() {
   }, [schedule, now]);
 
   if (loading) return <LoadingState label="Memuat jadwal kuliah" />;
-  if (error) {
-    if (error.status === 401) {
+
+  if (schedule.length === 0) {
+    if (isSiakad401 && (!elearningApi.data || elearningApi.data.length === 0)) {
       return (
         <div className="space-y-6">
-          <PageHeader title="Jadwal Kuliah" description="Jadwal perkuliahan mingguan dari SIAKAD." />
+          <PageHeader title="Jadwal Kuliah" description="Jadwal perkuliahan mingguan dari SIAKAD atau MyBest." />
           <LockedSiakadCard
             title="Jadwal Kuliah Terkunci"
-            description="Jadwal kuliah diambil langsung dari SIAKAD. Hubungkan akun SIAKAD kamu untuk melihat jadwal mingguan, ruang kelas, dan dosen pengampu."
+            description="Jadwal kuliah belum dapat dimuat dari SIAKAD maupun MyBest. Hubungkan akun SIAKAD kamu untuk melihat jadwal resmi."
             onConnected={reload}
           />
         </div>
       );
     }
-    return <ErrorState error={error} onRetry={reload} />;
-  }
-
-  if (schedule.length === 0) {
+    if (siakadApi.error && elearningApi.error) {
+      return <ErrorState error={siakadApi.error} onRetry={reload} />;
+    }
     return (
       <div>
         <PageHeader title="Jadwal Kuliah" />
         <EmptyState
           mascot="/maskot/mura-empty.png"
           title="Belum ada jadwal kuliah terdaftar."
-          description="Pastikan kamu sudah isi KRS di SIAKAD."
+          description="Pastikan kamu sudah isi KRS di SIAKAD atau cek jadwal aktif di MyBest."
         />
       </div>
     );
@@ -216,11 +234,44 @@ export default function JadwalPage() {
   const clock = now ? now.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "--:--";
 
   return (
-    <div>
+    <div className="space-y-6">
+      {isSiakad401 && source === "elearning" && (
+        <div className="px-card bg-amber-50 border-2 border-dashed border-amber-300 p-4 text-xs text-amber-950">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-200/80 px-1.5 py-0.5">
+                Sumber: MyBest LMS
+              </span>
+              <span>Jadwal aktif disinkronkan dari MyBest Elearning karena akun SIAKAD belum terhubung.</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setConnectOpen((v) => !v)}
+              className="font-mono font-bold text-amber-900 underline hover:text-amber-700"
+            >
+              {connectOpen ? "Tutup Form" : "Hubungkan SIAKAD"}
+            </button>
+          </div>
+          {connectOpen && (
+            <div className="mt-4 pt-4 border-t border-amber-200">
+              <LockedSiakadCard
+                title="Hubungkan Akun SIAKAD"
+                description="Masukkan password SIAKAD kamu untuk melengkapi informasi dosen penasihat akademik, transkrip nilai, dan kartu ujian resmi."
+                onConnected={() => {
+                  setConnectOpen(false);
+                  reload();
+                }}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
       <PageHeader
         title="Jadwal Kuliah"
-        description={`${schedule.length} mata kuliah minggu ini.`}
+        description={`${schedule.length} mata kuliah minggu ini (${source === "siakad" ? "SIAKAD" : "MyBest Elearning"}).`}
       />
+
 
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div role="tablist" aria-label="Tampilan jadwal" className="grid grid-cols-2 gap-1 bg-px-tint p-1 shadow-[0_-2px_0_0_#CFE2EE,0_2px_0_0_#CFE2EE,-2px_0_0_0_#CFE2EE,2px_0_0_0_#CFE2EE] sm:w-80">

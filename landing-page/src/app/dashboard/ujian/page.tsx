@@ -35,27 +35,17 @@ export default function UjianPage() {
   if (utsApi.loading && scheduleApi.loading && uasApi.loading) {
     return <LoadingState label="Memuat informasi kartu ujian" />;
   }
-  if (utsApi.error && uasApi.error) {
-    if (utsApi.error.status === 401 || uasApi.error.status === 401) {
-      return (
-        <div className="space-y-6">
-          <PageHeader
-            title="Kartu Ujian (UTS & UAS)"
-            description="Ruang ujian, link jadwal ujian online, dan unduh soal dari SIAKAD."
-          />
-          <LockedSiakadCard
-            title="Kartu Ujian Terkunci"
-            description="Informasi kartu UTS dan UAS diambil dari SIAKAD. Hubungkan akun SIAKAD untuk melihat ruang ujian, link jadwal ujian daring, dan unduh berkas soal."
-            onConnected={() => {
-              utsApi.reload();
-              uasApi.reload();
-              scheduleApi.reload();
-            }}
-          />
-        </div>
-      );
-    }
-    return <ErrorState error={utsApi.error} onRetry={utsApi.reload} />;
+  const isSiakad401 = utsApi.error?.status === 401 || uasApi.error?.status === 401;
+  const [connectOpen, setConnectOpen] = useState(false);
+
+  const reload = () => {
+    utsApi.reload();
+    uasApi.reload();
+    scheduleApi.reload();
+  };
+
+  if (utsApi.error && uasApi.error && !isSiakad401) {
+    return <ErrorState error={utsApi.error} onRetry={reload} />;
   }
 
   const currentExam = activeTab === "uts" ? utsApi.data : uasApi.data;
@@ -63,12 +53,43 @@ export default function UjianPage() {
 
   return (
     <div className="space-y-6">
+      {isSiakad401 && (
+        <div className="px-card bg-amber-50 border-2 border-dashed border-amber-300 p-4 text-xs text-amber-950">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-200/80 px-1.5 py-0.5">
+                Mode MyBest
+              </span>
+              <span>Kartu UTS/UAS resmi memerlukan akun SIAKAD. Hubungkan akun untuk melihat ruang ujian & unduh soal.</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setConnectOpen((v) => !v)}
+              className="font-mono font-bold text-amber-900 underline hover:text-amber-700"
+            >
+              {connectOpen ? "Tutup Form" : "Hubungkan SIAKAD"}
+            </button>
+          </div>
+          {connectOpen && (
+            <div className="mt-4 pt-4 border-t border-amber-200">
+              <LockedSiakadCard
+                title="Hubungkan Akun SIAKAD"
+                description="Masukkan password SIAKAD (students.bsi.ac.id) untuk membuka kartu ujian UTS/UAS dan berkas soal resmi."
+                onConnected={() => {
+                  setConnectOpen(false);
+                  reload();
+                }}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flex flex-col">
         <PageHeader
           title="Kartu Ujian (UTS & UAS)"
-          description="Ruang ujian, link jadwal ujian online, dan unduh soal dari SIAKAD."
+          description="Ruang ujian, link jadwal ujian online, dan unduh soal dari SIAKAD & MyBest."
         />
-
         {/* Tab Switcher UTS vs UAS */}
         <div className="w-full">
           <div className="px-seg">
