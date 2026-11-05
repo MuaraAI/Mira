@@ -22,6 +22,8 @@ function getPageTitle(pathname: string): string {
       return "Tugas & Deadline";
     case "/dashboard/presensi":
       return "Presensi Kehadiran";
+    case "/dashboard/pengganti":
+      return "Kuliah Pengganti";
     case "/dashboard/materi":
       return "Bahan Ajar & Modul";
     case "/dashboard/kuis":
