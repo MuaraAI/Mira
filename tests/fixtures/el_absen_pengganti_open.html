@@ -1,0 +1,44 @@
+<!-- Struktur halaman https://elearning.bsi.ac.id/absen-mhs-pengganti/{token} saat absen DIBUKA (November 2026).
+     Tidak ada tombol status; yang ada form /komentar-mhs dengan tombol "Kirim". Token & CSRF palsu. -->
+<div class="main-container">
+  <div class="row gutters">
+    <div class="col-xl-2 col-lg-3 col-md-3 col-sm-3 col-4">
+      <div class="info-tiles"><div class="info-icon"><i class="icon-account_circle"></i></div><div class="stats-detail"><h5>MDK</h5><p>Dosen</p></div></div>
+      <div class="info-tiles"><div class="info-icon"><i class="icon-home2"></i></div><div class="stats-detail"><h5>307-P1</h5><p>Ruang</p></div></div>
+    </div>
+    <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-6">
+      <div class="info-tiles"><div class="info-icon"><i class="icon-documents"></i></div><div class="stats-detail"><h5>DASAR PEMROGRAMAN</h5><p>Matakuliah</p></div></div>
+      <div class="info-tiles"><div class="info-icon"><i class="icon-layers"></i></div><div class="stats-detail"><h5>DPG.15.1B.30.A</h5><p>Kelas</p></div></div>
+    </div>
+    <div class="col-xl-2 col-lg-2 col-md-2 col-sm-2 col-4">
+      <div class="info-tiles"><div class="info-icon"><i class="icon-watch_later"></i></div><div class="stats-detail"><h5>07:30</h5><p>Jam Masuk</p></div></div>
+      <div class="info-tiles"><div class="info-icon"><i class="icon-date_range"></i></div><div class="stats-detail"><h5>Kamis</h5><p>Hari</p></div></div>
+    </div>
+    <div class="col-xl-2 col-lg-2 col-md-2 col-sm-2 col-4">
+      <div class="info-tiles"><div class="info-icon"><i class="icon-clock1"></i></div><div class="stats-detail"><h5>10:50</h5><p>Jam Keluar</p></div></div>
+      <div class="info-tiles"><div class="info-icon"><i class="icon-dribbble-with-circle"></i></div><div class="stats-detail"><h5>894</h5><p>Kode MTK</p></div></div>
+    </div>
+    <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12">
+      <div class="info-tiles action-tiles">
+        <form action="/komentar-mhs" method="post" class="w-100 text-center">
+          <input type="hidden" name="_token" value="CSRFPALSU" autocomplete="off">
+          <textarea class="form-control mb-2" rows="2" name="komentar" placeholder="Berikan Komentar Anda Terhadap Pengajar Dosen"></textarea>
+          <div class="custom-control custom-radio custom-control-inline">
+            <input type="radio" id="radio1" name="nilai" class="custom-control-input" value="1" checked="checked">
+            <label class="custom-control-label" for="radio1">Sesuai</label>
+          </div>
+          <div class="custom-control custom-radio custom-control-inline">
+            <input type="radio" id="radio2" name="nilai" class="custom-control-input" value="0">
+            <label class="custom-control-label" for="radio2">Tidak Sesuai</label>
+          </div>
+          <input type="hidden" name="pertemuan" value="eyJpdiI6IlBFUlRFTVVBTiJ9">
+          <input type="hidden" name="id" value="eyJpdiI6IklEIn0">
+          <button type="submit" class="btn btn-primary btn-rounded btn-sm px-4 shadow-sm">Kirim</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="modal"><form action="/store/kuisoner-mpd" method="post"><button type="submit" class="btn btn-info">Kirim</button></form></div>
+  <table><thead><tr><th>#</th><th>Status Absen</th><th>Tanggal</th><th>Matakuliah</th><th>Pertemuan</th><th>Rangkuman</th><th>Berita Acara</th></tr></thead><tbody></tbody></table>
+  <script>var url = "rekap-side/eyJpdiI6IlJFS0FQIn0";</script>
+</div>

@@ -20,6 +20,11 @@ interface MakeupItem {
   ruang?: string | null;
   dosen?: string | null;
   kelas?: string | null;
+  /** "Kelas Praktek" / "Kelas Teori". */
+  jenis?: string | null;
+  /** Tanggal pertemuan asli yang diganti (ISO). */
+  tanggal_asal?: string | null;
+  sks?: number | null;
   keterangan?: string;
   token_absen?: string | null;
   absen_path?: string | null;
@@ -81,7 +86,9 @@ function MakeupCard({ m, timing, status }: { m: MakeupItem; timing: SessionTimin
     >
       <div className="flex flex-wrap items-center gap-2">
         {present(m.kode) && <span className="px-chip bg-px-tint px-2 py-0.5 font-mono text-[11px] font-bold text-[#0369A1]">{m.kode}</span>}
+        {present(m.jenis) && <span className="px-chip bg-[#7C3AED]/10 px-2 py-0.5 font-mono text-[11px] font-bold text-[#6D28D9]">{m.jenis}</span>}
         {present(m.kelas) && <span className="px-chip bg-white px-2 py-0.5 font-mono text-[11px] font-semibold text-secondary">{m.kelas}</span>}
+        {m.sks ? <span className="px-chip bg-white px-2 py-0.5 font-mono text-[11px] font-semibold text-secondary">{m.sks} SKS</span> : null}
         <span className={`ml-auto inline-flex items-center gap-1.5 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide ${meta.className}`}>
           {(status === "live" || status === "soon") && <span className="px-cursor h-1.5 w-1.5 bg-white" aria-hidden="true" />}
           {meta.label}
@@ -96,6 +103,13 @@ function MakeupCard({ m, timing, status }: { m: MakeupItem; timing: SessionTimin
           <dt className="sr-only">Tanggal</dt>
           <dd className="font-semibold">{date ? `${shortDate(date)} ${date.getFullYear()}` : present(m.jadwal) || "-"}</dd>
         </div>
+        {parseIsoDate(m.tanggal_asal) && (
+          <div className="flex items-center gap-2 text-xs text-secondary">
+            <Repeat className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <dt className="sr-only">Pengganti dari</dt>
+            <dd>Pengganti pertemuan {shortDate(parseIsoDate(m.tanggal_asal)!)} {parseIsoDate(m.tanggal_asal)!.getFullYear()}</dd>
+          </div>
+        )}
         {present(m.jam) && (
           <div className="flex items-center gap-2 text-secondary">
             <Clock className="h-4 w-4 shrink-0" aria-hidden="true" />
