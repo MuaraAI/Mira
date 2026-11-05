@@ -82,7 +82,6 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
 ];
 
 export const SIAKAD_REQUIRED_PATHS = new Set([
-  "/dashboard/jadwal",
   "/dashboard/nilai",
   "/dashboard/krs",
   "/dashboard/ujian",

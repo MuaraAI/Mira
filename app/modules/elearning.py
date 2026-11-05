@@ -1844,6 +1844,19 @@ async def get_courses(creds: tuple[str, str] = Depends(require_elearning_creds))
     )
 
 
+@router.get("/schedule")
+async def get_schedule(creds: tuple[str, str] = Depends(require_elearning_creds)):
+    """Jadwal perkuliahan mingguan dari Elearning MyBest (alternatif /v1/studentv2/schedule)."""
+    nim, password = creds
+    return await cached_endpoint(
+        module="elearning",
+        name="courses",
+        fetch=lambda: pooled_elearning_client.fetch_page("/sch", nim, password),
+        parse=_parse_and_record_courses,
+        ttl=settings.TTL_ASSIGNMENTS,
+        cache_params={"nim": nim},
+    )
+
 def _parse_and_record_courses(html: str) -> list[dict[str, Any]]:
     """Parse jadwal lalu catat jadwal mengajar dosennya (anonim) untuk profil dosen.
 
@@ -3058,3 +3071,72 @@ async def get_makeup_classes(creds: tuple[str, str] = Depends(require_elearning_
 async def get_guides(creds: tuple[str, str] = Depends(require_elearning_creds)):
     """Daftar tautan berkas buku panduan resmi perkuliahan & ujian MyBest."""
     return success_response(data=get_official_guides())
+
+
+@router.get("/dashboard")
+async def get_elearning_dashboard(creds: tuple[str, str] = Depends(require_elearning_creds)):
+    """Ringkasan perkuliahan MyBest sekaligus: jadwal/courses + tugas + kuis + makeups + profile.
+
+    Mendukung login MyBest-only agar mahasiswa tetap mendapatkan data akademik
+    lengkap tanpa perlu akun SIAKAD. Data yang sudah ada di cache disajikan instan (0ms).
+    """
+    nim, password = creds
+
+    async def _section(name: str, path: str, parser, ttl: int, record_fn=None):
+        cache_key = cache.make_key("elearning", name, nim=nim)
+        fresh = await cache.get_fresh(cache_key)
+        if fresh is not None:
+            return name, success_response(data=fresh, cached=True)
+        try:
+            html = await pooled_elearning_client.fetch_page(path, nim, password)
+            data = parser(html)
+            if record_fn:
+                try:
+                    record_fn(data)
+                except Exception:
+                    pass
+            await cache.set(cache_key, data, ttl=ttl)
+            return name, success_response(data=data, cached=False)
+        except Exception as e:
+            lgg_result = await cache.get_lgg(cache_key)
+            if lgg_result:
+                lgg_data, _ = lgg_result
+                return name, success_response(data=lgg_data, cached=True, stale=True)
+            if isinstance(e, HTTPException):
+                raise e
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=error_response(code="UPSTREAM_ERROR", message=str(e), module="elearning")
+            )
+
+    results = await asyncio.gather(
+        _section("courses", "/sch", _parse_and_record_courses, settings.TTL_ASSIGNMENTS),
+        _section("assignments", "/assignment", parse_assignments, settings.TTL_ASSIGNMENTS),
+        _section("makeups", "/kuliah-pengganti", parse_makeup_classes, settings.TTL_ASSIGNMENTS),
+        _section("quiz", "/exercise", parse_quiz, settings.TTL_ASSIGNMENTS),
+        _section("profile", "/profil", parse_elearning_profile, settings.TTL_ASSIGNMENTS),
+        return_exceptions=True,
+    )
+
+    dashboard: dict[str, Any] = {}
+    all_cached = True
+    errors: list[str] = []
+    for item in results:
+        if isinstance(item, Exception):
+            errors.append(str(item))
+            continue
+        name, response = item
+        dashboard[name] = response["data"]
+        if not response.get("cached"):
+            all_cached = False
+
+    if not dashboard and errors:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=error_response(code="UPSTREAM_ERROR", message="; ".join(errors), module="elearning")
+        )
+
+    if "courses" in dashboard:
+        dashboard["schedule"] = dashboard["courses"]
+
+    return success_response(data=dashboard, cached=all_cached)
