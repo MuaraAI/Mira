@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ShieldCheck, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useRequireSession } from "@/lib/api";
 import { ErrorState, LoadingState } from "@/components/dashboard-ui";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
@@ -98,10 +98,6 @@ function ShellLayout({ children }: { children: React.ReactNode }) {
 
           <div className="flex items-center gap-3">
             {authed && <LoginTodayBadge />}
-            <div className="px-chip flex items-center gap-1.5 px-2.5 py-1 bg-[#F0F7FB] text-[11px] font-mono text-[#0369A1] font-semibold">
-              <ShieldCheck className="w-3.5 h-3.5 text-[#0369A1]" aria-hidden="true" />
-              <span>Sesi aktif</span>
-            </div>
 
             <button
               type="button"

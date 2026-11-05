@@ -70,6 +70,59 @@ def test_parse_makeup_table_with_headers_and_absen_link():
     assert r["token_absen"] == "eyJtoken123"
 
 
+FIXTURES = __import__("pathlib").Path(__file__).parent / "fixtures"
+
+
+def test_parse_makeup_live_kp_card():
+    """Layout asli MyBest /kuliah-pengganti (div.kp-card)."""
+    rows = parse_makeup_classes((FIXTURES / "el_kuliah_pengganti.html").read_text(encoding="utf-8"))
+    assert len(rows) == 1
+    r = rows[0]
+    assert r["mata_kuliah"] == "DASAR PEMROGRAMAN"
+    assert r["kode"] == "894"
+    assert r["kelas"] == "DPG.15.1B.30.A"
+    assert r["jenis"] == "Kelas Praktek"
+    assert r["tanggal"] == "2026-11-05"
+    assert r["tanggal_asal"] == "2026-10-27"
+    assert r["hari"] == "Kamis"
+    assert r["jam"] == "07:30-10:50"
+    assert r["ruang"] == "307-P1"
+    assert r["dosen"] == "MDK"
+    assert r["sks"] == 4
+    assert r["kelompok_praktek"] == "DPG.15.1B.30.A"
+    assert r["keterangan"] == "Panitia Pemuda digital di harris"
+    assert r["absen_path"] == "absen-mhs-pengganti"
+    assert r["token_absen"] == "eyJpdiI6IlBFTkdHQU5USSJ9"
+    assert r["token_learning"] == "eyJpdiI6Ik1BVEVSSSJ9"
+
+
+def test_absen_pengganti_open_detected():
+    """Absen dibuka = ada form /komentar-mhs, tombolnya cuma "Kirim" (bukan "Absen Masuk")."""
+    from app.modules.elearning import inspect_session_status, parse_presence
+
+    html = (FIXTURES / "el_absen_pengganti_open.html").read_text(encoding="utf-8")
+    p = parse_presence(html)
+    assert p["can_submit"] is True
+    assert p["status_sesi"] == "Absen Masuk"
+    assert p["matakuliah"] == "DASAR PEMROGRAMAN"
+    s = inspect_session_status(html)
+    assert s["can_submit"] is True
+    assert s["form_action"] == "/komentar-mhs"
+    assert s["status_raw"] == "Absen Masuk"
+
+
+def test_closed_session_ignores_modal_kirim_button():
+    from app.modules.elearning import parse_presence
+
+    html = """
+    <div class="col-xl-3"><button class="btn btn-danger btn-rounded">Belum Mulai</button></div>
+    <div class="modal"><form action="/store/kuisoner-mpd"><button class="btn btn-info">Kirim</button></form></div>
+    """
+    p = parse_presence(html)
+    assert p["status_sesi"] == "Belum Mulai"
+    assert p["can_submit"] is False
+
+
 def test_parse_makeup_empty_page():
     assert parse_makeup_classes("<div>Tidak ada kuliah pengganti</div>") == []
 

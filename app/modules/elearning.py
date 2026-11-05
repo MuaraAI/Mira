@@ -417,6 +417,19 @@ def parse_assignments(html: str) -> dict[str, list[dict[str, Any]]]:
 
     return {"tasks": tasks, "submissions": submissions}
 
+_STATUS_BUTTON_SELECTOR = "div.col-xl-3 button, button.btn-warning, button.btn-success, button.btn-info, button.btn-danger, center button"
+_NON_STATUS_BUTTONS = {"", "kirim", "×", "close", "tutup"}
+
+
+def _session_status_button(page: Any) -> Optional[str]:
+    """Teks tombol status sesi absen; abaikan tombol form/modal seperti "Kirim"."""
+    for b in page.css(_STATUS_BUTTON_SELECTOR):
+        text = " ".join(b.get_all_text().split())
+        if text.lower() not in _NON_STATUS_BUTTONS:
+            return text
+    return None
+
+
 def parse_presence(html: str) -> dict[str, Any]:
     page = Adaptor(html)
     tiles = page.css("div.info-tiles")
@@ -429,8 +442,14 @@ def parse_presence(html: str) -> dict[str, Any]:
             if val and label:
                 info[label[0].text.strip().lower()] = val[0].text.strip()
 
-    btn = page.css("div.col-xl-3 button, button.btn-warning, button.btn-success, button.btn-info, button.btn-danger")
-    status_sesi = btn[0].text.strip() if btn else None
+    status_sesi = _session_status_button(page)
+    # MyBest 2026: saat dosen membuka absen, tombol status ("Belum Mulai"/"Sudah Selesai") hilang dan
+    # diganti form /komentar-mhs (tombolnya cuma "Kirim"). Form itulah tanda absen sedang dibuka,
+    # berlaku untuk absen reguler (/absen-mhs) maupun pengganti (/absen-mhs-pengganti).
+    if page.css("form[action*='komentar-mhs']") and not (
+        status_sesi and any(m in status_sesi.lower() for m in ("selesai", "sudah", "telah", "hadir"))
+    ):
+        status_sesi = "Absen Masuk"
 
     tables = page.css("table")
     records = []
@@ -883,21 +902,38 @@ def parse_makeup_classes(html: str) -> list[dict[str, Any]]:
     page = Adaptor(html)
     records: list[dict[str, Any]] = []
 
-    for card in page.css("div.jadwal-card, div.pricing-plan"):
+    # Layout MyBest 2026: div.kp-card > .kp-header (.kp-badge-type, .kp-title, .kp-kelas-pill)
+    # + .kp-body (.kp-info-row: .kp-info-label / .kp-info-val) + .kp-footer (link /absen-mhs-pengganti/{token}).
+    for card in page.css("div.kp-card, div.jadwal-card, div.pricing-plan"):
         fields: dict[str, str] = {}
-        for row in card.css(".jadwal-info-row"):
-            lab = row.css(".jadwal-info-label")
-            val = row.css(".jadwal-info-val")
+        for row in card.css(".kp-info-row, .jadwal-info-row"):
+            lab = row.css(".kp-info-label, .jadwal-info-label")
+            val = row.css(".kp-info-val, .jadwal-info-val")
             if lab and val:
-                fields[lab[0].get_all_text().strip().strip(":").strip().lower()] = val[0].get_all_text().strip()
+                key = " ".join(lab[0].get_all_text().split()).strip(":").strip().lower()
+                fields[key] = " ".join(val[0].get_all_text().split())
+        pill = card.css(".kp-kelas-pill strong, .jadwal-kelas-pill")
+        if pill:
+            fields.setdefault("kelas", pill[0].get_all_text().split(":")[-1].strip())
         text = " ".join(card.get_all_text().split())
         for m in re.finditer(r"(Kode MTK|Kode Dosen|No Ruang|Ruang|Tanggal|Jam|Kelas)\s*:\s*([^:]+?)(?=\s+[A-Z][A-Za-z ]{1,20}\s*:|$)", text):
             fields.setdefault(m.group(1).lower(), m.group(2).strip())
-        title = card.css(".jadwal-title, .pricing-title")
+        title = card.css(".kp-title, .jadwal-title, .pricing-title")
         if title:
             fields.setdefault("mata kuliah", title[0].get_all_text().strip())
         rec = _makeup_record(fields, text, card)
         if rec:
+            badge = card.css(".kp-badge-type")
+            rec["jenis"] = " ".join(badge[0].get_all_text().split()) if badge else None
+            rec["tanggal_asal"] = _parse_date_any(fields.get("tgl asal", "") or fields.get("tanggal asal", ""))
+            m_sks = re.search(r"\d+", fields.get("sks", ""))
+            rec["sks"] = int(m_sks.group(0)) if m_sks else None
+            rec["kelompok_praktek"] = fields.get("kel praktek") or None
+            for name, marker in (("diskusi", "/form-diskusimhs/"), ("learning", "/learning/"), ("assignment", "/assignment/")):
+                rec[f"token_{name}"] = next(
+                    (a.attrib.get("href", "").split(marker)[-1] for a in card.css("a[href]") if marker in a.attrib.get("href", "")),
+                    None,
+                )
             records.append(rec)
 
     if not records:
@@ -1133,8 +1169,7 @@ def inspect_session_status(html: str) -> dict[str, Any]:
     target_form = komentar_form[0] if komentar_form else (absen_form[0] if absen_form else None)
     can_submit = bool(target_form)
 
-    btn = page.css("div.col-xl-3 button, button.btn-warning, button.btn-success, button.btn-info, button.btn-danger, center button")
-    status_raw = btn[0].get_all_text().strip() if btn else ("Absen Masuk" if can_submit else "Tidak Diketahui")
+    status_raw = _session_status_button(page) or ("Absen Masuk" if can_submit else "Tidak Diketahui")
 
     form_action = None
     form_inputs: dict[str, str] = {}
