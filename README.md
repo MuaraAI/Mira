@@ -1,8 +1,9 @@
 <div align="center">
 
-<img src="landing-page/public/maskot/mura-empty.png" alt="Mura, maskot Mira" width="104" />
-
-# Mira
+<h1>
+  <img src="landing-page/public/maskot/mura-empty.png" alt="Mura, maskot Mira" width="88" align="center" />
+  Mira
+</h1>
 
 **Satu pintu untuk semua layanan kampus UBSI.**
 
