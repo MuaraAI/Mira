@@ -240,6 +240,8 @@ export default function RootLayout({
         description: SITE_DESCRIPTION,
         applicationCategory: "EducationalApplication",
         operatingSystem: "Web, Android, iOS (PWA)",
+        softwareVersion: "2.5.0",
+        screenshot: `${SITE_URL}/opengraph-image`,
         inLanguage: "id-ID",
         isAccessibleForFree: true,
         license: `${GITHUB_URL}/blob/main/LICENSE`,

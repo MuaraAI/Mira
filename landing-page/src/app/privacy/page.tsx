@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: "Kebijakan Privasi",
   description:
     "Bagaimana Mira memproses, mengenkripsi, dan menghapus data akademik Anda: AES-256-GCM, zero telemetry, dan kontrol penghapusan penuh di tangan Anda.",
-  alternates: { canonical: "https://mira.muaraai.com/privacy" },
+  alternates: { canonical: "/privacy" },
 };
 
 const SECTIONS: { title: string; body: string[] }[] = [
