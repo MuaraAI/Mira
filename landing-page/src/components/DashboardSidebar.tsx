@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   HelpCircle,
   MessageSquare,
+  Repeat,
   MessagesSquare,
   LogOut,
 } from "lucide-react";
@@ -49,6 +50,7 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard/jadwal", label: "Jadwal Kuliah", icon: CalendarDays },
       { href: "/dashboard/tugas", label: "Tugas Kuliah", icon: CheckSquare },
       { href: "/dashboard/presensi", label: "Presensi Kehadiran", icon: UserCheck },
+      { href: "/dashboard/pengganti", label: "Kuliah Pengganti", icon: Repeat },
       { href: "/dashboard/materi", label: "Bahan Ajar", icon: BookOpen },
       { href: "/dashboard/kuis", label: "Kuis Perkuliahan", icon: HelpCircle },
       { href: "/dashboard/diskusi", label: "Forum Diskusi", icon: MessageSquare },

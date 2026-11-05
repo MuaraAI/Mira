@@ -247,11 +247,15 @@ export default function PresensiPage() {
 
   // Dari tombol "Absen" di Jadwal: /dashboard/presensi?kode=...&mk=... langsung memilih mata kuliahnya.
   const [requested, setRequested] = useState<{ kode: string; mk: string } | null>(null);
+  // Dari halaman Kuliah Pengganti: ?pengganti=<id> memaksa sesi pengganti itu yang dibuka absennya.
+  const [forcedMakeupId, setForcedMakeupId] = useState<string | null>(null);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const kode = params.get("kode")?.trim() ?? "";
     const mk = params.get("mk")?.trim() ?? "";
+    const pengganti = params.get("pengganti")?.trim() ?? "";
     if (kode || mk) setRequested({ kode, mk });
+    if (pengganti) setForcedMakeupId(pengganti);
   }, []);
   useEffect(() => {
     if (!requested || courses.length === 0) return;
@@ -260,8 +264,11 @@ export default function PresensiPage() {
       courses.find((c) => requested.kode && (norm(c.kode) === norm(requested.kode) || norm(c.kode_mtk) === norm(requested.kode))) ||
       courses.find((c) => requested.mk && norm(c.nama) === norm(requested.mk)) ||
       courses.find((c) => requested.mk && (norm(c.nama).includes(norm(requested.mk)) || norm(requested.mk).includes(norm(c.nama))));
-    if (match) setSelectedCourseKey(match.id || match.kode || match.nama);
+    const viaMakeup = forcedMakeupId ? timed.find((e) => e.makeup?.id === forcedMakeupId)?.course : undefined;
+    const target = viaMakeup || match;
+    if (target) setSelectedCourseKey(target.id || target.kode || target.nama);
     setRequested(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requested, courses]);
 
   // Tanpa pilihan manual: otomatis mapel yang sedang/akan berlangsung paling dekat.
@@ -271,8 +278,12 @@ export default function PresensiPage() {
     }
     return courses[0] || null;
   }, [courses, selectedCourseKey]);
-  const activeTiming = timingOf(activeCourse);
-  const activeMakeup = entryOf(activeCourse)?.makeup ?? null;
+  // Sesi pengganti yang dipilih eksplisit (tombol di daftar / halaman Kuliah Pengganti) menang atas pilihan otomatis.
+  const forcedMakeup =
+    forcedMakeupId && activeCourse ? makeups.find((m) => m.id === forcedMakeupId && (activeCourse.id === `pengganti-${m.id}` || makeupMatches(activeCourse, m))) ?? null : null;
+  const forcedDate = forcedMakeup ? parseIsoDate(forcedMakeup.tanggal) : null;
+  const activeTiming = forcedMakeup ? (forcedDate ? dateTiming(forcedDate, forcedMakeup.jam, now) : null) ?? timingOf(activeCourse) : timingOf(activeCourse);
+  const activeMakeup = forcedMakeup ?? entryOf(activeCourse)?.makeup ?? null;
 
   // Absen pengganti: pakai link absen dari halaman Kuliah Pengganti bila ada, selain itu token mapel reguler.
   const makeupToken = activeMakeup?.token_absen || null;
@@ -458,6 +469,7 @@ export default function PresensiPage() {
         value={activeCourse ? courseKey(activeCourse) : null}
         onChange={(key) => {
           setSelectedCourseKey(key);
+          setForcedMakeupId(null);
           setOpenRecord(null);
           setSubmitMessage(null);
           setSubmitError(null);
@@ -654,6 +666,7 @@ export default function PresensiPage() {
                           disabled={selected}
                           onClick={() => {
                             setSelectedCourseKey(courseKey(c));
+                            setForcedMakeupId(m.id);
                             setOpenRecord(null);
                             setSubmitMessage(null);
                             setSubmitError(null);
