@@ -280,11 +280,32 @@ async def _produce_user_category(
                 if h1_slot is None:
                     continue
                 slot_suffix = f":h{h1_slot}"
-                raw = await studentv2_client.fetch_page("/mahasiswa/jadwal-kuliah", nim, student_password)
-                payload = build_schedule_notification(parse_schedule(raw))
+                sch_data = None
+                if student_password:
+                    try:
+                        raw = await studentv2_client.fetch_page("/mahasiswa/jadwal-kuliah", nim, student_password)
+                        sch_data = parse_schedule(raw)
+                    except Exception as exc:
+                        logger.debug("Fetch jadwal SIAKAD untuk matkul-besok gagal (nim=%s): %s", nim, exc)
+                if not sch_data and elearning_password:
+                    try:
+                        from app.modules.elearning import parse_courses, pooled_elearning_client
+
+                        raw = await pooled_elearning_client.fetch_page("/sch", nim, elearning_password)
+                        sch_data = parse_courses(raw)
+                    except Exception as exc:
+                        logger.debug("Fetch jadwal Elearning fallback untuk matkul-besok gagal (nim=%s): %s", nim, exc)
+                if sch_data:
+                    payload = build_schedule_notification(sch_data)
             elif category == "pengumuman-siakad":
-                raw = await studentv2_client.fetch_page("/mahasiswa/beranda", nim, student_password)
-                announcements = parse_announcements(raw)
+                if not student_password:
+                    continue
+                try:
+                    raw = await studentv2_client.fetch_page("/mahasiswa/beranda", nim, student_password)
+                    announcements = parse_announcements(raw)
+                except Exception as exc:
+                    logger.debug("Fetch pengumuman SIAKAD gagal (nim=%s): %s", nim, exc)
+                    continue
                 if announcements:
                     latest = announcements[0]
                     payload = {
@@ -365,9 +386,15 @@ async def _produce_user_category(
                         "link": f"{settings.WEB_BASE_URL}/dashboard/tugas",
                     }
             elif category == "nilai-keluar":
+                if not student_password:
+                    continue
                 from app.modules.studentv2 import parse_grades
-                raw_grades = await studentv2_client.fetch_page("/mahasiswa/nilai-murni", nim, student_password)
-                grades = parse_grades(raw_grades)
+                try:
+                    raw_grades = await studentv2_client.fetch_page("/mahasiswa/nilai-murni", nim, student_password)
+                    grades = parse_grades(raw_grades)
+                except Exception as exc:
+                    logger.debug("Fetch nilai-keluar SIAKAD gagal (nim=%s): %s", nim, exc)
+                    continue
                 graded = [g for g in grades if g.get("grade")]
                 if graded:
                     target = graded[0]
@@ -378,11 +405,17 @@ async def _produce_user_category(
                         "link": f"{settings.WEB_BASE_URL}/dashboard/nilai",
                     }
             elif category == "jadwal-ujian":
+                if not student_password:
+                    continue
                 from app.modules.studentv2 import parse_uts, parse_uas
-                raw_uts = await studentv2_client.fetch_page("/mahasiswa/uts", nim, student_password)
-                raw_uas = await studentv2_client.fetch_page("/mahasiswa/uas", nim, student_password)
-                uts = parse_uts(raw_uts)
-                uas = parse_uas(raw_uas)
+                try:
+                    raw_uts = await studentv2_client.fetch_page("/mahasiswa/uts", nim, student_password)
+                    raw_uas = await studentv2_client.fetch_page("/mahasiswa/uas", nim, student_password)
+                    uts = parse_uts(raw_uts)
+                    uas = parse_uas(raw_uas)
+                except Exception as exc:
+                    logger.debug("Fetch jadwal-ujian SIAKAD gagal (nim=%s): %s", nim, exc)
+                    continue
                 # Hanya kirim notifikasi jika jadwal BENAR-BENAR sudah dirilis (ada tabel/gate tidak aktif)
                 uts_released = False
                 uas_released = False

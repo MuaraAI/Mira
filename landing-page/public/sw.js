@@ -81,6 +81,7 @@ self.addEventListener("pushsubscriptionchange", (event) => {
       // (biarkan kosong -> backend memakai "Browser" untuk upsert & dedup).
       await fetch(base + "/api/pwa-push-resubscribe", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
           "X-Requested-With": "sw",

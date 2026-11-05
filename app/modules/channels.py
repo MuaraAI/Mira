@@ -22,18 +22,15 @@ router = APIRouter(prefix="/v1/channels", tags=["channels"])
 
 class ChannelRequest(BaseModel):
     type: Literal["discord", "telegram", "custom"]
-    categories: list[str] = Field(..., min_length=1, max_length=5)
+    categories: list[str] = Field(..., min_length=1, max_length=16)
     config: dict[str, str] = Field(default_factory=dict)
-
 
 class ReminderRequest(BaseModel):
     category: str = Field(default="matkul-besok", max_length=64)
 
 
 class ChannelCategoriesRequest(BaseModel):
-    categories: list[str] = Field(..., max_length=5)
-
-
+    categories: list[str] = Field(..., max_length=16)
 def _require_session_nim(request: Request) -> str:
     """Channel notifikasi hanya untuk session mahasiswa (bukan Master Key)."""
     nim = getattr(request.state, "nim", None)
