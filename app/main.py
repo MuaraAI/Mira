@@ -27,6 +27,7 @@ from app.modules.links import router as links_router
 from app.modules.stats import router as stats_router
 from app.modules.social import router as social_router
 from app.modules.lecturers import router as lecturers_router
+from app.modules.academic_events import router as academic_events_router
 from app.stats import record_request, record_profile
 
 def extract_client_ip(request: Request) -> str:
@@ -155,7 +156,7 @@ app.include_router(links_router)
 app.include_router(stats_router)
 app.include_router(social_router)
 app.include_router(lecturers_router)
-
+app.include_router(academic_events_router)
 # Mock API (data demo 100% palsu): hanya ter-mount saat MOCK_MODE=1.
 if settings.MOCK_MODE:
     from app.modules.mock import router as mock_router
@@ -200,6 +201,7 @@ async def api_key_auth_middleware(request: Request, call_next):
         "/v1/stats",
         "/v1/docs",
         "/v1/notifications/pwa/vapid-key",
+        "/v1/academic/events",
     }
     if request.url.path.rstrip("/") in public_paths:
         return await call_next(request)

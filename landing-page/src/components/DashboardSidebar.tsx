@@ -67,6 +67,7 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
   {
     title: "Layanan Kampus",
     items: [
+      { href: "/dashboard/agenda", label: "Agenda Kampus", icon: CalendarDays, badge: "Live" },
       { href: "/dashboard/berita", label: "Berita Kampus", icon: Newspaper },
       { href: "/dashboard/perpustakaan", label: "Perpustakaan OPAC", icon: Library },
     ],
