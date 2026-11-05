@@ -639,6 +639,19 @@ Retrieves book metadata, classification code, publisher, ISBN, and physical shel
 
 Public institutional news and scientific publications.
 
+### `GET /v1/academic/events`
+Fetches the live official academic calendar events schedule directly from `staffv2.bsi.ac.id/kegiatan-akademik`. Fully public and does not require authentication.
+- **Cache TTL**: 1 hour (3600 seconds)
+- **Response Fields**:
+  - `id`: Event slug with sequence number (e.g. `uts-semester-gasal-2026-2027-1`).
+  - `nama`: Event title (e.g. `UTS Semester Gasal 2026/2027`).
+  - `tanggal_mulai` & `tanggal_selesai`: ISO 8601 date string (`YYYY-MM-DD`).
+  - `tanggal_mulai_raw` & `tanggal_selesai_raw`: Indonesian date representation from campus.
+  - `status`: Event status (`Akan Datang`, `Sedang Berlangsung`, `Selesai`).
+  - `countdown`: Human-readable countdown string (e.g. `4 hari lagi`).
+  - `days_left`: Integer days remaining until event start (`null` if already concluded).
+  - `kategori`: Categorized event kind (`ujian`, `nilai`, `wisuda`, `libur`, `registrasi`, `akademik`).
+
 ### `GET /v1/news`
 Fetches official news posts directly from the WordPress REST API (`news.bsi.ac.id`).
 - **Query Parameters**:

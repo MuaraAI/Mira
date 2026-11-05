@@ -84,6 +84,16 @@ interface PresenceData {
   matakuliah?: string;
   ruang?: string;
 }
+interface AcademicEventSummary {
+  id: string;
+  nama: string;
+  tanggal_mulai_raw: string;
+  tanggal_selesai_raw: string;
+  status: string;
+  countdown?: string | null;
+  days_left?: number | null;
+  kategori: string;
+}
 
 interface ElearningCourse {
   id?: string;
@@ -115,7 +125,7 @@ export default function DashboardOverviewPage() {
   const assignments = useApi<AssignmentsData>("/v1/elearning/assignments", { persistMs: 6 * 60 * 60 * 1000, refreshMs: 5 * 60_000 });
   // Token presensi per mapel berasal dari daftar mapel MyBest (dicocokkan dengan jadwal SIAKAD lewat kode/nama).
   const courses = useApi<ElearningCourse[]>("/v1/elearning/courses", { persistMs: PERSIST_12H });
-
+  const academicEvents = useApi<AcademicEventSummary[]>("/v1/academic/events", { persistMs: PERSIST_12H });
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const t = window.setInterval(() => setNow(new Date()), 30_000);
@@ -194,6 +204,10 @@ export default function DashboardOverviewPage() {
   const nextDeadline = nextTask ? parseDeadline(nextTask.selesai) : null;
   const hoursLeft = nextDeadline ? Math.max(0, Math.round((nextDeadline.getTime() - nowMs) / 3_600_000)) : null;
 
+  const nearestAgenda = useMemo(() => {
+    const list = (academicEvents.data ?? []).filter((e) => e.days_left != null && e.days_left >= 0);
+    return list.sort((a, b) => (a.days_left ?? 999) - (b.days_left ?? 999))[0] ?? null;
+  }, [academicEvents.data]);
   const liveClass = todayClasses.find((c) => c.timing?.state === "live") ?? null;
   const nextClass = todayClasses.find((c) => c.timing?.state === "soon" || c.timing?.state === "upcoming") ?? null;
   const spotlight = liveClass ?? nextClass;
@@ -447,7 +461,47 @@ export default function DashboardOverviewPage() {
         </section>
       )}
 
-      {/* 5. Akses Cepat Fitur Akademik */}
+      {/* Banner Agenda Akademik Terdekat */}
+      {nearestAgenda && (
+        <section aria-labelledby="heading-agenda-terdekat">
+          <div className="p-5 sm:p-6 rounded-md bg-[#F0F7FB] border border-[#CFE2EE] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="p-2 rounded-sm bg-[#0369A1]/10 text-[#0369A1] shrink-0 mt-0.5">
+                <CalendarDays className="w-5 h-5" aria-hidden="true" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-mono font-bold text-[#0369A1] uppercase tracking-wider bg-white px-2 py-0.5 border border-[#CFE2EE]">
+                    Agenda Kampus UBSI
+                  </span>
+                  {nearestAgenda.countdown && (
+                    <span className="text-xs font-mono font-bold text-[#9A3412]">
+                      {nearestAgenda.countdown}
+                    </span>
+                  )}
+                </div>
+                <h3 className="font-bold text-foreground text-base mt-1">
+                  {nearestAgenda.nama}
+                </h3>
+                <p className="text-xs text-secondary mt-0.5">
+                  Pelaksanaan: {nearestAgenda.tanggal_mulai_raw}
+                  {nearestAgenda.tanggal_selesai_raw !== nearestAgenda.tanggal_mulai_raw
+                    ? ` s.d. ${nearestAgenda.tanggal_selesai_raw}`
+                    : ""}
+                </p>
+              </div>
+            </div>
+
+            <Link
+              href="/dashboard/agenda"
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-pill bg-[#0369A1] hover:bg-[#075985] text-white text-xs font-bold transition-all shrink-0"
+            >
+              <span>Lihat Kalender</span>
+              <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+            </Link>
+          </div>
+        </section>
+      )}
       <section aria-labelledby="heading-layanan-cepat">
         <h2 id="heading-layanan-cepat" className="text-lg font-display font-bold tracking-tight text-foreground mb-4">
           Akses Cepat Layanan Kampus

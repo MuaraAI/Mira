@@ -40,6 +40,8 @@ function getPageTitle(pathname: string): string {
       return "Kartu Rencana Studi (KRS)";
     case "/dashboard/ujian":
       return "Kartu Ujian UTS & UAS";
+    case "/dashboard/agenda":
+      return "Agenda Kampus";
     case "/dashboard/berita":
       return "Berita Kampus";
     case "/dashboard/perpustakaan":
