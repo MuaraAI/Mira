@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: "DMCA dan Hak Kekayaan Intelektual",
   description:
     "Pemberitahuan hak cipta, kekayaan intelektual, dan prosedur notice and takedown untuk proyek Mira.",
-  alternates: { canonical: "https://mira.muaraai.com/dmca" },
+  alternates: { canonical: "/dmca" },
 };
 
 const SECTIONS = [

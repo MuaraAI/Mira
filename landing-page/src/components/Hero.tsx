@@ -19,8 +19,8 @@ export function Hero() {
       <div className="relative mx-auto grid max-w-7xl items-center gap-10 px-4 pb-16 pt-10 sm:px-6 sm:pb-24 sm:pt-16 lg:grid-cols-[minmax(0,1fr)_minmax(380px,0.9fr)] lg:gap-16 lg:px-8">
         <div className="stagger-rise min-w-0">
           <h1 id="hero-title" className="max-w-3xl font-display text-[2.3rem] font-bold leading-[1.06] tracking-[-0.04em] text-foreground min-[400px]:text-5xl sm:text-6xl">
-            <span className="line-mask"><span style={{ ["--i" as string]: 0 }}>Cek jadwal, tugas,</span></span>
-            <span className="line-mask"><span style={{ ["--i" as string]: 1 }}>absen, dan nilai</span></span>
+            <span className="line-mask"><span style={{ ["--i" as string]: 0 }}>Cek jadwal, tugas, </span></span>
+            <span className="line-mask"><span style={{ ["--i" as string]: 1 }}>absen, dan nilai </span></span>
             <span className="line-mask">
               <span className="text-[#0369A1]" style={{ ["--i" as string]: 2 }}>
                 di satu tempat.<span className="px-cursor ml-1 inline-block h-[0.8em] w-[0.4em] translate-y-[0.06em] bg-[#0369A1]" aria-hidden="true" />
@@ -46,6 +46,13 @@ export function Hero() {
               <span aria-hidden="true">→</span>
             </Link>
             <InstallAppButton className="px-btn-ghost inline-flex min-h-11 items-center justify-center px-5 py-3 text-sm font-semibold" />
+          </div>
+
+          <div className="mt-3 flex items-center gap-2 text-xs text-secondary">
+            <span>Mau coba tanpa login?</span>
+            <Link href="/demo" className="font-semibold text-[#0369A1] underline hover:text-[#075985]">
+              Buka Demo Dashboard →
+            </Link>
           </div>
 
           <StatsBadge />
