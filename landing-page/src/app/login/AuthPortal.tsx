@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Check, Eye, EyeOff, LogIn, ShieldBan, X } from "lucide-react";
-import { apiFetch, ApiError, useApi, setApiCache } from "@/lib/api";
+import { apiFetch, ApiError, useApi, setApiCache, writeSessionToken } from "@/lib/api";
 import { inputClass, primaryButtonClass } from "@/components/dashboard-ui";
 import { Monogram } from "@/components/Monogram";
 import { ForgotPasswordView } from "@/components/auth/PasswordRecovery";
@@ -428,11 +428,8 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
       await sleep(180);
       mark({ mybest: "done", session: "running" });
 
-      if (res?.token && typeof window !== "undefined") {
-        try {
-          sessionStorage.setItem("ubsi_session_token", res.token);
-          localStorage.removeItem("ubsi_session_token");
-        } catch {}
+      if (res?.token) {
+        writeSessionToken(res.token);
       }
       // Prime cache /v1/auth/me seketika agar saat redirect ke /dashboard,
       // useRequireSession() langsung 0ms (authed = true) tanpa tunggu roundtrip network lagi.
