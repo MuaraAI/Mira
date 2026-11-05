@@ -246,14 +246,16 @@ async def login(req_body: LoginRequest, request: Request):
         ),
     )
     is_https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+    cookie_samesite = "none" if is_https else "lax"
+    cookie_domain = settings.SESSION_COOKIE_DOMAIN or None
     response.set_cookie(
         key="ubsi_session",
         value=token,
         max_age=7 * 24 * 3600,
         httponly=True,
         secure=is_https,
-        samesite="lax",
-        domain=settings.SESSION_COOKIE_DOMAIN or None,
+        samesite=cookie_samesite,
+        domain=cookie_domain,
     )
     return response
 
@@ -276,15 +278,16 @@ async def logout(request: Request):
         status_code=status.HTTP_200_OK,
         content=success_response(data={"message": "Logout berhasil"}),
     )
-    # Atribut harus identik dengan set_cookie agar semua browser engine menghapus cookie.
     is_https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+    cookie_samesite = "none" if is_https else "lax"
+    cookie_domain = settings.SESSION_COOKIE_DOMAIN or None
     response.delete_cookie(
         key="ubsi_session",
         path="/",
-        domain=settings.SESSION_COOKIE_DOMAIN or None,
+        domain=cookie_domain,
         secure=is_https,
         httponly=True,
-        samesite="lax",
+        samesite=cookie_samesite,
     )
     return response
 
@@ -309,15 +312,16 @@ async def logout_all(request: Request):
         status_code=status.HTTP_200_OK,
         content=success_response(data={"message": f"{removed} session diakhiri"}),
     )
-    # Atribut harus identik dengan set_cookie agar semua browser engine menghapus cookie.
     is_https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+    cookie_samesite = "none" if is_https else "lax"
+    cookie_domain = settings.SESSION_COOKIE_DOMAIN or None
     response.delete_cookie(
         key="ubsi_session",
         path="/",
-        domain=settings.SESSION_COOKIE_DOMAIN or None,
+        domain=cookie_domain,
         secure=is_https,
         httponly=True,
-        samesite="lax",
+        samesite=cookie_samesite,
     )
     return response
 

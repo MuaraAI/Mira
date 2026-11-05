@@ -42,23 +42,30 @@ interface EnvelopePayload {
 export function readSessionToken(): string | null {
   if (typeof window === "undefined") return null;
   try {
-    const token = sessionStorage.getItem("ubsi_session_token");
-    if (token) return token;
-    const legacy = localStorage.getItem("ubsi_session_token");
-    if (legacy) {
-      sessionStorage.setItem("ubsi_session_token", legacy);
-      localStorage.removeItem("ubsi_session_token");
-      return legacy;
+    const local = localStorage.getItem("ubsi_session_token");
+    if (local) return local;
+    const session = sessionStorage.getItem("ubsi_session_token");
+    if (session) {
+      localStorage.setItem("ubsi_session_token", session);
+      return session;
     }
   } catch {}
   return null;
 }
 
+export function writeSessionToken(token: string): void {
+  if (typeof window === "undefined" || !token) return;
+  try {
+    localStorage.setItem("ubsi_session_token", token);
+    sessionStorage.setItem("ubsi_session_token", token);
+  } catch {}
+}
+
 export function clearSessionToken(): void {
   if (typeof window === "undefined") return;
   try {
-    sessionStorage.removeItem("ubsi_session_token");
     localStorage.removeItem("ubsi_session_token");
+    sessionStorage.removeItem("ubsi_session_token");
   } catch {}
   clearApiCache();
 }
