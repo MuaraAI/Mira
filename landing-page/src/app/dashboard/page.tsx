@@ -101,8 +101,11 @@ interface ElearningCourse {
   nama: string;
   hari?: string;
   jam?: string;
+  sks?: number;
   ruang?: string;
   kode_dosen?: string;
+  kelas?: string;
+  kelompok_praktek?: string | null;
   token_absen?: string | null;
 }
 
@@ -125,8 +128,10 @@ export default function DashboardOverviewPage() {
   const assignments = useApi<AssignmentsData>("/v1/elearning/assignments", { persistMs: 6 * 60 * 60 * 1000, refreshMs: 5 * 60_000 });
   // Token presensi per mapel berasal dari daftar mapel MyBest (dicocokkan dengan jadwal SIAKAD lewat kode/nama).
   const courses = useApi<ElearningCourse[]>("/v1/elearning/courses", { persistMs: PERSIST_12H });
+  const elearningProfile = useApi<{ nama?: string; email?: string }>("/v1/elearning/profile", { persistMs: PERSIST_12H });
   const academicEvents = useApi<AcademicEventSummary[]>("/v1/academic/events", { persistMs: PERSIST_12H });
   const [now, setNow] = useState(() => new Date());
+  const [connectSiakadOpen, setConnectSiakadOpen] = useState(false);
   useEffect(() => {
     const t = window.setInterval(() => setNow(new Date()), 30_000);
     return () => window.clearInterval(t);
@@ -138,8 +143,23 @@ export default function DashboardOverviewPage() {
   );
 
   const todayIdx = now.getDay();
+  const activeSchedule = useMemo(() => {
+    if (schedule.data && schedule.data.length > 0) return schedule.data;
+    return (courses.data ?? []).map((c) => ({
+      id: c.id || `${c.kode}-${c.jam}`,
+      kode: c.kode || "",
+      nama: c.nama,
+      hari: c.hari || "",
+      jam: c.jam || "",
+      sks: c.sks || 0,
+      ruang: c.ruang || "",
+      kode_dosen: c.kode_dosen || "-",
+      kelompok_praktek: null,
+    }));
+  }, [schedule.data, courses.data]);
+
   const todayClasses: TodayClass[] = useMemo(() => {
-    const list = (schedule.data ?? []).filter((s) => dayIndex(s.hari) === todayIdx);
+    const list = activeSchedule.filter((s) => dayIndex(s.hari) === todayIdx);
     const el = courses.data ?? [];
     return list
       .map((s) => {
@@ -162,7 +182,7 @@ export default function DashboardOverviewPage() {
       .sort((a, b) => (a.timing?.range?.[0] ?? 0) - (b.timing?.range?.[0] ?? 0));
     // Dihitung ulang per menit cukup.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schedule.data, courses.data, todayIdx, Math.floor(now.getTime() / 60_000)]);
+  }, [activeSchedule, courses.data, todayIdx, Math.floor(now.getTime() / 60_000)]);
 
   if (me.loading && !me.data) {
     return <LoadingState label="Menyiapkan dashboard" />;
@@ -177,15 +197,16 @@ export default function DashboardOverviewPage() {
   const assignmentsPending = isPending(assignments);
 
   const nim = me.data?.nim ?? profile.data?.nim ?? "-";
-  const firstName = (profile.data?.nama || "").trim().split(/\s+/)[0] ?? "";
-  // SIAKAD menulis nama dalam huruf kapital ("VERZIO"): tampilkan rapi ("Verzio").
+  const rawName = (profile.data?.nama || elearningProfile.data?.nama || "").trim();
+  const firstName = rawName.split(/\s+/)[0] ?? "";
+  // Tampilkan rapi ("Verzio").
   const displayName = firstName ? firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase() : `Mahasiswa`;
   const hasKhs = Boolean(khs.data && (khs.data.total_sks ?? 0) > 0);
   const { prodi: prodiName, kampus: kampusName } = splitProgram(profile.data);
-  const prodi = prodiName || "Data belum tersedia";
+  const prodi = prodiName || (courses.data && courses.data.length > 0 ? "Mahasiswa Aktif" : "Data belum tersedia");
   const kampus = kampusName;
   const semester = profile.data?.semester_aktif || "-";
-  const kelas = profile.data?.kelas || "";
+  const kelas = profile.data?.kelas || courses.data?.[0]?.kelas || "";
 
   const ipkValue = khs.data?.ipk != null ? khs.data.ipk.toFixed(2) : "-";
   const totalSks = khs.data?.total_sks != null ? String(khs.data.total_sks) : "-";
@@ -216,20 +237,44 @@ export default function DashboardOverviewPage() {
   const absenRelevant = todayClasses.filter((c) => c.timing?.state === "done" || c.timing?.state === "live").length;
 
   const taughtBy = (kode?: string) =>
-    (schedule.data ?? []).filter((s) => kode && s.kode_dosen === kode).map((s) => ({ nama: s.nama, hari: s.hari, jam: s.jam }));
+    activeSchedule.filter((s) => kode && s.kode_dosen === kode).map((s) => ({ nama: s.nama, hari: s.hari, jam: s.jam }));
 
   return (
     <div className="space-y-7">
       {schedule.error?.status === 401 && (
-        <LockedSiakadCard
-          title="Akun SIAKAD Belum Terhubung"
-          description="Kamu login menggunakan akun MyBest saja. Hubungkan akun SIAKAD untuk memuat jadwal kuliah otomatis, status presensi per jam, dan IPK semester."
-          onConnected={() => {
-            schedule.reload();
-            profile.reload();
-            khs.reload();
-          }}
-        />
+        <div className="px-card bg-amber-50 border-2 border-dashed border-amber-300 p-4 text-xs text-amber-950">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-200/80 px-1.5 py-0.5">
+                Mode MyBest
+              </span>
+              <span>
+                Kamu masuk menggunakan akun MyBest LMS. Hubungkan akun SIAKAD untuk memuat IPK kumulatif dan transkrip resmi.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setConnectSiakadOpen((v) => !v)}
+              className="font-mono font-bold text-amber-900 underline hover:text-amber-700"
+            >
+              {connectSiakadOpen ? "Tutup" : "Hubungkan SIAKAD"}
+            </button>
+          </div>
+          {connectSiakadOpen && (
+            <div className="mt-4 pt-4 border-t border-amber-200">
+              <LockedSiakadCard
+                title="Hubungkan Akun SIAKAD"
+                description="Masukkan password SIAKAD (students.bsi.ac.id) untuk membuka kartu KHS, KRS, dan transkrip nilai resmi."
+                onConnected={() => {
+                  setConnectSiakadOpen(false);
+                  schedule.reload();
+                  profile.reload();
+                  khs.reload();
+                }}
+              />
+            </div>
+          )}
+        </div>
       )}
 
       {/* 1. Hero: pita aksen dengan sapaan + identitas, lalu sorotan kelas dan pintasan */}

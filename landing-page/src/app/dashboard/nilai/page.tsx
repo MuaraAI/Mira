@@ -178,6 +178,8 @@ export default function NilaiPage() {
     return () => observer.disconnect();
   }, [flexingOpen]);
 
+  const isSiakad401 = khsApi.error?.status === 401;
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
@@ -187,14 +189,16 @@ export default function NilaiPage() {
     const tabParam = params.get("tab");
     if (tabParam === "khs" || tabParam === "murni" || tabParam === "elearning") {
       setActiveTab(tabParam);
+    } else if (isSiakad401) {
+      setActiveTab("elearning");
     }
-  }, []);
+  }, [isSiakad401]);
 
   if (khsApi.loading && gradesApi.loading && elearningApi.loading) {
     return <LoadingState label="Memuat transkrip nilai akademik" />;
   }
-  if (khsApi.error) {
-    if (khsApi.error.status === 401) {
+  if (khsApi.error && elearningApi.error) {
+    if (isSiakad401) {
       return (
         <div className="space-y-6">
           <PageHeader
@@ -208,12 +212,13 @@ export default function NilaiPage() {
               khsApi.reload();
               gradesApiRaw.reload();
               profileApi.reload();
+              elearningRaw.reload();
             }}
           />
         </div>
       );
     }
-    return <ErrorState error={khsApi.error} onRetry={khsApi.reload} />;
+    return <ErrorState error={khsApi.error} onRetry={() => { khsApi.reload(); elearningRaw.reload(); }} />;
   }
 
   const khs = khsApi.data;
@@ -583,6 +588,17 @@ export default function NilaiPage() {
 
       {/* Tab 1: KHS Table */}
       {activeTab === "khs" && (
+        isSiakad401 ? (
+          <LockedSiakadCard
+            title="Kartu Hasil Studi Terkunci"
+            description="Nilai KHS dan transkrip semester diambil dari SIAKAD. Hubungkan akun SIAKAD untuk melihat IPK, SKS, dan nilai huruf mata kuliah."
+            onConnected={() => {
+              khsApi.reload();
+              gradesApiRaw.reload();
+              profileApi.reload();
+            }}
+          />
+        ) : (
         <div className="glass-card overflow-hidden">
           <div className="p-4 border-b border-stroke flex items-center justify-between flex-wrap gap-x-4 gap-y-1">
             <h3 className="font-display font-bold text-sm text-foreground">
@@ -657,10 +673,22 @@ export default function NilaiPage() {
             </div>
           )}
         </div>
+        )
       )}
 
       {/* Tab 2: Nilai Murni Breakdown */}
       {activeTab === "murni" && (
+        isSiakad401 ? (
+          <LockedSiakadCard
+            title="Nilai Murni Terkunci"
+            description="Rincian komponen nilai murni (UTS, UAS, Tugas, Presensi) diambil dari SIAKAD. Hubungkan akun SIAKAD untuk melihat evaluasi penilaian tiap mata kuliah."
+            onConnected={() => {
+              khsApi.reload();
+              gradesApiRaw.reload();
+              profileApi.reload();
+            }}
+          />
+        ) : (
         <div className="glass-card overflow-hidden">
           <div className="p-4 border-b border-stroke flex items-center justify-between flex-wrap gap-x-4 gap-y-1">
             <h3 className="font-display font-bold text-sm text-foreground">
@@ -744,6 +772,7 @@ export default function NilaiPage() {
             </div>
           )}
         </div>
+        )
       )}
 
       {/* Tab 3: Elearning MyBest Grades */}

@@ -454,3 +454,68 @@ async def test_jadwal_ujian_gate_suppresses_fake_notification():
         # Gate aktif: harus 0 notifikasi (tidak ada false alarm)
         assert await _produce_user_category("jadwal-ujian") == 0
         dispatch.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_get_schedule_fallback_to_elearning_when_siakad_fails():
+    """Saat password SIAKAD kosong/gagal, get_schedule otomatis fallback ke Elearning MyBest."""
+    from app.notifier import get_schedule
+
+    fake_redis = AsyncMock()
+    fake_redis.get.return_value = None
+    fake_redis.set.return_value = True
+
+    mock_courses = [
+        {"nama": "Pemrograman Web", "hari": "Senin", "jam": "08:00 - 10:00", "ruang": "EL2-P1", "kode": "101"}
+    ]
+
+    with (
+        patch("app.notifier._redis", return_value=fake_redis),
+        patch("app.modules.studentv2.studentv2_client.fetch_page", side_effect=RuntimeError("SIAKAD down")),
+        patch("app.modules.elearning.pooled_elearning_client.fetch_page", return_value="<html>sch</html>"),
+        patch("app.modules.elearning.parse_courses", return_value=mock_courses),
+    ):
+        sch = await get_schedule("12345678", student_password=None, elearning_password="secret_el")
+        assert len(sch) == 1
+        assert sch[0]["nama"] == "Pemrograman Web"
+        assert sch[0]["kode"] == "101"
+
+
+@pytest.mark.asyncio
+async def test_produce_user_category_skips_siakad_safely_when_unconnected():
+    """Kategori khusus SIAKAD dilewati dengan aman saat password SIAKAD kosong tanpa crash."""
+    from app.modules.news import _produce_user_category
+
+    active_channel = {
+        "id": 15,
+        "nim": "12345678",
+        "type": "custom",
+        "categories": ["pengumuman-siakad", "nilai-keluar", "jadwal-ujian"],
+        "config": {"url": "https://example.com/webhook"},
+    }
+    with (
+        patch("app.modules.news.list_active_by_category", new=AsyncMock(return_value=[active_channel])),
+        patch("app.modules.news.session_store.get_credentials_for_nim", new=AsyncMock(return_value=("12345678", None, "el_only"))),
+        patch("app.modules.news.dispatch_webhook_notification", new=AsyncMock(return_value=True)) as dispatch,
+    ):
+        # Tanpa password SIAKAD, ketiga kategori ini harus return 0 tanpa melempar exception crash
+        assert await _produce_user_category("pengumuman-siakad") == 0
+        assert await _produce_user_category("nilai-keluar") == 0
+        assert await _produce_user_category("jadwal-ujian") == 0
+        dispatch.assert_not_called()
+
+
+def test_channel_request_allows_all_categories():
+    """ChannelRequest harus mengizinkan seluruh kategori resmi (sampai 16) tanpa 422 error."""
+    from app.modules.channels import ChannelRequest, ChannelCategoriesRequest
+    from app.channel_validation import ALLOWED_CATEGORIES
+
+    req = ChannelRequest(
+        type="discord",
+        categories=list(ALLOWED_CATEGORIES),
+        config={"url": "https://discord.com/api/webhooks/12345678/abcdefghijklmnopqrstuvwxyz0123456789"}
+    )
+    assert len(req.categories) == len(ALLOWED_CATEGORIES)
+
+    cat_req = ChannelCategoriesRequest(categories=list(ALLOWED_CATEGORIES))
+    assert len(cat_req.categories) == len(ALLOWED_CATEGORIES)

@@ -189,10 +189,15 @@ async def _release(key: str) -> None:
     await redis.delete(key)
 
 
-async def get_schedule(nim: str, student_password: str) -> list[dict[str, Any]]:
-    """Jadwal kuliah SIAKAD, di-cache beberapa jam per NIM."""
-    from app.modules.studentv2 import parse_schedule, studentv2_client
+async def get_schedule(
+    nim: str, student_password: Optional[str], elearning_password: Optional[str] = None
+) -> list[dict[str, Any]]:
+    """Jadwal kuliah mahasiswa, di-cache beberapa jam per NIM.
 
+    Mencoba dari SIAKAD terlebih dahulu. Jika password SIAKAD kosong atau SIAKAD gagal,
+    otomatis fallback ke Elearning MyBest (/sch) agar mahasiswa login MyBest-only
+    tetap mendapatkan notifikasi pengingat kelas dan presensi.
+    """
     redis = await _redis()
     key = f"ubsi:notify:schedule:{nim}"
     cached = await redis.get(key)
@@ -201,11 +206,29 @@ async def get_schedule(nim: str, student_password: str) -> list[dict[str, Any]]:
             return json.loads(cached)
         except (TypeError, ValueError):
             pass
-    raw = await studentv2_client.fetch_page("/mahasiswa/jadwal-kuliah", nim, student_password)
-    schedule = parse_schedule(raw)
-    await redis.set(key, json.dumps(schedule), ex=SCHEDULE_CACHE_SECONDS)
-    return schedule
 
+    schedule: list[dict[str, Any]] = []
+    if student_password:
+        try:
+            from app.modules.studentv2 import parse_schedule, studentv2_client
+
+            raw = await studentv2_client.fetch_page("/mahasiswa/jadwal-kuliah", nim, student_password)
+            schedule = parse_schedule(raw)
+        except Exception as exc:
+            logger.debug("Fetch jadwal SIAKAD untuk notifikasi gagal (nim=%s): %s", nim, exc)
+
+    if not schedule and elearning_password:
+        try:
+            from app.modules.elearning import parse_courses, pooled_elearning_client
+
+            raw = await pooled_elearning_client.fetch_page("/sch", nim, elearning_password)
+            schedule = parse_courses(raw)
+        except Exception as exc:
+            logger.debug("Fetch jadwal Elearning fallback untuk notifikasi gagal (nim=%s): %s", nim, exc)
+
+    if schedule:
+        await redis.set(key, json.dumps(schedule), ex=SCHEDULE_CACHE_SECONDS)
+    return schedule
 
 async def _credentials(nim: str) -> Optional[tuple[str, str, str]]:
     from app.session_store import session_store
@@ -389,14 +412,15 @@ async def process_nim(nim: str, want_class: bool, want_absen: bool, current: Opt
         return 0
     _, student_password, elearning_password = credentials
     now = _now_wib(current)
-    schedule = await get_schedule(nim, student_password)
+    schedule = await get_schedule(nim, student_password, elearning_password)
+    if not schedule:
+        return 0
     sent = 0
     if want_class:
         sent += await _send_class_alerts(nim, schedule, now)
     if want_absen:
         sent += await _send_absen_reminders(nim, schedule, elearning_password, now)
     return sent
-
 
 async def collect_targets() -> dict[str, tuple[bool, bool]]:
     """NIM -> (ingin kelas-mulai, ingin absen-kuliah), dari webhook channel dan push PWA."""

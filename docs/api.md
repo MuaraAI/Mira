@@ -433,6 +433,30 @@ Lists enrolled LMS courses with schedule metadata and encrypted action tokens.
   }
   ```
 
+### `GET /v1/elearning/schedule`
+Weekly class schedule retrieved directly from MyBest LMS (`/sch`). Serves as a drop-in alternative for `GET /v1/studentv2/schedule` when students log in with Elearning-only credentials.
+- **Cache TTL**: 10 minutes (600 seconds, shared with `/courses`)
+- **Fields**: `id`, `kode`, `nama`, `sks`, `hari`, `jam`, `ruang`, `kode_dosen`, `kelas`, `tokens`.
+
+### `GET /v1/elearning/dashboard`
+Aggregates key MyBest LMS endpoints concurrently in parallel: `courses` (with `schedule` alias), `assignments`, `makeups`, `quiz`, and `profile`.
+- **Cache TTL**: 10 minutes (600 seconds)
+- **Response Sample**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "courses": [ ... ],
+      "schedule": [ ... ],
+      "assignments": { "tasks": [ ... ], "submissions": [ ... ] },
+      "makeups": [ ... ],
+      "quiz": [ ... ],
+      "profile": { "nama": "...", "email": "..." }
+    },
+    "cached": false
+  }
+  ```
+
 ### `GET /v1/elearning/assignments`
 Retrieves active assignment requirements, deadlines, and graded submission history.
 - **Query Parameter**: `token` (optional; when omitted, aggregates all active assignments across all courses)
