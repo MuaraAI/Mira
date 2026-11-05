@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: "Syarat dan Ketentuan Layanan",
   description:
     "Aturan penggunaan Mira: hanya data milik sendiri, dilarang otomasi akademik terlarang, batas rate limit, dan hak kami untuk membatasi akun yang menyalahgunakan layanan.",
-  alternates: { canonical: "https://mira.muaraai.com/terms" },
+  alternates: { canonical: "/terms" },
 };
 
 const SECTIONS: { title: string; body: string[] }[] = [

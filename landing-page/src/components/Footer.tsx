@@ -56,13 +56,15 @@ export function Footer() {
               </div>
             </div>
             <p className="mt-4 max-w-sm text-sm leading-6 text-secondary">
-              Proyek independen non-komersial dari komunitas Muara AI. Bukan aplikasi resmi UBSI.</p>
+              Dikembangkan oleh mahasiswa Informatika UBSI Kampus Pontianak di bawah bendera riset open-source komunitas Muara AI. Bukan aplikasi resmi UBSI.
+            </p>
           </div>
 
           <nav aria-label="Produk Mira" className="text-sm">
             <ColumnTitle>Produk</ColumnTitle>
             <ul className="space-y-1">
               <li><Link href="/login" className={LINK_CLASS}><Marker />Dashboard mahasiswa</Link></li>
+              <li><Link href="/demo" className={LINK_CLASS}><Marker />Demo interaktif</Link></li>
               <li><a href={API_DOCS_URL} target="_blank" rel="noopener noreferrer" className={LINK_CLASS}><Marker />API Docs</a></li>
               <li><a href={MCP_URL} target="_blank" rel="noopener noreferrer" className={LINK_CLASS}><Marker />MCP Server</a></li>
               <li><a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className={LINK_CLASS}><Marker /><Github className="h-3.5 w-3.5" aria-hidden="true" /> GitHub</a></li>
