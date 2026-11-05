@@ -139,6 +139,48 @@ def test_parse_quiz():
     assert first["paket"] == "LATIHAN"
     assert first["status_aksi"] == "Ujian Lewat"
 
+
+def test_parse_quiz_2026_six_column_layout():
+    html_6col = """
+    <table class="table table-custom-exam">
+        <thead>
+            <tr>
+                <th>No</th>
+                <th>Mata Kuliah & Paket</th>
+                <th>Dosen</th>
+                <th>Durasi</th>
+                <th>Periode Ujian</th>
+                <th>Aksi</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>1</td>
+                <td>153 - PENGANTAR TEKNOLOGI INFORMASI DAN KOMUNIKASI LATIHAN</td>
+                <td>NPR</td>
+                <td>30 menit</td>
+                <td>2026-09-25 10:35:00 s/d 2026-09-25 11:05:00</td>
+                <td>
+                    <a href="https://elearning.bsi.ac.id/halaman-ujian/eyJpdiI6Inh4eCJ9" class="btn btn-primary">Mulai Ujian</a>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="6">Belum Ada Jadwal Kuis</td>
+            </tr>
+        </tbody>
+    </table>
+    """
+    quizzes = parse_quiz(html_6col)
+    assert len(quizzes) == 1
+    q = quizzes[0]
+    assert q["kode_mtk"] == "153"
+    assert q["paket"] == "LATIHAN"
+    assert q["dosen"] == "NPR"
+    assert q["waktu"] == "30 menit"
+    assert q["ujian_mulai"] == "2026-09-25 10:35:00"
+    assert q["ujian_selesai"] == "2026-09-25 11:05:00"
+    assert q["status_aksi"] == "Mulai Ujian"
+    assert q["token_ujian"] == "eyJpdiI6Inh4eCJ9"
 def test_inspect_session_status():
     html_selesai = (FIXTURES / "el_absen_1.html").read_text(encoding="utf-8")
     status_selesai = inspect_session_status(html_selesai)

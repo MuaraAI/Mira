@@ -63,9 +63,14 @@ interface QuizQuestionsData {
   } | null;
 }
 
+function parseSafeDate(dateStr: string): Date {
+  const isoLike = (dateStr || "").trim().replace(" ", "T");
+  return new Date(isoLike);
+}
+
 function formatQuizDate(dateStr: string): string {
   if (!dateStr || dateStr === "-") return "-";
-  const d = new Date(dateStr);
+  const d = parseSafeDate(dateStr);
   if (Number.isNaN(d.getTime())) return dateStr;
   return d.toLocaleDateString("id-ID", {
     weekday: "short",
@@ -82,9 +87,9 @@ function isQuizActive(q: QuizItem): boolean {
   if (status.includes("selesai") || status.includes("sudah")) return false;
   if (status.includes("mulai") || status.includes("kerjakan") || status.includes("lanjutkan")) return true;
 
-  const now = new Date().getTime();
-  const start = new Date(q.ujian_mulai).getTime();
-  const end = new Date(q.ujian_selesai).getTime();
+  const now = Date.now();
+  const start = parseSafeDate(q.ujian_mulai).getTime();
+  const end = parseSafeDate(q.ujian_selesai).getTime();
 
   if (!Number.isNaN(start) && !Number.isNaN(end)) {
     return now >= start && now <= end;

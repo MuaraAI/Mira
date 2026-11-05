@@ -988,30 +988,86 @@ def get_official_guides() -> list[dict[str, str]]:
     ]
 
 def parse_quiz(html: str) -> list[dict[str, Any]]:
+    """Ekstraksi jadwal kuis perkuliahan MyBest LMS (mendukung format 6 kolom 2026 dan 8 kolom lama)."""
     page = Adaptor(html)
-    quizzes = []
+    quizzes: list[dict[str, Any]] = []
     rows = page.css("table tr")
     for r in rows[1:]:
-        cols = [c.get_all_text().strip() for c in r.css("td")]
+        tds = r.css("td")
+        if len(tds) < 5:
+            continue
+        cols = [" ".join(c.get_all_text().split()) for c in tds]
+
+        # Lewati baris kosong / placeholder ("Belum Ada Jadwal Kuis" / "No data available")
+        row_text = " ".join(cols).lower()
+        if "belum ada" in row_text or "tidak ada" in row_text or "no data" in row_text:
+            continue
+
+        action_btn = r.css("td:last-child a, td:last-child button")
+        action_url = action_btn[0].attrib.get("href") if action_btn and action_btn[0].attrib.get("href") not in (None, "", "#") else None
+
+        token_ujian = None
+        if action_url:
+            m_tok = re.search(r"/(?:halaman-ujian|mulai-ujian|ujian)/([^/?#]+)", action_url)
+            token_ujian = m_tok.group(1) if m_tok else action_url.rstrip("/").split("/")[-1]
+
         if len(cols) >= 7:
-            item_id = hashlib.sha256(f"{cols[2]}:{cols[5]}".encode()).hexdigest()[:12]
-            action_btn = r.css("td:last-child a, td:last-child button")
+            # Layout lama 7-8 kolom: No, Kode Mtk, Paket, Dosen, Waktu, Ujian Mulai, Ujian Selesai, Aksi
+            paket = cols[2]
+            ujian_mulai = cols[5]
+            ujian_selesai = cols[6]
             status_aksi = action_btn[0].get_all_text().strip() if action_btn else (cols[7] if len(cols) >= 8 else None)
-            action_url = action_btn[0].attrib.get("href") if action_btn and action_btn[0].attrib.get("href") not in (None, "", "#") else None
-
-            token_ujian = None
-            if action_url:
-                m_tok = re.search(r"/(?:halaman-ujian|mulai-ujian|ujian)/([^/?#]+)", action_url)
-                token_ujian = m_tok.group(1) if m_tok else action_url.rstrip("/").split("/")[-1]
-
+            item_id = hashlib.sha256(f"{paket}:{ujian_mulai}".encode()).hexdigest()[:12]
             quizzes.append({
                 "id": item_id,
                 "kode_mtk": cols[1] if cols[1] else None,
-                "paket": cols[2],
+                "paket": paket,
                 "dosen": cols[3] if cols[3] else None,
                 "waktu": cols[4] if cols[4] else None,
-                "ujian_mulai": cols[5],
-                "ujian_selesai": cols[6],
+                "ujian_mulai": ujian_mulai,
+                "ujian_selesai": ujian_selesai,
+                "status_aksi": status_aksi,
+                "action_url": action_url,
+                "token_ujian": token_ujian,
+            })
+        elif len(cols) >= 5:
+            # Layout baru 6 kolom (MyBest 2026): No, Mata Kuliah & Paket, Dosen, Durasi, Periode Ujian, Aksi
+            raw_mtk_paket = cols[1]
+            m_kode = re.search(r"\b(\d{2,4})\b", raw_mtk_paket)
+            kode_mtk = m_kode.group(1) if m_kode else None
+
+            # Ekstrak paket (mis. LATIHAN, KUIS 1, dll) atau fallback kata terakhir
+            m_paket = re.search(r"\b(LATIHAN|KUIS[^\n\r]*|UJIAN[^\n\r]*)\b", raw_mtk_paket, re.I)
+            paket = m_paket.group(0).strip() if m_paket else (" ".join(raw_mtk_paket.split()[-2:]) if raw_mtk_paket else "Kuis")
+
+            dosen = cols[2] if len(cols) > 2 and cols[2] else None
+            waktu = cols[3] if len(cols) > 3 and cols[3] else None
+
+            # Periode ujian: cari 2 tanggal/waktu mulai dan selesai
+            raw_periode = cols[4] if len(cols) > 4 else ""
+            date_matches = re.findall(
+                r"\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2}(?::\d{2})?)?|\d{1,2}[-/]\d{1,2}[-/]\d{4}(?:\s+\d{2}[:.]\d{2})?",
+                raw_periode,
+            )
+            if len(date_matches) >= 2:
+                ujian_mulai, ujian_selesai = date_matches[0], date_matches[1]
+            elif len(date_matches) == 1:
+                ujian_mulai = ujian_selesai = date_matches[0]
+            else:
+                parts = [p.strip() for p in re.split(r"\s+s[/.]?d\s+|\s+-\s+", raw_periode) if p.strip()]
+                ujian_mulai = parts[0] if parts else raw_periode
+                ujian_selesai = parts[1] if len(parts) > 1 else ujian_mulai
+
+            status_aksi = action_btn[0].get_all_text().strip() if action_btn else (cols[5] if len(cols) > 5 else None)
+            item_id = hashlib.sha256(f"{paket}:{ujian_mulai}:{kode_mtk}".encode()).hexdigest()[:12]
+            quizzes.append({
+                "id": item_id,
+                "kode_mtk": kode_mtk,
+                "paket": paket,
+                "dosen": dosen,
+                "waktu": waktu,
+                "ujian_mulai": ujian_mulai,
+                "ujian_selesai": ujian_selesai,
                 "status_aksi": status_aksi,
                 "action_url": action_url,
                 "token_ujian": token_ujian,
