@@ -2167,6 +2167,19 @@ async def get_exams(creds: tuple[str, str] = Depends(require_elearning_creds)):
     return res
 
 
+@router.get("/exams/schedule")
+async def get_exam_schedule_query(
+    type: str = Query(
+        "uts",
+        pattern=r"^(latihan|uts|uas|uts-pengganti|uas-pengganti|her|her-pengganti|her-khusus)$",
+        description="Jenis ujian: latihan, uts, uas, uts-pengganti, uas-pengganti, her, her-pengganti, her-khusus (default: uts)",
+    ),
+    creds: tuple[str, str] = Depends(require_elearning_creds),
+):
+    """Jadwal ujian semester dari ujiankampusa via query param ?type=uts."""
+    return await get_exam_schedule(exam_type=type, creds=creds)
+
+
 @router.get("/exams/{exam_type}")
 async def get_exam_schedule(
     exam_type: str = Path(pattern=r"^(latihan|uts|uas|uts-pengganti|uas-pengganti|her|her-pengganti|her-khusus)$"),
@@ -2226,6 +2239,40 @@ async def download_exam_proof(
 
     key = f"exam_proof:{nim}:{clean_token}"
     return await serve_cached(request, key, _fetch)
+
+
+# Router Alias: /v1/ujian (ujiankampusa.bsi.ac.id/jadwal)
+
+ujian_router = APIRouter(prefix="/v1/ujian", tags=["Ujian Online (ujiankampusa)"])
+
+
+@ujian_router.get("/types")
+async def get_ujian_types_alias(creds: tuple[str, str] = Depends(require_elearning_creds)):
+    """Daftar jenis ujian online semester yang tersedia di portal ujiankampusa."""
+    return await get_exams(creds=creds)
+
+
+@ujian_router.get("/jadwal")
+async def get_ujian_jadwal_alias(
+    type: str = Query(
+        "uts",
+        pattern=r"^(latihan|uts|uas|uts-pengganti|uas-pengganti|her|her-pengganti|her-khusus)$",
+        description="Jenis ujian (default: uts)",
+    ),
+    creds: tuple[str, str] = Depends(require_elearning_creds),
+):
+    """Jadwal ujian online resmi dari ujiankampusa.bsi.ac.id/jadwal."""
+    return await get_exam_schedule(exam_type=type, creds=creds)
+
+
+@ujian_router.get("/cetak-pdf")
+async def get_ujian_pdf_alias(
+    request: Request,
+    token: str = Query(..., description="Token encrypted bukti ujian dari jadwal ujian"),
+    creds: tuple[str, str] = Depends(require_elearning_creds),
+):
+    """Unduh PDF bukti ujian resmi dari portal ujiankampusa."""
+    return await download_exam_proof(request=request, token=token, creds=creds)
 
 # Rekap Nilai Tugas & Kuis (Per Pertemuan)
 

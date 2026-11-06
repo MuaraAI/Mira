@@ -15,7 +15,7 @@ from app.envelope import error_response, success_response
 from app.docs import get_api_docs
 from app.router_helper import close_background_tasks
 from app.modules.studentv2 import router as studentv2_router, studentv2_client
-from app.modules.elearning import router as elearning_router, pooled_elearning_client
+from app.modules.elearning import router as elearning_router, pooled_elearning_client, ujian_router
 from app.modules.elibrary import router as elibrary_router
 from app.modules.news import router as news_router
 from app.modules.repository import router as repository_router
@@ -157,6 +157,7 @@ app.include_router(stats_router)
 app.include_router(social_router)
 app.include_router(lecturers_router)
 app.include_router(academic_events_router)
+app.include_router(ujian_router)
 # Mock API (data demo 100% palsu): hanya ter-mount saat MOCK_MODE=1.
 if settings.MOCK_MODE:
     from app.modules.mock import router as mock_router

@@ -553,6 +553,24 @@ Exam schedule for one exam type from the BSI Online Exam portal. Each card inclu
 Downloads the official exam attendance proof PDF (`bukti ujian`) from `ujiankampusa` via internal SSO handshake and streams it as `application/pdf` attachment.
 - **Query Parameter**: `token` (required, encrypted token from `GET /v1/elearning/exams/{exam_type}` `token_bukti`)
 
+
+### `GET /v1/elearning/exams/schedule`
+Alias endpoint to fetch exam schedule via query parameter.
+- **Query Parameter**: `type` (optional, default: `uts`, enum: `latihan`, `uts`, `uas`, `uts-pengganti`, `uas-pengganti`, `her`, `her-pengganti`, `her-khusus`)
+- **Cache TTL**: 1 minute (60 seconds)
+
+### `GET /v1/ujian/jadwal`
+Public portal alias to fetch exam schedules from `ujiankampusa.bsi.ac.id/jadwal`.
+- **Query Parameter**: `type` (optional, default: `uts`, enum: `latihan`, `uts`, `uas`, `uts-pengganti`, `uas-pengganti`, `her`, `her-pengganti`, `her-khusus`)
+- **Cache TTL**: 1 minute (60 seconds)
+
+### `GET /v1/ujian/types`
+Lists the available online exam types from `ujiankampusa.bsi.ac.id`.
+- **Cache TTL**: 2 minutes (120 seconds)
+
+### `GET /v1/ujian/cetak-pdf`
+Alias to download the official exam proof PDF from `ujiankampusa.bsi.ac.id/cetak-ujian-pdf/{token}`.
+- **Query Parameter**: `token` (required)
 ### `GET /v1/elearning/quiz/questions`
 Retrieves exam questions, countdown timer, CSRF token, and multiple-choice options (A, B, C, D).
 - **Query Parameters**: `token` (optional), `quiz_url` (optional)
