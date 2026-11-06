@@ -1,0 +1,7 @@
+node_modules/
+out/
+stills/
+audio/
+.env
+suara/
+public/render/
