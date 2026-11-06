@@ -2,4 +2,4 @@
 import { cpSync, mkdirSync } from "node:fs";
 
 mkdirSync("public/pdfjs", { recursive: true });
-cpSync("node_modules/pdfjs-dist/legacy/build/pdf.worker.min.js", "public/pdfjs/pdf.worker.min.js");
+cpSync("node_modules/pdfjs-dist/build/pdf.worker.min.mjs", "public/pdfjs/pdf.worker.min.mjs");
