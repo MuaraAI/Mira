@@ -1,0 +1,57 @@
+NARASI MIRA v3 (teleprompter) · durasi 02:16.80 · suara ElevenLabs MwM
+
+== HOOK: RIBETNYA PORTAL KAMPUS ==
+[00:00.40]  Mau cek jadwal? Login dulu.
+[00:04.00]  Sudah masuk, jadwalnya di portal lain.
+[00:06.95]  15 menit kemudian, sesi habis? Hahaha, bikin kesel, kan?
+
+== REVEAL: MIRA MERAPIKAN SEMUANYA ==
+[00:12.60]  Halo, aku Mira.
+[00:14.30]  SIAKAD, MyBest, presensi: biar aku yang atur.
+
+== MASUK PAKAI AKUN KAMPUS ==
+[00:19.05]  Caranya begini.
+[00:20.55]  Buka mira.muaraai.com, klik Masuk.
+[00:24.80]  Isi NIM, password SIAKAD dan MyBest.
+[00:28.60]  Kode keamanan? Aku yang isi. Sesimu aktif 7 hari.
+
+== RINGKASAN & JADWAL KULIAH ==
+[00:34.80]  Kelas berikutnya, tugas, dan IPK: langsung kelihatan.
+[00:40.60]  Jadwal hari ini, atau seminggu penuh.
+[00:43.90]  Lengkap dengan ruang, dosen, dan tombol absen.
+
+== TUGAS & PENGUMPULAN ==
+[00:48.20]  Tugas, urut dari deadline terdekat.
+[00:51.40]  Kumpulkan? Tempel link Drive-mu.
+[00:53.90]  Aksesnya aku cek, biar dosen nggak dapat link privat.
+
+== KOMUNITAS (FITUR BARU) ==
+[00:59.95]  Yang baru: Komunitas, ruang ngobrol kelasmu.
+[01:04.20]  Format ala WhatsApp, link YouTube atau Instagram tampil rapi.
+[01:09.05]  Channel, grup, sampai pesan pribadi.
+
+== RAPI DI SEMUA LAYAR ==
+[01:15.00]  Konsisten di laptop, tablet, sampai HP.
+[01:19.30]  Kontras teksnya tinggi, jadi mata nggak cepat lelah.
+
+== NOTIFIKASI & PRESENSI DI HP ==
+[01:24.40]  Ketuk lonceng di kanan atas, aktifkan notifikasi.
+[01:28.90]  Absen dibuka? Aku langsung kabari.
+[01:32.60]  Ketuk, lalu absen. Tanpa login ulang.
+[01:36.30]  Beres, tercatat di MyBest.
+
+== KEAMANAN ==
+[01:40.60]  Akunmu aman: password-mu aku enkripsi.
+[01:44.55]  Login berulang? Aku blokir.
+[01:47.30]  Keluar dari semua perangkat? Sekali klik.
+
+== PORTAL KAMPUS VS MIRA ==
+[01:50.55]  Bandingkan sendiri.
+[01:52.00]  Di portal, login tiap 15 menit. Di sini, sekali seminggu.
+[01:57.55]  Di sana jadwal dicari. Di sini, langsung terlihat.
+[02:01.90]  Rapi di layar apa pun.
+
+== OUTRO & AJAKAN ==
+[02:04.80]  Gratis, open source, buatan mahasiswa UBSI.
+[02:09.00]  Buka mira.muaraai.com. Sisanya, biar aku yang atur.
+
