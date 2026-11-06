@@ -51,7 +51,7 @@ writeFileSync(
 3. Mira: Satu Pintu untuk SIAKAD, MyBest, Presensi & Chat Kelas
 
 DESKRIPSI
-Capek login berkali-kali ke portal kampus? Kenalan dengan Mira: satu pintu untuk jadwal, tugas, presensi, sampai chat kelas. Login sekali, sesi aktif 7 hari, kode keamanan diisi otomatis.
+Portal kampus lemot dan tampilannya bikin pusing? Kenalan dengan Mira, alternatif tidak resmi untuk web BSI yang lebih cepat, lebih rapi, dan enak dipakai di HP: satu pintu untuk jadwal, tugas, presensi, sampai chat kelas.
 
 Coba gratis: https://mira.muaraai.com
 
@@ -75,36 +75,37 @@ mira, mira muara ai, ubsi, universitas bsi, mahasiswa ubsi, kampus digital kreat
 );
 if (existsSync("naskah-vo.srt")) copyFileSync("naskah-vo.srt", `${OUT}/youtube/subtitle-id.srt`);
 
-const igCaption = (ajakan: string) => `Login. Kode keamanan. Buka portal lain. Login lagi.
-Lima belas menit kemudian, sesi habis.
+const igCaption = (ajakan: string) => `Portal kampus lemot, tampilannya bikin pusing? Coba Mira ⚡
 
-Itu rutinitas kami setiap mau cek jadwal. Jadi kami bikin Mira.
+Mira adalah alternatif tidak resmi untuk web BSI: lebih cepat, lebih rapi, dan enak dipakai di HP. Semua layanan kuliah UBSI dikumpulkan dalam satu pintu.
 
-Satu pintu untuk layanan kampus UBSI: jadwal, tugas, presensi, sampai chat kelas.
-Login sekali, aktif tujuh hari. Kode keamanan diisi otomatis.
-Dosen membuka absen, notifikasinya langsung masuk ke HP. Ketuk, absen, selesai.
+■ Jadwal hari ini & seminggu, langsung di halaman depan
+■ Tugas urut dari deadline terdekat, kumpulkan lewat link Drive
+■ Notifikasi absen masuk ke HP → ketuk → beres
+■ Chat kelas dengan format ala WhatsApp
+■ Tampilan bersih & nyaman di laptop, tablet, dan HP
 
-Dibangun oleh mahasiswa semester 1 Informatika UBSI Kampus Pontianak (tim Muara AI).
-Sekarang dipakai 40 mahasiswa, dan masih terus dikembangkan.
+Dibangun oleh mahasiswa semester 1 Informatika UBSI Kampus Pontianak (tim Muara AI) 🎓
+Sudah dipakai 40 mahasiswa, dan terus dikembangkan.
 
-Coba: mira.muaraai.com (link di bio)
-Kode sumber: github.com/MuaraAI/Mira
+→ Coba: mira.muaraai.com (link di bio)
+→ Kode sumber: github.com/MuaraAI/Mira
 
-Open source (MIT) untuk UI dan sistemnya. Silakan fork, pelajari, atau kembangkan sendiri.
-Yang dibuka hanya kodenya. Data mahasiswa tidak ikut dibuka: disimpan terpisah dan aman, password terenkripsi AES-256-GCM.
+Open source (MIT) untuk UI & sistemnya. Silakan fork, pelajari, atau kembangkan sendiri.
+🔒 Yang dibuka hanya kodenya. Data mahasiswa tidak ikut dibuka: disimpan terpisah dan aman, password terenkripsi AES-256-GCM.
 
 ${ajakan}
 
 Sisanya, biar Mira yang atur.
 
-Catatan: Mira adalah proyek independen dari ide mahasiswa dan tidak berafiliasi dengan Universitas Bina Sarana Informatika (UBSI). Data di video adalah data contoh.
+※ Mira adalah proyek independen dari ide mahasiswa dan tidak berafiliasi dengan Universitas Bina Sarana Informatika (UBSI). Data di video adalah data contoh.
 
 ${HASHTAG}
 `;
 dir("instagram-feed");
-writeFileSync(`${OUT}/instagram-feed/caption.txt`, igCaption("Simpan dulu, lalu tag teman sekelas yang paling sering ke-logout pas mau absen."));
+writeFileSync(`${OUT}/instagram-feed/caption.txt`, igCaption("Simpan dulu, lalu tag teman sekelas yang paling sering nunggu portal loading 👇"));
 dir("instagram-reels");
-writeFileSync(`${OUT}/instagram-reels/caption.txt`, igCaption("Kirim ke teman sekelas yang masih login ulang tiap lima belas menit."));
+writeFileSync(`${OUT}/instagram-reels/caption.txt`, igCaption("Kirim ke teman sekelas yang masih setia nunggu portal loading 👇"));
 dir("instagram-story");
 writeFileSync(
   `${OUT}/instagram-story/teks-story.txt`,
