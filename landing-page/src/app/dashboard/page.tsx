@@ -130,6 +130,10 @@ export default function DashboardOverviewPage() {
   const courses = useApi<ElearningCourse[]>("/v1/elearning/courses", { persistMs: PERSIST_12H });
   const elearningProfile = useApi<{ nama?: string; email?: string }>("/v1/elearning/profile", { persistMs: PERSIST_12H });
   const academicEvents = useApi<AcademicEventSummary[]>("/v1/academic/events", { persistMs: PERSIST_12H });
+  const utsExams = useApi<{ exams: { mata_kuliah: string; no_ruang?: string | null; tanggal_ujian?: string | null; waktu?: string | null }[] }>(
+    "/v1/elearning/exams/uts",
+    { persistMs: PERSIST_12H }
+  );
   const [now, setNow] = useState(() => new Date());
   const [connectSiakadOpen, setConnectSiakadOpen] = useState(false);
   useEffect(() => {
@@ -505,6 +509,45 @@ export default function DashboardOverviewPage() {
           </div>
         </section>
       )}
+      {/* Banner Jadwal Ujian UTS / UAS Aktif */}
+      {utsExams.data?.exams && utsExams.data.exams.length > 0 && (
+        <section aria-labelledby="heading-ujian-terdekat">
+          <div className="p-5 sm:p-6 rounded-md bg-[#F0F7FB] border border-[#CFE2EE] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="p-2 rounded-sm bg-[#0369A1]/10 text-[#0369A1] shrink-0 mt-0.5">
+                <Award className="w-5 h-5" aria-hidden="true" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-mono font-bold text-[#0369A1] uppercase tracking-wider bg-white px-2 py-0.5 border border-[#CFE2EE]">
+                    Jadwal Ujian Online (UTS)
+                  </span>
+                  <span className="text-xs font-mono font-bold text-[#0369A1]">
+                    {utsExams.data.exams.length} Mata Kuliah
+                  </span>
+                </div>
+                <h3 id="heading-ujian-terdekat" className="font-bold text-foreground text-base mt-1">
+                  Ujian Tengah Semester Terjadwal
+                </h3>
+                <p className="text-xs text-secondary mt-0.5">
+                  Ujian terdekat dimulai {utsExams.data.exams[0]?.tanggal_ujian?.split(" - ")[0] || "segera"}:{" "}
+                  <span className="font-semibold text-foreground">{utsExams.data.exams[0]?.mata_kuliah}</span>
+                  {utsExams.data.exams[0]?.no_ruang ? ` (Ruang ${utsExams.data.exams[0]?.no_ruang})` : ""}.
+                </p>
+              </div>
+            </div>
+
+            <Link
+              href="/dashboard/ujian"
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-pill bg-[#0369A1] hover:bg-[#075985] text-white text-xs font-bold transition-all shrink-0"
+            >
+              <span>Buka Jadwal Ujian</span>
+              <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+            </Link>
+          </div>
+        </section>
+      )}
+
 
       {/* Banner Agenda Akademik Terdekat */}
       {nearestAgenda && (

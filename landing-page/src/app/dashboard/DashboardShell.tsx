@@ -39,7 +39,7 @@ function getPageTitle(pathname: string): string {
     case "/dashboard/krs":
       return "Kartu Rencana Studi (KRS)";
     case "/dashboard/ujian":
-      return "Kartu Ujian UTS & UAS";
+      return "Jadwal & Kartu Ujian";
     case "/dashboard/agenda":
       return "Agenda Kampus";
     case "/dashboard/berita":

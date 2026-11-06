@@ -299,3 +299,52 @@ async def test_download_exam_proof_endpoint(monkeypatch):
         assert b"%PDF-1.4" in r.content
     finally:
         app.dependency_overrides.pop(require_elearning_creds, None)
+
+
+@pytest.mark.asyncio
+async def test_exam_schedule_query_and_ujian_router(monkeypatch, dashboard_html, schedule_html):
+    """Endpoint /v1/elearning/exams/schedule dan alias /v1/ujian/* berfungsi identik."""
+    from unittest.mock import AsyncMock
+    from httpx import ASGITransport, AsyncClient
+    from app.main import app
+    from app.deps import require_elearning_creds
+    from app.modules import elearning
+
+    monkeypatch.setattr(
+        elearning.pooled_elearning_client,
+        "fetch_page",
+        AsyncMock(return_value=dashboard_html),
+    )
+    monkeypatch.setattr(
+        elearning.pooled_elearning_client,
+        "fetch_cross_host",
+        AsyncMock(return_value=schedule_html),
+    )
+    _mock_redis()
+    app.dependency_overrides[require_elearning_creds] = lambda: ("15260001", "pw")
+
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://test",
+        ) as ac:
+            # 1. /v1/elearning/exams/schedule?type=uts
+            r1 = await ac.get("/v1/elearning/exams/schedule?type=uts")
+            assert r1.status_code == 200
+            body1 = r1.json()["data"]
+            assert body1["identity"]["nim"] == "15260001"
+            assert len(body1["exams"]) == 2
+
+            # 2. /v1/ujian/jadwal?type=uts
+            r2 = await ac.get("/v1/ujian/jadwal?type=uts")
+            assert r2.status_code == 200
+            body2 = r2.json()["data"]
+            assert body2["identity"]["nim"] == "15260001"
+            assert len(body2["exams"]) == 2
+
+            # 3. /v1/ujian/types
+            r3 = await ac.get("/v1/ujian/types")
+            assert r3.status_code == 200
+            assert "types" in r3.json()["data"]
+    finally:
+        app.dependency_overrides.pop(require_elearning_creds, None)
