@@ -5,8 +5,8 @@ let loader: Promise<PdfJs> | null = null;
 
 /** pdf.js dimuat hanya saat dibutuhkan, supaya halaman lain tetap ringan. */
 function pdfjs(): Promise<PdfJs> {
-  loader ??= import("pdfjs-dist/legacy/build/pdf").then((lib) => {
-    lib.GlobalWorkerOptions.workerSrc = "/pdfjs/pdf.worker.min.js";
+  loader ??= import("pdfjs-dist").then((lib) => {
+    lib.GlobalWorkerOptions.workerSrc = "/pdfjs/pdf.worker.min.mjs";
     return lib as unknown as PdfJs;
   });
   return loader;
@@ -19,7 +19,7 @@ export function preloadPdfjs() {
     void pdfjs().catch(() => {
       loader = null;
     });
-    void fetch("/pdfjs/pdf.worker.min.js", { priority: "low" } as RequestInit).catch(() => {});
+    void fetch("/pdfjs/pdf.worker.min.mjs", { priority: "low" } as RequestInit).catch(() => {});
   };
   const idle = (window as unknown as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
   if (idle) idle(warm);
@@ -39,7 +39,7 @@ export async function isPdfBlob(blob: Blob) {
 export async function openPdf(blob: Blob): Promise<PDFDocumentProxy> {
   const lib = await pdfjs();
   const data = new Uint8Array(await blob.arrayBuffer());
-  return lib.getDocument({ data, isEvalSupported: false }).promise;
+  return lib.getDocument({ data }).promise;
 }
 
 async function pageText(doc: PDFDocumentProxy, n: number): Promise<string> {
@@ -112,7 +112,7 @@ export function renderPage(
     buffer.height = Math.floor(viewport.height);
     const ctx = buffer.getContext("2d");
     if (!ctx) return;
-    task = page.render({ canvasContext: ctx, viewport });
+    task = page.render({ canvas: buffer, canvasContext: ctx, viewport });
     await task.promise;
     if (cancelled) return;
     canvas.width = buffer.width;
