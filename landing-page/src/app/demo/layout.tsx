@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Demo Dashboard Interaktif",
+  title: "Demo Dashboard Interaktif | Mira",
   description:
-    "Coba langsung simulasi dashboard akademik Mira UBSI dengan data mock realistis: pantau jadwal kuliah, presensi kehadiran, tugas, kuis, dan nilai tanpa perlu login.",
+    "Simulasi dashboard akademik interaktif Mira UBSI tanpa perlu login dan tanpa API: pantau jadwal kuliah, presensi kehadiran, tugas, kuis, dan nilai dengan data contoh.",
   alternates: { canonical: "/demo" },
 };
 

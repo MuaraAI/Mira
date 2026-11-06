@@ -29,5 +29,3 @@ def auto_auth_client(monkeypatch):
     # Test suite wajib 100% offline (Iron Rule #2): paksa SQLite in-memory,
     # jangan biarkan SUPABASE_DB_URL lokal menyentuh remote Supabase di pytest.
     monkeypatch.setattr(settings, "SUPABASE_DB_URL", "")
-    # Default produksi tanpa MOCK_MODE: pastikan router mock tidak ter-mount by default.
-    monkeypatch.setattr(settings, "MOCK_MODE", False)
