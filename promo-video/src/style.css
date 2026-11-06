@@ -1,0 +1,174 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Primitive pixel Mira, disalin dari landing-page/src/app/globals.css.
+ * Bedanya cuma satu: semua `transition`/`animation` CSS dimatikan, karena di video
+ * setiap gerakan digerakkan per frame (useCurrentFrame) supaya hasil render deterministik.
+ */
+:root {
+  --bg: #F7FAFC;
+  --surface: #ffffff;
+  --surface-alt: #F0F7FB;
+  --stroke: #D9E5ED;
+  --text: #072033;
+  --text-muted: #3B5A70;
+  --accent: #0369A1;
+  --accent-hover: #075985;
+  --success: #0F766E;
+  --warning: #9A3412;
+  --danger: #BE123C;
+
+  --px-ink: #072033;
+  --px-line-strong: #163A55;
+  --px-line-soft: #CFE2EE;
+  --px-water: #9CC6E0;
+  --px-water-mid: #5FA3CC;
+  --px-tint: #EAF3F9;
+  --px-highlight: #DCEBF5;
+  --px-night: #0B2D46;
+
+  --font-inter: "Inter";
+  --font-space-grotesk: "Space Grotesk";
+  --font-jetbrains-mono: "JetBrains Mono";
+  --font-pixel: "Pixelify Sans";
+}
+
+*, *::before, *::after {
+  transition: none !important;
+  animation: none !important;
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-space-grotesk), var(--font-inter), system-ui, sans-serif;
+}
+
+@layer components {
+  .px-card, .px-frame, .px-chip, .px-icon, .px-btn, .px-btn-ghost, .glass-card {
+    --px: 2px;
+    --px-line: var(--px-line-strong);
+    --px-drop: transparent;
+    --px-off: 0px;
+    border-radius: 0;
+    box-shadow:
+      0 calc(var(--px) * -1) 0 0 var(--px-line),
+      0 var(--px) 0 0 var(--px-line),
+      calc(var(--px) * -1) 0 0 0 var(--px-line),
+      var(--px) 0 0 0 var(--px-line),
+      var(--px-off) var(--px-off) 0 0 var(--px-drop);
+  }
+  .px-card { --px-drop: var(--px-line-soft); --px-off: 6px; }
+  .px-chip { --px-line: color-mix(in srgb, currentColor 40%, transparent); }
+  .px-icon { --px-line: color-mix(in srgb, #0369A1 45%, transparent); display: inline-flex; align-items: center; justify-content: center; background: var(--px-tint); color: #0369A1; }
+  .px-btn { --px-line: var(--px-ink); --px-drop: #0369A1; --px-off: 4px; background: var(--px-ink); color: #fff; }
+  .px-btn-ghost { --px-line: var(--px-line-strong); --px-drop: var(--px-line-soft); --px-off: 4px; background: #fff; color: var(--px-ink); }
+  .glass-card { --px-line: var(--px-line-soft); --px-drop: var(--px-line-soft); --px-off: 5px; background: #fff; position: relative; }
+}
+
+.px-btn-success {
+  --l: #0F766E;
+  --drop: var(--px-ink);
+  box-shadow: 0 -2px 0 0 var(--l), 0 2px 0 0 var(--l), -2px 0 0 0 var(--l), 2px 0 0 0 var(--l), var(--off, 4px) var(--off, 4px) 0 0 var(--drop);
+  color: #fff;
+  background: #0F766E;
+}
+
+.px-input {
+  border-radius: 0;
+  border: 0;
+  background: #fff;
+  box-shadow: 0 -2px 0 0 var(--px-line-soft), 0 2px 0 0 var(--px-line-soft), -2px 0 0 0 var(--px-line-soft), 2px 0 0 0 var(--px-line-soft);
+}
+.px-input[data-focus="true"] {
+  box-shadow: 0 -2px 0 0 #0369A1, 0 2px 0 0 #0369A1, -2px 0 0 0 #0369A1, 2px 0 0 0 #0369A1, 4px 4px 0 0 var(--px-line-soft);
+}
+
+.section-kicker {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #0369A1;
+}
+.section-kicker::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex: none;
+  background: #0369A1;
+}
+
+.current-surface {
+  position: relative;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 -2px 0 0 var(--px-line-strong), 0 2px 0 0 var(--px-line-strong), -2px 0 0 0 var(--px-line-strong), 2px 0 0 0 var(--px-line-strong), 8px 8px 0 0 var(--px-line-soft);
+}
+
+.px-nav {
+  background: rgba(255, 255, 255, .92);
+  box-shadow:
+    0 -2px 0 0 rgba(22, 58, 85, .85),
+    0 2px 0 0 var(--px-line-strong),
+    -2px 0 0 0 rgba(22, 58, 85, .85),
+    2px 0 0 0 rgba(22, 58, 85, .85),
+    4px 4px 0 0 var(--px-line-soft);
+}
+
+.grid-overlay {
+  background-image:
+    linear-gradient(rgba(7, 32, 51, 0.04) 2px, transparent 2px),
+    linear-gradient(90deg, rgba(7, 32, 51, 0.04) 2px, transparent 2px);
+  background-size: 32px 32px;
+}
+
+/* Dashboard: judul pakai Pixelify Sans (huruf saja, angka jatuh ke Space Grotesk). */
+.portal-type :is(h1, h2, h3, h4, h5, h6),
+.portal-type .font-display {
+  font-family: var(--font-pixel), var(--font-space-grotesk), var(--font-inter), system-ui, sans-serif;
+}
+.portal-type .font-display { letter-spacing: 0.01em !important; }
+
+.login-brand {
+  background-color: #072033;
+  background-image:
+    repeating-linear-gradient(135deg, rgba(156, 198, 224, .07) 0 2px, transparent 2px 22px),
+    linear-gradient(160deg, #072033 0%, #0B2D46 100%);
+}
+
+.login-step { box-shadow: 0 -2px 0 0 var(--px-line-soft), 0 2px 0 0 var(--px-line-soft), -2px 0 0 0 var(--px-line-soft), 2px 0 0 0 var(--px-line-soft); }
+.login-step[data-state="running"] { box-shadow: 0 -2px 0 0 #0369A1, 0 2px 0 0 #0369A1, -2px 0 0 0 #0369A1, 2px 0 0 0 #0369A1, 4px 4px 0 0 var(--px-water); }
+.login-step[data-state="done"] { box-shadow: 0 -2px 0 0 #99D5CC, 0 2px 0 0 #99D5CC, -2px 0 0 0 #99D5CC, 2px 0 0 0 #99D5CC; }
+
+.dashboard-bottom-nav {
+  background: rgba(255, 255, 255, .96);
+  box-shadow: 0 -2px 0 0 var(--px-line-strong), 0 -6px 0 0 rgba(207, 226, 238, .55);
+}
+.bottom-nav-item { display: flex; min-height: 54px; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: var(--text-muted); }
+.bottom-nav-icon { display: flex; height: 30px; width: 44px; align-items: center; justify-content: center; }
+.bottom-nav-label { font-family: var(--font-jetbrains-mono), ui-monospace, monospace; font-size: 10px; font-weight: 600; line-height: 1; letter-spacing: .02em; }
+.bottom-nav-item[data-active="true"] { color: var(--text); }
+.bottom-nav-item[data-active="true"] .bottom-nav-icon { background: var(--px-ink); color: #fff; box-shadow: 3px 3px 0 0 #0369A1; transform: translate(-1px, -1px); }
+.bottom-nav-item[data-active="true"] .bottom-nav-label { font-weight: 800; }
+
+.px-seg-btn { min-height: 40px; padding: 6px 12px; font-family: var(--font-jetbrains-mono), ui-monospace, monospace; font-size: 12px; font-weight: 700; line-height: 1.25; color: var(--text-muted); }
+
+.chat-time, .tabular { font-variant-numeric: tabular-nums; }
+
+/* Mira Komunitas (globals.css): chat memakai Inter, dinding chat bertitik. */
+.chat-ui { font-family: var(--font-inter), system-ui, sans-serif; font-feature-settings: "cv11", "ss01"; }
+.portal-type .chat-ui :is(h1, h2, h3, h4) { font-family: var(--font-inter), system-ui, sans-serif; letter-spacing: -0.01em; }
+.chat-wall { background-color: #F5F9FC; background-image: radial-gradient(#DCE8F0 1px, transparent 1px); background-size: 18px 18px; }

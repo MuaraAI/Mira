@@ -1,0 +1,35 @@
+{
+  "name": "mira-promo-video",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Video tutorial Mira v3 (Remotion): UI direplikasi 1:1 dari landing-page/, narasi & SFX ElevenLabs.",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts MiraTutorial out/mira-tutorial-bisu.mp4 --codec=h264 --crf=16 --concurrency=6",
+    "vo": "node --no-warnings --env-file=.env scripts/gen-vo.mjs",
+    "sfx": "node --no-warnings --env-file=.env scripts/gen-sfx.mjs",
+    "audio": "node --no-warnings scripts/audio.mjs",
+    "mux": "remotion ffmpeg -y -i out/mira-tutorial-bisu.mp4 -i audio/mix-lengkap.wav -map 0:v -map 1:a -c:v copy -c:a aac -b:a 256k -shortest -movflags +faststart out/mira-tutorial.mp4 && remotion ffmpeg -y -i out/mira-tutorial-bisu.mp4 -i audio/mix-tanpa-musik.wav -map 0:v -map 1:a -c:v copy -c:a aac -b:a 256k -shortest -movflags +faststart out/mira-tutorial-tanpa-musik.mp4 && remotion ffmpeg -y -i out/mira-tutorial-bisu.mp4 -i audio/mix-tanpa-narasi.wav -map 0:v -map 1:a -c:v copy -c:a aac -b:a 256k -shortest -movflags +faststart out/mira-tutorial-tanpa-narasi.mp4",
+    "semua": "npm run render && npm run audio && npm run mux && npm run naskah && npm run posting",
+    "naskah": "node --no-warnings scripts/build-naskah.ts",
+    "stills": "node scripts/stills.mjs",
+    "cek-audio": "node --no-warnings scripts/audio-check.mjs",
+    "posting": "node scripts/render-posting.mjs && node --no-warnings scripts/build-posting.ts",
+    "posting:audio": "node --no-warnings scripts/remux-posting.mjs"
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.541",
+    "@remotion/cli": "4.0.541",
+    "@remotion/fonts": "4.0.541",
+    "@remotion/renderer": "4.0.541",
+    "@remotion/tailwind": "4.0.541",
+    "lucide-react": "0.475.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "remotion": "4.0.541"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.10",
+    "typescript": "^5.7.3"
+  }
+}

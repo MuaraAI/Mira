@@ -1,0 +1,132 @@
+1
+00:00:00,400 --> 00:00:02,910
+Mau cek jadwal? Login dulu.
+
+2
+00:00:04,000 --> 00:00:06,900
+Sudah masuk, jadwalnya di portal lain.
+
+3
+00:00:06,950 --> 00:00:12,550
+15 menit kemudian, sesi habis? Hahaha, bikin kesel, kan?
+
+4
+00:00:12,600 --> 00:00:14,250
+Halo, aku Mira.
+
+5
+00:00:14,300 --> 00:00:18,650
+SIAKAD, MyBest, presensi: biar aku yang atur.
+
+6
+00:00:19,050 --> 00:00:20,330
+Caranya begini.
+
+7
+00:00:20,550 --> 00:00:24,270
+Buka mira.muaraai.com, klik Masuk.
+
+8
+00:00:24,800 --> 00:00:27,950
+Isi NIM, password SIAKAD dan MyBest.
+
+9
+00:00:28,600 --> 00:00:33,310
+Kode keamanan? Aku yang isi. Sesimu aktif 7 hari.
+
+10
+00:00:34,800 --> 00:00:39,600
+Kelas berikutnya, tugas, dan IPK: langsung kelihatan.
+
+11
+00:00:40,600 --> 00:00:43,510
+Jadwal hari ini, atau seminggu penuh.
+
+12
+00:00:43,900 --> 00:00:47,430
+Lengkap dengan ruang, dosen, dan tombol absen.
+
+13
+00:00:48,200 --> 00:00:50,890
+Tugas, urut dari deadline terdekat.
+
+14
+00:00:51,400 --> 00:00:53,830
+Kumpulkan? Tempel link Drive-mu.
+
+15
+00:00:53,900 --> 00:00:57,350
+Aksesnya aku cek, biar dosen nggak dapat link privat.
+
+16
+00:00:59,950 --> 00:01:04,020
+Yang baru: Komunitas, ruang ngobrol kelasmu.
+
+17
+00:01:04,200 --> 00:01:08,900
+Format ala WhatsApp, link YouTube atau Instagram tampil rapi.
+
+18
+00:01:09,050 --> 00:01:12,060
+Channel, grup, sampai pesan pribadi.
+
+19
+00:01:15,000 --> 00:01:18,420
+Konsisten di laptop, tablet, sampai HP.
+
+20
+00:01:19,300 --> 00:01:22,930
+Kontras teksnya tinggi, jadi mata nggak cepat lelah.
+
+21
+00:01:24,400 --> 00:01:28,180
+Ketuk lonceng di kanan atas, aktifkan notifikasi.
+
+22
+00:01:28,900 --> 00:01:31,680
+Absen dibuka? Aku langsung kabari.
+
+23
+00:01:32,600 --> 00:01:35,770
+Ketuk, lalu absen. Tanpa login ulang.
+
+24
+00:01:36,300 --> 00:01:38,810
+Beres, tercatat di MyBest.
+
+25
+00:01:40,600 --> 00:01:44,420
+Akunmu aman: password-mu aku enkripsi.
+
+26
+00:01:44,550 --> 00:01:47,150
+Login berulang? Aku blokir.
+
+27
+00:01:47,300 --> 00:01:50,090
+Keluar dari semua perangkat? Sekali klik.
+
+28
+00:01:50,550 --> 00:01:51,890
+Bandingkan sendiri.
+
+29
+00:01:52,000 --> 00:01:57,410
+Di portal, login tiap 15 menit. Di sini, sekali seminggu.
+
+30
+00:01:57,550 --> 00:02:01,750
+Di sana jadwal dicari. Di sini, langsung terlihat.
+
+31
+00:02:01,900 --> 00:02:04,030
+Rapi di layar apa pun.
+
+32
+00:02:04,800 --> 00:02:08,820
+Gratis, open source, buatan mahasiswa UBSI.
+
+33
+00:02:09,000 --> 00:02:14,550
+Buka mira.muaraai.com. Sisanya, biar aku yang atur.
+

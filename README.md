@@ -113,6 +113,7 @@ Konfigurasi Cursor, Codex, dan Hermes ada di [docs/mcp.md](docs/mcp.md).
 | [docs/anti-ban.md](docs/anti-ban.md) | Batas laju aman ke server kampus |
 | [docs/deploy.md](docs/deploy.md) | Deploy ke VPS dengan PM2 |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Alur branch, commit, dan pull request |
+| [promo-video/README.md](promo-video/README.md) | Video tutorial Mira 2:16 (Remotion), narasi & SFX ElevenLabs, paket posting YouTube dan Instagram |
 | [PRIVACY.md](PRIVACY.md) · [DMCA.md](DMCA.md) · [Syarat Layanan](https://mira.muaraai.com/terms) | Legal |
 
 ## Tim
