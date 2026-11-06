@@ -75,35 +75,36 @@ mira, mira muara ai, ubsi, universitas bsi, mahasiswa ubsi, kampus digital kreat
 );
 if (existsSync("naskah-vo.srt")) copyFileSync("naskah-vo.srt", `${OUT}/youtube/subtitle-id.srt`);
 
-const igCaption = (ajakan: string) => `Kuliah tanpa ribet? Kenalan sama Mira 👋
+const igCaption = (ajakan: string) => `Login. Kode keamanan. Buka portal lain. Login lagi.
+Lima belas menit kemudian, sesi habis.
 
-Capek login berkali-kali cuma buat cek jadwal? Mira menyatukan layanan kampus UBSI dalam satu pintu: jadwal, tugas, presensi, sampai chat kelas.
+Itu rutinitas kami setiap mau cek jadwal. Jadi kami bikin Mira.
 
-Yang bisa kamu lakukan:
-✅ Login sekali, sesi aktif 7 hari
-✅ Kode keamanan diisi otomatis
-✅ Jadwal hari ini & seminggu langsung di halaman depan
-✅ Kumpulkan tugas lewat link Drive, aksesnya dicek dulu
-✅ Notifikasi absen + presensi tanpa login ulang
-✅ Rapi di laptop, tablet, dan HP
+Satu pintu untuk layanan kampus UBSI: jadwal, tugas, presensi, sampai chat kelas.
+Login sekali, aktif tujuh hari. Kode keamanan diisi otomatis.
+Dosen membuka absen, notifikasinya langsung masuk ke HP. Ketuk, absen, selesai.
 
-🎓 ${PEMBUAT}
+Dibangun oleh mahasiswa semester 1 Informatika UBSI Kampus Pontianak (tim Muara AI).
+Sekarang dipakai 40 mahasiswa, dan masih terus dikembangkan.
 
-🌐 Coba gratis: mira.muaraai.com (link di bio)
-💻 Source code: github.com/MuaraAI/Mira
-Open source (MIT) untuk UI dan sistemnya. Mau fork atau kembangkan sendiri? Silakan.
-🔒 Yang dibuka hanya kode. Data mahasiswa tidak ikut dibuka: dikelola terpisah dan aman, password terenkripsi AES-256-GCM.
+Coba: mira.muaraai.com (link di bio)
+Kode sumber: github.com/MuaraAI/Mira
+
+Open source (MIT) untuk UI dan sistemnya. Silakan fork, pelajari, atau kembangkan sendiri.
+Yang dibuka hanya kodenya. Data mahasiswa tidak ikut dibuka: disimpan terpisah dan aman, password terenkripsi AES-256-GCM.
 
 ${ajakan}
 
-⚠️ ${DISCLAIMER}
+Sisanya, biar Mira yang atur.
+
+Catatan: Mira adalah proyek independen dari ide mahasiswa dan tidak berafiliasi dengan Universitas Bina Sarana Informatika (UBSI). Data di video adalah data contoh.
 
 ${HASHTAG}
 `;
 dir("instagram-feed");
-writeFileSync(`${OUT}/instagram-feed/caption.txt`, igCaption("Simpan postingan ini biar nggak lupa caranya, dan tag teman sekelasmu 👇"));
+writeFileSync(`${OUT}/instagram-feed/caption.txt`, igCaption("Simpan dulu, lalu tag teman sekelas yang paling sering ke-logout pas mau absen."));
 dir("instagram-reels");
-writeFileSync(`${OUT}/instagram-reels/caption.txt`, igCaption("Kirim ke teman sekelas yang masih login ulang tiap 15 menit 😅"));
+writeFileSync(`${OUT}/instagram-reels/caption.txt`, igCaption("Kirim ke teman sekelas yang masih login ulang tiap lima belas menit."));
 dir("instagram-story");
 writeFileSync(
   `${OUT}/instagram-story/teks-story.txt`,
