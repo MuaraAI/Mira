@@ -519,3 +519,69 @@ def test_channel_request_allows_all_categories():
 
     cat_req = ChannelCategoriesRequest(categories=list(ALLOWED_CATEGORIES))
     assert len(cat_req.categories) == len(ALLOWED_CATEGORIES)
+
+
+def test_parse_indonesian_date_helper():
+    """Helper _parse_indonesian_date mampu mem-parse berbagai variasi tanggal Indo."""
+    from datetime import date
+    from app.modules.news import _parse_indonesian_date
+
+    assert _parse_indonesian_date("10 November 2026 - 10 November 2026") == date(2026, 11, 10)
+    assert _parse_indonesian_date("21 Oktober 2026") == date(2026, 10, 21)
+    assert _parse_indonesian_date("01 Januari 2027") == date(2027, 1, 1)
+    assert _parse_indonesian_date("") is None
+    assert _parse_indonesian_date("invalid date") is None
+
+
+@pytest.mark.asyncio
+async def test_produce_user_category_dispatches_ujiankampusa_release():
+    """Kategori jadwal-ujian berhasil dispatch rilis jadwal baru dari ujiankampusa."""
+    from app.modules.news import _produce_user_category
+
+    active_channel = {
+        "id": 99,
+        "nim": "15260001",
+        "type": "custom",
+        "categories": ["jadwal-ujian"],
+        "config": {"url": "https://example.com/webhook"},
+    }
+    dashboard_html = (
+        '<html><body>'
+        '<a href="https://ujiankampusa.bsi.ac.id/jadwal/tok_uts">Jadwal UTS</a>'
+        '</body></html>'
+    )
+    schedule_html = (
+        '<html><body>'
+        '<ul class="app-actions"><li><a>15260001</a></li><li><a>MAHASISWA UJI</a></li></ul>'
+        '<div class="pricing-plan">'
+        '<div class="pricing-title">BAHASA INGGRIS I</div>'
+        '<div class="pricing-save">Selasa - 09:10-10:10</div>'
+        '<h5>Tanggal Ujian: 25 Desember 2026 - 25 Desember 2026</h5>'
+        '<h5>No Ruang: EN2-P1</h5>'
+        '<h5>SKS: 2</h5>'
+        '<h5>Kode MTK: 039</h5>'
+        '</div>'
+        '</body></html>'
+    )
+
+    with (
+        patch("app.modules.news.list_active_by_category", new=AsyncMock(return_value=[active_channel])),
+        patch("app.modules.news.session_store.get_credentials_for_nim", new=AsyncMock(return_value=("15260001", None, "el_pw"))),
+        patch("app.modules.elearning.pooled_elearning_client.fetch_page", new=AsyncMock(return_value=dashboard_html)),
+        patch("app.modules.elearning.pooled_elearning_client.fetch_cross_host", new=AsyncMock(return_value=schedule_html)),
+        patch("app.notifier.deliver", new=AsyncMock(return_value=1)) as mock_deliver,
+        patch("app.modules.news.cache.get_client") as get_client,
+    ):
+        redis = AsyncMock()
+        redis.set.return_value = True
+        get_client.return_value = redis
+
+        sent = await _produce_user_category("jadwal-ujian")
+        assert sent == 1
+        mock_deliver.assert_awaited_once()
+        call_args = mock_deliver.await_args[0]
+        assert call_args[0] == "15260001"
+        assert call_args[1] == "jadwal-ujian"
+        assert "UTS" in call_args[2]  # title memuat UTS
+        assert "ujiankampusa" in call_args[3]  # description
+

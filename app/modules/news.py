@@ -5,7 +5,7 @@ import logging
 import re
 import time
 import urllib.parse
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional
 
 import httpx
@@ -34,6 +34,29 @@ def _h1_slot(now: Optional[datetime] = None) -> Optional[int]:
     current = now or datetime.now(ZoneInfo("Asia/Jakarta"))
     eligible = [h for h in H1_REMINDER_HOURS if current.hour >= h]
     return eligible[-1] if eligible else None
+
+_ID_MONTHS = {
+    "januari": 1, "februari": 2, "maret": 3, "april": 4, "mei": 5, "juni": 6,
+    "juli": 7, "agustus": 8, "september": 9, "oktober": 10, "november": 11, "desember": 12
+}
+
+
+def _parse_indonesian_date(raw: Optional[str]) -> Optional[date]:
+    """Parse format tanggal Indonesia seperti '10 November 2026 - 10 November 2026'."""
+    if not raw:
+        return None
+    first = raw.split("-")[0].strip()
+    m = re.match(r"(\d{1,2})\s+([a-zA-Z]+)\s+(\d{4})", first)
+    if not m:
+        return None
+    day, month_str, year = int(m.group(1)), m.group(2).lower(), int(m.group(3))
+    month = _ID_MONTHS.get(month_str)
+    if not month:
+        return None
+    try:
+        return date(year, month, day)
+    except ValueError:
+        return None
 
 router = APIRouter(prefix="/v1/news", tags=["news"])
 
@@ -405,47 +428,119 @@ async def _produce_user_category(
                         "link": f"{settings.WEB_BASE_URL}/dashboard/nilai",
                     }
             elif category == "jadwal-ujian":
-                if not student_password:
-                    continue
-                from app.modules.studentv2 import parse_uts, parse_uas
-                try:
-                    raw_uts = await studentv2_client.fetch_page("/mahasiswa/uts", nim, student_password)
-                    raw_uas = await studentv2_client.fetch_page("/mahasiswa/uas", nim, student_password)
-                    uts = parse_uts(raw_uts)
-                    uas = parse_uas(raw_uas)
-                except Exception as exc:
-                    logger.debug("Fetch jadwal-ujian SIAKAD gagal (nim=%s): %s", nim, exc)
-                    continue
-                # Hanya kirim notifikasi jika jadwal BENAR-BENAR sudah dirilis (ada tabel/gate tidak aktif)
-                uts_released = False
-                uas_released = False
-                if uts.get("jadwal_online_url"):
-                    try:
-                        raw_uts_sch = await studentv2_client.fetch_page("/mahasiswa/uts-jadwal", nim, student_password)
-                        uts_released = "<table" in raw_uts_sch.lower() and "belum dapat dilihat" not in raw_uts_sch.lower()
-                    except Exception:
-                        uts_released = False
-                if uas.get("jadwal_online_url"):
-                    try:
-                        raw_uas_sch = await studentv2_client.fetch_page("/mahasiswa/uas-jadwal", nim, student_password)
-                        uas_released = "<table" in raw_uas_sch.lower() and "belum dapat dilihat" not in raw_uas_sch.lower()
-                    except Exception:
-                        uas_released = False
+                from app.modules.elearning import parse_exam_types, parse_exam_schedule, pooled_elearning_client
 
-                if uts_released or uts.get("soal_offline_url"):
-                    payload = {
-                        "category": category,
-                        "title": "Jadwal & Ruang UTS Telah Diumumkan",
-                        "description": "Informasi jadwal ruang ujian tengah semester (UTS) telah dirilis di SIAKAD. Periksa jadwal dan persiapan ujian Anda.",
-                        "link": f"{settings.WEB_BASE_URL}/dashboard/ujian",
-                    }
-                elif uas_released or uas.get("soal_offline_url"):
-                    payload = {
-                        "category": category,
-                        "title": "Jadwal & Ruang UAS Telah Diumumkan",
-                        "description": "Informasi jadwal ruang ujian akhir semester (UAS) telah dirilis di SIAKAD. Periksa jadwal dan persiapan ujian Anda.",
-                        "link": f"{settings.WEB_BASE_URL}/dashboard/ujian",
-                    }
+                exam_payload = None
+
+                # 1. Cek portal ujian daring resmi ujiankampusa via MyBest
+                if elearning_password:
+                    try:
+                        raw_dash = await pooled_elearning_client.fetch_page("/halaman-ujian", nim, elearning_password)
+                        types_data = parse_exam_types(raw_dash)
+                        candidate_types = [
+                            t for t in types_data.get("types", []) if t["key"] in ("uts", "uas", "latihan")
+                        ]
+                        for t in candidate_types:
+                            url = f"https://ujiankampusa.bsi.ac.id/jadwal/{t['token']}"
+                            raw_sched = await pooled_elearning_client.fetch_cross_host(url, nim, elearning_password)
+                            parsed_sched = parse_exam_schedule(raw_sched)
+                            exams = parsed_sched.get("exams", [])
+                            if not exams:
+                                continue
+
+                            from zoneinfo import ZoneInfo
+                            now_wib = datetime.now(ZoneInfo("Asia/Jakarta"))
+                            today_d = now_wib.date()
+                            tomorrow_d = today_d + timedelta(days=1)
+
+                            today_exams = []
+                            tomorrow_exams = []
+                            for ex in exams:
+                                ex_date = _parse_indonesian_date(ex.get("tanggal_ujian"))
+                                if ex_date == today_d:
+                                    today_exams.append(ex)
+                                elif ex_date == tomorrow_d:
+                                    tomorrow_exams.append(ex)
+
+                            t_label = t["key"].upper()
+                            if today_exams:
+                                first_ex = today_exams[0]
+                                room_str = f" di Ruang {first_ex['no_ruang']}" if first_ex.get("no_ruang") else ""
+                                exam_payload = {
+                                    "category": category,
+                                    "title": f"Ujian Hari Ini ({t_label}): {first_ex['mata_kuliah']}",
+                                    "description": f"Hari ini ada ujian {first_ex['mata_kuliah']} jam {first_ex.get('waktu', '-')}{room_str}. Pastikan siap tepat waktu.",
+                                    "link": f"{settings.WEB_BASE_URL}/dashboard/ujian",
+                                }
+                                slot_suffix = f":today:{first_ex.get('kode_mtk', '0')}"
+                                break
+                            elif tomorrow_exams:
+                                first_ex = tomorrow_exams[0]
+                                room_str = f" di Ruang {first_ex['no_ruang']}" if first_ex.get("no_ruang") else ""
+                                exam_payload = {
+                                    "category": category,
+                                    "title": f"Pengingat Ujian Besok ({t_label}): {first_ex['mata_kuliah']}",
+                                    "description": f"Besok ada ujian {first_ex['mata_kuliah']} jam {first_ex.get('waktu', '-')}{room_str}. Persiapkan materi & kartu ujian.",
+                                    "link": f"{settings.WEB_BASE_URL}/dashboard/ujian",
+                                }
+                                slot_suffix = f":tomorrow:{first_ex.get('kode_mtk', '0')}"
+                                break
+                            else:
+                                first_date = exams[0].get("tanggal_ujian", "").split(" - ")[0]
+                                exam_payload = {
+                                    "category": category,
+                                    "title": f"Jadwal {t_label} Telah Diumumkan ({len(exams)} Mata Kuliah)",
+                                    "description": f"Jadwal ujian {t_label} telah terbit di ujiankampusa dengan {len(exams)} mata kuliah (mulai {first_date}). Buka menu Ujian untuk cek jadwal & ruang.",
+                                    "link": f"{settings.WEB_BASE_URL}/dashboard/ujian",
+                                }
+                                slot_suffix = f":release:{t['key']}:{len(exams)}"
+                                break
+                    except Exception as exc:
+                        logger.debug("Fetch jadwal-ujian ujiankampusa gagal (nim=%s): %s", nim, exc)
+
+                if exam_payload:
+                    payload = exam_payload
+                elif student_password:
+                    # 2. Fallback cek SIAKAD jika ujiankampusa tidak ada jadwal
+                    from app.modules.studentv2 import parse_uts, parse_uas
+                    try:
+                        raw_uts = await studentv2_client.fetch_page("/mahasiswa/uts", nim, student_password)
+                        raw_uas = await studentv2_client.fetch_page("/mahasiswa/uas", nim, student_password)
+                        uts = parse_uts(raw_uts)
+                        uas = parse_uas(raw_uas)
+                    except Exception as exc:
+                        logger.debug("Fetch jadwal-ujian SIAKAD gagal (nim=%s): %s", nim, exc)
+                        continue
+
+                    uts_released = False
+                    uas_released = False
+                    if uts.get("jadwal_online_url"):
+                        try:
+                            raw_uts_sch = await studentv2_client.fetch_page("/mahasiswa/uts-jadwal", nim, student_password)
+                            uts_released = "<table" in raw_uts_sch.lower() and "belum dapat dilihat" not in raw_uts_sch.lower()
+                        except Exception:
+                            uts_released = False
+                    if uas.get("jadwal_online_url"):
+                        try:
+                            raw_uas_sch = await studentv2_client.fetch_page("/mahasiswa/uas-jadwal", nim, student_password)
+                            uas_released = "<table" in raw_uas_sch.lower() and "belum dapat dilihat" not in raw_uas_sch.lower()
+                        except Exception:
+                            uas_released = False
+
+                    if uts_released or uts.get("soal_offline_url"):
+                        payload = {
+                            "category": category,
+                            "title": "Jadwal & Ruang UTS Telah Diumumkan",
+                            "description": "Informasi jadwal ruang ujian tengah semester (UTS) telah dirilis di SIAKAD. Periksa jadwal dan persiapan ujian Anda.",
+                            "link": f"{settings.WEB_BASE_URL}/dashboard/ujian",
+                        }
+                    elif uas_released or uas.get("soal_offline_url"):
+                        payload = {
+                            "category": category,
+                            "title": "Jadwal & Ruang UAS Telah Diumumkan",
+                            "description": "Informasi jadwal ruang ujian akhir semester (UAS) telah dirilis di SIAKAD. Periksa jadwal dan persiapan ujian Anda.",
+                            "link": f"{settings.WEB_BASE_URL}/dashboard/ujian",
+                        }
             if not payload:
                 await _release_claimed_items()
                 continue
