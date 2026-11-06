@@ -64,7 +64,7 @@ export function useRemoteFile(path: string | null, defaultFilename: string) {
   const gen = useRef(0);
 
   const release = useCallback((previous = live.current) => {
-    void previous.doc?.destroy();
+    // PDF.js v6: destroy() removed, cleanup is now automatic
     if (previous.url) URL.revokeObjectURL(previous.url);
   }, []);
 
@@ -103,7 +103,7 @@ export function useRemoteFile(path: string | null, defaultFilename: string) {
         return false;
       }
       if (token !== gen.current) {
-        void doc.destroy();
+        // PDF.js v6: destroy() removed, cleanup is now automatic
         return false;
       }
       swap({ doc, url: null });
