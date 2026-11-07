@@ -187,6 +187,34 @@ async def test_get_krs(monkeypatch):
     assert body["success"] is True
     assert len(body["data"]["items"]) == 6
     assert body["data"]["total_sks"] == 18
+@pytest.mark.asyncio
+async def test_get_krs_print(monkeypatch):
+    monkeypatch.setenv("STUDENTV2_NIM", "12345678")
+    monkeypatch.setenv("STUDENTV2_PASS", "secret")
+
+    mock_print_html = (FIXTURES / "sv2_krs_print.html").read_text(encoding="utf-8")
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = None
+    mock_redis.incr.return_value = 1
+
+    with patch("redis.asyncio.from_url", return_value=mock_redis), \
+         patch("app.modules.studentv2.studentv2_client.fetch_page", return_value=mock_print_html):
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            # 1. HTML default format
+            res_html = await ac.get("/v1/studentv2/krs/print")
+            assert res_html.status_code == 200
+            assert "text/html" in res_html.headers.get("content-type", "")
+            assert "Cetak KRS" in res_html.text
+            assert "12345678" in res_html.text
+
+            # 2. JSON format
+            res_json = await ac.get("/v1/studentv2/krs/print?format=json")
+            assert res_json.status_code == 200
+            data = res_json.json()
+            assert data["success"] is True
+            assert "Cetak KRS" in data["data"]["html"]
+            assert data["data"]["nim"] == "12345678"
 
 @pytest.mark.asyncio
 async def test_get_uts(monkeypatch):

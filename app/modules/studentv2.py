@@ -5,7 +5,7 @@ import re
 from typing import Any, Optional
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from scrapling.parser import Adaptor
 
 logger = logging.getLogger("app.studentv2")
@@ -240,7 +240,14 @@ def parse_khs(html: str) -> dict[str, Any]:
 def parse_krs(html: str) -> dict[str, Any]:
     """Parse Kartu Rencana Studi (KRS) aktif dari /mahasiswa/krs."""
     page = Adaptor(html)
-    krs: dict[str, Any] = {"items": [], "total_sks": 0, "semester": 1, "kelompok_ujian": None}
+    krs: dict[str, Any] = {
+        "items": [],
+        "total_sks": 0,
+        "semester": 1,
+        "kelompok_ujian": None,
+        "can_print": False,
+        "cetak_url": "/v1/studentv2/krs/print",
+    }
     k_text = page.get_all_text()
     m_sem = re.search(r"Semester\s*(\d+)", k_text)
     if m_sem:
@@ -262,6 +269,8 @@ def parse_krs(html: str) -> dict[str, Any]:
                 })
             elif len(cols) >= 2 and "Total SKS" in cols[0]:
                 krs["total_sks"] = int(cols[1]) if cols[1].isdigit() else 0
+    if krs["items"]:
+        krs["can_print"] = True
 
     return krs
 
@@ -670,6 +679,58 @@ async def get_krs(creds: tuple[str, str] = Depends(require_studentv2_creds)):
         ttl=settings.TTL_SCHEDULE,
         cache_params={"nim": nim},
     )
+@router.get("/krs/print")
+async def get_krs_print(
+    format: str = Query("html", pattern=r"^(html|json)$", description="Format output: html (siap cetak/render) atau json (envelope data)"),
+    download: bool = Query(False, description="Paksa unduh berkas HTML sebagai attachment"),
+    creds: tuple[str, str] = Depends(require_studentv2_creds),
+):
+    """Cetak Kartu Rencana Studi (KRS) / Kartu Ujian fisik resmi dari SIAKAD (/mahasiswa/krs/true).
+
+    Dokumen ini memuat logo resmi UBSI, barcode security print key, kelompok ujian,
+    daftar mata kuliah yang diambil semester ini, serta kolom paraf pengawas UTS dan UAS.
+    """
+    nim, password = creds
+
+    async def _fetch():
+        html = await studentv2_client.fetch_page("/mahasiswa/krs/true", nim, password)
+        if "Cetak KRS" not in html and "Kartu Rencana Studi" not in html:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=error_response(
+                    code="UPSTREAM_ERROR",
+                    message="Gagal memuat dokumen cetak KRS dari SIAKAD kampus",
+                    module="studentv2",
+                ),
+            )
+        return html
+
+    cache_key = cache.make_key("studentv2", "krs_print", nim=nim)
+    cached_html = await cache.get_fresh(cache_key)
+    if cached_html is None:
+        async with cache.get_lock(f"lock:{cache_key}"):
+            cached_html = await cache.get_fresh(cache_key)
+            if cached_html is None:
+                cached_html = await _fetch()
+                await cache.set(cache_key, cached_html, ttl=settings.TTL_SCHEDULE)
+
+    if format == "json":
+        return success_response(
+            data={
+                "html": cached_html,
+                "nim": nim,
+                "title": "Cetak Kartu Rencana Studi (KRS)",
+                "url": "/v1/studentv2/krs/print",
+            }
+        )
+
+    disposition = "attachment" if download else "inline"
+    headers = {
+        "Content-Disposition": f'{disposition}; filename="KRS_{nim}.html"',
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "private, max-age=3600",
+    }
+    return Response(content=cached_html, media_type="text/html; charset=utf-8", headers=headers)
 
 @router.get("/uts")
 async def get_uts(creds: tuple[str, str] = Depends(require_studentv2_creds)):

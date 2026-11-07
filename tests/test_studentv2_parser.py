@@ -114,6 +114,8 @@ def test_parse_krs():
     assert krs["total_sks"] == 18
     assert krs["semester"] == 1
     assert krs["kelompok_ujian"] == "15.1A.01.A"
+    assert krs["can_print"] is True
+    assert krs["cetak_url"] == "/v1/studentv2/krs/print"
     assert krs["items"][0]["kode"] == "101"
 
 def test_parse_uts():
