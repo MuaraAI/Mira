@@ -25,9 +25,9 @@ Dashboard PWA, REST API, dan MCP Server untuk SIAKAD, MyBest, Ujian Online, Perp
 
 <div align="center">
 
-<video src="https://github.com/MuaraAI/Mira/raw/claude/mira-remotion-video-readme-21adc3/docs/media/mira-tutorial.mp4" controls playsinline width="100%"></video>
+https://github.com/user-attachments/assets/aceeea83-157c-42bf-835c-a6dfa31ef65a
 
-<sub>Video tutorial 16:9 · 1080p · 2:16 · narasi bahasa Indonesia + subtitle · data contoh fiktif (Dinda)</sub>
+<sub>Video tutorial 16:9 · 2:16 · narasi bahasa Indonesia + subtitle · data contoh fiktif (Dinda)</sub>
 
 </div>
 
