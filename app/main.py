@@ -28,7 +28,7 @@ from app.modules.stats import router as stats_router
 from app.modules.social import router as social_router
 from app.modules.lecturers import router as lecturers_router
 from app.modules.academic_events import router as academic_events_router
-from app.stats import record_request, record_profile
+from app.stats import record_request
 
 def extract_client_ip(request: Request) -> str:
     """Ekstraksi IP klien dengan prioritas Cloudflare -> Forwarded Proxy -> socket host.
