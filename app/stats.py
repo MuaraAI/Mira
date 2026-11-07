@@ -29,6 +29,10 @@ _ALLOWED_STAT_MODULES = frozenset({
     "tools",
     "stats",
     "docs",
+    "ujian",
+    "academic",
+    "social",
+    "lecturers",
 })
 
 
