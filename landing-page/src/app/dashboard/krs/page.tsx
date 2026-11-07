@@ -92,6 +92,12 @@ export default function KrsPage() {
           printWindow.document.open();
           printWindow.document.write(res.html);
           printWindow.document.close();
+          setTimeout(() => {
+            try {
+              printWindow.focus();
+              printWindow.print();
+            } catch {}
+          }, 350);
         } else {
           // Jika popup diblokir peramban, unduh berkas HTML
           const blob = new Blob([res.html], { type: "text/html;charset=utf-8" });
