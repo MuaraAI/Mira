@@ -1,6 +1,6 @@
 ---
 name: mira
-version: 2.5.0
+version: 3.0.0
 description: Agent skill for consuming, extending, and operating Mira (Academic Operating System & REST API Aggregator for UBSI Services).
 metadata:
   repository: https://github.com/MuaraAI/Mira

@@ -1,4 +1,4 @@
-# Security Policy (v2.5)
+# Security Policy (v3.0)
 
 ## 1. Scope & Architecture
 
