@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Cetak KRS</title>
+    <style>
+        html {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+        @page {
+            size: A4;
+            margin: 0;
+        }
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: "Times New Roman", serif;
+            font-size: 10pt;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #000;
+            padding: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <h2>Universitas Bina Sarana Informatika</h2>
+        <h3>Kartu Rencana Studi (KRS)</h3>
+    </div>
+    <div id="identity">
+        <p>NIM: 12345678</p>
+        <p>Nama: MAHASISWA DUMMY</p>
+        <p>Program Studi: Informatika (S1)</p>
+        <p>Kelompok Ujian: 15.1A.01.A</p>
+        <p>Semester: 1</p>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>No</th>
+                <th>Kode</th>
+                <th>Mata Kuliah</th>
+                <th>SKS</th>
+                <th>Paraf UTS</th>
+                <th>Paraf UAS</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>1</td>
+                <td>101</td>
+                <td>PENDIDIKAN PANCASILA</td>
+                <td>2</td>
+                <td>...........</td>
+                <td>...........</td>
+            </tr>
+            <tr>
+                <td>2</td>
+                <td>104</td>
+                <td>BAHASA INGGRIS I</td>
+                <td>2</td>
+                <td>...........</td>
+                <td>...........</td>
+            </tr>
+        </tbody>
+    </table>
+    <div style="margin-top:25px; text-align:center;">
+        <p><i>&lt;Pengolahan Data KRS Menggunakan Web ini adalah sah&gt;</i></p>
+        <p><b>KRS ini dicetak pada tanggal 07-11-2026</b></p>
+    </div>
+    <script>
+        window.onload = function() {
+            window.print();
+        };
+    </script>
+</body>
+</html>

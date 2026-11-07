@@ -128,6 +128,12 @@ API_DOCS_DATA: dict[str, Any] = {
                 "description": "Kartu Rencana Studi (KRS) aktif dan kelompok ujian semester berjalan.",
             },
             {
+                "path": "/v1/studentv2/krs/print",
+                "method": "GET",
+                "auth": "Session / API Key",
+                "description": "Cetak dokumen resmi Kartu Rencana Studi (KRS) / Kartu Ujian fisik ber-barcode dari SIAKAD (/mahasiswa/krs/true). Mendukung ?format=html (default) atau ?format=json.",
+            },
+            {
                 "path": "/v1/studentv2/uts",
                 "method": "GET",
                 "auth": "Session / API Key",
