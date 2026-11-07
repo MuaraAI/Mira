@@ -68,7 +68,7 @@ def _resolve_credentials(
 
 server = MCPServer(
     name="mira-mcp",
-    version="2.5.0",
+    version="3.0.0",
     description="Universal API aggregator dan otomasi akademik untuk 6 layanan digital Universitas Bina Sarana Informatika (Mira / UBSI).",
 )
 

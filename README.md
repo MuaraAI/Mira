@@ -10,6 +10,7 @@
 Dashboard PWA, REST API, dan MCP Server untuk SIAKAD, MyBest, Ujian Online, Perpustakaan, Berita, dan Repository UBSI.
 
 [![Website](https://img.shields.io/badge/website-mira.muaraai.com-0369A1?style=flat-square)](https://mira.muaraai.com)
+[![Release](https://img.shields.io/badge/release-v3.0.0-0369A1?style=flat-square)](https://github.com/MuaraAI/Mira/releases)
 [![License](https://img.shields.io/github/license/MuaraAI/Mira?style=flat-square&color=374151)](LICENSE)
 ![Python](https://img.shields.io/badge/python-3.12%2B-3776AB?style=flat-square&logo=python&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-15-000000?style=flat-square&logo=nextdotjs&logoColor=white)

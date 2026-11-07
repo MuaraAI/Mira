@@ -1,4 +1,4 @@
-# Panduan Remote Access & Deployment Domain (Mira v2.5.0)
+# Panduan Remote Access & Deployment Domain (Mira v3.0.0)
 
 Mira (sebelumnya UBSI API) dirancang dengan prinsip **Localhost-Only Security Boundary**: aplikasi berjalan murni di `127.0.0.1:8300` dan tidak pernah mengekspos port aplikasi secara langsung ke `0.0.0.0` publik.
 
