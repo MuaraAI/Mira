@@ -15,11 +15,41 @@ Dashboard PWA, REST API, dan MCP Server untuk SIAKAD, MyBest, Ujian Online, Perp
 ![Next.js](https://img.shields.io/badge/Next.js-15-000000?style=flat-square&logo=nextdotjs&logoColor=white)
 ![Tests](https://img.shields.io/badge/tests-100%25%20offline-0F766E?style=flat-square)
 
-[Fitur](#fitur) · [Keamanan](#keamanan) · [Quickstart](#quickstart) · [MCP Server](#mcp-server) · [Dokumentasi](#dokumentasi) · [Tim](#tim)
+[Video](#lihat-mira-dalam-2-menit) · [Fitur](#fitur) · [Keamanan](#keamanan) · [Quickstart](#quickstart) · [MCP Server](#mcp-server) · [Dokumentasi](#dokumentasi) · [Tim](#tim)
 
 </div>
 
 ---
+
+## Lihat Mira dalam 2 menit
+
+<div align="center">
+
+<video src="https://github.com/MuaraAI/Mira/raw/claude/mira-remotion-video-readme-21adc3/docs/media/mira-tutorial.mp4" controls playsinline width="100%"></video>
+
+<sub>Video tutorial 16:9 · 1080p · 2:16 · narasi bahasa Indonesia + subtitle · data contoh fiktif (Dinda)</sub>
+
+</div>
+
+<details>
+<summary><b>Daftar bab</b></summary>
+
+| Waktu | Bab |
+|---|---|
+| 0:00 | Ribetnya portal kampus |
+| 0:12 | Kenalan dengan Mira & masuk sekali |
+| 0:33 | Ringkasan & jadwal |
+| 0:48 | Kumpulkan tugas |
+| 1:00 | Komunitas kelas |
+| 1:14 | Rapi di semua layar |
+| 1:24 | Notifikasi & presensi |
+| 1:40 | Keamanan akun |
+| 1:50 | Portal kampus vs Mira |
+| 2:04 | Coba sekarang |
+
+Video dibuat dengan [Remotion](https://www.remotion.dev); sumber, naskah, dan cara render ada di [promo-video/](promo-video/README.md).
+
+</details>
 
 ## Kenapa Mira?
 
