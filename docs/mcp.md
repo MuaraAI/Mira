@@ -1,4 +1,4 @@
-# Model Context Protocol (MCP) Server Reference: Mira v2.5.0 (sebelumnya UBSI API)
+# Model Context Protocol (MCP) Server Reference: Mira v3.0.0 (sebelumnya UBSI API)
 
 Universal Model Context Protocol (MCP) Server untuk ekosistem akademik Universitas Bina Sarana Informatika (UBSI). Memungkinkan AI Coding Agent (**Claude Code**, **Cursor**, **Codex CLI**, **Hermes Agent**, **OpenCode**, dan **Claude Desktop**) berinteraksi secara aman dan terenkripsi dengan 6 layanan kampus UBSI.
 
