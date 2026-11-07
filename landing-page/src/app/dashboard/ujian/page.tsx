@@ -11,11 +11,12 @@ import {
   Timer,
   FileQuestion,
   Download,
+  Printer,
   Building2,
   CheckCircle2,
   Sparkles,
 } from "lucide-react";
-import { useApi, apiDownload, ApiError } from "@/lib/api";
+import { useApi, apiDownload, apiFetch, ApiError } from "@/lib/api";
 import { safeExternalHref } from "@/lib/links";
 import { LockedSiakadCard } from "@/components/LockedSiakadCard";
 import {
@@ -119,6 +120,38 @@ export default function UjianPage() {
       setDownloadingToken(null);
     }
   }
+  const [printingKrs, setPrintingKrs] = useState(false);
+
+  async function handlePrintKrs() {
+    setPrintingKrs(true);
+    setDownloadError(null);
+    try {
+      const res = await apiFetch<{ html: string }>("/v1/studentv2/krs/print?format=json");
+      if (!res?.html) {
+        throw new Error("Gagal mengambil lembar cetak Kartu Ujian (KRS) dari SIAKAD.");
+      }
+      const printWindow = window.open("", "_blank");
+      if (printWindow) {
+        printWindow.document.open();
+        printWindow.document.write(res.html);
+        printWindow.document.close();
+      } else {
+        const blob = new Blob([res.html], { type: "text/html;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "Cetak_Kartu_Ujian_KRS.html";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      setDownloadError(err instanceof Error ? err.message : "Gagal memproses cetak Kartu Ujian (KRS).");
+    } finally {
+      setPrintingKrs(false);
+    }
+  }
 
   const reloadAll = () => {
     typesApi.reload();
@@ -170,12 +203,23 @@ export default function UjianPage() {
           title="Jadwal & Kartu Ujian (UTS & UAS)"
           description="Jadwal pelaksanaan ujian online resmi dari ujiankampusa.bsi.ac.id dan kartu ujian kampus UBSI."
         />
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {!isSiakad401 && (
+            <button
+              type="button"
+              onClick={handlePrintKrs}
+              disabled={printingKrs}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#0369A1] hover:bg-[#075985] shadow-sm transition-all disabled:opacity-50 rounded-sm"
+            >
+              <Printer className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>{printingKrs ? "Menyiapkan Kartu..." : "Cetak Kartu Ujian Fisik (KRS)"}</span>
+            </button>
+          )}
           <a
             href="https://ujiankampusa.bsi.ac.id/jadwal"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-semibold text-[#0369A1] hover:text-[#075985] bg-[#EAF3F9] hover:bg-[#D9E5ED] border border-[#CFE2EE] transition-all"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-semibold text-[#0369A1] hover:text-[#075985] bg-[#EAF3F9] hover:bg-[#D9E5ED] border border-[#CFE2EE] transition-all rounded-sm"
           >
             <span>Portal ujiankampusa</span>
             <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />

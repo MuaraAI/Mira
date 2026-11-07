@@ -360,6 +360,12 @@ Retrieves semester study results (KHS) including course letter grades, total cre
 Retrieves active study plan card (KRS), list of enrolled courses, exam group, and total semester SKS.
 - **Cache TTL**: 2 hours (7200 seconds)
 
+### `GET /v1/studentv2/krs/print`
+Fetches and serves the official print-ready study plan card (KRS) and physical exam participant card with university header, barcode security print key, and UTS/UAS supervisor signature columns directly from SIAKAD (`/mahasiswa/krs/true`).
+- **Query Parameters**:
+  - `format`: `html` (default, direct print-ready HTML page with auto-print dialog) or `json` (clean JSON envelope containing raw HTML and metadata).
+  - `download`: `false` (default) or `true` (forces browser download as `KRS_{nim}.html` attachment).
+- **Cache TTL**: 2 hours (7200 seconds)
 ### `GET /v1/studentv2/uts`
 Retrieves midterm exam room info, online exam schedule link, and offline question download URLs.
 - **Cache TTL**: 2 hours (7200 seconds)
