@@ -16,6 +16,8 @@ import {
   ChevronRight,
   X,
   FileQuestion,
+  Play,
+  Maximize2,
 } from "lucide-react";
 import { FocusDialog } from "@/components/FocusDialog";
 import { useApi, apiFetch } from "@/lib/api";
@@ -167,6 +169,36 @@ export default function KuisPage() {
     setQuestionsError(null);
   }
 
+  function openCbtRoom(
+    mode: "live" | "simulasi",
+    token?: string | null,
+    title?: string,
+    isPopup = true
+  ) {
+    const params = new URLSearchParams();
+    params.set("mode", mode);
+    if (token) params.set("token", token);
+    if (title) params.set("paket", title);
+    const url = `/dashboard/kuis/room?${params.toString()}`;
+
+    if (isPopup && typeof window !== "undefined") {
+      const width = 1200;
+      const height = 800;
+      const left = Math.max(0, (window.screen.width - width) / 2);
+      const top = Math.max(0, (window.screen.height - height) / 2);
+      const popup = window.open(
+        url,
+        `CBT_${mode}_${token || "sim"}`,
+        `width=${width},height=${height},top=${top},left=${left},scrollbars=yes,resizable=yes`
+      );
+      if (popup) {
+        popup.focus();
+        return;
+      }
+    }
+    window.open(url, "_blank");
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col">
@@ -187,6 +219,45 @@ export default function KuisPage() {
           </a>
         </div>
 
+        {/* Banner Simulasi Mandiri (Tryout) */}
+        <div className="mt-4 p-5 rounded-xl border border-[#0369A1]/30 bg-gradient-to-br from-[#F0F7FB] via-white to-[#F0F7FB] shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="space-y-1.5 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-[#0369A1] text-white">
+                TRYOUT MANDIRI
+              </span>
+              <span className="text-xs font-mono font-semibold text-[#0369A1]">
+                30+ Bank Soal Informatika
+              </span>
+            </div>
+            <h2 className="text-base font-display font-bold text-foreground">
+              Simulasi Ujian Online CBT
+            </h2>
+            <p className="text-xs text-secondary leading-relaxed max-w-2xl">
+              Uji kesiapan pemahaman materi perkuliahan Anda dengan bank soal pilihan ganda acak, sistem pelindung ujian interaktif, timer otomatis, dan pembahasan skor nilai instan tanpa memengaruhi akun kampus.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => openCbtRoom("simulasi", null, "Simulasi Mandiri CBT", true)}
+              className="px-4 py-2.5 rounded-pill bg-[#0369A1] hover:bg-[#0284C7] text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+            >
+              <Play className="w-3.5 h-3.5 fill-current" aria-hidden="true" />
+              <span>Mulai Tryout (Popup CBT)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => openCbtRoom("simulasi", null, "Simulasi Mandiri CBT", false)}
+              className="px-3.5 py-2.5 rounded-pill border border-stroke bg-white hover:bg-[#F0F7FB] text-secondary hover:text-foreground text-xs font-semibold transition-all flex items-center gap-1.5"
+              title="Buka di tab peramban penuh"
+            >
+              <Maximize2 className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>Tab Penuh</span>
+            </button>
+          </div>
+        </div>
         {/* Filter Pills */}
         <div className="px-seg">
           <button
@@ -382,7 +453,26 @@ export default function KuisPage() {
 
                   {/* Action Buttons */}
                   <div className="flex flex-col sm:flex-row lg:flex-col gap-2 shrink-0">
-                    {q.action_url ? (
+                    {active && q.token_ujian ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => openCbtRoom("live", q.token_ujian, q.paket, true)}
+                          className="px-4 py-2 rounded-md bg-[#0369A1] hover:bg-[#0284C7] text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
+                        >
+                          <Play className="w-3.5 h-3.5 fill-current" aria-hidden="true" />
+                          <span>Kerjakan di CBT Room</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openCbtRoom("live", q.token_ujian, q.paket, false)}
+                          className={`${ghostButtonClass} text-xs py-1.5 text-center flex items-center justify-center gap-1`}
+                        >
+                          <Maximize2 className="w-3 h-3 text-secondary" aria-hidden="true" />
+                          <span>Layar Penuh</span>
+                        </button>
+                      </>
+                    ) : q.action_url ? (
                       <a
                         href={q.action_url}
                         target="_blank"

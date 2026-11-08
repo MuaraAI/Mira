@@ -578,11 +578,11 @@ Lists the available online exam types from `ujiankampusa.bsi.ac.id`.
 Alias to download the official exam proof PDF from `ujiankampusa.bsi.ac.id/cetak-ujian-pdf/{token}`.
 - **Query Parameter**: `token` (required)
 ### `GET /v1/elearning/quiz/questions`
-Retrieves exam questions, countdown timer, CSRF token, and multiple-choice options (A, B, C, D).
+Retrieves exam questions, countdown timer, CSRF token, and multiple-choice options (A..E) directly for the CBT exam room.
 - **Query Parameters**: `token` (optional), `quiz_url` (optional)
 
 ### `POST /v1/elearning/quiz/answer`
-Submits option answer for a specific quiz question.
+Submits option answer for a specific quiz question in real-time (auto-save).
 - **Payload**:
   ```json
   {
@@ -591,7 +591,7 @@ Submits option answer for a specific quiz question.
     "csrf_token": "optional_token"
   }
   ```
-
+- **CBT Integration**: Serves the `/dashboard/kuis/room` dedicated CBT environment with instant auto-save per radio option click and `localStorage` resilience buffer.
 ### `GET /v1/elearning/grades`
 Recap of assignment grades (and quiz schedules) per meeting across all active courses, or a single course when the optional `token` query parameter (from `/v1/elearning/courses`) is provided. Returns totals, graded/ungraded counts, average/max/min scores, per-course breakdown, and per-meeting rows.
 - **Query Parameter**: `token` (optional)
