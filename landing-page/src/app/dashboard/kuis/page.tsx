@@ -181,22 +181,31 @@ export default function KuisPage() {
     if (title) params.set("paket", title);
     const url = `/dashboard/kuis/room?${params.toString()}`;
 
-    if (isPopup && typeof window !== "undefined") {
-      const width = 1200;
-      const height = 800;
-      const left = Math.max(0, (window.screen.width - width) / 2);
-      const top = Math.max(0, (window.screen.height - height) / 2);
-      const popup = window.open(
-        url,
-        `CBT_${mode}_${token || "sim"}`,
-        `width=${width},height=${height},top=${top},left=${left},scrollbars=yes,resizable=yes`
-      );
-      if (popup) {
-        popup.focus();
+    if (typeof window !== "undefined") {
+      const isMobile = window.innerWidth < 768;
+      if (isMobile) {
+        // Pada layar ponsel / tablet, buka langsung di tab saat ini atau tab baru agar bebas blokir popup peramban
+        window.location.href = url;
         return;
       }
+
+      if (isPopup) {
+        const width = 1200;
+        const height = 800;
+        const left = Math.max(0, (window.screen.width - width) / 2);
+        const top = Math.max(0, (window.screen.height - height) / 2);
+        const popup = window.open(
+          url,
+          `CBT_${mode}_${token || "sim"}`,
+          `width=${width},height=${height},top=${top},left=${left},scrollbars=yes,resizable=yes`
+        );
+        if (popup) {
+          popup.focus();
+          return;
+        }
+      }
+      window.open(url, "_blank");
     }
-    window.open(url, "_blank");
   }
 
   return (

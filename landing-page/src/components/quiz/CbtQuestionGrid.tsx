@@ -12,6 +12,7 @@ export interface CbtQuestionGridProps {
   currentIndex: number;
   items: QuestionStatusItem[];
   onSelectIndex: (index: number) => void;
+  onClose?: () => void;
 }
 
 export function CbtQuestionGrid({
@@ -19,6 +20,7 @@ export function CbtQuestionGrid({
   currentIndex,
   items,
   onSelectIndex,
+  onClose,
 }: CbtQuestionGridProps) {
   const answeredCount = items.filter((it) => it.isAnswered).length;
   const raguCount = items.filter((it) => it.isRagu).length;
@@ -27,12 +29,24 @@ export function CbtQuestionGrid({
   return (
     <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-sm space-y-4">
       <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-        <h2 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-800">
-          Daftar Soal Ujian
-        </h2>
-        <span className="text-[11px] font-mono text-slate-700">
-          {answeredCount}/{total} Terjawab
-        </span>
+        <div>
+          <h2 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-800">
+            Daftar Soal Ujian
+          </h2>
+          <span className="text-[11px] font-mono text-slate-700">
+            {answeredCount}/{total} Terjawab
+          </span>
+        </div>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Tutup daftar soal"
+            className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold"
+          >
+            ✕
+          </button>
+        )}
       </div>
 
       {/* Grid Nomor Soal */}

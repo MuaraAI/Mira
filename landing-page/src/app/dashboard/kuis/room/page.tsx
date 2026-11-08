@@ -75,12 +75,12 @@ function QuizRoomContent() {
     mode === "simulasi" ? "offline" : "saved"
   );
 
-  // Finish state
+  // Finish state & mobile grid
   const [finishModalOpen, setFinishModalOpen] = useState(false);
+  const [mobileGridOpen, setMobileGridOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null);
-
   // Proctoring Shield Hook
   const {
     examStarted,
@@ -388,8 +388,8 @@ function QuizRoomContent() {
           }
         }}
         onFinishClick={() => setFinishModalOpen(true)}
+        onOpenGridMobile={() => setMobileGridOpen(true)}
       />
-
       {/* Toast Peringatan Pasif */}
       {toastMessage && (
         <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-slate-900/90 text-white rounded-lg shadow-lg border border-slate-700 text-xs font-medium flex items-center gap-2 animate-bounce">
@@ -405,9 +405,26 @@ function QuizRoomContent() {
       )}
 
       {/* Main CBT Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-        {/* Left Column: Grid Soal */}
-        <aside className="lg:col-span-1 order-2 lg:order-1">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6 items-start">
+        {/* Tombol Cepat Daftar Soal Khusus Layar Ponsel */}
+        <div className="lg:hidden w-full flex items-center justify-between p-3 rounded-lg bg-white border border-slate-200 shadow-sm">
+          <div className="text-xs">
+            <span className="text-slate-500 font-mono text-[11px] block">Progres Ujian:</span>
+            <span className="font-bold text-[#0369A1] font-mono">
+              {answeredCount} dari {questions.length} Soal Terjawab
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setMobileGridOpen(true)}
+            className="px-3.5 py-1.5 rounded-md bg-[#0369A1] hover:bg-[#0284C7] text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+          >
+            <span>Daftar Soal</span>
+          </button>
+        </div>
+
+        {/* Left Column: Grid Soal Desktop (Disembunyikan di HP karena digantikan Drawer Modal) */}
+        <aside className="hidden lg:block lg:col-span-1">
           <CbtQuestionGrid
             total={questions.length}
             currentIndex={currentIndex}
@@ -417,7 +434,7 @@ function QuizRoomContent() {
         </aside>
 
         {/* Right Column: Question & Answers View */}
-        <section className="lg:col-span-3 order-1 lg:order-2">
+        <section className="lg:col-span-3 w-full">
           {activeQuestion ? (
             <CbtQuestionView
               soal={activeQuestion}
@@ -439,6 +456,29 @@ function QuizRoomContent() {
           )}
         </section>
       </main>
+
+      {/* Drawer Modal Daftar Soal Khusus Ponsel / Tablet */}
+      {mobileGridOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-sm">
+          <div
+            className="fixed inset-0"
+            onClick={() => setMobileGridOpen(false)}
+            aria-hidden="true"
+          />
+          <div className="relative w-full max-w-md max-h-[80vh] overflow-y-auto bg-white rounded-t-2xl sm:rounded-xl shadow-2xl p-4 z-10 animate-in slide-in-from-bottom duration-200">
+            <CbtQuestionGrid
+              total={questions.length}
+              currentIndex={currentIndex}
+              items={gridStatusItems}
+              onSelectIndex={(idx) => {
+                setCurrentIndex(idx);
+                setMobileGridOpen(false);
+              }}
+              onClose={() => setMobileGridOpen(false)}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Start Exam Modal (Sebelum Memulai) */}
       {!examStarted && (
