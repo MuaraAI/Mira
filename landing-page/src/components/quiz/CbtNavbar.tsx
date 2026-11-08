@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, Maximize2, Minimize2, Check, AlertCircle, RefreshCw } from "lucide-react";
+import { Clock, Maximize2, Minimize2, Check, AlertCircle, RefreshCw, LayoutGrid } from "lucide-react";
 
 export interface CbtNavbarProps {
   judul: string;
@@ -10,6 +10,7 @@ export interface CbtNavbarProps {
   isFullscreen: boolean;
   onToggleFullscreen: () => void;
   onFinishClick: () => void;
+  onOpenGridMobile?: () => void;
 }
 
 export function CbtNavbar({
@@ -20,6 +21,7 @@ export function CbtNavbar({
   isFullscreen,
   onToggleFullscreen,
   onFinishClick,
+  onOpenGridMobile,
 }: CbtNavbarProps) {
   const hours = String(Math.floor(remainingSeconds / 3600)).padStart(2, "0");
   const minutes = String(Math.floor((remainingSeconds % 3600) / 60)).padStart(2, "0");
@@ -90,14 +92,26 @@ export function CbtNavbar({
           </span>
         </div>
 
-        {/* Action Controls: Fullscreen & Selesai */}
-        <div className="flex items-center gap-2">
+        {/* Action Controls: Grid Mobile, Fullscreen, & Selesai */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {onOpenGridMobile && (
+            <button
+              type="button"
+              onClick={onOpenGridMobile}
+              aria-label="Buka daftar nomor soal"
+              title="Daftar Soal"
+              className="lg:hidden min-w-[36px] min-h-[36px] flex items-center justify-center rounded-md bg-[#0369A1] hover:bg-[#0284C7] text-white transition-colors"
+            >
+              <LayoutGrid className="w-4 h-4" aria-hidden="true" />
+            </button>
+          )}
+
           <button
             type="button"
             onClick={onToggleFullscreen}
             aria-label={isFullscreen ? "Keluar layar penuh" : "Masuk layar penuh"}
             title={isFullscreen ? "Keluar layar penuh" : "Masuk layar penuh"}
-            className="min-w-[38px] min-h-[38px] flex items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors border border-slate-700"
+            className="hidden sm:flex min-w-[38px] min-h-[38px] items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors border border-slate-700"
           >
             {isFullscreen ? (
               <Minimize2 className="w-4 h-4" aria-hidden="true" />
@@ -109,9 +123,9 @@ export function CbtNavbar({
           <button
             type="button"
             onClick={onFinishClick}
-            className="px-3 py-1.5 rounded-md bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-colors shadow-sm"
+            className="px-2.5 sm:px-3 py-1.5 rounded-md bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-colors shadow-sm"
           >
-            Selesaikan
+            Selesai
           </button>
         </div>
       </div>
