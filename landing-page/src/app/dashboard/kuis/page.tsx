@@ -130,6 +130,10 @@ export default function KuisPage() {
   const [questionsLoading, setQuestionsLoading] = useState(false);
   const [questionsError, setQuestionsError] = useState<string | null>(null);
 
+  // State unduh bukti kuis PDF resmi
+  const [downloadingToken, setDownloadingToken] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
   if (loading) return <LoadingState label="Memuat jadwal kuis perkuliahan" />;
   if (error) return <ErrorState error={error} onRetry={reload} />;
 
@@ -157,10 +161,6 @@ export default function KuisPage() {
 
   const totalActive = quizzes.filter(isQuizActive).length;
   const totalCompleted = quizzes.length - totalActive;
-
-  // State unduh bukti kuis PDF resmi
-  const [downloadingToken, setDownloadingToken] = useState<string | null>(null);
-  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   async function handleDownloadProof(token: string, paketName: string) {
     setDownloadingToken(token);
@@ -649,7 +649,7 @@ export default function KuisPage() {
                   Pratinjau Soal Kuis
                 </span>
                 <h3 id="preview-quiz-title" className="text-base font-display font-bold text-foreground">
-                  {activeQuizForQuestions.paket}
+                  {activeQuizForQuestions.paket || "Kuis"}
                 </h3>
               </div>
               <button
@@ -697,7 +697,7 @@ export default function KuisPage() {
                       </p>
 
                       <div className="space-y-2 pt-2">
-                        {questionsData.current_soal.opsi.map((opsi) => (
+                        {(questionsData.current_soal.opsi || []).map((opsi) => (
                           <div
                             key={opsi.key}
                             className="flex items-start gap-3 p-3 rounded-md border border-stroke/70 bg-[#F7FAFC]/60 text-xs text-foreground hover:bg-[#F0F7FB]"
