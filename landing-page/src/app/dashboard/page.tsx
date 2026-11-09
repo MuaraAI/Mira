@@ -188,6 +188,11 @@ export default function DashboardOverviewPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSchedule, courses.data, todayIdx, Math.floor(now.getTime() / 60_000)]);
 
+  const nearestAgenda = useMemo(() => {
+    const list = (academicEvents.data ?? []).filter((e) => e.days_left != null && e.days_left >= 0);
+    return list.sort((a, b) => (a.days_left ?? 999) - (b.days_left ?? 999))[0] ?? null;
+  }, [academicEvents.data]);
+
   if (me.loading && !me.data) {
     return <LoadingState label="Menyiapkan dashboard" />;
   }
@@ -229,10 +234,6 @@ export default function DashboardOverviewPage() {
   const nextDeadline = nextTask ? parseDeadline(nextTask.selesai) : null;
   const hoursLeft = nextDeadline ? Math.max(0, Math.round((nextDeadline.getTime() - nowMs) / 3_600_000)) : null;
 
-  const nearestAgenda = useMemo(() => {
-    const list = (academicEvents.data ?? []).filter((e) => e.days_left != null && e.days_left >= 0);
-    return list.sort((a, b) => (a.days_left ?? 999) - (b.days_left ?? 999))[0] ?? null;
-  }, [academicEvents.data]);
   const liveClass = todayClasses.find((c) => c.timing?.state === "live") ?? null;
   const nextClass = todayClasses.find((c) => c.timing?.state === "soon" || c.timing?.state === "upcoming") ?? null;
   const spotlight = liveClass ?? nextClass;
