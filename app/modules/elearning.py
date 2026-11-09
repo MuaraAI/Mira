@@ -1007,9 +1007,16 @@ def parse_quiz(html: str) -> list[dict[str, Any]]:
         action_url = action_btn[0].attrib.get("href") if action_btn and action_btn[0].attrib.get("href") not in (None, "", "#") else None
 
         token_ujian = None
+        token_bukti = None
         if action_url:
-            m_tok = re.search(r"/(?:halaman-ujian|mulai-ujian|ujian)/([^/?#]+)", action_url)
-            token_ujian = m_tok.group(1) if m_tok else action_url.rstrip("/").split("/")[-1]
+            if "/cetak-ujian-pdf/" in action_url:
+                token_bukti = action_url.split("/cetak-ujian-pdf/", 1)[1].split("?", 1)[0].rstrip("/")
+            else:
+                m_tok = re.search(r"/(?:halaman-ujian|mulai-ujian|ujian|exercise-show)/([^/?#]+)", action_url)
+                token_ujian = m_tok.group(1) if m_tok else action_url.rstrip("/").split("/")[-1]
+
+            if action_url.startswith("/"):
+                action_url = f"https://elearning.bsi.ac.id{action_url}"
 
         if len(cols) >= 7:
             # Layout lama 7-8 kolom: No, Kode Mtk, Paket, Dosen, Waktu, Ujian Mulai, Ujian Selesai, Aksi
@@ -1029,6 +1036,7 @@ def parse_quiz(html: str) -> list[dict[str, Any]]:
                 "status_aksi": status_aksi,
                 "action_url": action_url,
                 "token_ujian": token_ujian,
+                "token_bukti": token_bukti,
             })
         elif len(cols) >= 5:
             # Layout baru 6 kolom (MyBest 2026): No, Mata Kuliah & Paket, Dosen, Durasi, Periode Ujian, Aksi
@@ -1071,6 +1079,7 @@ def parse_quiz(html: str) -> list[dict[str, Any]]:
                 "status_aksi": status_aksi,
                 "action_url": action_url,
                 "token_ujian": token_ujian,
+                "token_bukti": token_bukti,
             })
     return quizzes
 
@@ -2215,6 +2224,11 @@ async def download_exam_proof(
             client.fetch_page("/halaman-ujian", nim, password)  # SSO session handshake
             resp = client.get_client().get(target_url)
             if resp.status_code != 200:
+                # Coba fallback ke elearning.bsi.ac.id (kuis mingguan reguler)
+                el_url = f"https://elearning.bsi.ac.id/cetak-ujian-pdf/{clean_token}"
+                resp_el = client.get_client().get(el_url)
+                if resp_el.status_code == 200:
+                    return resp_el
                 raise HTTPException(
                     status_code=status.HTTP_502_BAD_GATEWAY,
                     detail=error_response(
