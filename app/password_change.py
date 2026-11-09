@@ -14,14 +14,16 @@ from urllib.parse import urljoin, urlparse
 
 from lxml import html as lxml_html
 
+from app.config import settings
 from app.modules.elearning import ElearningClient
 from app.modules.studentv2 import StudentV2Client
 from app.proxy import get_proxy
 
 logger = logging.getLogger("app.password_change")
 
-DEFAULT_PASSWORDS = frozenset({"Mhs-1945", "Mhs-2026"})
-
+def get_default_passwords() -> frozenset[str]:
+    raw = getattr(settings, "CAMPUS_DEFAULT_PASSWORDS", "") or ""
+    return frozenset(p.strip() for p in raw.split(",") if p.strip())
 SYSTEMS = {
     "siakad": {"label": "SIAKAD", "client": StudentV2Client, "path": "/mahasiswa/password"},
     "mybest": {"label": "MyBest", "client": ElearningClient, "path": "/profil"},
@@ -37,8 +39,9 @@ _FLASH_XPATH = (
 
 
 def is_default_password(password: str) -> bool:
-    return (password or "").strip() in DEFAULT_PASSWORDS
-
+    if not password:
+        return False
+    return password.strip() in get_default_passwords()
 
 def validate_new_password(nim: str, current: str, new: str) -> Optional[str]:
     """Kembalikan pesan error (Bahasa Indonesia) atau None bila password baru layak."""

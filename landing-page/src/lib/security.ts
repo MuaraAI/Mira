@@ -45,7 +45,7 @@ export function passwordChecks(nim: string, current: string, next: string) {
   return [
     { ok: next.length >= 8 && next.length <= 64, label: "8 sampai 64 karakter" },
     { ok: /[A-Za-z]/.test(next) && /\d/.test(next), label: "Ada huruf dan angka" },
-    { ok: next.length > 0 && next !== "Mhs-1945" && next !== "Mhs-2026", label: "Bukan password default" },
+    { ok: next.length > 0 && next !== current, label: "Bukan password default kampus" },
     { ok: next.length > 0 && next !== current, label: "Beda dari password lama" },
     { ok: next.length > 0 && (!nim || !next.includes(nim)) && next === next.trim(), label: "Tanpa NIM dan spasi di ujung" },
   ];

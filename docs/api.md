@@ -103,7 +103,7 @@ Authenticates student credentials live against campus portals, creates an in-mem
     }
   }
   ```
-  `default_password` is `true` for a system still using the campus default password (`Mhs-1945` or `Mhs-2026`).
+  `default_password` is `true` for a system still using the campus default password.
 
 ### `POST /v1/auth/credentials`
 Connects an optional campus system (such as SIAKAD) to an existing active session. Verifies credentials against the upstream campus portal, then atomically updates the stored credentials across all active sessions and Personal API Keys for the student.
@@ -155,7 +155,7 @@ Changes the SIAKAD or MyBest password directly on the campus server. Mira logs i
 - **Rate Limit**: Max 3 requests/minute per NIM.
 - **Request Body**:
   ```json
-  { "system": "siakad", "current_password": "Mhs-1945", "new_password": "KuatSekali2026" }
+  { "system": "siakad", "current_password": "PasswordLama123", "new_password": "KuatSekali2026" }
   ```
 - **Password rules**: 8 to 64 characters, letters and digits, not a default password, different from the current one, must not contain the NIM.
 - **Errors**: `CURRENT_PASSWORD_MISMATCH` (400), `WEAK_PASSWORD` (422), `PASSWORD_REJECTED` (400, campus refused), `PASSWORD_FORM_NOT_FOUND` (400), `UPSTREAM_LOGIN_FAILED` (400), `PASSWORD_STATUS_UNKNOWN` (502, verify by logging in with the new password).
