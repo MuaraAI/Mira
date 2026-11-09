@@ -18,9 +18,11 @@ import {
   FileQuestion,
   Play,
   Maximize2,
+  FileDown,
+  Loader2,
 } from "lucide-react";
 import { FocusDialog } from "@/components/FocusDialog";
-import { useApi, apiFetch } from "@/lib/api";
+import { useApi, apiFetch, apiDownload, ApiError } from "@/lib/api";
 import {
   EmptyState,
   ErrorState,
@@ -43,6 +45,7 @@ interface QuizItem {
   status_aksi?: string | null;
   action_url?: string | null;
   token_ujian?: string | null;
+  token_bukti?: string | null;
 }
 
 interface QuestionOption {
@@ -86,8 +89,19 @@ function formatQuizDate(dateStr: string): string {
 
 function isQuizActive(q: QuizItem): boolean {
   const status = (q.status_aksi || "").toLowerCase();
-  if (status.includes("selesai") || status.includes("sudah")) return false;
-  if (status.includes("mulai") || status.includes("kerjakan") || status.includes("lanjutkan")) return true;
+  if (
+    status.includes("selesai") ||
+    status.includes("sudah") ||
+    status.includes("lewat") ||
+    status.includes("cetak") ||
+    Boolean(q.token_bukti) ||
+    (q.action_url && q.action_url.includes("cetak-ujian-pdf"))
+  ) {
+    return false;
+  }
+  if (status.includes("mulai") || status.includes("kerjakan") || status.includes("lanjutkan")) {
+    return true;
+  }
 
   const now = Date.now();
   const start = parseSafeDate(q.ujian_mulai).getTime();
@@ -137,22 +151,40 @@ export default function KuisPage() {
   const totalActive = quizzes.filter(isQuizActive).length;
   const totalCompleted = quizzes.length - totalActive;
 
-  async function handleOpenQuestions(q: QuizItem) {
-    if (!q.token_ujian) {
-      if (q.action_url) {
-        window.open(q.action_url, "_blank", "noopener,noreferrer");
-      }
-      return;
-    }
+  // State unduh bukti kuis PDF resmi
+  const [downloadingToken, setDownloadingToken] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
-    setActiveQuizForQuestions(q);
+  async function handleDownloadProof(token: string, paketName: string) {
+    setDownloadingToken(token);
+    setDownloadError(null);
+    try {
+      const filename = `Bukti_Kuis_${paketName.replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
+      await apiDownload(`/v1/elearning/exams/proof/download?token=${encodeURIComponent(token)}`, filename);
+    } catch (err) {
+      setDownloadError(err instanceof ApiError ? err.message : "Gagal mengunduh berkas bukti kuis.");
+    } finally {
+      setDownloadingToken(null);
+    }
+  }
+
+  async function handleOpenQuestions(q: QuizItem) {
+    const examToken =
+      q.token_ujian ||
+      (q.action_url?.includes("exercise-show/")
+        ? q.action_url.split("exercise-show/")[1].split("?")[0].replace(/\/$/, "")
+        : null);
+
+    if (!examToken) return;
+
+    setActiveQuizForQuestions({ ...q, token_ujian: examToken });
     setQuestionsLoading(true);
     setQuestionsError(null);
     setQuestionsData(null);
 
     try {
       const res = await apiFetch<QuizQuestionsData>(
-        `/v1/elearning/quiz/questions?token_ujian=${encodeURIComponent(q.token_ujian)}`
+        `/v1/elearning/quiz/questions?token_ujian=${encodeURIComponent(examToken)}`
       );
       setQuestionsData(res);
     } catch (err: unknown) {
@@ -168,7 +200,6 @@ export default function KuisPage() {
     setQuestionsData(null);
     setQuestionsError(null);
   }
-
   function openCbtRoom(
     mode: "live" | "simulasi",
     token?: string | null,
@@ -352,6 +383,19 @@ export default function KuisPage() {
           </p>
         </div>
       </div>
+      {/* Banner Error Download Bukti */}
+      {downloadError && (
+        <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-xs flex items-center justify-between gap-2">
+          <span>{downloadError}</span>
+          <button
+            type="button"
+            onClick={() => setDownloadError(null)}
+            className="text-rose-500 hover:text-rose-700 font-bold px-2 py-0.5"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Search Input */}
       {quizzes.length > 0 && (
@@ -462,56 +506,81 @@ export default function KuisPage() {
 
                   {/* Action Buttons */}
                   <div className="flex flex-col sm:flex-row lg:flex-col gap-2 shrink-0">
-                    {active && q.token_ujian ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => openCbtRoom("live", q.token_ujian, q.paket, true)}
-                          className="px-4 py-2 rounded-md bg-[#0369A1] hover:bg-[#0284C7] text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
-                        >
-                          <Play className="w-3.5 h-3.5 fill-current" aria-hidden="true" />
-                          <span>Kerjakan di CBT Room</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openCbtRoom("live", q.token_ujian, q.paket, false)}
-                          className={`${ghostButtonClass} text-xs py-1.5 text-center flex items-center justify-center gap-1`}
-                        >
-                          <Maximize2 className="w-3 h-3 text-secondary" aria-hidden="true" />
-                          <span>Layar Penuh</span>
-                        </button>
-                      </>
-                    ) : q.action_url ? (
-                      <a
-                        href={q.action_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={`${primaryButtonClass} text-xs py-2`}
-                      >
-                        <ExternalLink className="w-4 h-4" aria-hidden="true" />
-                        Buka di MyBest
-                      </a>
-                    ) : (
-                      <a
-                        href="https://elearning.bsi.ac.id/exercise"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={`${primaryButtonClass} text-xs py-2`}
-                      >
-                        <ExternalLink className="w-4 h-4" aria-hidden="true" />
-                        Portal MyBest
-                      </a>
-                    )}
+                    {active ? (
+                      (() => {
+                        const tokenUjian =
+                          q.token_ujian ||
+                          (q.action_url?.includes("exercise-show/")
+                            ? q.action_url.split("exercise-show/")[1].split("?")[0].replace(/\/$/, "")
+                            : null);
 
-                    {q.token_ujian && (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenQuestions(q)}
-                        className={`${ghostButtonClass} text-xs py-2`}
-                      >
-                        <FileQuestion className="w-4 h-4 text-[#0369A1]" aria-hidden="true" />
-                        Pratinjau Soal
-                      </button>
+                        return (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => openCbtRoom("live", tokenUjian, q.paket, true)}
+                              className="px-4 py-2 rounded-md bg-[#0369A1] hover:bg-[#0284C7] text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
+                            >
+                              <Play className="w-3.5 h-3.5 fill-current" aria-hidden="true" />
+                              <span>Kerjakan di CBT Room</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openCbtRoom("live", tokenUjian, q.paket, false)}
+                              className={`${ghostButtonClass} text-xs py-1.5 text-center flex items-center justify-center gap-1`}
+                            >
+                              <Maximize2 className="w-3 h-3 text-secondary" aria-hidden="true" />
+                              <span>Layar Penuh</span>
+                            </button>
+                            {tokenUjian && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenQuestions(q)}
+                                className={`${ghostButtonClass} text-xs py-1.5 text-center flex items-center justify-center gap-1`}
+                              >
+                                <FileQuestion className="w-3.5 h-3.5 text-[#0369A1]" aria-hidden="true" />
+                                <span>Pratinjau Soal</span>
+                              </button>
+                            )}
+                          </>
+                        );
+                      })()
+                    ) : (q.token_bukti || (q.action_url && q.action_url.includes("cetak-ujian-pdf"))) ? (
+                      (() => {
+                        const tokenBukti =
+                          q.token_bukti ||
+                          (q.action_url?.includes("cetak-ujian-pdf/")
+                            ? q.action_url.split("cetak-ujian-pdf/")[1].split("?")[0].replace(/\/$/, "")
+                            : null);
+
+                        if (!tokenBukti) return null;
+                        const isDownloading = downloadingToken === tokenBukti;
+
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadProof(tokenBukti, q.paket)}
+                            disabled={isDownloading}
+                            className="px-4 py-2 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50"
+                          >
+                            {isDownloading ? (
+                              <>
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+                                <span>Mengunduh Bukti...</span>
+                              </>
+                            ) : (
+                              <>
+                                <FileDown className="w-3.5 h-3.5" aria-hidden="true" />
+                                <span>Cetak Bukti Ujian (PDF)</span>
+                              </>
+                            )}
+                          </button>
+                        );
+                      })()
+                    ) : (
+                      <div className="text-center sm:text-right px-2 py-1 text-xs text-secondary font-medium">
+                        {q.status_aksi || "Ujian Telah Selesai"}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -645,16 +714,20 @@ export default function KuisPage() {
               >
                 Tutup
               </button>
-              {activeQuizForQuestions.action_url && (
-                <a
-                  href={activeQuizForQuestions.action_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`${primaryButtonClass} text-xs py-2`}
+              {activeQuizForQuestions.token_ujian && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const tok = activeQuizForQuestions.token_ujian;
+                    const pkt = activeQuizForQuestions.paket;
+                    handleCloseQuestions();
+                    openCbtRoom("live", tok, pkt, true);
+                  }}
+                  className={`${primaryButtonClass} text-xs py-2 flex items-center gap-1.5`}
                 >
-                  <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
-                  Buka Lembar Ujian MyBest
-                </a>
+                  <Play className="w-3.5 h-3.5 fill-current" aria-hidden="true" />
+                  <span>Mulai Kerjakan di CBT Room</span>
+                </button>
               )}
             </div>
           </FocusDialog>
