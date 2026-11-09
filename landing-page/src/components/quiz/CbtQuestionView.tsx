@@ -39,7 +39,11 @@ export function CbtQuestionView({
   isLast,
 }: CbtQuestionViewProps) {
   return (
-    <article className="bg-white rounded-lg border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+    <article id="wrap-soal" className="bg-white rounded-lg border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+      {/* Hidden metadata markers identik MyBest CBT standard */}
+      <div id="maxsoal" data-max={totalSoal} style={{ display: "none" }} />
+      <div id="nomerurut" data-id={soal.id} style={{ display: "none" }} />
+
       {/* Header Soal */}
       <div className="flex items-center justify-between px-5 py-3.5 bg-slate-50 border-b border-slate-200">
         <div className="flex items-center gap-2">
@@ -58,13 +62,13 @@ export function CbtQuestionView({
       </div>
 
       {/* Teks Pertanyaan */}
-      <div className="p-5 sm:p-6 space-y-6 flex-1">
-        <p className="text-sm sm:text-base text-slate-900 leading-relaxed font-sans font-medium whitespace-pre-wrap select-none">
+      <div className="soal p-5 sm:p-6 space-y-6 flex-1" id="soal-text-container">
+        <p id="soal-text" className="text-sm sm:text-base text-slate-900 leading-relaxed font-sans font-medium whitespace-pre-wrap select-none">
           {soal.pertanyaan}
         </p>
 
         {/* Daftar Pilihan Ganda (A..E) */}
-        <div className="space-y-2.5 pt-2 select-none" role="radiogroup" aria-label="Pilihan Jawaban">
+        <div className="pilihan space-y-2.5 pt-2 select-none" id="pilihan-container" role="radiogroup" aria-label="Pilihan Jawaban">
           {soal.opsi.map((opt) => {
             const isSelected = selectedAnswer === opt.key;
 
@@ -74,10 +78,12 @@ export function CbtQuestionView({
                 type="button"
                 role="radio"
                 aria-checked={isSelected}
+                data-id={soal.id}
+                data-jawab={`${soal.id}_${opt.key}`}
                 onClick={() => onSelectOption(opt.key)}
-                className={`w-full text-left p-3.5 sm:p-4 rounded-lg border transition-all flex items-start gap-3.5 min-h-[50px] ${
+                className={`jawab ${isSelected ? "dijawab" : ""} w-full text-left p-3.5 sm:p-4 rounded-lg border transition-all flex items-start gap-3.5 min-h-[50px] ${
                   isSelected
-                    ? "bg-[#F0F7FB] border-[#0369A1] shadow-sm text-slate-950"
+                    ? "bg-[#F0F7FB] border-[#0369A1] shadow-sm text-slate-950 font-medium"
                     : "bg-white border-slate-200 hover:bg-slate-50 text-slate-800"
                 }`}
               >
@@ -93,8 +99,8 @@ export function CbtQuestionView({
                 </span>
 
                 {/* Teks Opsi */}
-                <span className="text-xs sm:text-sm leading-relaxed font-sans flex-1">
-                  {opt.text}
+                <span className="pilihan text-xs sm:text-sm leading-relaxed font-sans flex-1">
+                  <p><strong>{opt.key}.</strong> {opt.text}</p>
                 </span>
 
                 {/* Indikator Terpilih */}

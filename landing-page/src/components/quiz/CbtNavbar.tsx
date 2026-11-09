@@ -35,10 +35,10 @@ export function CbtNavbar({
         {/* Brand & Judul Ujian */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase bg-[#0369A1] text-white shrink-0">
+            <span className="exam-meta-pill px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase bg-[#0369A1] text-white shrink-0">
               CBT ROOM
             </span>
-            <h1 className="text-sm sm:text-base font-display font-bold text-white truncate">
+            <h1 className="exam-subject-title text-sm sm:text-base font-display font-bold text-white truncate">
               {judul}
             </h1>
           </div>
@@ -75,8 +75,10 @@ export function CbtNavbar({
         </div>
 
         {/* Countdown Timer */}
+        {/* Countdown Timer (ID #demo dan class .timer identik MyBest) */}
         <div
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md font-mono text-xs sm:text-sm font-bold tracking-wider shadow-inner transition-colors ${
+          id="demo"
+          className={`timer flex items-center gap-2 px-3.5 py-1.5 rounded-md font-mono text-xs sm:text-sm font-bold tracking-wider shadow-inner transition-colors ${
             isLowTime
               ? "bg-rose-950/80 text-rose-300 border border-rose-600 animate-pulse"
               : "bg-slate-900/90 text-white border border-[#0369A1]/60"
@@ -87,7 +89,7 @@ export function CbtNavbar({
           <span className="hidden sm:inline text-[11px] font-sans font-medium text-slate-300">
             Sisa Waktu:
           </span>
-          <span className="text-white">
+          <span id="timer-clock" className="text-white">
             {hours} : {minutes} : {seconds}
           </span>
         </div>

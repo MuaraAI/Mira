@@ -49,28 +49,31 @@ export function CbtQuestionGrid({
         )}
       </div>
 
-      {/* Grid Nomor Soal */}
-      <div className="grid grid-cols-5 sm:grid-cols-5 gap-2 max-h-[55vh] overflow-y-auto p-0.5">
+      {/* Grid Nomor Soal (ID #grid-nomor-pg dan class no_soal identik MyBest) */}
+      <div id="grid-nomor-pg" className="grid grid-cols-5 sm:grid-cols-5 gap-2 max-h-[55vh] overflow-y-auto p-0.5">
         {items.map((item, idx) => {
           const isCurrent = idx === currentIndex;
 
           let badgeStyle = "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100";
           if (item.isRagu) {
-            badgeStyle = "bg-amber-400 text-slate-950 font-bold border-amber-500 hover:bg-amber-500";
+            badgeStyle = "ragu bg-amber-400 text-slate-950 font-bold border-amber-500 hover:bg-amber-500";
           } else if (item.isAnswered) {
-            badgeStyle = "bg-[#1980D4] text-white font-bold border-[#1569ad] hover:bg-[#146bb3]";
+            badgeStyle = "dijawab bg-[#1980D4] text-white font-bold border-[#1569ad] hover:bg-[#146bb3]";
           }
 
           const currentRing = isCurrent
-            ? "ring-2 ring-offset-2 ring-[#0369A1] scale-105 z-10"
+            ? "soal_terpilih ring-2 ring-offset-2 ring-[#0369A1] scale-105 z-10"
             : "";
 
           return (
             <button
               key={item.id}
               type="button"
+              id={`no_soal${item.no}`}
+              data-id={item.id}
+              data-no={item.no}
               onClick={() => onSelectIndex(idx)}
-              className={`min-w-[40px] min-h-[40px] rounded-md border flex items-center justify-center text-xs font-mono transition-all ${badgeStyle} ${currentRing}`}
+              className={`no_soal min-w-[40px] min-h-[40px] rounded-md border flex items-center justify-center text-xs font-mono transition-all ${badgeStyle} ${currentRing}`}
               aria-label={`Pindah ke soal nomor ${item.no}`}
             >
               {item.no < 10 ? `0${item.no}` : item.no}
