@@ -68,26 +68,32 @@ interface QuizQuestionsData {
   } | null;
 }
 
-function parseSafeDate(dateStr: string): Date {
-  const isoLike = (dateStr || "").trim().replace(" ", "T");
+function parseSafeDate(dateStr: unknown): Date {
+  if (typeof dateStr !== "string") return new Date(NaN);
+  const isoLike = dateStr.trim().replace(" ", "T");
   return new Date(isoLike);
 }
 
-function formatQuizDate(dateStr: string): string {
-  if (!dateStr || dateStr === "-") return "-";
+function formatQuizDate(dateStr: unknown): string {
+  if (!dateStr || dateStr === "-" || typeof dateStr !== "string") return "-";
   const d = parseSafeDate(dateStr);
-  if (Number.isNaN(d.getTime())) return dateStr;
-  return d.toLocaleDateString("id-ID", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  if (Number.isNaN(d.getTime())) return String(dateStr);
+  try {
+    return d.toLocaleDateString("id-ID", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return String(dateStr);
+  }
 }
 
-function isQuizActive(q: QuizItem): boolean {
+function isQuizActive(q: QuizItem | null | undefined): boolean {
+  if (!q) return false;
   const status = (q.status_aksi || "").toLowerCase();
   if (
     status.includes("selesai") ||
@@ -95,7 +101,7 @@ function isQuizActive(q: QuizItem): boolean {
     status.includes("lewat") ||
     status.includes("cetak") ||
     Boolean(q.token_bukti) ||
-    (q.action_url && q.action_url.includes("cetak-ujian-pdf"))
+    (typeof q.action_url === "string" && q.action_url.includes("cetak-ujian-pdf"))
   ) {
     return false;
   }
@@ -127,10 +133,11 @@ export default function KuisPage() {
   if (loading) return <LoadingState label="Memuat jadwal kuis perkuliahan" />;
   if (error) return <ErrorState error={error} onRetry={reload} />;
 
-  const quizzes = data ?? [];
+  const quizzes = Array.isArray(data) ? data.filter(Boolean) : [];
 
   // Filter logika
   const filtered = quizzes.filter((q) => {
+    if (!q) return false;
     const matchesFilter =
       filter === "all"
         ? true
@@ -141,7 +148,7 @@ export default function KuisPage() {
     const query = searchQuery.toLowerCase().trim();
     const matchesSearch =
       !query ||
-      q.paket.toLowerCase().includes(query) ||
+      (q.paket || "").toLowerCase().includes(query) ||
       (q.kode_mtk || "").toLowerCase().includes(query) ||
       (q.dosen || "").toLowerCase().includes(query);
 
@@ -225,15 +232,18 @@ export default function KuisPage() {
         const height = 800;
         const left = Math.max(0, (window.screen.width - width) / 2);
         const top = Math.max(0, (window.screen.height - height) / 2);
-        const popup = window.open(
-          url,
-          `CBT_${mode}_${token || "sim"}`,
-          `width=${width},height=${height},top=${top},left=${left},scrollbars=yes,resizable=yes`
-        );
-        if (popup) {
-          popup.focus();
-          return;
-        }
+        const safeWindowName = `CBT_${mode}_${(token || "sim").replace(/[^a-zA-Z0-9_]/g, "")}`;
+        try {
+          const popup = window.open(
+            url,
+            safeWindowName,
+            `width=${width},height=${height},top=${top},left=${left},scrollbars=yes,resizable=yes`
+          );
+          if (popup) {
+            popup.focus();
+            return;
+          }
+        } catch {}
       }
       window.open(url, "_blank");
     }
@@ -433,13 +443,15 @@ export default function KuisPage() {
         />
       ) : (
         <div className="grid gap-4">
-          {filtered.map((q) => {
+          {filtered.map((q, idx) => {
+            if (!q) return null;
             const active = isQuizActive(q);
             const statusText = q.status_aksi || (active ? "Buka Kuis" : "Selesai");
+            const itemKey = q.id || `quiz-${idx}-${q.kode_mtk || ""}`;
 
             return (
               <div
-                key={q.id}
+                key={itemKey}
                 className="glass-card p-6 border-l-4 transition-all duration-200 hover:shadow-md"
                 style={{
                   borderLeftColor: active ? "#0369A1" : "#D9E5ED",
@@ -474,7 +486,7 @@ export default function KuisPage() {
                     </div>
 
                     <h2 className="text-lg font-display font-bold text-foreground">
-                      {q.paket}
+                      {q.paket || "Kuis"}
                     </h2>
 
                     {q.dosen && (
@@ -510,15 +522,15 @@ export default function KuisPage() {
                       (() => {
                         const tokenUjian =
                           q.token_ujian ||
-                          (q.action_url?.includes("exercise-show/")
-                            ? q.action_url.split("exercise-show/")[1].split("?")[0].replace(/\/$/, "")
+                          (typeof q.action_url === "string" && (q.action_url.includes("exercise-show") || q.action_url.includes("halaman-ujian"))
+                            ? q.action_url.replace(/\/$/, "").split("/").pop()?.split("?")[0] || null
                             : null);
 
                         return (
                           <>
                             <button
                               type="button"
-                              onClick={() => openCbtRoom("live", tokenUjian, q.paket, true)}
+                              onClick={() => openCbtRoom("live", tokenUjian, q.paket || "Kuis", true)}
                               className="px-4 py-2 rounded-md bg-[#0369A1] hover:bg-[#0284C7] text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
                             >
                               <Play className="w-3.5 h-3.5 fill-current" aria-hidden="true" />
@@ -526,7 +538,7 @@ export default function KuisPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => openCbtRoom("live", tokenUjian, q.paket, false)}
+                              onClick={() => openCbtRoom("live", tokenUjian, q.paket || "Kuis", false)}
                               className={`${ghostButtonClass} text-xs py-1.5 text-center flex items-center justify-center gap-1`}
                             >
                               <Maximize2 className="w-3 h-3 text-secondary" aria-hidden="true" />
@@ -545,42 +557,44 @@ export default function KuisPage() {
                           </>
                         );
                       })()
-                    ) : (q.token_bukti || (q.action_url && q.action_url.includes("cetak-ujian-pdf"))) ? (
+                    ) : (
                       (() => {
                         const tokenBukti =
                           q.token_bukti ||
-                          (q.action_url?.includes("cetak-ujian-pdf/")
-                            ? q.action_url.split("cetak-ujian-pdf/")[1].split("?")[0].replace(/\/$/, "")
+                          (typeof q.action_url === "string" && q.action_url.includes("cetak-ujian-pdf")
+                            ? q.action_url.replace(/\/$/, "").split("/").pop()?.split("?")[0] || null
                             : null);
 
-                        if (!tokenBukti) return null;
-                        const isDownloading = downloadingToken === tokenBukti;
+                        if (tokenBukti) {
+                          const isDownloading = downloadingToken === tokenBukti;
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadProof(tokenBukti, q.paket || "Kuis")}
+                              disabled={isDownloading}
+                              className="px-4 py-2 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50"
+                            >
+                              {isDownloading ? (
+                                <>
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+                                  <span>Mengunduh Bukti...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <FileDown className="w-3.5 h-3.5" aria-hidden="true" />
+                                  <span>Cetak Bukti Ujian (PDF)</span>
+                                </>
+                              )}
+                            </button>
+                          );
+                        }
 
                         return (
-                          <button
-                            type="button"
-                            onClick={() => handleDownloadProof(tokenBukti, q.paket)}
-                            disabled={isDownloading}
-                            className="px-4 py-2 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50"
-                          >
-                            {isDownloading ? (
-                              <>
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
-                                <span>Mengunduh Bukti...</span>
-                              </>
-                            ) : (
-                              <>
-                                <FileDown className="w-3.5 h-3.5" aria-hidden="true" />
-                                <span>Cetak Bukti Ujian (PDF)</span>
-                              </>
-                            )}
-                          </button>
+                          <div className="text-center sm:text-right px-2 py-1 text-xs text-secondary font-medium">
+                            {statusText || "Ujian Telah Selesai"}
+                          </div>
                         );
                       })()
-                    ) : (
-                      <div className="text-center sm:text-right px-2 py-1 text-xs text-secondary font-medium">
-                        {q.status_aksi || "Ujian Telah Selesai"}
-                      </div>
                     )}
                   </div>
                 </div>
@@ -719,7 +733,7 @@ export default function KuisPage() {
                   type="button"
                   onClick={() => {
                     const tok = activeQuizForQuestions.token_ujian;
-                    const pkt = activeQuizForQuestions.paket;
+                    const pkt = activeQuizForQuestions.paket || "Kuis";
                     handleCloseQuestions();
                     openCbtRoom("live", tok, pkt, true);
                   }}
