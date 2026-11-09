@@ -37,7 +37,7 @@ export function LoginTodayBadge({ compact = false }: { compact?: boolean }) {
 
 const DISMISS_KEY = "mira_default_pw_reminder_dismissed";
 
-/** Pengingat wajib ganti password default kampus (Mhs-1945 / Mhs-2026). Muncul lagi di sesi berikutnya. */
+/** Pengingat wajib ganti password bawaan kampus. Muncul lagi di sesi berikutnya. */
 export function DefaultPasswordBanner() {
   const { data } = useSecurityStatus();
   const [dismissed, setDismissed] = useState(true);
