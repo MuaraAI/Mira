@@ -390,9 +390,12 @@ function QuizRoomContent() {
         onFinishClick={() => setFinishModalOpen(true)}
         onOpenGridMobile={() => setMobileGridOpen(true)}
       />
-      {/* Toast Peringatan Pasif */}
+      {/* Hidden kick-banner marker (identik MyBest exam simulator) */}
+      <div id="kick-banner" style={{ display: "none" }} />
+
+      {/* Toast Peringatan Pasif (ID #toast identik MyBest) */}
       {toastMessage && (
-        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-slate-900/90 text-white rounded-lg shadow-lg border border-slate-700 text-xs font-medium flex items-center gap-2 animate-bounce">
+        <div id="toast" className="fixed top-14 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-slate-900/90 text-white rounded-lg shadow-lg border border-slate-700 text-xs font-medium flex items-center gap-2 animate-bounce">
           <span>{toastMessage}</span>
           <button
             type="button"
@@ -403,7 +406,6 @@ function QuizRoomContent() {
           </button>
         </div>
       )}
-
       {/* Main CBT Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6 items-start">
         {/* Tombol Cepat Daftar Soal Khusus Layar Ponsel */}
@@ -480,10 +482,10 @@ function QuizRoomContent() {
         </div>
       )}
 
-      {/* Start Exam Modal (Sebelum Memulai) */}
+      {/* Start Exam Modal (ID #start-modal-backdrop, #btn-enter-fullscreen, #btn-skip-fullscreen identik MyBest) */}
       {!examStarted && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-          <div className="w-full max-w-lg bg-white rounded-xl shadow-2xl border border-slate-200 p-6 sm:p-8 space-y-5 text-center">
+        <div id="start-modal-backdrop" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+          <div className="modal-box w-full max-w-lg bg-white rounded-xl shadow-2xl border border-slate-200 p-6 sm:p-8 space-y-5 text-center">
             <div className="w-14 h-14 rounded-full bg-sky-100 text-[#0369A1] flex items-center justify-center mx-auto">
               <ShieldCheck className="w-8 h-8" aria-hidden="true" />
             </div>
@@ -500,7 +502,7 @@ function QuizRoomContent() {
               </p>
             </div>
 
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-left text-xs text-slate-700 space-y-2">
+            <div className="rules-list bg-slate-50 border border-slate-200 rounded-lg p-4 text-left text-xs text-slate-700 space-y-2">
               <p className="font-bold text-slate-900">Peraturan Pengerjaan CBT:</p>
               <ul className="list-disc list-inside space-y-1.5 text-slate-600 text-[11px]">
                 <li>Ujian disarankan dilakukan dalam mode <strong>Layar Penuh (Fullscreen)</strong>.</li>
@@ -513,8 +515,9 @@ function QuizRoomContent() {
             <div className="space-y-2 pt-2">
               <button
                 type="button"
+                id="btn-enter-fullscreen"
                 onClick={startExam}
-                className="w-full py-3 rounded-lg bg-[#0369A1] hover:bg-[#0284C7] text-white text-xs sm:text-sm font-bold transition-all shadow-md flex items-center justify-center gap-2"
+                className="btn-start w-full py-3 rounded-lg bg-[#0369A1] hover:bg-[#0284C7] text-white text-xs sm:text-sm font-bold transition-all shadow-md flex items-center justify-center gap-2"
               >
                 <Play className="w-4 h-4 fill-current" aria-hidden="true" />
                 <span>Masuk Mode Ujian (Fullscreen)</span>
@@ -522,6 +525,7 @@ function QuizRoomContent() {
 
               <button
                 type="button"
+                id="btn-skip-fullscreen"
                 onClick={() => {
                   // Fallback mulai ujian tanpa memicu fullscreen
                   startExam();
