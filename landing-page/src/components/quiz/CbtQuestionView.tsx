@@ -45,9 +45,10 @@ export function CbtQuestionView({
       <div id="nomerurut" data-id={soal.id} style={{ display: "none" }} />
 
       {/* Header Soal */}
-      <div className="flex items-center justify-between px-5 py-3.5 bg-slate-50 border-b border-slate-200">
+      {/* Header Soal (Class .soal-header dan id #soal-kategori, #soal-status-info identik MyBest) */}
+      <div className="soal-header flex items-center justify-between px-5 py-3.5 bg-slate-50 border-b border-slate-200">
         <div className="flex items-center gap-2">
-          <span className="px-2.5 py-1 rounded text-xs font-mono font-bold bg-[#0369A1] text-white">
+          <span id="soal-kategori" className="px-2.5 py-1 rounded text-xs font-mono font-bold bg-[#0369A1] text-white">
             Soal No. {soal.no}
           </span>
           {soal.kategori && (
@@ -56,8 +57,8 @@ export function CbtQuestionView({
             </span>
           )}
         </div>
-        <span className="text-xs font-mono text-slate-700">
-          Dari {totalSoal} Soal
+        <span id="soal-status-info" className="text-xs font-mono text-slate-700">
+          No. {soal.no} dari {totalSoal}
         </span>
       </div>
 
@@ -117,12 +118,14 @@ export function CbtQuestionView({
       </div>
 
       {/* Navigasi Bawah */}
-      <footer className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2.5">
+      {/* Navigasi Bawah (ID #btn-prev, #btn-ragu, #btn-next, #btn-finish identik MyBest) */}
+      <footer className="controls p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2.5">
         <button
           type="button"
+          id="btn-prev"
           onClick={onPrev}
           disabled={isFirst}
-          className="px-4 py-2 rounded-md border border-slate-300 bg-white hover:bg-slate-100 text-slate-800 text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
+          className="btn btn-prev px-4 py-2 rounded-md border border-slate-300 bg-white hover:bg-slate-100 text-slate-800 text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
         >
           <ChevronLeft className="w-4 h-4" aria-hidden="true" />
           <span>Sebelumnya</span>
@@ -130,8 +133,9 @@ export function CbtQuestionView({
 
         <button
           type="button"
+          id="btn-ragu"
           onClick={onToggleRagu}
-          className={`px-4 py-2 rounded-md border text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+          className={`btn btn-ragu px-4 py-2 rounded-md border text-xs font-semibold flex items-center gap-1.5 transition-colors ${
             isRagu
               ? "bg-amber-400 text-slate-950 border-amber-500 font-bold"
               : "bg-white text-slate-800 border-slate-300 hover:bg-amber-50"
@@ -144,8 +148,9 @@ export function CbtQuestionView({
         {isLast ? (
           <button
             type="button"
+            id="btn-finish"
             onClick={onFinish}
-            className="px-5 py-2 rounded-md bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-colors shadow-sm flex items-center gap-1.5"
+            className="btn btn-finish px-5 py-2 rounded-md bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-colors shadow-sm flex items-center gap-1.5"
           >
             <span>Selesaikan Ujian</span>
             <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
@@ -153,8 +158,9 @@ export function CbtQuestionView({
         ) : (
           <button
             type="button"
+            id="btn-next"
             onClick={onNext}
-            className="px-4 py-2 rounded-md bg-[#0369A1] hover:bg-[#0284C7] text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
+            className="btn btn-next px-4 py-2 rounded-md bg-[#0369A1] hover:bg-[#0284C7] text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
           >
             <span>Selanjutnya</span>
             <ChevronRight className="w-4 h-4" aria-hidden="true" />
