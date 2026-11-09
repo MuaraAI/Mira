@@ -21,7 +21,8 @@ class Settings(BaseSettings):
     VAPID_CLAIM_EMAIL: str = "admin@muaraai.com"
     # Sesi SIAKAD/MyBest kedaluwarsa ~15 menit; diperbarui otomatis sebelum batas itu (detik)
     UPSTREAM_SESSION_MAX_AGE: int = 780
-
+    # Password default kampus yang diingatkan untuk segera diganti (dipisahkan koma)
+    CAMPUS_DEFAULT_PASSWORDS: str = ""
     # Scraper Proxy Configuration (Opsional - Single Proxy / Rotating Pool)
     SCRAPER_PROXY: str = ""
     SCRAPER_PROXY_POOL: str = ""

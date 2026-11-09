@@ -134,7 +134,7 @@ def _client():
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test", headers={"_skip_auto_auth": "1"})
 
 
-def _creds(nim="12345678", sv="Mhs-1945", el="rahasia99"):
+def _creds(nim="12345678", sv="PassLama123", el="rahasia99"):
     return {"nim": nim, "studentv2_pass": sv, "elearning_pass": el}
 
 
@@ -222,6 +222,8 @@ async def test_blacklisted_ip_never_reaches_campus(fake_redis, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_login_reports_default_password_and_counts_today(fake_redis, monkeypatch):
+    from app.config import settings
+    monkeypatch.setattr(settings, "CAMPUS_DEFAULT_PASSWORDS", "PassLama123,DefaultPass2")
     async with _client() as ac:
         ok = await ac.post("/v1/auth/login", json=_creds())
         assert ok.status_code == 200
@@ -250,10 +252,12 @@ async def test_security_requires_dashboard_session(fake_redis):
 
 # ---------- Ganti password ----------
 
-def test_default_password_detection():
-    assert is_default_password("Mhs-1945")
-    assert is_default_password("Mhs-2026")
-    assert not is_default_password("mhs-1945")
+def test_default_password_detection(monkeypatch):
+    from app.config import settings
+    monkeypatch.setattr(settings, "CAMPUS_DEFAULT_PASSWORDS", "DefaultPass1,DefaultPass2")
+    assert is_default_password("DefaultPass1")
+    assert is_default_password("DefaultPass2")
+    assert not is_default_password("defaultpass1")
     assert not is_default_password("Rahasia2026")
 
 
@@ -263,14 +267,15 @@ def test_default_password_detection():
         ("short1", False),
         ("tanpaangka", False),
         ("12345678", False),
-        ("Mhs-2026", False),
+        ("DefaultPass2", False),
         ("Kuat2026x", True),
         ("abc12345678x1", False),
     ],
 )
-def test_validate_new_password(new, ok):
-    assert (validate_new_password("12345678", "Mhs-1945", new) is None) is ok
-
+def test_validate_new_password(new, ok, monkeypatch):
+    from app.config import settings
+    monkeypatch.setattr(settings, "CAMPUS_DEFAULT_PASSWORDS", "DefaultPass1,DefaultPass2")
+    assert (validate_new_password("12345678", "DefaultPass1", new) is None) is ok
 
 SIAKAD_FORM = """
 <html><body>
@@ -295,11 +300,11 @@ def test_find_password_form_maps_fields_and_keeps_csrf():
         "password_baru",
         "password_baru_confirmation",
     )
-    payload = form.payload("Mhs-1945", "Kuat2026x")
+    payload = form.payload("PassLama123", "Kuat2026x")
     assert payload == {
         "_token": "csrf123",
         "_method": "PUT",
-        "password_lama": "Mhs-1945",
+        "password_lama": "PassLama123",
         "password_baru": "Kuat2026x",
         "password_baru_confirmation": "Kuat2026x",
     }
@@ -370,7 +375,7 @@ def _fake_client_cls(valid_passwords, posts):
 
 def test_change_upstream_password_verified_by_real_relogin(monkeypatch):
     posts = []
-    valid = {"Mhs-1945"}
+    valid = {"PassLama123"}
     cls = _fake_client_cls(valid, posts)
     original_post = _Http.post
 
@@ -381,16 +386,16 @@ def test_change_upstream_password_verified_by_real_relogin(monkeypatch):
 
     monkeypatch.setattr(_Http, "post", post_and_apply)
     monkeypatch.setitem(__import__("app.password_change", fromlist=["SYSTEMS"]).SYSTEMS["siakad"], "client", cls)
-    result = change_upstream_password("siakad", "12345678", "Mhs-1945", "Kuat2026x")
+    result = change_upstream_password("siakad", "12345678", "PassLama123", "Kuat2026x")
     assert result.status == "changed"
-    assert posts[0][1]["password_lama"] == "Mhs-1945"
+    assert posts[0][1]["password_lama"] == "PassLama123"
 
 
 def test_change_upstream_password_rejected_when_new_login_fails(monkeypatch):
     posts = []
-    cls = _fake_client_cls({"Mhs-1945"}, posts)
+    cls = _fake_client_cls({"PassLama123"}, posts)
     monkeypatch.setitem(__import__("app.password_change", fromlist=["SYSTEMS"]).SYSTEMS["siakad"], "client", cls)
-    result = change_upstream_password("siakad", "12345678", "Mhs-1945", "Kuat2026x")
+    result = change_upstream_password("siakad", "12345678", "PassLama123", "Kuat2026x")
     assert result.status == "rejected"
     assert len(posts) == 1
 
@@ -415,11 +420,13 @@ async def test_change_password_endpoint_updates_session(fake_redis, monkeypatch)
         )
         assert mismatch.status_code == 400
         assert mismatch.json()["error"]["code"] == "CURRENT_PASSWORD_MISMATCH"
+        from app.config import settings
+        monkeypatch.setattr(settings, "CAMPUS_DEFAULT_PASSWORDS", "DefaultPass1,DefaultPass2")
 
         weak = await ac.post(
             "/v1/auth/password",
             headers=headers,
-            json={"system": "siakad", "current_password": "Mhs-1945", "new_password": "Mhs-2026"},
+            json={"system": "siakad", "current_password": "PassLama123", "new_password": "DefaultPass2"},
         )
         assert weak.status_code == 422
         assert not calls
@@ -427,12 +434,11 @@ async def test_change_password_endpoint_updates_session(fake_redis, monkeypatch)
         res = await ac.post(
             "/v1/auth/password",
             headers=headers,
-            json={"system": "siakad", "current_password": "Mhs-1945", "new_password": "Kuat2026x"},
+            json={"system": "siakad", "current_password": "PassLama123", "new_password": "Kuat2026x"},
         )
         assert res.status_code == 200, res.text
         assert res.json()["data"]["sessions_updated"] == 1
-        assert calls == [("siakad", "12345678", "Mhs-1945", "Kuat2026x")]
-
+        assert calls == [("siakad", "12345678", "PassLama123", "Kuat2026x")]
         sec = await ac.get("/v1/auth/security", headers=headers)
     assert sec.json()["data"]["default_password"] == {"siakad": False, "mybest": False}
 
@@ -448,7 +454,7 @@ async def test_change_password_endpoint_surfaces_upstream_rejection(fake_redis, 
         res = await ac.post(
             "/v1/auth/password",
             headers={"Authorization": f"Bearer {token}"},
-            json={"system": "siakad", "current_password": "Mhs-1945", "new_password": "Kuat2026x"},
+            json={"system": "siakad", "current_password": "PassLama123", "new_password": "Kuat2026x"},
         )
     assert res.status_code == 400
     assert res.json()["error"] == {"code": "PASSWORD_REJECTED", "message": "Password lama salah", "module": "auth"}
