@@ -19,19 +19,22 @@ export function CbtViolationModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm">
+    <div id="violation-modal" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm">
       <FocusDialog
         open={open}
         onClose={onReturn}
         labelledBy="violation-modal-title"
-        className="w-full max-w-md bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden text-center p-6 space-y-4"
+        className="violation-box w-full max-w-md bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden text-center p-6 space-y-4"
       >
         <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
           <ShieldAlert className="w-6 h-6" aria-hidden="true" />
         </div>
 
         <div>
-          <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-amber-100 text-amber-900 border border-amber-300">
+          <span
+            id="violation-strike-badge"
+            className="violation-badge inline-block px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-amber-100 text-amber-900 border border-amber-300"
+          >
             Peringatan Sesi #{strikeCount}
           </span>
           <h3
@@ -40,7 +43,7 @@ export function CbtViolationModal({
           >
             Fokus Ujian Terganggu
           </h3>
-          <p className="text-xs sm:text-sm text-slate-600 mt-1 leading-relaxed">
+          <p id="violation-reason" className="text-xs sm:text-sm text-slate-600 mt-1 leading-relaxed">
             Terdeteksi: <strong className="text-rose-600">{reason || "Keluar dari area ujian"}</strong>.
           </p>
         </div>
@@ -59,8 +62,9 @@ export function CbtViolationModal({
 
         <button
           type="button"
+          id="btn-return-fullscreen"
           onClick={onReturn}
-          className="w-full py-2.5 rounded-lg bg-[#0369A1] hover:bg-[#0284C7] text-white text-xs font-bold transition-colors shadow-sm"
+          className="btn-start w-full py-2.5 rounded-lg bg-[#0369A1] hover:bg-[#0284C7] text-white text-xs font-bold transition-colors shadow-sm"
         >
           Kembali ke Lembar Ujian
         </button>
