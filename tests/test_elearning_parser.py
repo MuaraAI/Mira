@@ -181,6 +181,35 @@ def test_parse_quiz_2026_six_column_layout():
     assert q["ujian_selesai"] == "2026-09-25 11:05:00"
     assert q["status_aksi"] == "Mulai Ujian"
     assert q["token_ujian"] == "eyJpdiI6Inh4eCJ9"
+    assert q["token_bukti"] is None
+    assert q["action_url"] == "https://elearning.bsi.ac.id/halaman-ujian/eyJpdiI6Inh4eCJ9"
+
+
+def test_parse_quiz_completed_with_proof_token():
+    html_proof = """
+    <table class="table">
+        <thead>
+            <tr><th>No</th><th>Mtk</th><th>Dosen</th><th>Waktu</th><th>Periode</th><th>Aksi</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>1</td>
+                <td>153 - PENGANTAR TIK</td>
+                <td>NPR</td>
+                <td>60 Menit</td>
+                <td>2026-10-21 08:00:00 s/d 2026-10-21 09:00:00</td>
+                <td>
+                    <a href="/cetak-ujian-pdf/eyJpdiI6InNhbXBsZS1idWt0aSJ9" class="btn">Cetak Bukti</a>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    """
+    quizzes = parse_quiz(html_proof)
+    assert len(quizzes) == 1
+    assert quizzes[0]["token_bukti"] == "eyJpdiI6InNhbXBsZS1idWt0aSJ9"
+    assert quizzes[0]["token_ujian"] is None
+    assert quizzes[0]["action_url"] == "https://elearning.bsi.ac.id/cetak-ujian-pdf/eyJpdiI6InNhbXBsZS1idWt0aSJ9"
 def test_inspect_session_status():
     html_selesai = (FIXTURES / "el_absen_1.html").read_text(encoding="utf-8")
     status_selesai = inspect_session_status(html_selesai)
