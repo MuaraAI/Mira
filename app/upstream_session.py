@@ -87,6 +87,14 @@ THROTTLE_COOLDOWN_SECONDS = 5 * 60
 # Kegagalan tanpa penyebab jelas: cooldown pendek supaya worker tidak login ulang tiap siklus.
 UNKNOWN_COOLDOWN_SECONDS = 5 * 60
 
+def campus_cookie_dict(cookies: Any) -> dict[str, str]:
+    """Cookie kampus sebagai dict nama->nilai. `dict(httpx.Cookies)` gagal bila nama sama ada di dua path (XSRF-TOKEN)."""
+    jar = getattr(cookies, "jar", None)
+    if jar is None:
+        return dict(cookies)
+    return {cookie.name: cookie.value for cookie in jar}
+
+
 _login_blocks: dict[tuple[str, str], tuple[float, str]] = {}
 _host_blocks: dict[str, tuple[float, str]] = {}
 _block_lock = threading.Lock()
@@ -224,7 +232,7 @@ class UpstreamSession:
         from app.campus_session_store import store_cookies
 
         try:
-            store_cookies(self.MODULE, nim, dict(self.get_client().cookies))
+            store_cookies(self.MODULE, nim, campus_cookie_dict(self.get_client().cookies))
         except Exception as err:
             logger.warning("Gagal mempersist cookie sesi %s/%s: %s", self.MODULE, nim, err)
 
