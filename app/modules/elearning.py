@@ -1525,7 +1525,14 @@ class ElearningClient(UpstreamSession):
                 self._login_failure = "captcha"
             else:
                 self._login_failure = "credentials"
-            logger.warning("Elearning login rejected for %s: ended at %s (status %s, reason %s)", nim, r2.url, r2.status_code, self._login_failure)
+            if self._login_failure == "captcha":
+                # Kondisi yang diharapkan sejak kampus mewajibkan CAPTCHA; bukan insiden.
+                logger.info("Elearning login butuh CAPTCHA untuk %s (menunggu login user)", nim)
+            else:
+                logger.warning(
+                    "Elearning login rejected for %s: ended at %s (status %s, reason %s)",
+                    nim, r2.url, r2.status_code, self._login_failure,
+                )
             return False
         except Exception as err:
             logger.error("Elearning login exception for %s: %s", nim, err)

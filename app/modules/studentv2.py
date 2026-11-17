@@ -5,7 +5,7 @@ import re
 from typing import Any, Optional
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from scrapling.parser import Adaptor
 
 logger = logging.getLogger("app.studentv2")
@@ -494,7 +494,14 @@ class StudentV2Client(UpstreamSession):
                 self._login_failure = "captcha"
             else:
                 self._login_failure = "credentials"
-            logger.warning("SIAKAD login rejected for %s: ended at %s (status %s, reason %s)", nim, r2.url, r2.status_code, self._login_failure)
+            if self._login_failure == "captcha":
+                # Kondisi yang diharapkan sejak kampus mewajibkan CAPTCHA; bukan insiden.
+                logger.info("SIAKAD login butuh CAPTCHA untuk %s (menunggu login user)", nim)
+            else:
+                logger.warning(
+                    "SIAKAD login rejected for %s: ended at %s (status %s, reason %s)",
+                    nim, r2.url, r2.status_code, self._login_failure,
+                )
             return False
         except Exception as err:
             logger.error("SIAKAD login exception for %s: %s", nim, err)
@@ -542,8 +549,28 @@ studentv2_client = PooledStudentV2Client()
 # API Routes
 
 @router.get("/schedule")
-async def get_schedule(creds: tuple[str, str] = Depends(require_studentv2_creds)):
+async def get_schedule(
+    creds: tuple[str, str] = Depends(require_studentv2_creds),
+    request: Request = None,  # type: ignore[assignment]
+):
     nim, password = creds
+
+    async def _elearning_schedule():
+        """Alias: jadwal dari MyBest saat SIAKAD gagal (skema sama dengan parse_schedule)."""
+        from app.modules.elearning import parse_courses, pooled_elearning_client
+
+        el_pass = getattr(request.state, "elearning_pass", "") if request is not None else ""
+        if not el_pass:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=error_response(
+                    code="AUTH_FAILED", message="Kredensial MyBest tidak tersedia", module="elearning"
+                ),
+            )
+        raw = await pooled_elearning_client.fetch_page("/exercise", nim, el_pass)
+        return parse_courses(raw)
+
+
     return await cached_endpoint(
         module="studentv2",
         name="schedule",
@@ -551,6 +578,8 @@ async def get_schedule(creds: tuple[str, str] = Depends(require_studentv2_creds)
         parse=parse_schedule,
         ttl=settings.TTL_SCHEDULE,
         cache_params={"nim": nim},
+        fallback=_elearning_schedule,
+        fallback_module="elearning",
     )
 
 @router.get("/grades")

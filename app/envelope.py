@@ -3,7 +3,8 @@ from typing import Any, Optional
 def success_response(
     data: Any,
     cached: bool = False,
-    stale: bool = False
+    stale: bool = False,
+    source: Optional[str] = None
 ) -> dict[str, Any]:
     res: dict[str, Any] = {
         "success": True,
@@ -12,6 +13,10 @@ def success_response(
     }
     if stale:
         res["stale"] = True
+    if source:
+        # Alias sumber data: mis. /v1/studentv2/schedule yang dijawab dari MyBest
+        # karena SIAKAD gagal. Konsumen bisa menampilkan label sumber.
+        res["source"] = source
     return res
 
 def error_response(
