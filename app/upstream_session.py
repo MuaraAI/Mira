@@ -39,6 +39,56 @@ DEFAULT_MAX_SESSION_AGE = 13 * 60
 _LOGIN_FORM_RE = re.compile(r"""<form[^>]+action=["'][^"']*/login["']""", re.IGNORECASE)
 _PASSWORD_INPUT_RE = re.compile(r"""name=["']password["']""", re.IGNORECASE)
 
+# Cooldown mencegah penembakan login berulang saat kampus menolak (CAPTCHA baru,
+# kredensial salah, atau 429). Tanpa ini, worker notifikasi + retry membuat IP
+# server kena rate limit sehingga user yang sah ikut gagal login.
+CAPTCHA_COOLDOWN_SECONDS = 20 * 60
+CREDENTIAL_COOLDOWN_SECONDS = 10 * 60
+THROTTLE_COOLDOWN_SECONDS = 5 * 60
+
+_login_blocks: dict[tuple[str, str], tuple[float, str]] = {}
+_host_blocks: dict[str, tuple[float, str]] = {}
+_block_lock = threading.Lock()
+
+
+def _monotonic() -> float:
+    return time.monotonic()
+
+
+def block_reason(module: str, nim: str = "") -> Optional[str]:
+    """Alasan login diblokir sementara untuk host/NIM ini, atau None."""
+    now = _monotonic()
+    with _block_lock:
+        host = _host_blocks.get(module)
+        if host and host[0] > now:
+            return host[1]
+        entry = _login_blocks.get((module, nim))
+        if entry and entry[0] > now:
+            return entry[1]
+    return None
+
+
+def mark_login_blocked(module: str, nim: str, reason: str, seconds: int) -> None:
+    with _block_lock:
+        _login_blocks[(module, nim)] = (_monotonic() + seconds, reason)
+
+
+def mark_host_blocked(module: str, reason: str, seconds: int) -> None:
+    with _block_lock:
+        _host_blocks[module] = (_monotonic() + seconds, reason)
+
+
+def clear_login_block(module: str, nim: str) -> None:
+    with _block_lock:
+        _login_blocks.pop((module, nim), None)
+
+
+def reset_blocks() -> None:
+    """Hanya untuk test: kosongkan seluruh cooldown."""
+    with _block_lock:
+        _login_blocks.clear()
+        _host_blocks.clear()
+
 
 def max_session_age() -> int:
     return int(getattr(settings, "UPSTREAM_SESSION_MAX_AGE", DEFAULT_MAX_SESSION_AGE) or DEFAULT_MAX_SESSION_AGE)
@@ -86,13 +136,41 @@ class UpstreamSession:
         self._session_lock = threading.RLock()
         self._login_at = 0.0
         self._cred_hash: Optional[str] = None
+        # Diisi oleh `login()` pada subclass: "captcha" | "credentials" | "throttled" | "unknown".
+        self._login_failure: Optional[str] = None
 
     def _mark_logged_in(self) -> None:
         self._logged_in = True
         self._login_at = time.monotonic()
+        self._login_failure = None
 
     def _session_is_fresh(self) -> bool:
         return bool(self._logged_in) and (time.monotonic() - self._login_at) < max_session_age()
+
+    def _blocked_error(self, reason: str) -> HTTPException:
+        """Terjemahkan cooldown aktif menjadi error yang bisa dibaca frontend."""
+        if reason == "captcha":
+            return self._auth_error(
+                "AUTH_CAPTCHA_REQUIRED",
+                f"{self.HOST_LABEL} kini mewajibkan CAPTCHA. Login ulang lewat situs kampus "
+                f"lalu coba lagi beberapa menit kemudian.",
+            )
+        if reason == "throttled":
+            return self._auth_error(
+                "UPSTREAM_THROTTLED",
+                f"{self.HOST_LABEL} membatasi jumlah permintaan. Coba lagi beberapa menit kemudian.",
+            )
+        return self._auth_error("AUTH_FAILED", f"Gagal login ke {self.HOST_LABEL}")
+
+    def _record_login_failure(self, nim: str) -> None:
+        """Simpan cooldown sesuai penyebab kegagalan login terakhir."""
+        reason = self._login_failure or "unknown"
+        if reason == "captcha":
+            mark_login_blocked(self.MODULE, nim, "captcha", CAPTCHA_COOLDOWN_SECONDS)
+        elif reason == "throttled":
+            mark_host_blocked(self.MODULE, "throttled", THROTTLE_COOLDOWN_SECONDS)
+        elif reason == "credentials":
+            mark_login_blocked(self.MODULE, nim, "credentials", CREDENTIAL_COOLDOWN_SECONDS)
 
     def ensure_session(self, nim: str, password: str, *, stale_since: Optional[float] = None) -> bool:
         """Pastikan sesi upstream hidup dan terikat pada kredensial yang sama; login ulang bila perlu.
@@ -108,14 +186,21 @@ class UpstreamSession:
                 and (stale_since is None or self._login_at > stale_since)
             ):
                 return True
+            # Cooldown hanya menggerbang percobaan login baru, bukan request yang sesinya masih hidup.
+            blocked = block_reason(self.MODULE, nim)
+            if blocked:
+                raise self._blocked_error(blocked)
             self._logged_in = False
             self._cred_hash = None
             self.get_client().cookies.clear()
             ok = bool(self.login(nim, password))
             if ok:
+                clear_login_block(self.MODULE, nim)
                 self._cred_hash = cred_hash
                 self._mark_logged_in()
-            return ok
+                return True
+            self._record_login_failure(nim)
+            return False
 
     def _auth_error(self, code: str, message: str) -> HTTPException:
         return HTTPException(
@@ -128,17 +213,36 @@ class UpstreamSession:
             return path
         return f"{self.BASE_URL}{path}" if path.startswith("/") else f"{self.BASE_URL}/{path}"
 
+    def _handle_throttle(self, resp: httpx.Response) -> None:
+        """429 dari kampus: blok host sementara dan jangan menembak ulang."""
+        if resp.status_code != 429:
+            return
+        retry_after = 0
+        try:
+            retry_after = int(resp.headers.get("Retry-After", "0") or 0)
+        except (TypeError, ValueError):
+            retry_after = 0
+        seconds = min(max(retry_after, THROTTLE_COOLDOWN_SECONDS), 30 * 60)
+        mark_host_blocked(self.MODULE, "throttled", seconds)
+        raise self._blocked_error("throttled")
+
     def authed_request(self, method: str, path: str, nim: str, password: str, **kwargs: Any) -> httpx.Response:
         """Kirim request dengan sesi yang dijamin hidup, login ulang otomatis sekali bila kedaluwarsa."""
         if not self.ensure_session(nim, password):
-            raise self._auth_error("AUTH_FAILED", f"Gagal login ke {self.HOST_LABEL}")
+            raise self._blocked_error(self._login_failure or "unknown")
         url = self.resolve_url(path)
         sent_at = time.monotonic()
         resp = self.get_client().request(method, url, **kwargs)
+        self._handle_throttle(resp)
         if not is_logged_out_response(resp):
             return resp
         if not self.ensure_session(nim, password, stale_since=sent_at):
+            reason = self._login_failure or "unknown"
+            if reason in ("captcha", "throttled"):
+                raise self._blocked_error(reason)
             raise self._auth_error(
                 "AUTH_EXPIRED", f"Sesi {self.HOST_LABEL} kedaluwarsa dan gagal login ulang otomatis"
             )
-        return self.get_client().request(method, url, **kwargs)
+        resp = self.get_client().request(method, url, **kwargs)
+        self._handle_throttle(resp)
+        return resp

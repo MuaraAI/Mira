@@ -34,6 +34,14 @@ def branch_display(code: Optional[str]) -> Optional[str]:
     return BRANCH_NAMES.get(raw, raw) or None
 
 
+_SIAKAD_CAPTCHA_RE = re.compile(r"""name=["']captcha["']|Kode CAPTCHA|data-login-captcha""", re.IGNORECASE)
+
+
+def _siakad_captcha_required(html: str) -> bool:
+    """True jika halaman login SIAKAD meminta CAPTCHA (fitur baru kampus, Nov 2026)."""
+    return bool(html and _SIAKAD_CAPTCHA_RE.search(html[:200_000]))
+
+
 def class_label(
     profile: Optional[dict[str, Any]] = None,
     krs: Optional[dict[str, Any]] = None,
@@ -434,8 +442,13 @@ class StudentV2Client(UpstreamSession):
         client = self.get_client()
         client.cookies.clear()
         login_url = f"{self.BASE_URL}/login"
+        self._login_failure = "unknown"
         try:
             r1 = client.get(login_url)
+            if r1.status_code == 429:
+                self._login_failure = "throttled"
+                logger.warning("SIAKAD login throttled for %s (429)", nim)
+                return False
             m = re.search(r'name=["\']_token["\']\s+value=["\']([^"\']+)["\']', r1.text)
             if not m:
                 return False
@@ -451,7 +464,15 @@ class StudentV2Client(UpstreamSession):
             if "mahasiswa/beranda" in str(r2.url) or "students.bsi.ac.id/mahasiswa" in str(r2.url) or "studentv2.bsi.ac.id/mahasiswa" in str(r2.url):
                 self._mark_logged_in()
                 return True
-            logger.warning("SIAKAD login rejected for %s: ended at %s (status %s)", nim, r2.url, r2.status_code)
+            if r2.status_code == 429:
+                self._login_failure = "throttled"
+            elif _siakad_captcha_required(r2.text):
+                # Kampus menambahkan CAPTCHA gambar pada form login: tanpa kode yang benar
+                # login tidak akan pernah lolos, jadi berhenti mencoba sementara.
+                self._login_failure = "captcha"
+            else:
+                self._login_failure = "credentials"
+            logger.warning("SIAKAD login rejected for %s: ended at %s (status %s, reason %s)", nim, r2.url, r2.status_code, self._login_failure)
             return False
         except Exception as err:
             logger.error("SIAKAD login exception for %s: %s", nim, err)

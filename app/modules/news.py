@@ -21,6 +21,17 @@ from app.session_store import session_store
 from app.modules.studentv2 import parse_announcements, parse_schedule, studentv2_client
 from app.channels_db import list_active_by_category
 
+
+def _upstream_block_reason(nim: str) -> Optional[str]:
+    """Alasan upstream menolak login untuk NIM ini (captcha/throttle), atau None."""
+    from app.upstream_session import block_reason
+
+    for module in ("studentv2", "elearning"):
+        reason = block_reason(module, nim)
+        if reason:
+            return reason
+    return None
+
 logger = logging.getLogger("app.notifications")
 
 # Pengingat H-1 (WIB): kirim pertama 19:00, reminder 21:00. Tambah jam di sini bila perlu.
@@ -298,6 +309,12 @@ async def _produce_user_category(
                     await _release(f"ubsi:notify:quizseen:{nim}:{qid}")
                 for tid in claimed_task_ids:
                     await _release(f"ubsi:notify:taskseen:{nim}:{tid}")
+            # Kampus bisa memblokir login (CAPTCHA baru / 429). Jangan menembak terus:
+            # cukup lewati NIM ini sampai cooldown selesai, tanpa spam traceback.
+            blocked = _upstream_block_reason(nim)
+            if blocked:
+                logger.info("Skip notifikasi NIM %s kategori %s: %s", nim, category, blocked)
+                continue
             if category == "matkul-besok":
                 h1_slot = _h1_slot()
                 if h1_slot is None:
@@ -581,6 +598,14 @@ async def _produce_user_category(
                 await _release(dedupe_key)
                 await _release(content_key)
                 await _release_claimed_items()
+        except HTTPException as exc:
+            detail = exc.detail if isinstance(exc.detail, dict) else {}
+            err = detail.get("error") if isinstance(detail.get("error"), dict) else {}
+            code = str(err.get("code") or detail.get("code") or "")
+            if code in ("AUTH_CAPTCHA_REQUIRED", "UPSTREAM_THROTTLED", "AUTH_FAILED", "AUTH_EXPIRED"):
+                logger.warning("Notifikasi NIM %s kategori %s dilewati: %s", nim, category, code)
+            else:
+                logger.exception("User notification producer failed for NIM %s category %s", nim, category)
         except Exception:
             logger.exception("User notification producer failed for NIM %s category %s", nim, category)
     return sent

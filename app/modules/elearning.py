@@ -48,6 +48,16 @@ def solve_captcha(question_text: str) -> Any:
 
     raise ValueError(f"Tidak dapat menemukan pola captcha di: {question_text[:100]}")
 
+_ELEARNING_IMAGE_CAPTCHA_RE = re.compile(
+    r"""name=["']captcha_answer["']|reload-captcha|data:image/(?:png|jpeg);base64""",
+    re.IGNORECASE,
+)
+
+
+def _elearning_image_captcha(html: str) -> bool:
+    """True jika halaman login MyBest memakai CAPTCHA gambar (PNG base64)."""
+    return bool(html and _ELEARNING_IMAGE_CAPTCHA_RE.search(html[:200_000]))
+
 def parse_courses(html: str) -> list[dict[str, Any]]:
     if "jadwal tidak tersedia" in html.lower():
         return []
@@ -1454,8 +1464,13 @@ class ElearningClient(UpstreamSession):
         client = self.get_client()
         client.cookies.clear()
         login_url = f"{self.BASE_URL}/login"
+        self._login_failure = "unknown"
         try:
             r1 = client.get(login_url)
+            if r1.status_code == 429:
+                self._login_failure = "throttled"
+                logger.warning("Elearning login throttled for %s (429)", nim)
+                return False
             m = re.search(r'name=["\']_token["\']\s+value=["\']([^"\']+)["\']', r1.text)
             if not m:
                 return False
@@ -1464,6 +1479,10 @@ class ElearningClient(UpstreamSession):
             try:
                 ans = solve_captcha(r1.text)
             except ValueError:
+                # Sejak Nov 2026 kampus mengganti CAPTCHA teks/SVG dengan gambar PNG
+                # (`captcha_answer`), sehingga tidak bisa dibaca tanpa OCR.
+                if _elearning_image_captcha(r1.text):
+                    self._login_failure = "captcha"
                 return False
 
             payload = {
@@ -1482,7 +1501,13 @@ class ElearningClient(UpstreamSession):
             if "dashboard" in final_url or "elearning.bsi.ac.id/user" in final_url:
                 self._mark_logged_in()
                 return True
-            logger.warning("Elearning login rejected for %s: ended at %s (status %s)", nim, r2.url, r2.status_code)
+            if r2.status_code == 429:
+                self._login_failure = "throttled"
+            elif _elearning_image_captcha(r2.text) and "captcha" in r2.text.lower():
+                self._login_failure = "captcha"
+            else:
+                self._login_failure = "credentials"
+            logger.warning("Elearning login rejected for %s: ended at %s (status %s, reason %s)", nim, r2.url, r2.status_code, self._login_failure)
             return False
         except Exception as err:
             logger.error("Elearning login exception for %s: %s", nim, err)

@@ -29,3 +29,13 @@ def auto_auth_client(monkeypatch):
     # Test suite wajib 100% offline (Iron Rule #2): paksa SQLite in-memory,
     # jangan biarkan SUPABASE_DB_URL lokal menyentuh remote Supabase di pytest.
     monkeypatch.setattr(settings, "SUPABASE_DB_URL", "")
+
+
+@pytest.fixture(autouse=True)
+def reset_upstream_login_blocks():
+    """Cooldown login upstream bersifat global; reset tiap test agar tidak bocor."""
+    from app.upstream_session import reset_blocks
+
+    reset_blocks()
+    yield
+    reset_blocks()
