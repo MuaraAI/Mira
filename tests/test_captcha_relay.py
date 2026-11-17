@@ -8,12 +8,58 @@ import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
+import httpx
 from httpx import ASGITransport, AsyncClient
 
 from app import captcha_relay
 from app.captcha_relay import CAPTCHA_TTL_SECONDS, _extract_data_uri, consume_challenge
 from app.main import app
 
+
+class _Cookies:
+    def __init__(self):
+        self._data: dict[str, str] = {}
+
+    def set(self, name, value):
+        self._data[name] = value
+
+    def clear(self):
+        self._data.clear()
+
+    def items(self):
+        return self._data.items()
+
+    def keys(self):
+        return self._data.keys()
+
+    def __getitem__(self, name):
+        return self._data[name]
+
+
+class _FakeUpstreamClient:
+    """Client httpx palsu dengan cookie in-memory dan respons terjadwal."""
+
+    def __init__(self, responses):
+        self.cookies = _Cookies()
+        self._responses = list(responses)
+        self.urls: list[str] = []
+
+    def set(self, name: str, value: str) -> None:
+        self.cookies.set(name, value)
+
+    def get(self, url: str, follow_redirects: bool = False):
+        self.urls.append(url)
+        resp = self._responses.pop(0) if len(self._responses) > 1 else self._responses[0]
+        return resp
+
+
+def _response(text: str = "", status_code: int = 200):
+    return httpx.Response(
+        status_code=status_code,
+        text=text,
+        headers={"content-type": "text/html"},
+        request=httpx.Request("GET", "https://fake.bsi.ac.id/beranda"),
+    )
 PNG_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
 
 
@@ -178,3 +224,52 @@ async def test_login_rejects_expired_captcha_challenge():
             )
     assert res.status_code == 401
     assert res.json()["error"]["code"] == "CAPTCHA_EXPIRED"
+
+
+@pytest.mark.asyncio
+async def test_ensure_session_restores_persisted_cookies():
+    """Cookie tersimpan harus dipakai tanpa login baru (penyebab CAPTCHA)."""
+    from app.upstream_session import UpstreamSession
+
+    class _Probe(UpstreamSession):
+        BASE_URL = "https://fake.bsi.ac.id"
+        MODULE = "probe_restore"
+        HOST_LABEL = "fake"
+        PROBE_PATH = "/beranda"
+
+        def __init__(self, probe_html: str):
+            self._http = _FakeUpstreamClient([_response(text=probe_html)])
+            self._logged_in = False
+            self.login_calls = 0
+            self._init_upstream_session()
+
+        def get_client(self):
+            return self._http
+
+        def login(self, nim, password, captcha=None, session=None):
+            self.login_calls += 1
+            return False
+
+    from app import campus_session_store
+
+    saved = {}
+    with (
+        patch.object(campus_session_store, "load_cookies", lambda m, n: {"sess": "abc"}),
+        patch.object(campus_session_store, "store_cookies", lambda m, n, c: saved.update({n: c})),
+        patch.object(campus_session_store, "drop_cookies", lambda m, n: None),
+    ):
+        client = _Probe(probe_html="<html>beranda mahasiswa</html>")
+        assert client.ensure_session("12345678", "secret") is True
+        assert client.login_calls == 0  # tanpa login baru
+        assert saved.get("12345678") == {"sess": "abc"}
+
+        client_invalid = _Probe(probe_html="")
+        with patch.object(
+            campus_session_store,
+            "load_cookies",
+            lambda m, n: {"sess": "abc"},
+        ):
+            with patch(
+                "app.upstream_session.is_logged_out_response", lambda r: True
+            ):
+                assert client_invalid.ensure_session("12345678", "secret") is False

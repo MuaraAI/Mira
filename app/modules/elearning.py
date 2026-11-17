@@ -1425,6 +1425,7 @@ class ElearningClient(UpstreamSession):
     BASE_URL = "https://elearning.bsi.ac.id"
     MODULE = "elearning"
     HOST_LABEL = "elearning.bsi.ac.id"
+    PROBE_PATH = "/exercise"
     HEADERS = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         "Origin": "https://elearning.bsi.ac.id",
@@ -1513,10 +1514,10 @@ class ElearningClient(UpstreamSession):
             # Login sukses jika TIDAK lagi di halaman login dan status 200 (Laravel redirect ke intended page)
             is_login_page = "/login" in final_url and ("captcha_answer" in r2.text or "password" in r2.text)
             if not is_login_page and r2.status_code == 200:
-                self._mark_logged_in()
+                self._mark_logged_in(nim)
                 return True
             if "dashboard" in final_url or "elearning.bsi.ac.id/user" in final_url:
-                self._mark_logged_in()
+                self._mark_logged_in(nim)
                 return True
             if r2.status_code == 429:
                 self._login_failure = "throttled"

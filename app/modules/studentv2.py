@@ -403,6 +403,7 @@ class StudentV2Client(UpstreamSession):
     BASE_URL = "https://students.bsi.ac.id"
     MODULE = "studentv2"
     HOST_LABEL = "students.bsi.ac.id"
+    PROBE_PATH = "/mahasiswa/beranda"
     HEADERS = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         "Origin": "https://students.bsi.ac.id",
@@ -483,7 +484,7 @@ class StudentV2Client(UpstreamSession):
                 payload["captcha"] = str(captcha)
             r2 = client.post(login_url, data=payload)
             if "mahasiswa/beranda" in str(r2.url) or "students.bsi.ac.id/mahasiswa" in str(r2.url) or "studentv2.bsi.ac.id/mahasiswa" in str(r2.url):
-                self._mark_logged_in()
+                self._mark_logged_in(nim)
                 return True
             if r2.status_code == 429:
                 self._login_failure = "throttled"
