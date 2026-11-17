@@ -394,7 +394,11 @@ async def login(req_body: LoginRequest, request: Request):
     warnings: list[str] = []
     if siakad_attempted and not sv2_ok:
         sv_reason, sv_errors = outcomes.get("studentv2", ("unknown", []))
-        sv_message = _rejection_detail("studentv2", sv_reason, sv_errors)["error"]["message"]
+        if sv_reason == "captcha" and req_body.captcha_siakad is None:
+            # Password belum tentu salah: kampus hanya belum menerima CAPTCHA SIAKAD.
+            sv_message = "CAPTCHA SIAKAD belum diisi, jadi SIAKAD belum bisa diperiksa. Isi CAPTCHA SIAKAD lalu login ulang."
+        else:
+            sv_message = _rejection_detail("studentv2", sv_reason, sv_errors)["error"]["message"]
         warnings.append(f"{sv_message} Fitur SIAKAD terkunci; hubungkan ulang di Sesi & Keamanan.")
 
     from app.session_store import session_store
