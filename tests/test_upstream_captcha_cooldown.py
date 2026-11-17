@@ -168,6 +168,21 @@ def test_elearning_image_captcha_marker_detected():
     assert _elearning_image_captcha("") is False
 
 
+def test_unknown_login_failure_marks_cooldown_and_stops_retrying():
+    # Regresi: kegagalan tanpa penyebab jelas (mis. token login tidak ditemukan)
+    # dulu tidak diberi cooldown, sehingga worker login ulang setiap siklus.
+    client = _ProbeClient(login_ok=False, reason="unknown")
+
+    assert client.ensure_session("12345678", "secret") is False
+    assert client.login_calls == 1
+    assert block_reason("probe", "12345678") == "unknown"
+
+    with pytest.raises(HTTPException) as exc_info:
+        client.ensure_session("12345678", "secret")
+    assert _error_code(exc_info.value) == "AUTH_FAILED"
+    assert client.login_calls == 1
+
+
 def test_captcha_cooldown_constant_is_reasonably_long():
     # Cooldown harus lebih panjang dari satu siklus worker (10 menit default)
     # supaya tidak ada login berulang di siklus berikutnya.
