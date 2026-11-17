@@ -13,6 +13,7 @@ login ulang sendiri tanpa user harus relogin di UBSI API:
    token CSRF dan captcha satu sama lain.
 """
 import hashlib
+import logging
 import re
 import ssl
 import threading
@@ -25,6 +26,8 @@ from fastapi import HTTPException, status
 
 from app.config import settings
 from app.envelope import error_response
+
+logger = logging.getLogger("app.upstream_session")
 
 SHARED_SSL_CONTEXT = ssl.create_default_context()
 SHARED_HTTP_LIMITS = httpx.Limits(
@@ -117,10 +120,11 @@ def is_logged_out_response(resp: Any) -> bool:
 
 class UpstreamSession:
     """Mixin untuk client upstream yang punya `login()`, `get_client()`, dan `_logged_in`."""
-
     BASE_URL = ""
     MODULE = "upstream"
     HOST_LABEL = "server kampus"
+    # Halaman yang butuh sesi; dipakai memvalidasi cookie tersimpan tanpa login.
+    PROBE_PATH = ""
 
     def get_client(self) -> httpx.Client:
         raise NotImplementedError
@@ -139,10 +143,13 @@ class UpstreamSession:
         # Diisi oleh `login()` pada subclass: "captcha" | "credentials" | "throttled" | "unknown".
         self._login_failure: Optional[str] = None
 
-    def _mark_logged_in(self) -> None:
+    def _mark_logged_in(self, nim: Optional[str] = None) -> None:
         self._logged_in = True
         self._login_at = time.monotonic()
         self._login_failure = None
+        if nim:
+            # Simpan cookie agar NIM tidak perlu CAPTCHA lagi selama sesi masih hidup.
+            self._persist_cookies(nim)
 
     def _session_is_fresh(self) -> bool:
         return bool(self._logged_in) and (time.monotonic() - self._login_at) < max_session_age()
@@ -172,6 +179,46 @@ class UpstreamSession:
         elif reason == "credentials":
             mark_login_blocked(self.MODULE, nim, "credentials", CREDENTIAL_COOLDOWN_SECONDS)
 
+    def _persist_cookies(self, nim: str) -> None:
+        """Simpan cookie sesi kampus agar NIM tidak perlu login ulang + CAPTCHA."""
+        from app.campus_session_store import store_cookies
+
+        try:
+            store_cookies(self.MODULE, nim, dict(self.get_client().cookies))
+        except Exception as err:
+            logger.warning("Gagal mempersist cookie sesi %s/%s: %s", self.MODULE, nim, err)
+
+    def _try_restore(self, nim: str) -> bool:
+        """Pakai cookie tersimpan (dari relay CAPTCHA) tanpa login baru.
+
+        Validasi dengan satu GET ke halaman yang butuh sesi. Return False bila
+        cookie tidak ada/invalid supaya pemanggil lanjut ke jalur login.
+        """
+        from app.campus_session_store import drop_cookies, load_cookies
+
+        if not self.PROBE_PATH:
+            return False
+        cookies = load_cookies(self.MODULE, nim)
+        if not cookies:
+            return False
+        client = self.get_client()
+        client.cookies.clear()
+        for name, value in cookies.items():
+            client.cookies.set(name, value)
+        try:
+            resp = client.get(f"{self.BASE_URL}{self.PROBE_PATH}", follow_redirects=True)
+        except Exception as err:
+            logger.warning("Probe restore sesi %s/%s gagal: %s", self.MODULE, nim, err)
+            return False
+        if resp.status_code >= 400 or is_logged_out_response(resp):
+            drop_cookies(self.MODULE, nim)
+            return False
+        clear_login_block(self.MODULE, nim)
+        self._mark_logged_in()
+        self._persist_cookies(nim)
+        return True
+
+
     def ensure_session(self, nim: str, password: str, *, stale_since: Optional[float] = None) -> bool:
         """Pastikan sesi upstream hidup dan terikat pada kredensial yang sama; login ulang bila perlu.
 
@@ -186,6 +233,10 @@ class UpstreamSession:
                 and (stale_since is None or self._login_at > stale_since)
             ):
                 return True
+            # Cookie tersimpan lebih diutamakan daripada cooldown: sesi sah tidak butuh CAPTCHA.
+            if self._try_restore(nim):
+                self._cred_hash = cred_hash
+                return True
             # Cooldown hanya menggerbang percobaan login baru, bukan request yang sesinya masih hidup.
             blocked = block_reason(self.MODULE, nim)
             if blocked:
@@ -198,6 +249,7 @@ class UpstreamSession:
                 clear_login_block(self.MODULE, nim)
                 self._cred_hash = cred_hash
                 self._mark_logged_in()
+                self._persist_cookies(nim)
                 return True
             self._record_login_failure(nim)
             return False
