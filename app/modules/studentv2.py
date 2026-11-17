@@ -438,28 +438,49 @@ class StudentV2Client(UpstreamSession):
             self._client = None
             self._logged_in = False
 
-    def login(self, nim: str, password: str) -> bool:
+    def login(
+        self,
+        nim: str,
+        password: str,
+        captcha: Optional[str] = None,
+        session: Optional[dict[str, Any]] = None,
+    ) -> bool:
+        """Login SIAKAD. `session` + `captcha` dipakai jalur relay CAPTCHA user."""
         client = self.get_client()
         client.cookies.clear()
         login_url = f"{self.BASE_URL}/login"
         self._login_failure = "unknown"
         try:
-            r1 = client.get(login_url)
-            if r1.status_code == 429:
-                self._login_failure = "throttled"
-                logger.warning("SIAKAD login throttled for %s (429)", nim)
-                return False
-            m = re.search(r'name=["\']_token["\']\s+value=["\']([^"\']+)["\']', r1.text)
-            if not m:
-                return False
-            token = m.group(1)
+            if session:
+                # Pakai cookie + token dari sesi tempat CAPTCHA dibuat.
+                for name, value in (session.get("cookies") or {}).items():
+                    client.cookies.set(name, value)
+                token = str(session.get("token") or "")
+                if not token:
+                    self._login_failure = "captcha"
+                    return False
+            else:
+                r1 = client.get(login_url)
+                if r1.status_code == 429:
+                    self._login_failure = "throttled"
+                    logger.warning("SIAKAD login throttled for %s (429)", nim)
+                    return False
+                m = re.search(r'name=["\']_token["\']\s+value=["\']([^"\']+)["\']', r1.text)
+                if not m:
+                    return False
+                token = m.group(1)
+                if _siakad_captcha_required(r1.text) and captcha is None:
+                    self._login_failure = "captcha"
+                    return False
 
-            payload = {
+            payload: dict[str, str] = {
                 "_token": token,
                 "username": nim,
                 "password": password,
-                "remember": "on"
+                "remember": "on",
             }
+            if captcha is not None:
+                payload["captcha"] = str(captcha)
             r2 = client.post(login_url, data=payload)
             if "mahasiswa/beranda" in str(r2.url) or "students.bsi.ac.id/mahasiswa" in str(r2.url) or "studentv2.bsi.ac.id/mahasiswa" in str(r2.url):
                 self._mark_logged_in()

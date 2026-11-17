@@ -131,12 +131,33 @@ async def test_login_invalid_credentials_returns_401(monkeypatch):
         "app.modules.auth.verify_live_credentials",
         AsyncMock(return_value=(True, False)),
     )
+    # Kampus mewajibkan CAPTCHA: tanpa jawaban, server melaporkan kebutuhan CAPTCHA
+    # (bukan langsung menyimpulkan password salah).
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         res = await ac.post(
             "/v1/auth/login",
             json={"nim": "12345678", "studentv2_pass": "sv", "elearning_pass": "wrong"},
         )
+        assert res.status_code == 401
+        assert res.json()["error"]["code"] == "AUTH_CAPTCHA_REQUIRED"
+        assert res.json()["error"]["captcha_hosts"] == ["elearning", "siakad"]
+
+        # Dengan jawaban CAPTCHA lengkap, kegagalan berarti kredensial/kode salah.
+        with patch(
+            "app.captcha_relay.consume_challenge",
+            AsyncMock(return_value={"token": "t", "cookies": {}}),
+        ):
+            res = await ac.post(
+                "/v1/auth/login",
+                json={
+                    "nim": "12345678",
+                    "studentv2_pass": "sv",
+                    "elearning_pass": "wrong",
+                    "captcha_elearning": {"id": "a" * 32, "code": "ABC"},
+                    "captcha_siakad": {"id": "b" * 32, "code": "ABCD"},
+                },
+            )
         assert res.status_code == 401
         assert res.json()["error"]["code"] == "INVALID_CREDENTIALS"
 
