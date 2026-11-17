@@ -496,7 +496,11 @@ class StudentV2Client(UpstreamSession):
                 )
             if self._login_failure == "captcha":
                 # Kondisi yang diharapkan sejak kampus mewajibkan CAPTCHA; bukan insiden.
-                logger.info("SIAKAD login butuh CAPTCHA untuk %s (menunggu login user)", nim)
+                logger.info(
+                    "SIAKAD login butuh CAPTCHA untuk %s (pesan kampus: %s)",
+                    nim,
+                    "; ".join(self._login_errors) or "-",
+                )
             else:
                 logger.warning(
                     "SIAKAD login rejected for %s: ended at %s (status %s, reason %s, pesan kampus: %s)",
