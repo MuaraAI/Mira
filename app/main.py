@@ -192,6 +192,7 @@ async def api_key_auth_middleware(request: Request, call_next):
     # 2. Allow /health + /v1/auth/login + /v1/docs without auth (resilient to trailing slash)
     # /v1/notifications/pwa/vapid-key publik: browser butuh kunci ini SEBELUM auth ada
     public_paths = {
+        "/health",
         "/v1/auth/login",
         "/v1/auth/captcha",
         "/v1/auth/forgot-password",
