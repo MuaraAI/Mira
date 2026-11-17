@@ -357,14 +357,11 @@ async def login(req_body: LoginRequest, request: Request):
             nonce=request.cookies.get(CAPTCHA_NONCE_COOKIES["siakad"]),
         )
 
-    captcha_missing = [
-        host
-        for host, answer in (
-            ("elearning", req_body.captcha_elearning),
-            ("siakad", req_body.captcha_siakad if siakad_attempted else None),
-        )
-        if answer is None
-    ]
+    captcha_missing: list[str] = []
+    if req_body.captcha_elearning is None:
+        captcha_missing.append("elearning")
+    if siakad_attempted and req_body.captcha_siakad is None:
+        captcha_missing.append("siakad")
     captcha_stale = [
         host
         for host, answer, session in (
