@@ -540,7 +540,7 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
         return;
       }
       // Kode CAPTCHA sekali pakai: minta gambar baru agar user tidak mengulang kode lama.
-      if (apiErr.code === "CAPTCHA_EXPIRED" || apiErr.code === "INVALID_CREDENTIALS") {
+      if (apiErr.code === "CAPTCHA_EXPIRED" || apiErr.code === "CAPTCHA_INVALID" || apiErr.code === "INVALID_CREDENTIALS") {
         const hosts = Object.keys(captchas).filter(
           (host): host is CaptchaHost => host === "siakad" || host === "elearning"
         );
