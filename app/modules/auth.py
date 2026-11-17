@@ -33,18 +33,23 @@ logger = logging.getLogger("app.auth")
 router = APIRouter(prefix="/v1/auth", tags=["auth"])
 studentv2_client = StudentV2Client()
 
-async def verify_siakad_login(nim: str, studentv2_pass: str) -> bool:
+async def verify_siakad_login(
+    nim: str,
+    studentv2_pass: str,
+    session: Optional[dict] = None,
+    captcha: Optional[str] = None,
+) -> bool:
     """Uji satu kredensial SIAKAD secara live. Dipakai /login dan /credentials."""
     loop = asyncio.get_running_loop()
 
     def _test_sv2():
         try:
             if hasattr(studentv2_client.login, "assert_called"):
-                return studentv2_client.login(nim, studentv2_pass)
+                return studentv2_client.login(nim, studentv2_pass, captcha=captcha, session=session)
             proxy = get_proxy(seed=nim)
             client = StudentV2Client(proxy=proxy)
             try:
-                ok = client.login(nim, studentv2_pass)
+                ok = client.login(nim, studentv2_pass, captcha=captcha, session=session)
             finally:
                 client.close()
             if not ok:
@@ -115,23 +120,34 @@ async def verify_credentials(req_body: VerifyCredentialsRequest, request: Reques
     )
 
 
-async def verify_live_credentials(nim: str, elearning_pass: str, studentv2_pass: str) -> tuple[bool, bool]:
+async def verify_live_credentials(
+    nim: str,
+    elearning_pass: str,
+    studentv2_pass: str,
+    *,
+    el_session: Optional[dict] = None,
+    el_captcha: Optional[str] = None,
+    sv_session: Optional[dict] = None,
+    sv_captcha: Optional[str] = None,
+) -> tuple[bool, bool]:
     """Verifikasi kredensial kampus secara live (SIAKAD + MyBest paralel).
 
     Return (sv2_ok, el_ok). SIAKAD boleh kosong (opsional): pass kosong
     di-skip tanpa menembak server kampus, sv2_ok = False (terkunci).
-    Dipakai /v1/auth/verify dan /v1/auth/login.
+    `*_session`/`*_captcha` dipakai jalur relay CAPTCHA (lihat app/captcha_relay.py).
     """
     loop = asyncio.get_running_loop()
 
     def _test_el():
         try:
             if hasattr(elearning_client.login, "assert_called"):
-                return elearning_client.login(nim, elearning_pass)
+                return elearning_client.login(
+                    nim, elearning_pass, captcha=el_captcha, session=el_session
+                )
             proxy = get_proxy(seed=nim)
             client = ElearningClient(proxy=proxy)
             try:
-                ok = client.login(nim, elearning_pass)
+                ok = client.login(nim, elearning_pass, captcha=el_captcha, session=el_session)
             finally:
                 client.close()
             if not ok:
@@ -142,17 +158,70 @@ async def verify_live_credentials(nim: str, elearning_pass: str, studentv2_pass:
             return False
 
     el_task = loop.run_in_executor(None, _test_el)
-    sv_task = verify_siakad_login(nim, studentv2_pass) if studentv2_pass else None
+    sv_task = (
+        verify_siakad_login(nim, studentv2_pass, session=sv_session, captcha=sv_captcha)
+        if studentv2_pass
+        else None
+    )
     el_ok = bool(await el_task)
     sv2_ok = bool(await sv_task) if sv_task else False
     return sv2_ok, el_ok
+
+
+class CaptchaAnswer(BaseModel):
+    id: str = Field(..., min_length=8, max_length=64, description="ID tantangan CAPTCHA")
+    code: str = Field(..., min_length=1, max_length=8, description="Kode yang dibaca user")
+
+
+class CaptchaChallengeRequest(BaseModel):
+    nim: str = Field(..., min_length=3, description="NIM Mahasiswa")
+    host: str = Field(..., pattern="^(siakad|elearning)$", description="siakad atau elearning")
 
 
 class LoginRequest(BaseModel):
     nim: str = Field(..., min_length=3, description="NIM Mahasiswa")
     studentv2_pass: str = Field("", description="Password SIAKAD Students (opsional: kosongkan untuk lewati)")
     elearning_pass: str = Field(..., min_length=1, description="Password MyBest Elearning")
+    captcha_elearning: Optional[CaptchaAnswer] = Field(
+        None, description="Jawaban CAPTCHA MyBest dari endpoint /v1/auth/captcha"
+    )
+    captcha_siakad: Optional[CaptchaAnswer] = Field(
+        None, description="Jawaban CAPTCHA SIAKAD dari endpoint /v1/auth/captcha"
+    )
 
+
+@router.post("/captcha")
+async def captcha_challenge(req_body: CaptchaChallengeRequest, request: Request):
+    """Ambil tantangan CAPTCHA kampus untuk ditampilkan di form login Mira."""
+    from app.main import extract_client_ip
+
+    client_ip = extract_client_ip(request)
+    if not await limiter.is_allowed(f"captcha:{client_ip}", limit=20):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=error_response(
+                code="RATE_LIMIT_EXCEEDED",
+                message="Terlalu banyak permintaan CAPTCHA. Coba lagi sebentar.",
+                module="auth",
+            ),
+        )
+
+    from app.captcha_relay import create_challenge
+
+    try:
+        challenge = await create_challenge(req_body.host, req_body.nim.strip())
+    except Exception as err:
+        logger.warning("Gagal membuat tantangan CAPTCHA %s: %s", req_body.host, err)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=error_response(
+                code="CAPTCHA_UNAVAILABLE",
+                message="Gagal mengambil CAPTCHA dari server kampus. Coba lagi.",
+                module="auth",
+            ),
+        ) from err
+
+    return success_response(data=challenge)
 
 @router.post("/login")
 async def login(req_body: LoginRequest, request: Request):
@@ -198,7 +267,52 @@ async def login(req_body: LoginRequest, request: Request):
     el_pass = req_body.elearning_pass.strip()
     siakad_attempted = bool(raw_sv_pass)
 
-    sv2_ok, el_ok = await verify_live_credentials(nim, el_pass, raw_sv_pass)
+    # CAPTCHA kampus wajib: konsumsi tantangan sekali pakai bila user mengirimkannya.
+    from app.captcha_relay import consume_challenge
+
+    el_session = sv_session = None
+    if req_body.captcha_elearning:
+        el_session = await consume_challenge(
+            req_body.captcha_elearning.id, "elearning", nim
+        )
+    if req_body.captcha_siakad and siakad_attempted:
+        sv_session = await consume_challenge(req_body.captcha_siakad.id, "siakad", nim)
+
+    captcha_missing = [
+        host
+        for host, answer in (
+            ("elearning", req_body.captcha_elearning),
+            ("siakad", req_body.captcha_siakad if siakad_attempted else None),
+        )
+        if answer is None
+    ]
+    captcha_stale = [
+        host
+        for host, answer, session in (
+            ("elearning", req_body.captcha_elearning, el_session),
+            ("siakad", req_body.captcha_siakad if siakad_attempted else None, sv_session),
+        )
+        if answer is not None and session is None
+    ]
+    if captcha_stale:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=error_response(
+                code="CAPTCHA_EXPIRED",
+                message="Kode CAPTCHA kedaluwarsa atau sudah dipakai. Muat ulang lalu coba lagi.",
+                module="auth",
+            ),
+        )
+
+    sv2_ok, el_ok = await verify_live_credentials(
+        nim,
+        el_pass,
+        raw_sv_pass,
+        el_session=el_session,
+        el_captcha=req_body.captcha_elearning.code if req_body.captcha_elearning else None,
+        sv_session=sv_session,
+        sv_captcha=req_body.captcha_siakad.code if req_body.captcha_siakad else None,
+    )
 
     # Brute-force & login guard: hitung sukses jika MyBest valid (dan SIAKAD valid jika diisi)
     attempt_success = bool(el_ok and (sv2_ok or not siakad_attempted))
@@ -206,11 +320,21 @@ async def login(req_body: LoginRequest, request: Request):
 
     # MyBest wajib: gagal -> tolak 401
     if not el_ok:
+        if captcha_missing:
+            detail = error_response(
+                code="AUTH_CAPTCHA_REQUIRED",
+                message=(
+                    "Kampus kini mewajibkan CAPTCHA. Muat gambar CAPTCHA lalu masukkan kodenya."
+                ),
+                module="auth",
+            )
+            detail["error"]["captcha_hosts"] = captcha_missing
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=error_response(
                 code="INVALID_CREDENTIALS",
-                message="Kredensial kampus tidak valid (password MyBest salah)",
+                message="Kredensial kampus tidak valid atau kode CAPTCHA salah",
                 module="auth",
             ),
         )
@@ -491,6 +615,9 @@ async def security_status(request: Request):
 class ConnectCredentialsRequest(BaseModel):
     system: str = Field(..., pattern="^(siakad)$", description="Sistem kampus yang ingin dihubungkan (saat ini: siakad)")
     password: str = Field(..., min_length=1, max_length=128, description="Password akun kampus")
+    captcha: Optional[CaptchaAnswer] = Field(
+        None, description="Jawaban CAPTCHA SIAKAD dari endpoint /v1/auth/captcha"
+    )
 
 
 @router.post("/credentials")
@@ -511,14 +638,39 @@ async def connect_credentials(body: ConnectCredentialsRequest, request: Request)
             ),
         )
 
+    from app.captcha_relay import consume_challenge
+
     pwd = body.password.strip()
-    ok = await verify_siakad_login(nim, pwd)
+    sv_session = None
+    if body.captcha:
+        sv_session = await consume_challenge(body.captcha.id, "siakad", nim)
+        if sv_session is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=error_response(
+                    code="CAPTCHA_EXPIRED",
+                    message="Kode CAPTCHA kedaluwarsa atau sudah dipakai. Muat ulang lalu coba lagi.",
+                    module="auth",
+                ),
+            )
+
+    ok = await verify_siakad_login(
+        nim, pwd, session=sv_session, captcha=body.captcha.code if body.captcha else None
+    )
     if not ok:
+        if body.captcha is None:
+            detail = error_response(
+                code="AUTH_CAPTCHA_REQUIRED",
+                message="Kampus mewajibkan CAPTCHA. Muat gambar CAPTCHA lalu masukkan kodenya.",
+                module="auth",
+            )
+            detail["error"]["captcha_hosts"] = ["siakad"]
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=error_response(
                 code="INVALID_CREDENTIALS",
-                message="Password SIAKAD salah atau akun tidak ditemukan",
+                message="Password SIAKAD salah atau kode CAPTCHA tidak valid",
                 module="auth",
             ),
         )

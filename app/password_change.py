@@ -202,6 +202,12 @@ def change_upstream_password(system: str, nim: str, old: str, new: str) -> Chang
     client = factory()
     try:
         if not client.login(nim, old):
+            if getattr(client, "_login_failure", None) == "captcha":
+                return ChangeResult(
+                    "login_failed",
+                    f"{label} kini mewajibkan CAPTCHA. Ganti password lewat situs resmi "
+                    f"{client.BASE_URL} lalu login ulang di Mira.",
+                )
             return ChangeResult("login_failed", f"Password {label} saat ini ditolak server kampus.")
         page_url = f"{client.BASE_URL}{spec['path']}"
         page = client.get_client().get(page_url)

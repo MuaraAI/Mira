@@ -23,20 +23,38 @@ export class ApiError extends Error {
   retryAfter?: number;
   /** Nama field input yang salah, dipakai untuk menandai/menggetarkan input terkait. */
   fields?: string[];
+  /** Host kampus yang menuntut CAPTCHA (mis. ["elearning", "siakad"]). */
+  captchaHosts?: string[];
 
-  constructor(code: string, message: string, status: number, retryAfter?: number, fields?: string[]) {
+  constructor(
+    code: string,
+    message: string,
+    status: number,
+    retryAfter?: number,
+    fields?: string[],
+    captchaHosts?: string[]
+  ) {
     super(message);
     this.code = code;
     this.status = status;
     this.retryAfter = retryAfter;
     this.fields = fields;
+    this.captchaHosts = captchaHosts;
   }
+}
+
+interface EnvelopeError {
+  code?: string;
+  message?: string;
+  retry_after?: number;
+  fields?: string[];
+  captcha_hosts?: string[];
 }
 
 interface EnvelopePayload {
   data?: unknown;
-  detail?: { error?: { code?: string; message?: string; retry_after?: number; fields?: string[] } };
-  error?: { code?: string; message?: string; retry_after?: number; fields?: string[] };
+  detail?: { error?: EnvelopeError };
+  error?: EnvelopeError;
 }
 
 export function readSessionToken(): string | null {
@@ -123,7 +141,8 @@ export async function apiFetch<T>(
       err?.message ?? `Permintaan gagal dengan status ${res.status}.`,
       res.status,
       typeof err?.retry_after === "number" ? err.retry_after : undefined,
-      Array.isArray(err?.fields) ? err.fields : undefined
+      Array.isArray(err?.fields) ? err.fields : undefined,
+      Array.isArray(err?.captcha_hosts) ? err.captcha_hosts : undefined
     );
   }
   return payload?.data as T;
