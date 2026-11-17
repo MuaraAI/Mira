@@ -39,12 +39,12 @@ module.exports = {
   apps: [
     {
       name: "ubsi-api",
-      cwd: "/home/ubuntu/ubsi-api",
+      cwd: "/opt/ubsi-api",
       script: "/home/ubuntu/.venvs/ubsi-api/bin/uvicorn",
-      args: "app.main:app --host 127.0.0.1 --port 8300 --workers 2",
+      args: "app.main:app --host 127.0.0.1 --port 8300 --workers 2 --limit-concurrency 100 --timeout-keep-alive 5",
       interpreter: "none",
       autorestart: true,
-      max_memory_restart: "150M",
+      max_memory_restart: "256M",
       env: {
         NODE_ENV: "production"
       }
@@ -74,5 +74,5 @@ pm2 restart ubsi-api
 
 ### Run Live Smoke Test on Server
 ```bash
-/home/ubuntu/.venvs/ubsi-api/bin/python /home/ubuntu/ubsi-api/scripts/smoke.py --base-url http://127.0.0.1:8300
+/home/ubuntu/.venvs/ubsi-api/bin/python /opt/ubsi-api/scripts/smoke.py --base-url http://127.0.0.1:8300
 ```
