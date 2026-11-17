@@ -15,6 +15,7 @@ Alur:
 from __future__ import annotations
 
 import asyncio
+import hmac
 import json
 import logging
 import re
@@ -29,6 +30,14 @@ from app.proxy import get_proxy
 logger = logging.getLogger("app.captcha_relay")
 
 CAPTCHA_TTL_SECONDS = 300  # kampus: kode berlaku 5 menit, sekali pakai
+
+# Redis produksi 6.0 belum punya GETDEL (6.2+). EVAL menjalankan GET+DEL
+# secara atomik di satu thread Redis, menutup race double-spend challenge.
+_ATOMIC_TAKE_LUA = (
+    "local value = redis.call('GET', KEYS[1]); "
+    "if value then redis.call('DEL', KEYS[1]); end; "
+    "return value"
+)
 
 HOSTS: dict[str, dict[str, str]] = {
     "siakad": {
@@ -107,10 +116,12 @@ def _fetch_challenge_sync(host: str, nim: str) -> dict[str, Any]:
         }
 
 
-async def create_challenge(host: str, nim: str) -> dict[str, Any]:
+async def create_challenge(host: str, nim: str, nonce: str) -> dict[str, Any]:
     """Buat tantangan CAPTCHA baru untuk host tertentu. Raises ValueError bila gagal."""
     if host not in HOSTS:
         raise ValueError(f"Host CAPTCHA tidak dikenal: {host}")
+    if not nonce:
+        raise ValueError("Nonce CAPTCHA wajib diisi")
 
     data = await asyncio.to_thread(_fetch_challenge_sync, host, nim)
     captcha_id = uuid.uuid4().hex
@@ -119,6 +130,7 @@ async def create_challenge(host: str, nim: str) -> dict[str, Any]:
         "nim": data["nim"],
         "token": data["token"],
         "cookies": data["cookies"],
+        "nonce": nonce,
     }
     redis = await cache.get_client()
     await redis.setex(_key(captcha_id), CAPTCHA_TTL_SECONDS, json.dumps(stored))
@@ -132,18 +144,23 @@ async def create_challenge(host: str, nim: str) -> dict[str, Any]:
     }
 
 
-async def consume_challenge(captcha_id: str, host: str, nim: str) -> Optional[dict[str, Any]]:
-    """Ambil dan hapus tantangan (sekali pakai). None bila kedaluwarsa/tidak cocok."""
+async def consume_challenge(
+    captcha_id: str, host: str, nim: str, nonce: Optional[str] = None
+) -> Optional[dict[str, Any]]:
     redis = await cache.get_client()
     key = _key(captcha_id)
-    raw = await redis.get(key)
+    # GET + DEL atomik: dua login paralel dengan id yang sama tidak bisa
+    # memakai satu tantangan dua kali (double-spend).
+    raw = await redis.eval(_ATOMIC_TAKE_LUA, 1, key)
     if not raw:
         return None
-    await redis.delete(key)
     try:
         stored = json.loads(raw)
     except (TypeError, ValueError):
         return None
     if stored.get("host") != host or stored.get("nim") != nim:
+        return None
+    expected = stored.get("nonce")
+    if not expected or not hmac.compare_digest(str(expected), nonce or ""):
         return None
     return stored
