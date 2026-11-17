@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="id">
+<head><title>Login MyBest</title></head>
+<body>
+<form method="POST" action="https://elearning.bsi.ac.id/login">
+    <input type="hidden" name="_token" value="token-uji">
+    <div class="bg-red-50 border border-red-300 text-red-600 text-sm rounded-lg px-4 py-3 mb-4">
+        Kode keamanan salah. Silakan periksa kembali karakter pada gambar.
+    </div>
+    <input name="username" type="number" required>
+    <input name="password" type="password" required>
+    <div id="captcha-svg-container">
+        <img src="data:image/png;base64,iVBORw0KGgo=" alt="Kode Keamanan">
+    </div>
+    <input id="captcha_answer" name="captcha_answer" type="text" maxlength="3" required>
+</form>
+</body>
+</html>
