@@ -1,4 +1,5 @@
 import asyncio
+import ipaddress
 import os
 import secrets
 from contextlib import asynccontextmanager
@@ -30,6 +31,24 @@ from app.modules.lecturers import router as lecturers_router
 from app.modules.academic_events import router as academic_events_router
 from app.stats import record_request
 
+def _is_trusted_proxy(host: str, trusted: set[str]) -> bool:
+    """True bila `host` sama persis dengan entri, atau masuk ke salah satu CIDR tepercaya.
+
+    Entri tidak valid diabaikan (tidak menggagalkan request).
+    """
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    for entry in trusted:
+        try:
+            if ip in ipaddress.ip_network(entry, strict=False):
+                return True
+        except ValueError:
+            continue
+    return False
+
+
 def extract_client_ip(request: Request) -> str:
     """Ekstraksi IP klien dengan prioritas Cloudflare -> Forwarded Proxy -> socket host.
 
@@ -38,7 +57,7 @@ def extract_client_ip(request: Request) -> str:
     client_host = request.client.host if (request.client and request.client.host) else "127.0.0.1"
     trusted = {p.strip() for p in settings.TRUSTED_PROXIES.split(",") if p.strip()}
 
-    if client_host in trusted:
+    if _is_trusted_proxy(client_host, trusted):
         cf_ip = request.headers.get("cf-connecting-ip")
         if cf_ip:
             return cf_ip.strip()
