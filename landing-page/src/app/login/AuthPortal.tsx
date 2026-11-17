@@ -416,10 +416,9 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
     setCaptchas((prev) => {
       const current = prev[host];
       if (!current) return prev;
-      return {
-        ...prev,
-        [host]: { ...current, code: code.toUpperCase().replace(/[^A-Z0-9]/g, "") },
-      };
+      // Kampus mungkin membandingkan kode apa adanya (case-sensitive): jangan
+      // di-uppercase atau dibuang karakternya. Cukup buang spasi di tepi.
+      return { ...prev, [host]: { ...current, code: code.trim() } };
     });
   }
 
@@ -784,13 +783,15 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
                               <input
                                 value={cap.code}
                                 onChange={(e) => setCaptchaCode(host, e.target.value)}
-                                maxLength={6}
+                                maxLength={8}
                                 required
                                 autoComplete="off"
+                                autoCapitalize="off"
+                                autoCorrect="off"
                                 spellCheck={false}
-                                placeholder="KODE"
+                                placeholder="Kode"
                                 aria-label={`Kode CAPTCHA ${cap.label}`}
-                                className={`${fieldClass} font-mono uppercase tracking-widest`}
+                                className={`${fieldClass} font-mono`}
                               />
                             </div>
                           </div>
