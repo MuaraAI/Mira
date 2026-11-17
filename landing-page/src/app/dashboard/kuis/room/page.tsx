@@ -11,12 +11,13 @@ import {
   CbtResultView,
 } from "@/components/quiz";
 import { useExamProctoring } from "@/hooks/useExamProctoring";
+import { buildSimulationQuiz, evaluateSimulationScore } from "@/data/quiz-simulation";
 import {
-  generateSimulationQuiz,
-  evaluateSimulationScore,
+  DEFAULT_QUIZ_PACKAGE_ID,
+  findQuizPackage,
   type SimulationQuestion,
   type SimulationResult,
-} from "@/data/quiz-simulation";
+} from "@/data/quiz-catalog";
 import { apiFetch, ApiError } from "@/lib/api";
 import { LoadingState, ErrorState } from "@/components/dashboard-ui";
 import { ShieldCheck, Play, ArrowLeft } from "lucide-react";
@@ -53,7 +54,11 @@ function QuizRoomContent() {
 
   const mode = (searchParams.get("mode") || "simulasi") as "live" | "simulasi";
   const token = searchParams.get("token") || "";
-  const paketTitle = searchParams.get("paket") || (mode === "simulasi" ? "Simulasi Kuis Mandiri CBT" : "Kuis Perkuliahan MyBest");
+  const paketId = searchParams.get("paket_id") || DEFAULT_QUIZ_PACKAGE_ID;
+  const simMeta = findQuizPackage(paketId);
+  const paketTitle =
+    searchParams.get("paket") ||
+    (mode === "simulasi" ? `Quiz by Mira: ${simMeta.judul}` : "Kuis Perkuliahan MyBest");
 
   // State kuis
   const [loading, setLoading] = useState(true);
@@ -70,7 +75,7 @@ function QuizRoomContent() {
   const [raguMap, setRaguMap] = useState<Record<string, boolean>>({});
 
   // Countdown timer
-  const [remainingSeconds, setRemainingSeconds] = useState(45 * 60);
+  const [remainingSeconds, setRemainingSeconds] = useState(simMeta.durasi_menit * 60);
   const [syncStatus, setSyncStatus] = useState<"saved" | "saving" | "error" | "offline">(
     mode === "simulasi" ? "offline" : "saved"
   );
@@ -103,7 +108,7 @@ function QuizRoomContent() {
 
     try {
       if (mode === "simulasi") {
-        const simPkg = generateSimulationQuiz(20);
+        const simPkg = buildSimulationQuiz(paketId);
         setSimQuestions(simPkg.daftar_soal);
         setQuestions(
           simPkg.daftar_soal.map((q) => ({
@@ -116,7 +121,7 @@ function QuizRoomContent() {
         );
         setRemainingSeconds(simPkg.durasi_menit * 60);
 
-        // Pulihkan progress lokal jika ada
+        // Pulihkan progress lokal paket ini (kunci stabil per paket, bukan per sesi acak)
         const cacheKey = `mira_sim_answers_${simPkg.id}`;
         const saved = localStorage.getItem(cacheKey);
         if (saved) {
@@ -193,7 +198,7 @@ function QuizRoomContent() {
     } finally {
       setLoading(false);
     }
-  }, [mode, token]);
+  }, [mode, token, paketId]);
 
   useEffect(() => {
     loadExamData();
@@ -233,7 +238,8 @@ function QuizRoomContent() {
 
     // Simpan ke storage lokal
     try {
-      const storageKey = mode === "simulasi" ? "mira_sim_answers" : `mira_live_answers_${token}`;
+      const storageKey =
+        mode === "simulasi" ? `mira_sim_answers_${paketId}` : `mira_live_answers_${token}`;
       localStorage.setItem(storageKey, JSON.stringify(newAnswers));
     } catch {}
 
@@ -332,6 +338,10 @@ function QuizRoomContent() {
             setSimulationResult(null);
             setAnswers({});
             setRaguMap({});
+            // "Soal Baru" harus mulai dari lembar kosong: buang progres paket ini.
+            try {
+              localStorage.removeItem(`mira_sim_answers_${paketId}`);
+            } catch {}
             loadExamData();
           }}
           onBackToDashboard={() => router.push("/dashboard/kuis")}
@@ -376,7 +386,7 @@ function QuizRoomContent() {
       {/* Top CBT Navbar */}
       <CbtNavbar
         judul={paketTitle}
-        subjudul={mode === "simulasi" ? "Latihan Ujian Mandiri Informatika" : "Kuis Perkuliahan Resmi"}
+        subjudul={mode === "simulasi" ? simMeta.kategori : "Kuis Perkuliahan Resmi"}
         remainingSeconds={remainingSeconds}
         syncStatus={syncStatus}
         isFullscreen={isFullscreen}

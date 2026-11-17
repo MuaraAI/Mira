@@ -70,12 +70,13 @@ git commit -m "test(elearning): verify quiz questions and answer submission endp
 ### Task 2: Quiz Simulation Bank & Engine
 
 **Files:**
-- Create: `landing-page/src/data/quiz-simulation.ts`
-- Test: `landing-page/src/data/__tests__/quiz-simulation.test.ts` (atau verifikasi type-check)
+- `landing-page/src/data/quiz-catalog.ts` (katalog paket + tipe)
+- `landing-page/src/data/quiz-bank/ptik.ts`, `landing-page/src/data/quiz-bank/logika.ts` (bank soal modul P1-P8)
+- `landing-page/src/data/quiz-simulation.ts` (engine generator & evaluator)
 
 **Interfaces:**
-- Consumes: None
-- Produces: `SimulationQuestion`, `generateSimulationQuiz(count?: number): SimulationQuizPackage`, `evaluateSimulationScore(answers: Record<string, string>, questions: SimulationQuestion[]): SimulationResult`
+- Consumes: `BankQuestion[]` dari tiap bank soal
+- Produces: `SimulationQuestion`, `buildSimulationQuiz(packageId: string, count?: number): SimulationQuizPackage`, `evaluateSimulationScore(answers: Record<string, string>, questions: SimulationQuestion[]): SimulationResult`
 
 - [ ] **Step 1: Definisikan type data dan bank soal simulasi**
 
@@ -115,7 +116,7 @@ export interface SimulationResult {
 
 - [ ] **Step 2: Implementasikan pengacakan soal (*Fisher-Yates shuffle*) & fungsi evaluasi skor**
 
-Fungsi `generateSimulationQuiz(count = 20)` mengacak urutan soal dan opsi, serta `evaluateSimulationScore` untuk mencocokkan jawaban user dengan kunci.
+Fungsi `buildSimulationQuiz(packageId)` mengacak urutan soal dan posisi opsi (kunci jawaban disinkronkan), sedangkan `evaluateSimulationScore` mencocokkan jawaban user dengan kunci dan menyertakan teks opsi untuk pembahasan.
 
 - [ ] **Step 3: Verifikasi build & tipe data**
 
@@ -201,7 +202,7 @@ git commit -m "feat(kuis): add CBT room UI components with fluid currents stylin
 - Create: `landing-page/src/app/dashboard/kuis/room/layout.tsx` (layout mandiri tanpa dashboard sidebar)
 
 **Interfaces:**
-- Consumes: Query params `mode` (`live` | `simulasi`), `token`, `paket`
+- Consumes: Query params `mode` (`live` | `simulasi`), `token`, `paket`, `paket_id`
 - Integrates: `useExamProctoring`, `CbtNavbar`, `CbtQuestionGrid`, `CbtQuestionView`, `CbtViolationModal`, `CbtFinishModal`, `apiFetch`
 
 - [ ] **Step 1: Buat custom layout untuk `/dashboard/kuis/room`**
@@ -210,7 +211,7 @@ Buat `layout.tsx` khusus yang me-render children tanpa membungkus sidebar dashbo
 
 - [ ] **Step 2: Implementasikan alur kuis pada `room/page.tsx`**
 
-- Fetch data: jika `mode=live`, panggil `/v1/elearning/quiz/questions?token_ujian=...`. Jika `mode=simulasi`, panggil `generateSimulationQuiz()`.
+- Fetch data: jika `mode=live`, panggil `/v1/elearning/quiz/questions?token_ujian=...`. Jika `mode=simulasi`, panggil `buildSimulationQuiz(paket_id)`.
 - State jawaban: simpan ke state React dan `localStorage` (`mira_quiz_progress_{id}`).
 - Handler auto-save: jika mode live, panggil `POST /v1/elearning/quiz/answer` di background tiap opsi diklik.
 - Handler submit final: jika mode live, panggil konfirmasi selesaikan kuis; jika mode simulasi, evaluasi skor dan tampilkan rekapitulasi nilai instan.

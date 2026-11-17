@@ -38,3 +38,13 @@ Incoming requests from multiple background worker processes for the same course 
 
 ### E. Human Pacing (Jitter)
 Multi-page crawler operations introduce random delays of 0.8–1.5 seconds between requests, mirroring natural human reading speed.
+
+### F. Cooldown Login Saat Captcha / HTTP 429
+- **Konteks**: Sejak pertengahan November 2026 form login `students.bsi.ac.id` dan `elearning.bsi.ac.id` mewajibkan CAPTCHA gambar (`name="captcha"` / `name="captcha_answer"`). Tanpa kode yang benar, login selalu ditolak dan berakhir kembali di halaman `/login`.
+- **Masalah**: Worker notifikasi berjalan tiap 10 menit untuk setiap NIM dan setiap kategori. Jika login selalu gagal, pola ini menghasilkan ratusan POST `/login` per jam hingga kampus membalas **HTTP 429** untuk seluruh IP server, sehingga user yang sesinya masih hidup ikut gagal.
+- **Solusi** (`app/upstream_session.py`):
+  - Login gagal karena CAPTCHA -> cooldown 20 menit untuk NIM tersebut (`AUTH_CAPTCHA_REQUIRED`).
+  - Login gagal karena kredensial -> cooldown 10 menit (`AUTH_FAILED`).
+  - Respons HTTP 429 -> cooldown 5 menit untuk seluruh host, mengikuti header `Retry-After` bila ada (`UPSTREAM_THROTTLED`).
+  - Cooldown hanya menggerbang **percobaan login baru**; request dengan sesi yang masih valid tetap berjalan.
+  - Worker notifikasi melewati NIM yang sedang cooldown tanpa mencetak traceback.
