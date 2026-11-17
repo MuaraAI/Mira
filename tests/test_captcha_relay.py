@@ -80,6 +80,27 @@ class FakeRedis:
         self.deleted.append(key)
         self.kv.pop(key, None)
 
+    async def getdel(self, key):
+        value = self.kv.pop(key, None)
+        if value is not None:
+            self.deleted.append(key)
+        return value
+
+    async def eval(self, script, numkeys, key):
+        return await self.getdel(key)
+    async def set(self, key, value, ex=None):
+        self.kv[key] = value
+
+    async def sadd(self, key, member):
+        self.kv.setdefault(key, set()).add(member)
+        return 1
+
+    async def expire(self, key, ttl):
+        return key in self.kv
+
+    async def ping(self):
+        return True
+
 
 def test_extract_data_uri_from_siakad_payload():
     assert _extract_data_uri({"image": PNG_URI}) == PNG_URI
@@ -109,7 +130,7 @@ async def test_create_challenge_stores_session_in_redis():
         patch.object(captcha_relay, "_fetch_challenge_sync", return_value=stored),
         patch.object(captcha_relay.cache, "get_client", AsyncMock(return_value=redis)),
     ):
-        challenge = await captcha_relay.create_challenge("siakad", "12345678")
+        challenge = await captcha_relay.create_challenge("siakad", "12345678", nonce="nonce-1")
 
     assert challenge["host"] == "siakad"
     assert challenge["image"] == PNG_URI
@@ -126,7 +147,7 @@ async def test_create_challenge_stores_session_in_redis():
 @pytest.mark.asyncio
 async def test_create_challenge_rejects_unknown_host():
     with pytest.raises(ValueError):
-        await captcha_relay.create_challenge("students", "12345678")
+        await captcha_relay.create_challenge("students", "12345678", nonce="nonce-1")
 
 
 @pytest.mark.asyncio
@@ -142,11 +163,11 @@ async def test_consume_challenge_is_single_use():
         }),
         patch.object(captcha_relay.cache, "get_client", AsyncMock(return_value=redis)),
     ):
-        challenge = await captcha_relay.create_challenge("elearning", "12345678")
+        challenge = await captcha_relay.create_challenge("elearning", "12345678", nonce="nonce-2")
 
     with patch.object(captcha_relay.cache, "get_client", AsyncMock(return_value=redis)):
-        first = await consume_challenge(challenge["id"], "elearning", "12345678")
-        second = await consume_challenge(challenge["id"], "elearning", "12345678")
+        first = await consume_challenge(challenge["id"], "elearning", "12345678", nonce="nonce-2")
+        second = await consume_challenge(challenge["id"], "elearning", "12345678", nonce="nonce-2")
 
     assert first is not None and first["token"] == "tok-el"
     assert second is None  # sekali pakai
@@ -165,12 +186,12 @@ async def test_consume_challenge_rejects_host_or_nim_mismatch():
         }),
         patch.object(captcha_relay.cache, "get_client", AsyncMock(return_value=redis)),
     ):
-        challenge = await captcha_relay.create_challenge("siakad", "12345678")
+        challenge = await captcha_relay.create_challenge("siakad", "12345678", nonce="nonce-3")
 
     with patch.object(captcha_relay.cache, "get_client", AsyncMock(return_value=redis)):
-        wrong_host = await consume_challenge(challenge["id"], "elearning", "12345678")
+        wrong_host = await consume_challenge(challenge["id"], "elearning", "12345678", nonce="nonce-3")
     with patch.object(captcha_relay.cache, "get_client", AsyncMock(return_value=redis)):
-        wrong_nim = await consume_challenge(challenge["id"], "siakad", "99999999")
+        wrong_nim = await consume_challenge(challenge["id"], "siakad", "99999999", nonce="nonce-3")
 
     assert wrong_host is None
     assert wrong_nim is None
@@ -273,3 +294,103 @@ async def test_ensure_session_restores_persisted_cookies():
                 "app.upstream_session.is_logged_out_response", lambda r: True
             ):
                 assert client_invalid.ensure_session("12345678", "secret") is False
+
+
+@pytest.mark.asyncio
+async def test_challenge_nonce_only_consumed_by_matching_cookie():
+    redis = FakeRedis()
+    stored = {
+        "host": "elearning",
+        "nim": "12345678",
+        "token": "tok-el",
+        "cookies": {"laravel_session": "xyz"},
+        "image": PNG_URI,
+    }
+    with (
+        patch.object(captcha_relay, "_fetch_challenge_sync", return_value=stored),
+        patch.object(captcha_relay.cache, "get_client", AsyncMock(return_value=redis)),
+    ):
+        wrong_challenge = await captcha_relay.create_challenge("elearning", "12345678", nonce="nonce-abc")
+        right_challenge = await captcha_relay.create_challenge("elearning", "12345678", nonce="nonce-abc")
+
+    with patch.object(captcha_relay.cache, "get_client", AsyncMock(return_value=redis)):
+        wrong = await consume_challenge(wrong_challenge["id"], "elearning", "12345678", nonce="nonce-salah")
+        right = await consume_challenge(right_challenge["id"], "elearning", "12345678", nonce="nonce-abc")
+
+    assert wrong is None
+    assert right is not None and right["token"] == "tok-el"
+
+
+@pytest.mark.asyncio
+async def test_captcha_endpoint_sets_nonce_cookie():
+    payload = {
+        "id": "b" * 32,
+        "host": "elearning",
+        "label": "MyBest",
+        "image": PNG_URI,
+        "expires_in": CAPTCHA_TTL_SECONDS,
+    }
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        with patch(
+            "app.captcha_relay.create_challenge", AsyncMock(return_value=payload)
+        ) as create:
+            res = await ac.post("/v1/auth/captcha", json={"nim": "12345678", "host": "elearning"})
+
+    assert res.status_code == 200
+    assert len(res.cookies.get("ubsi_captcha_elearning") or "") >= 16
+    assert create.await_args.kwargs["nonce"] == res.cookies.get("ubsi_captcha_elearning")
+
+
+@pytest.mark.asyncio
+async def test_login_requires_nonce_cookie_from_captcha_endpoint(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+
+    redis = FakeRedis()
+    challenge_payload = json.dumps(
+        {
+            "host": "elearning",
+            "nim": "12345678",
+            "token": "tok-el",
+            "cookies": {"laravel_session": "xyz"},
+            "nonce": "nonce-abc",
+        }
+    )
+    redis.kv["ubsi:captcha:" + "c" * 32] = challenge_payload
+    redis.kv["ubsi:captcha:" + "d" * 32] = challenge_payload
+    monkeypatch.setattr("app.captcha_relay.cache.get_client", AsyncMock(return_value=redis))
+    monkeypatch.setattr("app.session_store.session_store._client", redis)
+    monkeypatch.setattr("app.limiter.limiter.is_allowed", AsyncMock(return_value=True))
+    monkeypatch.setattr(
+        "app.login_guard.login_guard.check_ip",
+        AsyncMock(return_value=SimpleNamespace(allowed=True, retry_after=0)),
+    )
+    monkeypatch.setattr("app.login_guard.login_guard.record_attempt", AsyncMock())
+    monkeypatch.setattr("app.config.settings.SQLITE_DB_PATH", str(tmp_path / "ubsi.db"))
+    monkeypatch.setattr(
+        "app.modules.auth.verify_live_credentials", AsyncMock(return_value=(False, True))
+    )
+    monkeypatch.setattr("app.modules.news.news_client.fetch_posts", lambda *a, **k: [])
+    monkeypatch.setattr("app.modules.news.news_client.fetch_post_detail", lambda *a, **k: {})
+    from app.channels_db import init_db
+
+    init_db()
+
+    body = {
+        "nim": "12345678",
+        "studentv2_pass": "",
+        "elearning_pass": "el_pass",
+        "captcha_elearning": {"id": "c" * 32, "code": "abc"},
+    }
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        no_cookie = await ac.post("/v1/auth/login", json=body)
+        ac.cookies.set("ubsi_captcha_elearning", "nonce-abc")
+        with_cookie = await ac.post(
+            "/v1/auth/login",
+            json={**body, "captcha_elearning": {"id": "d" * 32, "code": "abc"}},
+        )
+
+    assert no_cookie.status_code == 401
+    assert no_cookie.json()["error"]["code"] == "CAPTCHA_EXPIRED"
+    assert with_cookie.status_code == 200

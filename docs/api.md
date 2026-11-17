@@ -98,6 +98,7 @@ Kampus (`students.bsi.ac.id` dan `elearning.bsi.ac.id`) mewajibkan CAPTCHA gamba
   }
   ```
 - **Error**: `503 CAPTCHA_UNAVAILABLE` bila server kampus tidak bisa dihubungi atau token form tidak ditemukan.
+- **Cookie browser**: respons menetapkan cookie HttpOnly `ubsi_captcha_<host>` (`ubsi_captcha_siakad` atau `ubsi_captcha_elearning`, TTL 5 menit, SameSite Lax). Cookie ini terikat ke tantangan yang dibuat dan wajib dikirim browser saat `POST /v1/auth/login` atau `POST /v1/auth/credentials` agar jawaban CAPTCHA bisa dikonsumsi; tanpa cookie itu tantangan membalas `401 CAPTCHA_EXPIRED`. Client non-browser yang meniru alur ini harus mempertahankan cookie seperti browser.
 
 ### `POST /v1/auth/login`
 Authenticates student credentials live against campus portals, creates an in-memory session in Redis (sliding 7 days TTL), and issues a session cookie `ubsi_session` plus bearer token.

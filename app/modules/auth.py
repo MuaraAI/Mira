@@ -28,11 +28,16 @@ from app.password_reset import (
     request_reset_link,
 )
 from app.proxy import get_proxy
+from app.upstream_session import clear_login_block
 
 logger = logging.getLogger("app.auth")
 router = APIRouter(prefix="/v1/auth", tags=["auth"])
 studentv2_client = StudentV2Client()
 
+CAPTCHA_NONCE_COOKIES = {
+    "siakad": "ubsi_captcha_siakad",
+    "elearning": "ubsi_captcha_elearning",
+}
 _SYSTEM_LABEL = {"elearning": "MyBest", "studentv2": "SIAKAD"}
 _CAMPUS_MESSAGE_PREVIEW = 160
 
@@ -258,8 +263,11 @@ async def captcha_challenge(req_body: CaptchaChallengeRequest, request: Request)
 
     from app.captcha_relay import create_challenge
 
+    nonce = secrets.token_urlsafe(24)
     try:
-        challenge = await create_challenge(req_body.host, req_body.nim.strip())
+        challenge = await create_challenge(
+            req_body.host, req_body.nim.strip(), nonce=nonce
+        )
     except Exception as err:
         logger.warning("Gagal membuat tantangan CAPTCHA %s: %s", req_body.host, err)
         raise HTTPException(
@@ -271,7 +279,20 @@ async def captcha_challenge(req_body: CaptchaChallengeRequest, request: Request)
             ),
         ) from err
 
-    return success_response(data=challenge)
+    is_https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+    response = JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content=success_response(data=challenge),
+    )
+    response.set_cookie(
+        key=CAPTCHA_NONCE_COOKIES[req_body.host],
+        value=nonce,
+        max_age=challenge["expires_in"],
+        httponly=True,
+        secure=is_https,
+        samesite="lax",
+    )
+    return response
 
 @router.post("/login")
 async def login(req_body: LoginRequest, request: Request):
@@ -323,10 +344,18 @@ async def login(req_body: LoginRequest, request: Request):
     el_session = sv_session = None
     if req_body.captcha_elearning:
         el_session = await consume_challenge(
-            req_body.captcha_elearning.id, "elearning", nim
+            req_body.captcha_elearning.id,
+            "elearning",
+            nim,
+            nonce=request.cookies.get(CAPTCHA_NONCE_COOKIES["elearning"]),
         )
     if req_body.captcha_siakad and siakad_attempted:
-        sv_session = await consume_challenge(req_body.captcha_siakad.id, "siakad", nim)
+        sv_session = await consume_challenge(
+            req_body.captcha_siakad.id,
+            "siakad",
+            nim,
+            nonce=request.cookies.get(CAPTCHA_NONCE_COOKIES["siakad"]),
+        )
 
     captcha_missing = [
         host
@@ -369,6 +398,15 @@ async def login(req_body: LoginRequest, request: Request):
     # Brute-force & login guard: hitung sukses jika MyBest valid (dan SIAKAD valid jika diisi)
     attempt_success = bool(el_ok and (sv2_ok or not siakad_attempted))
     await login_guard.record_attempt(nim, attempt_success, client_ip)
+    # Worker bisa lebih dulu mengunci NIM karena CAPTCHA. Hapus blok per host
+    # yang benar-benar diterima kampus. MyBest yang valid tetap dihitung sukses
+    # walaupun SIAKAD opsional ikut diisi dengan password yang salah.
+    # Catatan: block map bersifat lokal per worker; jalur absen/tugas juga
+    # memakai cookie kampus tersimpan yang direstore sebelum cooldown dicek.
+    if el_ok:
+        clear_login_block("elearning", nim)
+    if siakad_attempted and sv2_ok:
+        clear_login_block("studentv2", nim)
 
     # MyBest wajib: gagal -> tolak 401
     if not el_ok:
@@ -698,7 +736,12 @@ async def connect_credentials(body: ConnectCredentialsRequest, request: Request)
     pwd = body.password.strip()
     sv_session = None
     if body.captcha:
-        sv_session = await consume_challenge(body.captcha.id, "siakad", nim)
+        sv_session = await consume_challenge(
+            body.captcha.id,
+            "siakad",
+            nim,
+            nonce=request.cookies.get(CAPTCHA_NONCE_COOKIES["siakad"]),
+        )
         if sv_session is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -729,6 +772,8 @@ async def connect_credentials(body: ConnectCredentialsRequest, request: Request)
                 module="auth",
             ),
         )
+
+    clear_login_block("studentv2", nim)
 
     from app.session_store import session_store
     from app.api_keys_db import update_password_for_nim as update_keys
