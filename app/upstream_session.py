@@ -41,6 +41,42 @@ DEFAULT_MAX_SESSION_AGE = 13 * 60
 
 _LOGIN_FORM_RE = re.compile(r"""<form[^>]+action=["'][^"']*/login["']""", re.IGNORECASE)
 _PASSWORD_INPUT_RE = re.compile(r"""name=["']password["']""", re.IGNORECASE)
+# Blok pesan error Laravel/Bootstrap pada halaman login kampus.
+_LOGIN_ERROR_BLOCK_RE = re.compile(
+    r"""<[^>]+class=["'][^"']*(?:invalid-feedback|alert|text-danger|error)[^"']*["'][^>]*>(.*?)</(?:div|p|span|li|small)\s*>""",
+    re.IGNORECASE | re.DOTALL,
+)
+_MAX_LOGIN_ERRORS = 5
+_MAX_LOGIN_ERROR_CHARS = 200
+
+
+def extract_login_errors(html: str) -> list[str]:
+    """Teks pesan error yang terlihat di halaman login kampus (tanpa tag, tanpa duplikat)."""
+    errors: list[str] = []
+    for match in _LOGIN_ERROR_BLOCK_RE.finditer(html or ""):
+        text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", match.group(1))).strip()
+        if text and text not in errors:
+            errors.append(text[:_MAX_LOGIN_ERROR_CHARS])
+        if len(errors) >= _MAX_LOGIN_ERRORS:
+            break
+    return errors
+
+
+def classify_login_failure(html: str, has_captcha_form: bool) -> tuple[str, list[str]]:
+    """Tentukan alasan login ditolak dari halaman respons: captcha | credentials | unknown.
+
+    Halaman login selalu memuat form CAPTCHA, jadi keberadaan form saja tidak cukup.
+    Penyebab ditentukan dari pesan error yang terlihat; bila tidak ada pesan error
+    dan form CAPTCHA muncul, diperlakukan sebagai "captcha".
+    """
+    errors = extract_login_errors(html)
+    if any("captcha" in error.lower() for error in errors):
+        return "captcha", errors
+    if errors:
+        return "credentials", errors
+    if has_captcha_form:
+        return "captcha", errors
+    return "unknown", errors
 
 # Cooldown mencegah penembakan login berulang saat kampus menolak (CAPTCHA baru,
 # kredensial salah, atau 429). Tanpa ini, worker notifikasi + retry membuat IP

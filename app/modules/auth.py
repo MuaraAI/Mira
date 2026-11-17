@@ -33,13 +33,52 @@ logger = logging.getLogger("app.auth")
 router = APIRouter(prefix="/v1/auth", tags=["auth"])
 studentv2_client = StudentV2Client()
 
+_SYSTEM_LABEL = {"elearning": "MyBest", "studentv2": "SIAKAD"}
+_CAMPUS_MESSAGE_PREVIEW = 160
+
+
+def _rejection_detail(system: str, reason: str, errors: list[str]) -> dict:
+    """Pesan penolakan yang menyebut sistem, penyebab, dan kutipan pesan kampus (jika ada)."""
+    label = _SYSTEM_LABEL[system]
+    quoted = ""
+    if errors:
+        preview = errors[0][:_CAMPUS_MESSAGE_PREVIEW]
+        quoted = f' Pesan dari {label}: "{preview}".'
+    if reason == "captcha":
+        return error_response(
+            code="CAPTCHA_INVALID",
+            message=f"Kode CAPTCHA {label} salah atau sudah kedaluwarsa. Isi kode dari gambar terbaru.{quoted}",
+            module="auth",
+        )
+    if reason == "throttled":
+        return error_response(
+            code="UPSTREAM_THROTTLED",
+            message=f"{label} membatasi jumlah permintaan. Coba lagi beberapa menit kemudian.",
+            module="auth",
+        )
+    if reason == "credentials":
+        return error_response(
+            code="INVALID_CREDENTIALS",
+            message=f"Password {label} ditolak kampus.{quoted} Periksa password {label} lalu coba lagi.",
+            module="auth",
+        )
+    return error_response(
+        code="INVALID_CREDENTIALS",
+        message=f"Login {label} ditolak kampus tanpa pesan jelas. Periksa username dan password {label}.",
+        module="auth",
+    )
+
 async def verify_siakad_login(
     nim: str,
     studentv2_pass: str,
     session: Optional[dict] = None,
     captcha: Optional[str] = None,
+    outcomes: Optional[dict] = None,
 ) -> bool:
-    """Uji satu kredensial SIAKAD secara live. Dipakai /login dan /credentials."""
+    """Uji satu kredensial SIAKAD secara live. Dipakai /login dan /credentials.
+
+    `outcomes` (bila diberikan) diisi alasan penolakan: {"studentv2": (reason, errors)}.
+    """
     loop = asyncio.get_running_loop()
 
     def _test_sv2():
@@ -52,6 +91,11 @@ async def verify_siakad_login(
                 ok = client.login(nim, studentv2_pass, captcha=captcha, session=session)
             finally:
                 client.close()
+            if outcomes is not None:
+                outcomes["studentv2"] = (
+                    getattr(client, "_login_failure", None) or "unknown",
+                    list(getattr(client, "_login_errors", []) or []),
+                )
             if not ok:
                 logger.warning("SIAKAD login returned False for NIM %s", nim)
             return ok
@@ -129,6 +173,7 @@ async def verify_live_credentials(
     el_captcha: Optional[str] = None,
     sv_session: Optional[dict] = None,
     sv_captcha: Optional[str] = None,
+    outcomes: Optional[dict] = None,
 ) -> tuple[bool, bool]:
     """Verifikasi kredensial kampus secara live (SIAKAD + MyBest paralel).
 
@@ -150,6 +195,11 @@ async def verify_live_credentials(
                 ok = client.login(nim, elearning_pass, captcha=el_captcha, session=el_session)
             finally:
                 client.close()
+            if outcomes is not None:
+                outcomes["elearning"] = (
+                    getattr(client, "_login_failure", None) or "unknown",
+                    list(getattr(client, "_login_errors", []) or []),
+                )
             if not ok:
                 logger.warning("Elearning login returned False for NIM %s", nim)
             return ok
@@ -159,7 +209,7 @@ async def verify_live_credentials(
 
     el_task = loop.run_in_executor(None, _test_el)
     sv_task = (
-        verify_siakad_login(nim, studentv2_pass, session=sv_session, captcha=sv_captcha)
+        verify_siakad_login(nim, studentv2_pass, session=sv_session, captcha=sv_captcha, outcomes=outcomes)
         if studentv2_pass
         else None
     )
@@ -304,6 +354,7 @@ async def login(req_body: LoginRequest, request: Request):
             ),
         )
 
+    outcomes: dict = {}
     sv2_ok, el_ok = await verify_live_credentials(
         nim,
         el_pass,
@@ -312,6 +363,7 @@ async def login(req_body: LoginRequest, request: Request):
         el_captcha=req_body.captcha_elearning.code if req_body.captcha_elearning else None,
         sv_session=sv_session,
         sv_captcha=req_body.captcha_siakad.code if req_body.captcha_siakad else None,
+        outcomes=outcomes,
     )
 
     # Brute-force & login guard: hitung sukses jika MyBest valid (dan SIAKAD valid jika diisi)
@@ -330,13 +382,10 @@ async def login(req_body: LoginRequest, request: Request):
             )
             detail["error"]["captcha_hosts"] = captcha_missing
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
+        el_reason, el_errors = outcomes.get("elearning", ("unknown", []))
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=error_response(
-                code="INVALID_CREDENTIALS",
-                message="Kredensial kampus tidak valid atau kode CAPTCHA salah",
-                module="auth",
-            ),
+            detail=_rejection_detail("elearning", el_reason, el_errors),
         )
 
     # Opsi A: SIAKAD diisi tapi salah -> login tetap sukses, SIAKAD terkunci (pass kosong),
@@ -344,7 +393,9 @@ async def login(req_body: LoginRequest, request: Request):
     effective_sv_pass = raw_sv_pass if sv2_ok else ""
     warnings: list[str] = []
     if siakad_attempted and not sv2_ok:
-        warnings.append("Password SIAKAD salah. Fitur SIAKAD terkunci; hubungkan ulang di Sesi & Keamanan.")
+        sv_reason, sv_errors = outcomes.get("studentv2", ("unknown", []))
+        sv_message = _rejection_detail("studentv2", sv_reason, sv_errors)["error"]["message"]
+        warnings.append(f"{sv_message} Fitur SIAKAD terkunci; hubungkan ulang di Sesi & Keamanan.")
 
     from app.session_store import session_store
 
