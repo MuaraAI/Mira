@@ -33,6 +33,7 @@ import {
   ghostButtonClass,
 } from "@/components/dashboard-ui";
 import { DosenInfo } from "@/components/DosenInfo";
+import { QUIZ_PACKAGES } from "@/data/quiz-catalog";
 
 interface QuizItem {
   id: string;
@@ -211,12 +212,14 @@ export default function KuisPage() {
     mode: "live" | "simulasi",
     token?: string | null,
     title?: string,
-    isPopup = true
+    isPopup = true,
+    paketId?: string
   ) {
     const params = new URLSearchParams();
     params.set("mode", mode);
     if (token) params.set("token", token);
     if (title) params.set("paket", title);
+    if (paketId) params.set("paket_id", paketId);
     const url = `/dashboard/kuis/room?${params.toString()}`;
 
     if (typeof window !== "undefined") {
@@ -232,7 +235,10 @@ export default function KuisPage() {
         const height = 800;
         const left = Math.max(0, (window.screen.width - width) / 2);
         const top = Math.max(0, (window.screen.height - height) / 2);
-        const safeWindowName = `CBT_${mode}_${(token || "sim").replace(/[^a-zA-Z0-9_]/g, "")}`;
+        const safeWindowName = `CBT_${mode}_${(token || paketId || "sim").replace(
+          /[^a-zA-Z0-9_]/g,
+          ""
+        )}`;
         try {
           const popup = window.open(
             url,
@@ -269,45 +275,91 @@ export default function KuisPage() {
           </a>
         </div>
 
-        {/* Banner Simulasi Mandiri (Tryout) */}
-        <div className="mt-4 p-5 rounded-xl border border-[#0369A1]/30 bg-gradient-to-br from-[#F0F7FB] via-white to-[#F0F7FB] shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="space-y-1.5 flex-1">
-            <div className="flex items-center gap-2">
+        {/* Quiz by Mira: simulasi latihan dari modul P1-P8 */}
+        <section className="mt-4 p-5 rounded-xl border border-[#0369A1]/30 bg-gradient-to-br from-[#F0F7FB] via-white to-[#F0F7FB] shadow-sm space-y-4">
+          <div className="space-y-1.5">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-[#0369A1] text-white">
-                TRYOUT MANDIRI
+                Quiz by Mira
               </span>
               <span className="text-xs font-mono font-semibold text-[#0369A1]">
-                30+ Bank Soal Informatika
+                Latihan Modul P1-P8
               </span>
             </div>
             <h2 className="text-base font-display font-bold text-foreground">
-              Simulasi Ujian Online CBT
+              Simulasi Ujian CBT per Mata Kuliah
             </h2>
             <p className="text-xs text-secondary leading-relaxed max-w-2xl">
-              Uji kesiapan pemahaman materi perkuliahan Anda dengan bank soal pilihan ganda acak, sistem pelindung ujian interaktif, timer otomatis, dan pembahasan skor nilai instan tanpa memengaruhi akun kampus.
+              Bank soal pilihan ganda disusun dari modul perkuliahan, diacak tiap sesi, dengan
+              timer otomatis dan pembahasan jawaban setelah selesai. Latihan ini tidak menyentuh
+              akun kampus.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => openCbtRoom("simulasi", null, "Simulasi Mandiri CBT", true)}
-              className="px-4 py-2.5 rounded-pill bg-[#0369A1] hover:bg-[#0284C7] text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
-            >
-              <Play className="w-3.5 h-3.5 fill-current" aria-hidden="true" />
-              <span>Mulai Tryout (Popup CBT)</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => openCbtRoom("simulasi", null, "Simulasi Mandiri CBT", false)}
-              className="px-3.5 py-2.5 rounded-pill border border-stroke bg-white hover:bg-[#F0F7FB] text-secondary hover:text-foreground text-xs font-semibold transition-all flex items-center gap-1.5"
-              title="Buka di tab peramban penuh"
-            >
-              <Maximize2 className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Tab Penuh</span>
-            </button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {QUIZ_PACKAGES.map((pkg) => (
+              <div
+                key={pkg.id}
+                className="flex flex-col gap-3 p-4 rounded-lg bg-white border border-stroke shadow-sm"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="text-sm font-display font-bold text-foreground">
+                      {pkg.judul}
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-pill text-[10px] font-mono font-bold uppercase bg-[#F0F7FB] text-[#0369A1] border border-stroke shrink-0">
+                      {pkg.total_soal} soal
+                    </span>
+                  </div>
+                  <p className="text-[11px] font-mono text-secondary">{pkg.kategori}</p>
+                  <p className="text-xs text-secondary leading-relaxed">{pkg.deskripsi}</p>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 mt-auto pt-1">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-mono text-secondary">
+                    <Clock className="w-3 h-3" aria-hidden="true" />
+                    {pkg.durasi_menit} menit
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openCbtRoom(
+                          "simulasi",
+                          null,
+                          `Quiz by Mira: ${pkg.judul}`,
+                          false,
+                          pkg.id
+                        )
+                      }
+                      className={`${ghostButtonClass} text-xs py-1.5 flex items-center gap-1`}
+                      title="Buka di tab peramban penuh"
+                    >
+                      <Maximize2 className="w-3 h-3" aria-hidden="true" />
+                      <span>Tab</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openCbtRoom(
+                          "simulasi",
+                          null,
+                          `Quiz by Mira: ${pkg.judul}`,
+                          true,
+                          pkg.id
+                        )
+                      }
+                      className="px-3.5 py-1.5 rounded-pill bg-[#0369A1] hover:bg-[#0284C7] text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+                    >
+                      <Play className="w-3 h-3 fill-current" aria-hidden="true" />
+                      <span>Mulai</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
+        </section>
         {/* Filter Pills */}
         <div className="px-seg">
           <button

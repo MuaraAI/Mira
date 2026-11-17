@@ -34,10 +34,10 @@ Fitur ini menghadirkan **Ruang Ujian Dedicated CBT (`/dashboard/kuis/room`)** di
   - Mengambil daftar soal, timer, dan CSRF token melalui `GET /v1/elearning/quiz/questions`.
   - Otomatis menyimpan jawaban ke backend kampus melalui `POST /v1/elearning/quiz/answer` tiap kali opsi radio dipilih.
   - Saat waktu habis atau mahasiswa menekan *Selesaikan Kuis*, sistem mengirim sinyal penutupan ke MyBest (`/selesai`) dan menampilkan ringkasan selesai.
-- **Offline Simulation Mode (Tryout)**:
-  - Bank soal latihan acak (30+ bank soal TIK, algoritma, basis data, jaringan, dan dasar pemrograman).
+- **Offline Simulation Mode (Quiz by Mira)**:
+  - Bank soal per mata kuliah yang disusun dari modul P1-P8 (PTIK 50 butir, Logika & Algoritma 61 butir).
   - Timer countdown mandiri, status nomor soal terjawab/ragu-ragu/belum.
-  - Rekap skor otomatis di akhir pengerjaan (jumlah benar, salah, dan nilai akhir 0-100).
+  - Rekap skor otomatis di akhir pengerjaan (jumlah benar, salah, nilai akhir 0-100) plus pembahasan tiap butir.
 - **Aksesibilitas & Standar UI**:
   - Responsif hingga lebar 360px.
   - Desain token Fluid Currents Light (bebas em-dash, tanpa ikon emoji).
@@ -75,7 +75,7 @@ Menjalankan kuis di dalam modal layer penuh (`fixed inset-0 z-50`) langsung di h
 ### A. Rute & Shell Halaman (`landing-page/src/app/dashboard/kuis/room/page.tsx`)
 * Membaca query params:
   - `?mode=live&token=...` untuk kuis resmi MyBest.
-  - `?mode=simulasi&paket=...` untuk kuis simulasi tryout.
+  - `?mode=simulasi&paket_id=ptik|logika&paket=...` untuk kuis simulasi Quiz by Mira.
 * Layout:
   1. **Top Navbar CBT**: Nama paket kuis, identitas mahasiswa, dan Countdown Timer (`HH : MM : SS`).
   2. **Aside (Kiri)**: Grid nomor soal (PG 1..N dan Essay jika ada) dengan 3 status warna:
@@ -105,9 +105,11 @@ Menangani event listener:
 * Setiap pilihan jawaban disimpan ke `localStorage` (`mira_quiz_progress_{id}`) agar jawaban tidak hilang jika peramban tidak sengaja ter-reload.
 * Untuk kuis live, memanggil `apiFetch('/v1/elearning/quiz/answer', { method: 'POST', body: ... })` secara asinkron tanpa memblokir navigasi antar-soal.
 
-### D. Bank Soal Mode Simulasi (`landing-page/src/data/quiz-simulation.ts`)
-* Berisi 30+ bank soal umum perkuliahan Informatika & TIK UBSI (Logika & Algoritma, Jaringan Komputer, PTIK, Dasar Pemrograman, Basis Data).
-* Sistem mengacak (*shuffle*) 15-20 butir soal tiap kali sesi simulasi baru dimulai.
+### D. Bank Soal Mode Simulasi (Quiz by Mira)
+* Katalog paket: `landing-page/src/data/quiz-catalog.ts` (metadata ringan: judul, kategori, jumlah soal, durasi).
+* Bank soal: `landing-page/src/data/quiz-bank/ptik.ts` (50 butir) dan `landing-page/src/data/quiz-bank/logika.ts` (61 butir), masing-masing disusun dari modul P1-P8.
+* Engine: `landing-page/src/data/quiz-simulation.ts` mengekspor `buildSimulationQuiz(packageId, count?)` yang mengacak urutan soal sekaligus posisi opsi (kunci jawaban disinkronkan), dan `evaluateSimulationScore` untuk rekap nilai.
+* Halaman `/dashboard/kuis` menampilkan kartu paket; progres jawaban tersimpan di `localStorage` dengan kunci `mira_sim_answers_{paket_id}`.
 
 ---
 
