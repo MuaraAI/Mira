@@ -72,6 +72,13 @@ function ShellLayout({ children }: { children: React.ReactNode }) {
   const title = getPageTitle(pathname);
   // Komunitas adalah aplikasi chat: pakai lebar penuh dan tinggi layar, tanpa banner dan footer.
   const chatRoute = pathname.startsWith("/dashboard/komunitas");
+  // Ruang CBT punya shell sendiri (tanpa sidebar/nav dashboard). Mode simulasi juga harus
+  // tetap bisa dibuka meski sesi kampus belum siap, karena seluruh soal berjalan luring.
+  const examRoute = pathname.startsWith("/dashboard/kuis/room");
+
+  if (examRoute) {
+    return <main id="main-content">{children}</main>;
+  }
 
   return (
     <div className="portal-type min-h-screen bg-background text-foreground flex flex-col lg:flex-row">

@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight, HelpCircle, CheckCircle2 } from "lucide-react";
-import type { OptionKey } from "@/data/quiz-simulation";
+import type { OptionKey } from "@/data/quiz-catalog";
 
 export interface QuestionViewData {
   id: string;

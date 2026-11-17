@@ -1,7 +1,7 @@
 "use client";
 
 import { Award, CheckCircle2, XCircle, RotateCcw, ArrowLeft, BookOpen } from "lucide-react";
-import type { SimulationResult } from "@/data/quiz-simulation";
+import type { SimulationResult } from "@/data/quiz-catalog";
 
 export interface CbtResultViewProps {
   judul: string;
@@ -142,25 +142,41 @@ export function CbtResultView({
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-1">
-                <div className="p-2.5 rounded bg-slate-50 border border-slate-200">
+                <div className="p-2.5 rounded bg-slate-50 border border-slate-200 space-y-1">
                   <span className="text-[10px] font-mono text-slate-700 uppercase block">
                     Pilihan Anda:
                   </span>
-                  <span
-                    className={`font-mono font-bold ${
-                      item.is_benar ? "text-emerald-700" : "text-rose-700"
-                    }`}
-                  >
-                    {item.jawaban_user ? `Opsi ${item.jawaban_user}` : "(Tidak Menjawab)"}
-                  </span>
+                  {item.jawaban_user ? (
+                    <>
+                      <span
+                        className={`font-mono font-bold block ${
+                          item.is_benar ? "text-emerald-700" : "text-rose-700"
+                        }`}
+                      >
+                        Opsi {item.jawaban_user}
+                      </span>
+                      {item.teks_jawaban_user && (
+                        <span className="text-slate-600 leading-relaxed block">
+                          {item.teks_jawaban_user}
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="font-mono font-bold text-slate-500">(Tidak Menjawab)</span>
+                  )}
                 </div>
-                <div className="p-2.5 rounded bg-emerald-50/70 border border-emerald-200">
+                <div className="p-2.5 rounded bg-emerald-50/70 border border-emerald-200 space-y-1">
                   <span className="text-[10px] font-mono text-emerald-800 uppercase block">
                     Kunci Jawaban Benar:
                   </span>
-                  <span className="font-mono font-bold text-emerald-700">
+                  <span className="font-mono font-bold text-emerald-700 block">
                     Opsi {item.kunci_jawaban}
                   </span>
+                  {item.teks_kunci && (
+                    <span className="text-emerald-900/80 leading-relaxed block">
+                      {item.teks_kunci}
+                    </span>
+                  )}
                 </div>
               </div>
 
