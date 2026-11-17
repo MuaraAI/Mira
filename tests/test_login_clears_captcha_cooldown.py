@@ -79,3 +79,52 @@ async def test_successful_login_clears_captcha_cooldown(monkeypatch, tmp_path):
 
     assert res.status_code == 200
     assert block_reason("elearning", nim) is None
+
+
+@pytest.mark.asyncio
+async def test_mybest_only_failure_reports_captcha_invalid(monkeypatch, tmp_path):
+    reset_blocks()
+    fake = FakeRedis()
+    monkeypatch.setattr("app.session_store.session_store._client", fake)
+    monkeypatch.setattr("app.limiter.limiter._client", fake)
+    monkeypatch.setattr("app.login_guard.login_guard._client", fake)
+    monkeypatch.setattr("app.config.settings.SQLITE_DB_PATH", str(tmp_path / "ubsi.db"))
+    monkeypatch.setattr("app.limiter.limiter.is_allowed", AsyncMock(return_value=True))
+    monkeypatch.setattr(
+        "app.login_guard.login_guard.check_ip",
+        AsyncMock(return_value=SimpleNamespace(allowed=True, retry_after=0)),
+    )
+    monkeypatch.setattr("app.login_guard.login_guard.record_attempt", AsyncMock())
+    monkeypatch.setattr("app.modules.news.news_client.fetch_posts", lambda *a, **k: [])
+    monkeypatch.setattr("app.modules.news.news_client.fetch_post_detail", lambda *a, **k: {})
+    monkeypatch.setattr(
+        "app.captcha_relay.consume_challenge",
+        AsyncMock(return_value={"host": "elearning", "nim": "12345678", "token": "tok", "cookies": {}}),
+    )
+
+    async def verify(nim, el_pass, sv_pass, *, outcomes=None, **kwargs):
+        if outcomes is not None:
+            outcomes["elearning"] = ("captcha", ["Kode keamanan salah"])
+        return False, False
+
+    monkeypatch.setattr("app.modules.auth.verify_live_credentials", verify)
+    from app.channels_db import init_db
+
+    init_db()
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        res = await ac.post(
+            "/v1/auth/login",
+            json={
+                "nim": "12345678",
+                "studentv2_pass": "",
+                "elearning_pass": "el_pass",
+                "captcha_elearning": {"id": "a" * 32, "code": "abc"},
+            },
+        )
+
+    assert res.status_code == 401
+    detail = res.json()["error"]
+    assert detail["code"] == "CAPTCHA_INVALID"
+    assert "captcha_hosts" not in detail
