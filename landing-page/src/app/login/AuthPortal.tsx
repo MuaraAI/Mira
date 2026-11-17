@@ -54,6 +54,10 @@ const IDLE_STEPS: Record<StepKey, StepState> = {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Login memanggil dua server kampus; tanpa batas waktu UI bisa macet di "Memeriksa kredensial".
+const LOGIN_TIMEOUT_MS = 60_000;
+const MIN_NIM_LENGTH = 3;
+
 // Server memblokir IP yang spam login; simpan batas waktunya agar refresh halaman tidak bisa mengakali.
 const BLOCK_KEY = "mira_login_blocked_until";
 
@@ -422,6 +426,19 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
     });
   }
 
+  // CAPTCHA terikat ke NIM di server: ganti NIM berarti tantangan lama tidak berlaku lagi.
+  function handleNimChange(value: string) {
+    setNim(value);
+    setCaptchas({});
+  }
+
+  // Muat CAPTCHA sejak awal (saat NIM selesai diisi), jangan menunggu login gagal dulu.
+  function preloadCaptchas() {
+    if (nim.trim().length < MIN_NIM_LENGTH) return;
+    if (!captchas.elearning) void loadCaptcha("elearning");
+    if (!skipSiakad && siakadPass.trim() && !captchas.siakad) void loadCaptcha("siakad");
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (blockedUntil || submitting) return;
@@ -458,6 +475,7 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
         systems?: { siakad: boolean; mybest: boolean };
         warnings?: string[];
       }>("/v1/auth/login", {
+        signal: AbortSignal.timeout(LOGIN_TIMEOUT_MS),
         json: {
           nim: nim.trim(),
           studentv2_pass: effectiveSiakad,
@@ -685,7 +703,8 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
                       required
                       minLength={3}
                       value={nim}
-                      onChange={(e) => setNim(e.target.value)}
+                      onChange={(e) => handleNimChange(e.target.value)}
+                      onBlur={preloadCaptchas}
                       autoComplete="username"
                       placeholder="152xxxxx"
                       className={`${fieldClass} font-mono tracking-wider`}
@@ -706,7 +725,14 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
                         type="button"
                         onClick={() => {
                           setSkipSiakad((prev) => !prev);
-                          if (!skipSiakad) setSiakadPass("");
+                          if (!skipSiakad) {
+                            setSiakadPass("");
+                            setCaptchas((prev) => {
+                              const next = { ...prev };
+                              delete next.siakad;
+                              return next;
+                            });
+                          }
                         }}
                         className="inline-flex items-center font-mono text-[11px] font-semibold text-[#0369A1] hover:underline"
                       >
@@ -784,7 +810,7 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
                                 value={cap.code}
                                 onChange={(e) => setCaptchaCode(host, e.target.value)}
                                 maxLength={8}
-                                required
+                                required={host === "elearning" || siakadPass.trim().length > 0}
                                 autoComplete="off"
                                 autoCapitalize="off"
                                 autoCorrect="off"

@@ -48,6 +48,8 @@ _PASSWORD_INPUT_RE = re.compile(r"""name=["']password["']""", re.IGNORECASE)
 CAPTCHA_COOLDOWN_SECONDS = 20 * 60
 CREDENTIAL_COOLDOWN_SECONDS = 10 * 60
 THROTTLE_COOLDOWN_SECONDS = 5 * 60
+# Kegagalan tanpa penyebab jelas: cooldown pendek supaya worker tidak login ulang tiap siklus.
+UNKNOWN_COOLDOWN_SECONDS = 5 * 60
 
 _login_blocks: dict[tuple[str, str], tuple[float, str]] = {}
 _host_blocks: dict[str, tuple[float, str]] = {}
@@ -178,6 +180,8 @@ class UpstreamSession:
             mark_host_blocked(self.MODULE, "throttled", THROTTLE_COOLDOWN_SECONDS)
         elif reason == "credentials":
             mark_login_blocked(self.MODULE, nim, "credentials", CREDENTIAL_COOLDOWN_SECONDS)
+        else:
+            mark_login_blocked(self.MODULE, nim, "unknown", UNKNOWN_COOLDOWN_SECONDS)
 
     def _persist_cookies(self, nim: str) -> None:
         """Simpan cookie sesi kampus agar NIM tidak perlu login ulang + CAPTCHA."""
