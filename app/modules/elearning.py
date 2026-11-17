@@ -24,7 +24,7 @@ from app.config import settings
 from app.deps import require_elearning_creds
 from app.envelope import success_response, error_response
 from app.session_pool import SessionPool
-from app.upstream_session import UpstreamSession, is_logged_out_response
+from app.upstream_session import UpstreamSession, classify_login_failure, is_logged_out_response
 from app.retry import retry_async
 from app.proxy import get_proxy
 from app.cache import WIB, cache
@@ -1521,17 +1521,18 @@ class ElearningClient(UpstreamSession):
                 return True
             if r2.status_code == 429:
                 self._login_failure = "throttled"
-            elif _elearning_image_captcha(r2.text) and "captcha" in r2.text.lower():
-                self._login_failure = "captcha"
+                self._login_errors = []
             else:
-                self._login_failure = "credentials"
+                self._login_failure, self._login_errors = classify_login_failure(
+                    r2.text, _elearning_image_captcha(r2.text)
+                )
             if self._login_failure == "captcha":
                 # Kondisi yang diharapkan sejak kampus mewajibkan CAPTCHA; bukan insiden.
                 logger.info("Elearning login butuh CAPTCHA untuk %s (menunggu login user)", nim)
             else:
                 logger.warning(
-                    "Elearning login rejected for %s: ended at %s (status %s, reason %s)",
-                    nim, r2.url, r2.status_code, self._login_failure,
+                    "Elearning login rejected for %s: ended at %s (status %s, reason %s, pesan kampus: %s)",
+                    nim, r2.url, r2.status_code, self._login_failure, "; ".join(self._login_errors) or "-",
                 )
             return False
         except Exception as err:
