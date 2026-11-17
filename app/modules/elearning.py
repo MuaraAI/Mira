@@ -1494,13 +1494,17 @@ class ElearningClient(UpstreamSession):
                     return False
                 token = m.group(1)
                 if captcha is None:
+                    # Default-deny: solver lama hanya boleh dipakai untuk
+                    # CAPTCHA SVG <text> yang dikenal. Regex matematikanya juga
+                    # cocok dengan "3+3" di base64 PNG dan pernah mengirim
+                    # captcha_answer=6 ke kampus. Jangan POST tanpa jawaban relay.
+                    if _elearning_image_captcha(r1.text) or "<text" not in r1.text:
+                        self._login_failure = "captcha"
+                        return False
                     try:
                         captcha = str(solve_captcha(r1.text))
                     except ValueError:
-                        # Sejak Nov 2026 kampus memakai CAPTCHA gambar PNG
-                        # (`captcha_answer`) yang harus dijawab user lewat relay.
-                        if _elearning_image_captcha(r1.text):
-                            self._login_failure = "captcha"
+                        self._login_failure = "captcha"
                         return False
 
             payload = {

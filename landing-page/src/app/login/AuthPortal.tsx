@@ -57,7 +57,9 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Login memanggil dua server kampus; tanpa batas waktu UI bisa macet di "Memeriksa kredensial".
 const LOGIN_TIMEOUT_MS = 60_000;
-const MIN_NIM_LENGTH = 3;
+// NIM kampus 8 digit. Pakai panjang ini untuk preload supaya tantangan tidak
+// dibuat terlalu awal (TTL gambar kampus hanya 5 menit).
+const MIN_NIM_LENGTH = 8;
 
 // Server memblokir IP yang spam login; simpan batas waktunya agar refresh halaman tidak bisa mengakali.
 const BLOCK_KEY = "mira_login_blocked_until";
@@ -344,6 +346,9 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
   const [captchas, setCaptchas] = useState<Partial<Record<CaptchaHost, CaptchaState>>>({});
   const [forgotSystem, setForgotSystem] = useState<PasswordSystem>("mybest");
   const nimRef = useRef<HTMLInputElement>(null);
+  const nimPreloadTimer = useRef<number | null>(null);
+  const nimValue = useRef("");
+  const captchaGeneration = useRef<Partial<Record<CaptchaHost, number>>>({});
   const { blockedUntil, remainingMs, block } = useBlockedUntil();
 
   // URL ikut tampilan supaya refresh tetap di layar yang sama.
@@ -396,18 +401,25 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
     window.requestAnimationFrame(() => nimRef.current?.focus());
   }
 
-  async function loadCaptcha(host: CaptchaHost) {
+  async function loadCaptcha(host: CaptchaHost, candidateNim = nim) {
     const label = host === "siakad" ? "SIAKAD" : "MyBest";
+    const generation = (captchaGeneration.current[host] ?? 0) + 1;
+    captchaGeneration.current[host] = generation;
+    const targetNim = candidateNim.trim();
     setCaptchas((prev) => ({
       ...prev,
       [host]: { id: "", image: "", label, code: "", loading: true },
     }));
     try {
       const data = await apiFetch<{ id: string; image: string; label: string }>("/v1/auth/captcha", {
-        json: { nim: nim.trim(), host },
+        json: { nim: targetNim, host },
       });
+      // NIM bisa berubah saat request terbang. Challenge lama terikat NIM lama
+      // dan akan ditolak server, jangan dipasang ke state.
+      if (captchaGeneration.current[host] !== generation || nimValue.current.trim() !== targetNim) return;
       setCaptchas((prev) => ({ ...prev, [host]: { ...data, code: "" } }));
     } catch (err) {
+      if (captchaGeneration.current[host] !== generation) return;
       setCaptchas((prev) => {
         const next = { ...prev };
         delete next[host];
@@ -433,15 +445,25 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
 
   // CAPTCHA terikat ke NIM di server: ganti NIM berarti tantangan lama tidak berlaku lagi.
   function handleNimChange(value: string) {
+    nimValue.current = value;
     setNim(value);
     setCaptchas({});
+    if (nimPreloadTimer.current) window.clearTimeout(nimPreloadTimer.current);
+    if (value.trim().length < MIN_NIM_LENGTH) return;
+    // Kirim snapshot kosong: state `captchas` belum ter-update di render ini.
+    nimPreloadTimer.current = window.setTimeout(() => void preloadCaptchas(value, {}), 400);
   }
 
-  // Muat CAPTCHA sejak awal (saat NIM selesai diisi), jangan menunggu login gagal dulu.
-  function preloadCaptchas() {
-    if (nim.trim().length < MIN_NIM_LENGTH) return;
-    if (!captchas.elearning) void loadCaptcha("elearning");
-    if (!skipSiakad && siakadPass.trim() && !captchas.siakad) void loadCaptcha("siakad");
+  // Muat CAPTCHA sejak NIM valid, jangan menunggu blur atau login gagal dulu.
+  function preloadCaptchas(
+    candidateNim = nim,
+    existing: Partial<Record<CaptchaHost, CaptchaState>> = captchas
+  ) {
+    if (candidateNim.trim().length < MIN_NIM_LENGTH) return;
+    if (!existing.elearning) void loadCaptcha("elearning", candidateNim);
+    if (!skipSiakad && siakadPass.trim() && !existing.siakad) {
+      void loadCaptcha("siakad", candidateNim);
+    }
   }
 
   // CAPTCHA SIAKAD dimuat begitu password SIAKAD terisi, tanpa bergantung urutan pengisian NIM.
@@ -721,7 +743,7 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
                       minLength={3}
                       value={nim}
                       onChange={(e) => handleNimChange(e.target.value)}
-                      onBlur={preloadCaptchas}
+                      onBlur={() => preloadCaptchas()}
                       autoComplete="username"
                       placeholder="152xxxxx"
                       className={`${fieldClass} font-mono tracking-wider`}
