@@ -40,6 +40,8 @@ async def cached_endpoint(
     should_cache: Optional[Callable[[Any], bool]] = None,
     allow_stale: bool = True,
     ttl_for: Optional[Callable[[Any], int]] = None,
+    fallback: Optional[Callable[[], Any]] = None,
+    fallback_module: str = "",
 ):
     """Pola standar endpoint: cek cache, fetch upstream dengan lock, fallback LGG.
 
@@ -53,6 +55,8 @@ async def cached_endpoint(
     - should_cache(data) False -> hasil dikirim tapi tidak disimpan (mis. hasil parsial
       karena sebagian sumber gagal), supaya request berikutnya mencoba lagi
     - ttl_for(data) -> TTL per hasil (mis. hasil parsial disimpan singkat, bukan dibuang)
+    - fallback -> sumber alias saat utama gagal dan tidak ada LGG (mis. jadwal SIAKAD
+      dijawab dari MyBest). Respons menyertakan `source: <fallback_module>`.
     """
     params = cache_params or {}
     cache_key = cache.make_key(module, name, **params)
@@ -83,6 +87,28 @@ async def cached_endpoint(
                 await cache.set(cache_key, data, ttl=ttl_for(data) if ttl_for else ttl)
             return success_response(data=data, cached=False)
         except Exception as e:
+            # Alias dulu (data segar dari sumber kedua), baru LGG (data basi), baru gagal.
+            if fallback is not None:
+                try:
+                    fb = fallback()
+                    if inspect.isawaitable(fb):
+                        fb = await fb
+                    if should_cache is None or should_cache(fb):
+                        await cache.set(cache_key, fb, ttl=ttl_for(fb) if ttl_for else ttl)
+                    logger.info(
+                        "endpoint %s/%s dijawab dari sumber alias %s", module, name, fallback_module or "alias"
+                    )
+                    return success_response(data=fb, cached=False, source=fallback_module or "alias")
+                except Exception as fb_err:
+                    logger.warning(
+                        "Fallback %s untuk %s/%s juga gagal: %s: %s",
+                        fallback_module or "alias",
+                        module,
+                        name,
+                        type(fb_err).__name__,
+                        fb_err,
+                    )
+                    e = fb_err  # laporkan penyebab terakhir ke pemanggil
             lgg_result = await cache.get_lgg(cache_key)
             if lgg_result:
                 lgg_data, _ = lgg_result

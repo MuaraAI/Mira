@@ -148,18 +148,21 @@ export default function DashboardOverviewPage() {
 
   const todayIdx = now.getDay();
   const activeSchedule = useMemo(() => {
-    if (schedule.data && schedule.data.length > 0) return schedule.data;
-    return (courses.data ?? []).map((c) => ({
-      id: c.id || `${c.kode}-${c.jam}`,
-      kode: c.kode || "",
-      nama: c.nama,
-      hari: c.hari || "",
-      jam: c.jam || "",
-      sks: c.sks || 0,
-      ruang: c.ruang || "",
-      kode_dosen: c.kode_dosen || "-",
-      kelompok_praktek: null,
-    }));
+    // MyBest lebih dulu: lebih stabil sekarang; SIAKAD dipakai bila MyBest kosong.
+    if (courses.data && courses.data.length > 0) {
+      return courses.data.map((c) => ({
+        id: c.id || `${c.kode}-${c.jam}`,
+        kode: c.kode || "",
+        nama: c.nama,
+        hari: c.hari || "",
+        jam: c.jam || "",
+        sks: c.sks || 0,
+        ruang: c.ruang || "",
+        kode_dosen: c.kode_dosen || "-",
+        kelompok_praktek: c.kelompok_praktek ?? null,
+      }));
+    }
+    return schedule.data ?? [];
   }, [schedule.data, courses.data]);
 
   const todayClasses: TodayClass[] = useMemo(() => {

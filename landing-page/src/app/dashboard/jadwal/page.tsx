@@ -145,16 +145,19 @@ export default function JadwalPage() {
     return () => window.clearInterval(timer);
   }, []);
 
+  // MyBest lebih dulu: sumbernya lebih stabil dan skemanya sama dengan SIAKAD.
+  // SIAKAD jadi cadangan (dan pengaya detail bila MyBest kosong).
+  const hasElearningData = Boolean(elearningApi.data && elearningApi.data.length > 0);
   const hasSiakadData = Boolean(siakadApi.data && siakadApi.data.length > 0);
   const isSiakad401 = siakadApi.error?.status === 401;
 
   const schedule = useMemo(() => {
+    if (hasElearningData) return elearningApi.data!;
     if (hasSiakadData) return siakadApi.data!;
-    if (elearningApi.data && elearningApi.data.length > 0) return elearningApi.data;
-    return siakadApi.data ?? elearningApi.data ?? [];
-  }, [hasSiakadData, siakadApi.data, elearningApi.data]);
+    return elearningApi.data ?? siakadApi.data ?? [];
+  }, [hasElearningData, hasSiakadData, elearningApi.data, siakadApi.data]);
 
-  const source = hasSiakadData ? "siakad" : (elearningApi.data && elearningApi.data.length > 0 ? "elearning" : null);
+  const source = hasElearningData ? "elearning" : (hasSiakadData ? "siakad" : null);
 
   const loading = (siakadApi.loading && !siakadApi.data) && (elearningApi.loading && !elearningApi.data);
   const reload = () => {
