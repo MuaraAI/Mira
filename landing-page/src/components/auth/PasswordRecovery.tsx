@@ -99,8 +99,16 @@ interface SentInfo {
 }
 
 /** Langkah 1: NIM + email. Kampus mengirim link reset ke email terdaftar. */
-export function ForgotPasswordView({ initialNim, onBack }: { initialNim?: string; onBack: () => void }) {
-  const [system, setSystem] = useState<PasswordSystem>("mybest");
+export function ForgotPasswordView({
+  initialNim,
+  initialSystem = "mybest",
+  onBack,
+}: {
+  initialNim?: string;
+  initialSystem?: PasswordSystem;
+  onBack: () => void;
+}) {
+  const [system, setSystem] = useState<PasswordSystem>(initialSystem);
   const [nim, setNim] = useState(initialNim ?? "");
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState<SentInfo | null>(null);

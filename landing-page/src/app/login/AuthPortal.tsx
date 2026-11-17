@@ -8,6 +8,7 @@ import { apiFetch, ApiError, useApi, setApiCache, writeSessionToken } from "@/li
 import { inputClass, primaryButtonClass } from "@/components/dashboard-ui";
 import { Monogram } from "@/components/Monogram";
 import { ForgotPasswordView } from "@/components/auth/PasswordRecovery";
+import type { PasswordSystem } from "@/lib/security";
 
 export type AuthView = "login" | "forgot";
 
@@ -126,6 +127,7 @@ function PasswordField({
   required = true,
   action,
   hint,
+  onBlur,
 }: {
   id: string;
   label: string;
@@ -137,6 +139,7 @@ function PasswordField({
   required?: boolean;
   action?: React.ReactNode;
   hint?: React.ReactNode;
+  onBlur?: () => void;
 }) {
   const [show, setShow] = useState(false);
   return (
@@ -155,6 +158,7 @@ function PasswordField({
           required={required}
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur}
           autoComplete={autoComplete}
           placeholder={disabled ? "Dilewati (bisa diisi nanti)" : "xxxxx"}
           disabled={disabled}
@@ -338,6 +342,7 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
   const [finished, setFinished] = useState(false);
   // Kampus mewajibkan CAPTCHA gambar; jawabannya diketik user per host.
   const [captchas, setCaptchas] = useState<Partial<Record<CaptchaHost, CaptchaState>>>({});
+  const [forgotSystem, setForgotSystem] = useState<PasswordSystem>("mybest");
   const nimRef = useRef<HTMLInputElement>(null);
   const { blockedUntil, remainingMs, block } = useBlockedUntil();
 
@@ -439,6 +444,12 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
     if (!skipSiakad && siakadPass.trim() && !captchas.siakad) void loadCaptcha("siakad");
   }
 
+  // CAPTCHA SIAKAD dimuat begitu password SIAKAD terisi, tanpa bergantung urutan pengisian NIM.
+  function preloadSiakadCaptcha() {
+    if (skipSiakad || nim.trim().length < MIN_NIM_LENGTH || !siakadPass.trim()) return;
+    if (!captchas.siakad) void loadCaptcha("siakad");
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (blockedUntil || submitting) return;
@@ -450,6 +461,12 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
           0
         )
       );
+      return;
+    }
+    // Password SIAKAD diisi tapi CAPTCHA-nya belum ada: jangan kirim, minta user mengisi dulu.
+    if (!skipSiakad && siakadPass.trim() && !captchas.siakad?.id) {
+      void loadCaptcha("siakad");
+      setError(new ApiError("CAPTCHA_REQUIRED", "Isi CAPTCHA SIAKAD di bawah dulu, lalu tekan Masuk.", 0));
       return;
     }
     setSubmitting(true);
@@ -658,7 +675,7 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
 
             <div className="px-card bg-white p-5 [--px-drop:#0369A1] [--px-off:8px] min-[400px]:p-6 sm:p-8">
             {view === "forgot" ? (
-              <ForgotPasswordView initialNim={nim.trim()} onBack={() => go("login")} />
+              <ForgotPasswordView initialNim={nim.trim()} initialSystem={forgotSystem} onBack={() => go("login")} />
             ) : phase === "checking" ? (
               <LoginCheck nim={nim.trim()} steps={steps} startedAt={startedAt} finished={finished} error={error} onBack={backToForm} />
             ) : (
@@ -717,6 +734,7 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
                     name="studentv2_pass"
                     value={siakadPass}
                     onChange={setSiakadPass}
+                    onBlur={preloadSiakadCaptcha}
                     autoComplete="current-password"
                     disabled={skipSiakad}
                     required={!skipSiakad}
@@ -740,11 +758,25 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
                       </button>
                     }
                     hint={
-                      <p className="font-mono text-[11px] text-secondary">
-                        {skipSiakad
-                          ? "SIAKAD dilewati. Fitur jadwal & nilai akan terkunci sampai kamu menghubungkannya."
-                          : "Opsional. Jika gagal atau belum ingat, kamu bisa lewati dulu."}
-                      </p>
+                      <div className="space-y-1">
+                        <p className="font-mono text-[11px] text-secondary">
+                          {skipSiakad
+                            ? "SIAKAD dilewati. Fitur jadwal & nilai akan terkunci sampai kamu menghubungkannya."
+                            : "Opsional. Jika gagal atau belum ingat, kamu bisa lewati dulu."}
+                        </p>
+                        {!skipSiakad && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setForgotSystem("siakad");
+                              go("forgot");
+                            }}
+                            className="inline-flex min-h-8 items-center font-mono text-[11px] font-semibold text-[#0369A1] hover:underline"
+                          >
+                            Lupa password SIAKAD?
+                          </button>
+                        )}
+                      </div>
                     }
                   />
 
@@ -760,7 +792,10 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
                     <div className="mt-1 flex justify-end">
                       <button
                         type="button"
-                        onClick={() => go("forgot")}
+                        onClick={() => {
+                          setForgotSystem("mybest");
+                          go("forgot");
+                        }}
                         className="inline-flex min-h-10 items-center font-mono text-xs font-semibold text-[#0369A1] hover:underline"
                       >
                         Lupa password?
