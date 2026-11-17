@@ -41,13 +41,28 @@ DEFAULT_MAX_SESSION_AGE = 13 * 60
 
 _LOGIN_FORM_RE = re.compile(r"""<form[^>]+action=["'][^"']*/login["']""", re.IGNORECASE)
 _PASSWORD_INPUT_RE = re.compile(r"""name=["']password["']""", re.IGNORECASE)
-# Blok pesan error Laravel/Bootstrap pada halaman login kampus.
+# Blok pesan error pada halaman login kampus. Markup nyata (Nov 2026) memakai
+# Tailwind: `<div class="bg-red-50 border border-red-300 text-red-600 ...">Kode
+# keamanan salah...</div>` tanpa kata "alert"/"invalid-feedback", sehingga pola
+# lama tidak pernah menemukan pesan kampus dan semua penolakan terbaca "captcha".
 _LOGIN_ERROR_BLOCK_RE = re.compile(
-    r"""<[^>]+class=["'][^"']*(?:invalid-feedback|alert|text-danger|error)[^"']*["'][^>]*>(.*?)</(?:div|p|span|li|small)\s*>""",
+    r"""<[^>]+class=["'][^"']*(?:invalid-feedback|alert|text-danger|error"""
+    r"""|text-red-\d{2,3}|bg-red-\d{2,3})[^"']*["'][^>]*>(.*?)</(?:div|p|span|li|small)\s*>""",
     re.IGNORECASE | re.DOTALL,
 )
 _MAX_LOGIN_ERRORS = 5
 _MAX_LOGIN_ERROR_CHARS = 200
+
+# Kampus menyebut CAPTCHA dengan beberapa istilah: "captcha" (SIAKAD) dan
+# "kode keamanan" (MyBest). Tanpa daftar ini, penolakan CAPTCHA MyBest terbaca
+# sebagai "password salah" sehingga user disuruh memeriksa password yang benar.
+_CAPTCHA_HINT_RE = re.compile(
+    r"captcha|kode\s+keamanan|kode\s+verifikasi|security\s+code", re.IGNORECASE
+)
+
+
+def _mentions_captcha(text: str) -> bool:
+    return bool(_CAPTCHA_HINT_RE.search(text or ""))
 
 
 def extract_login_errors(html: str) -> list[str]:
@@ -70,7 +85,7 @@ def classify_login_failure(html: str, has_captcha_form: bool) -> tuple[str, list
     dan form CAPTCHA muncul, diperlakukan sebagai "captcha".
     """
     errors = extract_login_errors(html)
-    if any("captcha" in error.lower() for error in errors):
+    if any(_mentions_captcha(error) for error in errors):
         return "captcha", errors
     if errors:
         return "credentials", errors
