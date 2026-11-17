@@ -495,8 +495,8 @@ class StudentV2Client(UpstreamSession):
                     r2.text, _siakad_captcha_required(r2.text)
                 )
             if self._login_failure == "captcha":
-                # Kondisi yang diharapkan sejak kampus mewajibkan CAPTCHA; bukan insiden.
-                logger.info(
+                # Warning: level info dibuang default logging, pesan kampus harus terlihat di pm2 logs.
+                logger.warning(
                     "SIAKAD login butuh CAPTCHA untuk %s (pesan kampus: %s)",
                     nim,
                     "; ".join(self._login_errors) or "-",
