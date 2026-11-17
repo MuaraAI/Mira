@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, Eye, EyeOff, LogIn, ShieldBan, X } from "lucide-react";
+import { ArrowLeft, Check, Eye, EyeOff, LogIn, RefreshCw, ShieldBan, X } from "lucide-react";
 import { apiFetch, ApiError, useApi, setApiCache, writeSessionToken } from "@/lib/api";
 import { inputClass, primaryButtonClass } from "@/components/dashboard-ui";
 import { Monogram } from "@/components/Monogram";
@@ -26,6 +26,15 @@ const fieldClass = `${inputClass} min-h-12 text-base sm:text-sm`;
 
 type StepKey = "form" | "siakad" | "mybest" | "session" | "redirect";
 type StepState = "pending" | "running" | "done" | "failed";
+
+type CaptchaHost = "siakad" | "elearning";
+interface CaptchaState {
+  id: string;
+  image: string;
+  label: string;
+  code: string;
+  loading?: boolean;
+}
 
 const STEPS: { key: StepKey; label: string; detail: string }[] = [
   { key: "form", label: "Cek isian", detail: "NIM dan kedua password" },
@@ -323,6 +332,8 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
   const [steps, setSteps] = useState<Record<StepKey, StepState>>(IDLE_STEPS);
   const [startedAt, setStartedAt] = useState(0);
   const [finished, setFinished] = useState(false);
+  // Kampus mewajibkan CAPTCHA gambar; jawabannya diketik user per host.
+  const [captchas, setCaptchas] = useState<Partial<Record<CaptchaHost, CaptchaState>>>({});
   const nimRef = useRef<HTMLInputElement>(null);
   const { blockedUntil, remainingMs, block } = useBlockedUntil();
 
@@ -376,6 +387,42 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
     window.requestAnimationFrame(() => nimRef.current?.focus());
   }
 
+  async function loadCaptcha(host: CaptchaHost) {
+    const label = host === "siakad" ? "SIAKAD" : "MyBest";
+    setCaptchas((prev) => ({
+      ...prev,
+      [host]: { id: "", image: "", label, code: "", loading: true },
+    }));
+    try {
+      const data = await apiFetch<{ id: string; image: string; label: string }>("/v1/auth/captcha", {
+        json: { nim: nim.trim(), host },
+      });
+      setCaptchas((prev) => ({ ...prev, [host]: { ...data, code: "" } }));
+    } catch (err) {
+      setCaptchas((prev) => {
+        const next = { ...prev };
+        delete next[host];
+        return next;
+      });
+      setError(
+        err instanceof ApiError
+          ? err
+          : new ApiError("CAPTCHA_UNAVAILABLE", "Gagal memuat CAPTCHA kampus. Coba lagi.", 0)
+      );
+    }
+  }
+
+  function setCaptchaCode(host: CaptchaHost, code: string) {
+    setCaptchas((prev) => {
+      const current = prev[host];
+      if (!current) return prev;
+      return {
+        ...prev,
+        [host]: { ...current, code: code.toUpperCase().replace(/[^A-Z0-9]/g, "") },
+      };
+    });
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (blockedUntil || submitting) return;
@@ -416,6 +463,12 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
           nim: nim.trim(),
           studentv2_pass: effectiveSiakad,
           elearning_pass: mybestPass.trim(),
+          ...(captchas.elearning?.id && captchas.elearning.code
+            ? { captcha_elearning: { id: captchas.elearning.id, code: captchas.elearning.code } }
+            : {}),
+          ...(effectiveSiakad && captchas.siakad?.id && captchas.siakad.code
+            ? { captcha_siakad: { id: captchas.siakad.id, code: captchas.siakad.code } }
+            : {}),
         },
       });
 
@@ -450,6 +503,36 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
       const apiErr = err instanceof ApiError ? err : new ApiError("ERROR", "Login gagal. Coba lagi.", 0);
       if (apiErr.retryAfter && apiErr.status === 429) {
         block(apiErr.retryAfter);
+      }
+      // Kampus mewajibkan CAPTCHA: muat gambar untuk host yang diminta lalu tunggu user.
+      if (apiErr.code === "AUTH_CAPTCHA_REQUIRED") {
+        const hosts = (apiErr.captchaHosts?.length ? apiErr.captchaHosts : ["elearning"]).filter(
+          (host): host is CaptchaHost => host === "siakad" || host === "elearning"
+        );
+        setPhase("form");
+        setSteps(IDLE_STEPS);
+        setFinished(false);
+        await Promise.all(hosts.map((host) => loadCaptcha(host)));
+        setError(
+          new ApiError(
+            "AUTH_CAPTCHA_REQUIRED",
+            "Kampus mewajibkan CAPTCHA. Baca kode pada gambar di bawah, lalu tekan Masuk.",
+            401
+          )
+        );
+        return;
+      }
+      // Kode CAPTCHA sekali pakai: minta gambar baru agar user tidak mengulang kode lama.
+      if (apiErr.code === "CAPTCHA_EXPIRED" || apiErr.code === "INVALID_CREDENTIALS") {
+        const hosts = Object.keys(captchas).filter(
+          (host): host is CaptchaHost => host === "siakad" || host === "elearning"
+        );
+        if (hosts.length) {
+          setPhase("form");
+          setSteps(IDLE_STEPS);
+          setFinished(false);
+          await Promise.all(hosts.map((host) => loadCaptcha(host)));
+        }
       }
       if (apiErr.status === 429) {
         // Ditolak sebelum menyentuh server kampus.
@@ -659,6 +742,62 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
                       </button>
                     </div>
                   </div>
+
+                  {(Object.keys(captchas) as CaptchaHost[]).length > 0 && (
+                    <div className="space-y-3 rounded-lg border border-[#0369A1]/30 bg-[#F0F7FB] p-3">
+                      <p className="text-xs text-secondary leading-relaxed">
+                        Kampus mewajibkan CAPTCHA. Baca kode pada gambar, lalu lanjutkan.
+                      </p>
+                      {(Object.entries(captchas) as [CaptchaHost, CaptchaState][]).map(
+                        ([host, cap]) => (
+                          <div key={host} className="space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-mono text-[11px] font-semibold text-[#0369A1]">
+                                CAPTCHA {cap.label}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => void loadCaptcha(host)}
+                                disabled={cap.loading}
+                                className="inline-flex min-h-8 items-center gap-1 font-mono text-[11px] font-semibold text-[#0369A1] hover:underline disabled:opacity-60"
+                              >
+                                <RefreshCw
+                                  className={`h-3 w-3 ${cap.loading ? "animate-spin" : ""}`}
+                                  aria-hidden="true"
+                                />
+                                Muat ulang
+                              </button>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              {cap.image ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={cap.image}
+                                  alt={`Kode CAPTCHA ${cap.label}`}
+                                  className="h-14 w-auto rounded border border-stroke bg-white"
+                                />
+                              ) : (
+                                <span className="flex h-14 w-32 items-center justify-center rounded border border-stroke bg-white font-mono text-[11px] text-secondary">
+                                  {cap.loading ? "Memuat..." : "Gagal"}
+                                </span>
+                              )}
+                              <input
+                                value={cap.code}
+                                onChange={(e) => setCaptchaCode(host, e.target.value)}
+                                maxLength={6}
+                                required
+                                autoComplete="off"
+                                spellCheck={false}
+                                placeholder="KODE"
+                                aria-label={`Kode CAPTCHA ${cap.label}`}
+                                className={`${fieldClass} font-mono uppercase tracking-widest`}
+                              />
+                            </div>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  )}
 
                   <label htmlFor="agree" className="flex cursor-pointer items-start gap-3 pt-1">
                     <input

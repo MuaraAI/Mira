@@ -1460,36 +1460,53 @@ class ElearningClient(UpstreamSession):
             self._client = None
             self._logged_in = False
 
-    def login(self, nim: str, password: str) -> bool:
+    def login(
+        self,
+        nim: str,
+        password: str,
+        captcha: Optional[str] = None,
+        session: Optional[dict[str, Any]] = None,
+    ) -> bool:
+        """Login MyBest. `session` + `captcha` dipakai jalur relay CAPTCHA user."""
         client = self.get_client()
         client.cookies.clear()
         login_url = f"{self.BASE_URL}/login"
         self._login_failure = "unknown"
         try:
-            r1 = client.get(login_url)
-            if r1.status_code == 429:
-                self._login_failure = "throttled"
-                logger.warning("Elearning login throttled for %s (429)", nim)
-                return False
-            m = re.search(r'name=["\']_token["\']\s+value=["\']([^"\']+)["\']', r1.text)
-            if not m:
-                return False
-            token = m.group(1)
-
-            try:
-                ans = solve_captcha(r1.text)
-            except ValueError:
-                # Sejak Nov 2026 kampus mengganti CAPTCHA teks/SVG dengan gambar PNG
-                # (`captcha_answer`), sehingga tidak bisa dibaca tanpa OCR.
-                if _elearning_image_captcha(r1.text):
+            if session:
+                # Tantangan CAPTCHA sudah dibuat pada sesi yang sama: pakai ulang
+                # cookie + token supaya kode CAPTCHA tetap valid.
+                for name, value in (session.get("cookies") or {}).items():
+                    client.cookies.set(name, value)
+                token = str(session.get("token") or "")
+                if not token:
                     self._login_failure = "captcha"
-                return False
+                    return False
+            else:
+                r1 = client.get(login_url)
+                if r1.status_code == 429:
+                    self._login_failure = "throttled"
+                    logger.warning("Elearning login throttled for %s (429)", nim)
+                    return False
+                m = re.search(r'name=["\']_token["\']\s+value=["\']([^"\']+)["\']', r1.text)
+                if not m:
+                    return False
+                token = m.group(1)
+                if captcha is None:
+                    try:
+                        captcha = str(solve_captcha(r1.text))
+                    except ValueError:
+                        # Sejak Nov 2026 kampus memakai CAPTCHA gambar PNG
+                        # (`captcha_answer`) yang harus dijawab user lewat relay.
+                        if _elearning_image_captcha(r1.text):
+                            self._login_failure = "captcha"
+                        return False
 
             payload = {
                 "_token": token,
                 "username": nim,
                 "password": password,
-                "captcha_answer": str(ans),
+                "captcha_answer": str(captcha),
             }
             r2 = client.post(login_url, data=payload)
             final_url = str(r2.url)

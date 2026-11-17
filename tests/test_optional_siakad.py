@@ -170,8 +170,9 @@ async def test_login_mybest_wrong_returns_401(fake_redis):
             )
         assert res.status_code == 401
         error = res.json()["error"]
-        assert error["code"] == "INVALID_CREDENTIALS"
-        assert "MyBest" in error["message"]
+        # Tanpa CAPTCHA, server belum bisa menyimpulkan password salah.
+        assert error["code"] == "AUTH_CAPTCHA_REQUIRED"
+        assert set(error["captcha_hosts"]) == {"elearning", "siakad"}
         assert not [k for k in fake_redis.kv if k.startswith("ubsi:session:")]
 
 
@@ -308,9 +309,30 @@ async def test_connect_siakad_wrong_password_rejected(fake_redis):
             "app.modules.auth.verify_siakad_login",
             AsyncMock(return_value=False),
         ):
-            connected = await ac.post(
+            # Tanpa CAPTCHA: kampus mewajibkan kode, server belum bisa menyimpulkan password salah.
+            missing = await ac.post(
                 "/v1/auth/credentials",
                 json={"system": "siakad", "password": "salah"},
+                headers=auth,
+            )
+        assert missing.status_code == 401
+        assert missing.json()["error"]["code"] == "AUTH_CAPTCHA_REQUIRED"
+        assert missing.json()["error"]["captcha_hosts"] == ["siakad"]
+
+        with (
+            patch("app.modules.auth.verify_siakad_login", AsyncMock(return_value=False)),
+            patch(
+                "app.captcha_relay.consume_challenge",
+                AsyncMock(return_value={"token": "t", "cookies": {}}),
+            ),
+        ):
+            connected = await ac.post(
+                "/v1/auth/credentials",
+                json={
+                    "system": "siakad",
+                    "password": "salah",
+                    "captcha": {"id": "a" * 32, "code": "ABCD"},
+                },
                 headers=auth,
             )
         assert connected.status_code == 400
