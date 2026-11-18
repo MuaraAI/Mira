@@ -136,3 +136,13 @@ CAPTCHA manusia kampus hanya jadi fallback saat auto-solve gagal.
 throttle, probe SIAKAD), dan pembaruan kontrak di `tests/conftest.py`
 (stub offline Mira + auto-solve untuk seluruh suite). Suite backend
 501 passed; build frontend lolos.
+
+## SIAKAD dimatikan (2026-11-18)
+
+Sejak saklar `SIAKAD_ENABLED=false`, CAPTCHA SIAKAD tidak pernah diminta Mira:
+login hanya memakai MyBest, dan auto-solve CAPTCHA SIAKAD tidak dipanggil.
+Endpoint `/v1/auth/captcha` untuk `host=siakad`, `/v1/auth/forgot-password` untuk
+`system=siakad`, dan `/v1/auth/credentials` membalas `503 SIAKAD_DISABLED` dengan
+`error.cta_url`. Nilai akhir, KHS, dan KRS dibaca user langsung di
+`students.bsi.ac.id`. Kontrak lengkap: `docs/api.md` seksi
+`GET /v1/capabilities`, desain: `docs/specs/2026-11-18-siakad-disable-design.md`.
