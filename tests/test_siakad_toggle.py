@@ -408,3 +408,36 @@ async def test_studentv2_without_auth_returns_503(monkeypatch):
         res = await ac.get("/v1/studentv2/grades")
     assert res.status_code == 503
     assert res.json()["error"]["code"] == "SIAKAD_DISABLED"
+
+
+@pytest.mark.asyncio
+async def test_browser_login_without_captcha_gets_manual_challenge(monkeypatch, tmp_path):
+    """Bundle frontend lama tidak mengirim campus_captcha: server harus minta kode manual,
+    bukan menebak dengan OCR lalu membalas CAPTCHA_INVALID."""
+    _wire_login(monkeypatch, tmp_path, siakad_enabled=False)
+    solver = AsyncMock(return_value=({"cookies": {}, "token": "t"}, ["TEBAK"]))
+    monkeypatch.setattr("app.captcha_autosolver.candidate_session", solver)
+    monkeypatch.setattr(
+        "app.captcha_relay.create_challenge",
+        AsyncMock(
+            return_value={
+                "id": "f" * 32,
+                "image": "data:image/png;base64,AAA",
+                "label": "MyBest",
+                "expires_in": 300,
+            }
+        ),
+    )
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.post(
+            "/v1/auth/login",
+            headers={"X-Requested-With": "dashboard"},
+            json={"nim": "12345678", "studentv2_pass": "", "elearning_pass": "el"},
+        )
+
+    assert res.status_code == 401
+    error = res.json()["error"]
+    assert error["code"] == "AUTH_CAPTCHA_REQUIRED"
+    assert error["fallback_captcha"]["id"] == "f" * 32
+    assert solver.await_count == 0
