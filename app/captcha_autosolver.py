@@ -58,7 +58,11 @@ def ocr_candidates(png_bytes: bytes) -> list[str]:
                     )
                     if 2 <= len(code) <= 6:
                         votes[code] += 1
-    return [code for code, _ in votes.most_common(MAX_CANDIDATES_PER_CHALLENGE)]
+    ranked = [code for code, _ in votes.most_common(MAX_CANDIDATES_PER_CHALLENGE)]
+    # ddddocr di depan: model ONNX lebih akurat; tesseract jadi cadangan.
+    primary = _ddddocr_candidate(png_bytes)
+    merged = primary + [code for code in ranked if code not in primary]
+    return merged[:MAX_CANDIDATES_PER_CHALLENGE]
 
 
 async def candidate_session(host: str, nim: str) -> Optional[tuple[dict, list[str]]]:
@@ -90,3 +94,26 @@ def candidate_session_sync(host: str, nim: str) -> Optional[tuple[dict, list[str
     session = {"cookies": data["cookies"], "token": data["token"]}
     png = base64.b64decode(data["image"].split(",", 1)[1])
     return session, ocr_candidates(png)[:MAX_CANDIDATES_PER_CHALLENGE]
+
+
+_DDDDOCR = None
+
+
+def _ddddocr_candidate(png_bytes: bytes) -> list[str]:
+    """Kandidat dari ddddocr (model ONNX, akurasi jauh di atas tesseract untuk CAPTCHA).
+
+    Import dilakukan malas: kalau paket belum terpasang, jalur OCR tesseract tetap jalan.
+    """
+    global _DDDDOCR
+    try:
+        import ddddocr
+    except Exception:
+        return []
+    try:
+        if _DDDDOCR is None:
+            _DDDDOCR = ddddocr.DdddOcr(show_ad=False)
+        text = _DDDDOCR.classification(png_bytes) or ""
+    except Exception:
+        return []
+    code = "".join(ch for ch in str(text).upper() if ch.isalnum())
+    return [code] if 2 <= len(code) <= 8 else []
