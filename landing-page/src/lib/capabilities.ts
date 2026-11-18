@@ -19,6 +19,3 @@ export function useCapabilities() {
   return { data, loading, error };
 }
 
-export function siakadCtaUrl(capabilities: Capabilities | null): string {
-  return capabilities?.siakad.cta_url || SIAKAD_CTA_FALLBACK;
-}

@@ -317,6 +317,18 @@ async def api_key_auth_middleware(request: Request, call_next):
             message="Session kedaluwarsa. Silakan login kembali.",
         )
 
+    # SIAKAD dimatikan: klien tanpa sesi tetap melihat 503 + CTA, bukan 401 generik.
+    if not settings.SIAKAD_ENABLED and request.url.path.startswith("/v1/studentv2/"):
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content=error_response(
+                code="SIAKAD_DISABLED",
+                message="SIAKAD dinonaktifkan di Mira. Buka students.bsi.ac.id untuk nilai, KHS, dan KRS.",
+                module="siakad",
+                extra={"cta_url": settings.SIAKAD_CTA_URL},
+            ),
+        )
+
     # 3d. Master Key check via X-API-Key
     if not api_key:
         return await _reject_auth_failure(

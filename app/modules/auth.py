@@ -154,7 +154,7 @@ async def verify_credentials(req_body: VerifyCredentialsRequest, request: Reques
         )
 
     sv2_ok, el_ok = await verify_live_credentials(nim, el_pass, sv_pass)
-    all_valid = bool(sv2_ok and el_ok)
+    all_valid = bool(el_ok) if not settings.SIAKAD_ENABLED else bool(sv2_ok and el_ok)
 
     data = {
         "valid": all_valid,

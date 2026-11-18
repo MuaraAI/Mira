@@ -165,7 +165,8 @@ class SessionStore:
             raw = await client.get(_KEY_PREFIX + token_hash)
             data = _decrypt_payload(raw, settings.API_KEY) if raw else None
             if data and data.get("nim") and data.get("elearning_pass"):
-                return str(data["nim"]), str(data.get("studentv2_pass") or ""), str(data["elearning_pass"])
+                siakad_pass = str(data.get("studentv2_pass") or "") if settings.SIAKAD_ENABLED else ""
+                return str(data["nim"]), siakad_pass, str(data["elearning_pass"])
         return None
 
     async def update_password_for_nim(self, nim: str, field: str, new_password: str) -> int:

@@ -249,7 +249,8 @@ def _sync_credentials_for_nim(nim: str) -> Optional[tuple[str, str, str]]:
             except Exception:
                 continue
             if data.get("elearning_pass"):
-                return nim, str(data.get("studentv2_pass") or ""), str(data["elearning_pass"])
+                siakad_pass = str(data.get("studentv2_pass") or "") if settings.SIAKAD_ENABLED else ""
+                return nim, siakad_pass, str(data["elearning_pass"])
         return None
     finally:
         conn.close()

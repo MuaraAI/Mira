@@ -355,3 +355,59 @@ async def test_api_keys_db_returns_mybest_only_credentials(monkeypatch, tmp_path
 
     creds = await api_keys_db.get_credentials_for_nim("12345678")
     assert creds == ("12345678", "", "el")
+
+
+@pytest.mark.asyncio
+async def test_session_store_blank_siakad_pass_when_disabled(monkeypatch):
+    """Sesi lama dengan password SIAKAD tersimpan tidak boleh memicu request kampus."""
+    from app import session_store as store_mod
+    from app.config import settings
+
+    fake = FakeRedis()
+    monkeypatch.setattr("app.session_store.session_store._client", fake)
+    monkeypatch.setattr("app.config.settings.SIAKAD_ENABLED", False)
+
+    payload = store_mod._encrypt_payload(
+        {"nim": "12345678", "studentv2_pass": "pass-lama", "elearning_pass": "el"},
+        settings.API_KEY,
+    )
+    token_hash = store_mod._hash_token("tok")
+    fake.kv[store_mod._KEY_PREFIX + token_hash] = payload
+    fake.sets[store_mod._INDEX_PREFIX + "12345678"] = {token_hash}
+
+    creds = await store_mod.session_store.get_credentials_for_nim("12345678")
+    assert creds == ("12345678", "", "el")
+
+
+@pytest.mark.asyncio
+async def test_verify_valid_true_when_siakad_disabled(monkeypatch):
+    monkeypatch.setattr("app.config.settings.SIAKAD_ENABLED", False)
+    monkeypatch.setattr("app.config.settings.API_KEY", "master_secret")
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        headers={"_skip_auto_auth": "1"},
+    ) as ac:
+        with patch("app.modules.auth.verify_live_credentials", AsyncMock(return_value=(False, True))):
+            res = await ac.post(
+                "/v1/auth/verify",
+                headers={"X-API-Key": "master_secret"},
+                json={"nim": "12345678", "elearning_pass": "p1", "studentv2_pass": ""},
+            )
+    data = res.json()["data"]
+    assert data["valid"] is True
+    assert data["elearning"]["valid"] is True
+
+
+@pytest.mark.asyncio
+async def test_studentv2_without_auth_returns_503(monkeypatch):
+    """Klien tanpa sesi harus melihat SIAKAD_DISABLED, bukan 401 generik."""
+    monkeypatch.setattr("app.config.settings.SIAKAD_ENABLED", False)
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        headers={"_skip_auto_auth": "1"},
+    ) as ac:
+        res = await ac.get("/v1/studentv2/grades")
+    assert res.status_code == 503
+    assert res.json()["error"]["code"] == "SIAKAD_DISABLED"
