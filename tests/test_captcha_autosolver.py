@@ -66,3 +66,43 @@ async def test_fetch_candidates_hits_new_challenge_once():
 async def test_unknown_host_rejected():
     with pytest.raises(ValueError):
         await candidate_session("host-asal", "12345678")
+
+
+def test_ocr_prefers_ddddocr_over_tesseract(monkeypatch):
+    """ddddocr (model ONNX) jadi kandidat utama; tesseract cadangan."""
+    import subprocess as sp
+
+    from app import captcha_autosolver
+
+    class FakeRun:
+        def __init__(self, stdout=""):
+            self.stdout = stdout
+
+    def fake_run(cmd, **kwargs):
+        if cmd and cmd[0] == "tesseract":
+            return FakeRun("ZZ\n")
+        return FakeRun("")
+
+    monkeypatch.setattr(sp, "run", fake_run)
+    monkeypatch.setattr(captcha_autosolver, "_ddddocr_candidate", lambda png: ["AB12"])
+
+    candidates = captcha_autosolver.ocr_candidates(b"fake-png")
+
+    assert candidates[0] == "AB12"
+    assert "ZZ" in candidates
+
+
+def test_ocr_falls_back_to_tesseract_when_ddddocr_missing(monkeypatch):
+    import subprocess as sp
+
+    from app import captcha_autosolver
+
+    class FakeRun:
+        def __init__(self, stdout=""):
+            self.stdout = stdout
+
+    monkeypatch.setattr(sp, "run", lambda cmd, **kw: FakeRun("QN5\n" if cmd[0] == "tesseract" else ""))
+    monkeypatch.setattr(captcha_autosolver, "_ddddocr_candidate", lambda png: [])
+
+    candidates = captcha_autosolver.ocr_candidates(b"fake-png")
+    assert candidates[0] == "QN5"
