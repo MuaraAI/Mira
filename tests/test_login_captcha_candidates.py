@@ -168,3 +168,49 @@ async def test_login_falls_back_after_all_captcha_attempts_rejected(monkeypatch,
     assert error["fallback_captcha"]["host"] == "elearning"
     assert len(calls) == MAX_CAPTCHA_ATTEMPTS
     assert all(host == "elearning" for host, _ in calls)
+
+
+@pytest.mark.asyncio
+async def test_login_stops_retry_when_campus_answers_without_message(monkeypatch, tmp_path):
+    """Halaman login tanpa pesan = kode hangus/soft reject; jangan boroskan percobaan."""
+    _wire_login(monkeypatch, tmp_path, siakad_enabled=False)
+    calls = []
+
+    def challenge(host, nim):
+        calls.append(host)
+        return {"cookies": {}, "token": "t"}, ["SALAH"]
+
+    monkeypatch.setattr("app.captcha_autosolver.candidate_session", AsyncMock(side_effect=challenge))
+
+    async def verify(nim, el_pass, sv_pass, *, outcomes=None, **kwargs):
+        if outcomes is not None:
+            outcomes["elearning"] = ("captcha", [])
+        return False, False
+
+    monkeypatch.setattr("app.modules.auth.verify_live_credentials", verify)
+    monkeypatch.setattr(
+        "app.captcha_relay.create_challenge",
+        AsyncMock(
+            return_value={
+                "id": "f" * 32,
+                "image": "data:image/png;base64,AAA",
+                "label": "MyBest",
+                "expires_in": 300,
+            }
+        ),
+    )
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.post(
+            "/v1/auth/login",
+            json={
+                "nim": "12345678",
+                "studentv2_pass": "",
+                "elearning_pass": "el",
+                "mira_captcha": {"id": "stub-mira", "code": "abcd"},
+            },
+        )
+
+    assert res.status_code == 401
+    assert res.json()["error"]["code"] == "AUTH_CAPTCHA_REQUIRED"
+    assert calls == ["elearning"]  # berhenti setelah percobaan pertama
