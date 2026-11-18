@@ -45,18 +45,12 @@ def stub_campus_captcha(monkeypatch):
     """Login kini selalu memverifikasi CAPTCHA Mira lalu auto-solve CAPTCHA kampus.
 
     Tanpa stub, tiap POST /v1/auth/login menyentuh Redis nyata dan server kampus:
-    body tanpa mira_captcha memicu create_challenge (Redis) di branch penolakan,
-    dan auto-solve memanggil endpoint kampus. Tes yang butuh perilaku asli
-    (MIRA_CAPTCHA_INVALID, fallback, tantangan nyata) mem-patch ulang di badan tes;
+    login mencoba satu kandidat OCR lalu memanggil endpoint kampus. Tes yang butuh perilaku asli
+    (fallback, tantangan nyata) mem-patch ulang di badan tes;
     patch di badan tes menimpa hasil fixture ini.
     """
     from unittest.mock import AsyncMock
 
-    monkeypatch.setattr("app.mira_captcha.verify_challenge", AsyncMock(return_value=True))
-    monkeypatch.setattr(
-        "app.mira_captcha.create_challenge",
-        AsyncMock(return_value={"id": "stub-mira", "image": "data:image/svg+xml;base64,STVBUg==", "expires_in": 600}),
-    )
     monkeypatch.setattr(
         "app.captcha_autosolver.candidate_session",
         AsyncMock(return_value=({"cookies": {"stub": "1"}, "token": "stub"}, ["STUB"])),

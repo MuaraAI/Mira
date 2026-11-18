@@ -162,3 +162,17 @@ tantangan baru dan mencoba lagi (maksimal 3 percobaan), lalu jatuh ke fallback
 `AUTH_CAPTCHA_REQUIRED` + `fallback_captcha` bila semuanya gagal. Password salah
 langsung berhenti di percobaan pertama (alasan `credentials`), jadi tidak ada
 POST berulang tanpa guna.
+
+## CAPTCHA Mira dihapus + re-login latar pakai OCR (2026-11-18, final)
+
+Keputusan user: CAPTCHA milik Mira dihapus. Form login memakai CAPTCHA MyBest
+manual (gambar kampus, diketik user) dan kode dikirim sebagai `campus_captcha`.
+`POST /v1/auth/mira-captcha`, modul `app/mira_captcha.py`, dan seluruh tesnya
+dihapus.
+
+Sesi MyBest mati setelah ~15 menit idle. Sebelumnya re-login latar selalu gagal
+karena butuh CAPTCHA (`AUTH_CAPTCHA_REQUIRED` pada absen/tugas). Sekarang
+`ElearningClient._ocr_login()` menyelesaikan CAPTCHA itu dengan OCR: satu
+tantangan baru per percobaan (kode sekali pakai), maksimal 3 percobaan, berhenti
+segera bila kampus menolak tanpa pesan atau mengembalikan alasan selain captcha.
+Login user di form web tetap manual supaya hasilnya deterministik.

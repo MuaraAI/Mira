@@ -50,9 +50,9 @@ Multi-page crawler operations introduce random delays of 0.8–1.5 seconds betwe
   - Worker notifikasi melewati NIM yang sedang cooldown tanpa mencetak traceback.
 
 ### G. Auto-Solve CAPTCHA Kampus (sejak 2026-11-18)
-- Login user dan hubungkan SIAKAD mencoba meng-auto-solve CAPTCHA kampus di backend: OCR voting, kandidat teratas dipakai langsung pada login asli (CAPTCHA kampus sekali pakai per POST), maksimal 3 tantangan baru per percobaan login (`app/captcha_autosolver.py`); password salah berhenti di percobaan pertama, 429 dari kampus menghentikan loop.
+- Form login memakai CAPTCHA MyBest manual (CAPTCHA Mira dihapus). Re-login latar setelah sesi 15 menit diselesaikan OCR: satu kode per POST, maksimal 3 tantangan, berhenti saat kampus menolak tanpa pesan (`app/captcha_autosolver.py`, `ElearningClient._ocr_login`).
 - Worker notifikasi tetap default-deny: CAPTCHA gambar tidak pernah ditebak, tanpa jawaban relay tidak ada POST ke kampus.
-- Gerbang anti-bot pindah ke CAPTCHA SVG milik Mira (`app/mira_captcha.py`), rate limit 20/menit/IP.
+- Anti-bot form login: rate limit 10/menit/IP + login guard 10/menit/IP + limit per NIM 5/menit.
 
 ### H. SIAKAD Dimatikan (2026-11-18)
 Saklar `SIAKAD_ENABLED=false` menghentikan seluruh lalu lintas ke `students.bsi.ac.id`: router studentv2, CAPTCHA SIAKAD, lupa password SIAKAD, verifikasi master-key, credentials, ganti password, dan notifier. User membaca nilai/KHS/KRS langsung di portal kampus lewat CTA. Menghidupkan lagi cukup set env ke `true` dan restart.

@@ -234,7 +234,6 @@ async def test_login_ignores_siakad_pass_when_disabled(monkeypatch, tmp_path):
                 "nim": "12345678",
                 "studentv2_pass": "apa-saja",
                 "elearning_pass": "el",
-                "mira_captcha": {"id": "stub-mira", "code": "abcd"},
             },
         )
 
@@ -259,7 +258,6 @@ async def test_credentials_returns_503_when_disabled(monkeypatch, tmp_path):
                 "nim": "12345678",
                 "studentv2_pass": "",
                 "elearning_pass": "el",
-                "mira_captcha": {"id": "stub-mira", "code": "abcd"},
             },
         )
         token = login.json()["data"]["token"]
@@ -300,7 +298,6 @@ async def test_change_password_siakad_disabled_but_elearning_ok(monkeypatch, tmp
                 "nim": "12345678",
                 "studentv2_pass": "",
                 "elearning_pass": "el",
-                "mira_captcha": {"id": "stub-mira", "code": "abcd"},
             },
         )
         token = login.json()["data"]["token"]

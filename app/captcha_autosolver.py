@@ -80,3 +80,13 @@ async def fetch_candidates(host: str, nim: str) -> tuple[dict, list[str]]:
     png = base64.b64decode(data["image"].split(",", 1)[1])
     candidates = await asyncio.to_thread(ocr_candidates, png)
     return session, candidates[:MAX_CANDIDATES_PER_CHALLENGE]
+
+
+def candidate_session_sync(host: str, nim: str) -> Optional[tuple[dict, list[str]]]:
+    """Versi sinkron `candidate_session` untuk jalur login latar (thread/httpx)."""
+    if host not in HOSTS:
+        raise ValueError(f"Host CAPTCHA tidak dikenal: {host}")
+    data = _fetch_challenge_sync(host, nim)
+    session = {"cookies": data["cookies"], "token": data["token"]}
+    png = base64.b64decode(data["image"].split(",", 1)[1])
+    return session, ocr_candidates(png)[:MAX_CANDIDATES_PER_CHALLENGE]

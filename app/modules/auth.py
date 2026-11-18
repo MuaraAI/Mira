@@ -240,9 +240,7 @@ class LoginRequest(BaseModel):
     nim: str = Field(..., min_length=3, description="NIM Mahasiswa")
     studentv2_pass: str = Field("", description="Password SIAKAD Students (opsional: kosongkan untuk lewati)")
     elearning_pass: str = Field(..., min_length=1, description="Password MyBest Elearning")
-    mira_captcha: Optional[CaptchaAnswer] = Field(
-        None, description="Jawaban CAPTCHA Mira dari endpoint /v1/auth/mira-captcha"
-    )
+
     campus_captcha: Optional[CaptchaAnswer] = Field(
         None,
         description=(
@@ -302,24 +300,6 @@ async def captcha_challenge(req_body: CaptchaChallengeRequest, request: Request)
     )
     return response
 
-@router.post("/mira-captcha")
-async def mira_captcha_challenge(request: Request):
-    """Tantangan CAPTCHA Mira: SVG buatan sendiri, muncul otomatis tanpa NIM."""
-    from app.main import extract_client_ip
-
-    client_ip = extract_client_ip(request)
-    if not await limiter.is_allowed(f"mira-captcha:{client_ip}", limit=20):
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=error_response(
-                code="RATE_LIMIT_EXCEEDED",
-                message="Terlalu banyak permintaan CAPTCHA. Coba lagi sebentar.",
-                module="auth",
-            ),
-        )
-    from app.mira_captcha import create_challenge
-
-    return success_response(data=await create_challenge())
 
 @router.post("/login")
 async def login(req_body: LoginRequest, request: Request):
@@ -368,27 +348,8 @@ async def login(req_body: LoginRequest, request: Request):
     el_pass = req_body.elearning_pass.strip()
     siakad_attempted = bool(raw_sv_pass)
 
-    # CAPTCHA Mira: gate pertama form login. Salah ketik tidak menggugurkan
-    # tantangan; respons menyertakan tantangan baru untuk dirender ulang.
-    from app.mira_captcha import create_challenge as create_mira_challenge
-    from app.mira_captcha import verify_challenge as verify_mira_challenge
-
-    if not req_body.mira_captcha or not await verify_mira_challenge(
-        req_body.mira_captcha.id, req_body.mira_captcha.code
-    ):
-        fresh_mira = await create_mira_challenge()
-        detail = error_response(
-            code="MIRA_CAPTCHA_INVALID",
-            message="Kode CAPTCHA Mira belum benar. Isi kode dari gambar terbaru.",
-            module="auth",
-        )
-        detail["error"]["mira_captcha"] = fresh_mira
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
-
-    # CAPTCHA kampus sekali pakai: kandidat OCR dipakai langsung pada login asli
-    # (tanpa probe) supaya tidak hangus sebelum kredensial dicek. Bila semua
-    # kandidat ditolak, kirim tantangan kampus ke user sebagai fallback dan
-    # terima jawabannya via `campus_captcha`.
+    # CAPTCHA form login memakai CAPTCHA MyBest milik kampus, diketik user.
+    # Mira tidak lagi punya CAPTCHA sendiri.
     from app.captcha_relay import consume_challenge, create_challenge
 
     is_https = request.url.scheme == "https"
@@ -424,7 +385,7 @@ async def login(req_body: LoginRequest, request: Request):
         )
         return response
 
-    from app.captcha_autosolver import MAX_CAPTCHA_ATTEMPTS, candidate_session
+    from app.captcha_autosolver import candidate_session
 
     async def _siakad_challenge() -> tuple[Optional[dict], Optional[str]]:
         if not siakad_attempted:
@@ -437,8 +398,6 @@ async def login(req_body: LoginRequest, request: Request):
         return session, (candidates[0] if candidates else None)
 
     outcomes: dict = {}
-    sv2_ok = False
-    el_ok = False
     if req_body.campus_captcha:
         el_session = await consume_challenge(
             req_body.campus_captcha.id,
@@ -448,61 +407,37 @@ async def login(req_body: LoginRequest, request: Request):
         )
         if el_session is None:
             return await _captcha_fallback_response("elearning")
-        sv_session, sv_code = await _siakad_challenge()
-        sv2_ok, el_ok = await verify_live_credentials(
-            nim,
-            el_pass,
-            raw_sv_pass,
-            el_session=el_session,
-            el_captcha=req_body.campus_captcha.code,
-            sv_session=sv_session,
-            sv_captcha=sv_code,
-            outcomes=outcomes,
-        )
+        el_code = req_body.campus_captcha.code
     else:
-        # CAPTCHA kampus sekali pakai: satu kode per POST. Coba kandidat OCR
-        # teratas pada login asli, minta tantangan baru bila kode ditolak.
-        solved = False
-        for attempt in range(MAX_CAPTCHA_ATTEMPTS):
-            try:
-                el_session, el_candidates = await candidate_session("elearning", nim)
-            except Exception as err:
-                logger.warning("Gagal ambil CAPTCHA MyBest untuk %s: %s", nim, err)
-                continue
-            if not el_candidates:
-                logger.info("CAPTCHA OCR kosong untuk %s (percobaan %s)", nim, attempt + 1)
-                continue
-            sv_session, sv_code = await _siakad_challenge()
-            sv2_ok, el_ok = await verify_live_credentials(
-                nim,
-                el_pass,
-                raw_sv_pass,
-                el_session=el_session,
-                el_captcha=el_candidates[0],
-                sv_session=sv_session,
-                sv_captcha=sv_code,
-                outcomes=outcomes,
-            )
-            reason, errors = outcomes.get("elearning", ("unknown", []))
-            logger.info(
-                "CAPTCHA percobaan %s/%s nim=%s kode=%s alasan=%s pesan=%s",
-                attempt + 1,
-                MAX_CAPTCHA_ATTEMPTS,
-                nim,
-                el_candidates[0],
-                reason,
-                (errors[0][:80] if errors else "-"),
-            )
-            if el_ok or reason != "captcha":
-                solved = True
-                break
-            if not errors:
-                # Kampus balas halaman login tanpa pesan (kode hangus/soft reject).
-                # Mengulang cepat tidak membantu dan menambah hitungan gagal kampus.
-                logger.warning("Kampus membalas tanpa pesan captcha untuk %s; berhenti mencoba", nim)
-                break
-        if not solved:
+        # Klien tanpa CAPTCHA manual (API/MCP): satu percobaan kandidat OCR.
+        # Form web selalu mengirim kode manual, jadi UI tidak memakai jalur ini.
+        try:
+            el_session, el_candidates = await candidate_session("elearning", nim)
+        except Exception as err:
+            logger.warning("Gagal ambil CAPTCHA MyBest untuk %s: %s", nim, err)
+            el_candidates = []
+        if not el_candidates:
             return await _captcha_fallback_response("elearning")
+        el_code = el_candidates[0]
+
+    sv_session, sv_code = await _siakad_challenge()
+    sv2_ok, el_ok = await verify_live_credentials(
+        nim,
+        el_pass,
+        raw_sv_pass,
+        el_session=el_session,
+        el_captcha=el_code,
+        sv_session=sv_session,
+        sv_captcha=sv_code,
+        outcomes=outcomes,
+    )
+    el_reason, el_errors = outcomes.get("elearning", ("unknown", []))
+    logger.info(
+        "Login MyBest nim=%s captcha=manual alasan=%s pesan=%s",
+        nim,
+        el_reason,
+        (el_errors[0][:80] if el_errors else "-"),
+    )
 
     # Brute-force & login guard: hitung sukses jika MyBest valid (dan SIAKAD valid jika diisi)
     attempt_success = bool(el_ok and (sv2_ok or not siakad_attempted))
