@@ -8,6 +8,8 @@ import { apiFetch, ApiError, useApi, setApiCache, writeSessionToken } from "@/li
 import { inputClass, primaryButtonClass } from "@/components/dashboard-ui";
 import { Monogram } from "@/components/Monogram";
 import { ForgotPasswordView } from "@/components/auth/PasswordRecovery";
+import { MaintenanceContent } from "@/components/MaintenanceContent";
+import { useMaintenance } from "@/lib/maintenance";
 import type { PasswordSystem } from "@/lib/security";
 
 export type AuthView = "login" | "forgot";
@@ -331,6 +333,7 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
   const [nim, setNim] = useState("");
   const [mybestPass, setMybestPass] = useState("");
   const [agree, setAgree] = useState(false);
+  const [maintenanceDismissed, setMaintenanceDismissed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
   const [phase, setPhase] = useState<"form" | "checking">("form");
@@ -342,6 +345,7 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
   const [forgotSystem, setForgotSystem] = useState<PasswordSystem>("mybest");
   const nimRef = useRef<HTMLInputElement>(null);
   const { blockedUntil, remainingMs, block } = useBlockedUntil();
+  const { status: maintenance } = useMaintenance();
 
   // URL ikut tampilan supaya refresh tetap di layar yang sama.
   function go(next: AuthView) {
@@ -550,7 +554,20 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
 
   return (
     <div className="flex min-h-[100dvh] bg-background text-foreground">
-      {/* Panel brand (desktop): pola sama dengan portal USRC, warna Mira. */}
+      {maintenance?.enabled && !maintenanceDismissed && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#072033]/60 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Pemberitahuan maintenance"
+        >
+          <MaintenanceContent
+            message={maintenance.message}
+            reason={maintenance.reason}
+            onClose={() => setMaintenanceDismissed(true)}
+          />
+        </div>
+      )}
       <aside className="login-brand sticky top-0 hidden h-[100dvh] w-1/2 flex-col justify-between self-start overflow-hidden p-12 text-white lg:flex xl:p-16" aria-label="Tentang Mira">
         <Link href="/" className="group inline-flex min-h-11 w-fit items-center gap-2 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-white/70 transition-colors hover:text-white">
           <ArrowLeft className="h-4 w-4 transition-transform duration-200 group-hover:-translate-x-0.5" aria-hidden="true" />
