@@ -344,6 +344,7 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
   const [fallbackCaptcha, setFallbackCaptcha] = useState<CaptchaState | null>(null);
   const [forgotSystem, setForgotSystem] = useState<PasswordSystem>("mybest");
   const nimRef = useRef<HTMLInputElement>(null);
+  const captchaGeneration = useRef(0);
   const { blockedUntil, remainingMs, block } = useBlockedUntil();
   const { status: maintenance } = useMaintenance();
 
@@ -362,11 +363,11 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
     if (onLogin && me?.nim && phase === "form") router.replace("/dashboard");
   }, [me, router, phase, onLogin]);
 
-  // Muat CAPTCHA MyBest manual saat NIM sudah cukup panjang.
+  // Muat CAPTCHA MyBest setelah user berhenti mengetik (hindari balapan request).
   useEffect(() => {
-    if (onLogin && view === "login" && nim.trim().length >= 6) {
-      void reloadFallbackCaptcha("elearning");
-    }
+    if (!onLogin || view !== "login" || nim.trim().length < 6) return;
+    const timer = window.setTimeout(() => void reloadFallbackCaptcha("elearning"), 400);
+    return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onLogin, view, nim]);
 
@@ -423,13 +424,19 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
   // Muat ulang fallback via endpoint lama (challenge kampus sekali pakai).
   async function reloadFallbackCaptcha(host: CaptchaHost) {
     const label = host === "siakad" ? "SIAKAD" : "MyBest";
+    // Guard generasi: respons lama tidak boleh menimpa gambar lebih baru karena
+    // nonce cookie hanya cocok dengan tantangan terakhir.
+    const generation = captchaGeneration.current + 1;
+    captchaGeneration.current = generation;
     setFallbackCaptcha({ id: "", image: "", label, code: "", loading: true });
     try {
       const data = await apiFetch<{ id: string; image: string; label: string }>("/v1/auth/captcha", {
         json: { nim: nim.trim(), host },
       });
+      if (captchaGeneration.current !== generation) return;
       setFallbackCaptcha({ ...data, code: "" });
     } catch {
+      if (captchaGeneration.current !== generation) return;
       setFallbackCaptcha(null);
       setError(new ApiError("CAPTCHA_UNAVAILABLE", "Gagal memuat CAPTCHA kampus. Coba lagi.", 0));
     }
