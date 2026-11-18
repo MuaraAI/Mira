@@ -198,3 +198,19 @@ async def dispatch_pwa_to_category(category: str, payload: dict[str, Any], ttl: 
     for nim in nims:
         total += await dispatch_pwa_to_nim(nim, payload, ttl=ttl)
     return total
+
+
+async def dispatch_pwa_broadcast(payload: dict[str, Any], ttl: int = 86400) -> dict[str, int]:
+    """Kirim pengumuman ke SEMUA device aktif, tanpa melihat kategori.
+
+    Return {"nims": jumlah NIM dicoba, "delivered": jumlah device sukses}.
+    """
+    from app.pwa_push_db import list_all_active_nims
+
+    if not settings.VAPID_PRIVATE_KEY or not settings.VAPID_PUBLIC_KEY:
+        return {"nims": 0, "delivered": 0}
+    nims = await list_all_active_nims()
+    delivered = 0
+    for nim in nims:
+        delivered += await dispatch_pwa_to_nim(nim, payload, ttl=ttl)
+    return {"nims": len(nims), "delivered": delivered}
