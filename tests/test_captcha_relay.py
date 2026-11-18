@@ -236,7 +236,6 @@ async def test_login_fallback_issues_new_captcha_when_expired():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         with (
-            patch("app.mira_captcha.verify_challenge", AsyncMock(return_value=True)),
             patch("app.captcha_relay.consume_challenge", AsyncMock(return_value=None)),
             patch(
                 "app.captcha_relay.create_challenge",
@@ -255,7 +254,6 @@ async def test_login_fallback_issues_new_captcha_when_expired():
                 json={
                     "nim": "12345678",
                     "elearning_pass": "secret",
-                    "mira_captcha": {"id": "m" * 32, "code": "ABCD"},
                     "campus_captcha": {"id": "a" * 32, "code": "ABC"},
                 },
             )
@@ -389,7 +387,6 @@ async def test_login_requires_nonce_cookie_from_captcha_endpoint(monkeypatch, tm
     monkeypatch.setattr(
         "app.modules.auth.verify_live_credentials", AsyncMock(return_value=(False, True))
     )
-    monkeypatch.setattr("app.mira_captcha.verify_challenge", AsyncMock(return_value=True))
     monkeypatch.setattr(
         "app.captcha_relay.create_challenge",
         AsyncMock(
@@ -411,7 +408,6 @@ async def test_login_requires_nonce_cookie_from_captcha_endpoint(monkeypatch, tm
         "nim": "12345678",
         "studentv2_pass": "",
         "elearning_pass": "el_pass",
-        "mira_captcha": {"id": "m" * 32, "code": "abcd"},
         "campus_captcha": {"id": "c" * 32, "code": "abc"},
     }
     transport = ASGITransport(app=app)

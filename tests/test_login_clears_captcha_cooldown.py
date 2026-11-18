@@ -54,7 +54,6 @@ async def test_successful_login_clears_captcha_cooldown(monkeypatch, tmp_path):
     monkeypatch.setattr("app.login_guard.login_guard._client", fake)
     monkeypatch.setattr("app.config.settings.SQLITE_DB_PATH", str(tmp_path / "ubsi.db"))
     monkeypatch.setattr("app.modules.auth.verify_live_credentials", AsyncMock(return_value=(False, True)))
-    monkeypatch.setattr("app.mira_captcha.verify_challenge", AsyncMock(return_value=True))
     monkeypatch.setattr(
         "app.captcha_autosolver.candidate_session",
         AsyncMock(return_value=({"cookies": {"sess": "abc"}, "token": "tok"}, ["KODE"])),
@@ -83,7 +82,6 @@ async def test_successful_login_clears_captcha_cooldown(monkeypatch, tmp_path):
                 "nim": nim,
                 "studentv2_pass": "",
                 "elearning_pass": "el_pass",
-                "mira_captcha": {"id": "m" * 32, "code": "abcd"},
             },
         )
 
@@ -111,7 +109,6 @@ async def test_mybest_only_failure_reports_captcha_invalid(monkeypatch, tmp_path
         "app.captcha_relay.consume_challenge",
         AsyncMock(return_value={"host": "elearning", "nim": "12345678", "token": "tok", "cookies": {}}),
     )
-    monkeypatch.setattr("app.mira_captcha.verify_challenge", AsyncMock(return_value=True))
 
     async def verify(nim, el_pass, sv_pass, *, outcomes=None, **kwargs):
         if outcomes is not None:
@@ -131,7 +128,6 @@ async def test_mybest_only_failure_reports_captcha_invalid(monkeypatch, tmp_path
                 "nim": "12345678",
                 "studentv2_pass": "",
                 "elearning_pass": "el_pass",
-                "mira_captcha": {"id": "m" * 32, "code": "abcd"},
                 "campus_captcha": {"id": "a" * 32, "code": "abc"},
             },
         )

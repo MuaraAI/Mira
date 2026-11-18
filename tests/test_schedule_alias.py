@@ -114,7 +114,6 @@ async def _login_with_both_creds(ac: AsyncClient) -> str:
             "nim": "12345678",
             "studentv2_pass": "sv_pass",
             "elearning_pass": "el_pass",
-            "mira_captcha": {"id": "stub-mira", "code": "abcd"},
         },
     )
     assert res.status_code == 200

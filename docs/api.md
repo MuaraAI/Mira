@@ -100,21 +100,6 @@ Kampus (`students.bsi.ac.id` dan `elearning.bsi.ac.id`) mewajibkan CAPTCHA gamba
 - **Error**: `503 CAPTCHA_UNAVAILABLE` bila server kampus tidak bisa dihubungi atau token form tidak ditemukan.
 - **Cookie browser**: respons menetapkan cookie HttpOnly `ubsi_captcha_<host>` (`ubsi_captcha_siakad` atau `ubsi_captcha_elearning`, TTL 5 menit, SameSite Lax). Cookie ini terikat ke tantangan yang dibuat dan wajib dikirim browser saat `POST /v1/auth/login` atau `POST /v1/auth/credentials` agar jawaban CAPTCHA bisa dikonsumsi; tanpa cookie itu tantangan membalas `401 CAPTCHA_EXPIRED`. Client non-browser yang meniru alur ini harus mempertahankan cookie seperti browser.
 
-### `POST /v1/auth/mira-captcha`
-Gerbang anti-bot milik Mira. Mengirim tantangan SVG buatan Mira (kode 5 karakter, TTL 10 menit) yang wajib dijawab pada `POST /v1/auth/login`. Tantangan ini tidak terikat NIM dan tidak dikonsumsi bila kode salah (typo masih bisa dikoreksi dengan tantangan yang sama).
-- **Access**: Public
-- **Rate Limit**: Max 20 permintaan per menit per client IP.
-- **Request Body**: `{}` (tanpa NIM).
-- **Response**:
-  ```json
-  {
-    "success": true,
-    "data": {
-      "id": "9f1c...32hex",
-      "image": "data:image/svg+xml;base64,...",
-      "expires_in": 600
-    }
-  }
 
 ### `POST /v1/auth/login`
 Authenticates student credentials live against campus portals, creates an in-memory session in Redis (sliding 7 days TTL), and issues a session cookie `ubsi_session` plus bearer token.
@@ -122,18 +107,17 @@ Authenticates student credentials live against campus portals, creates an in-mem
 - **Rate Limit**: Max 10 attempts per rolling minute per client IP, plus max 5 requests/minute per NIM.
 - **Optional SIAKAD**: `elearning_pass` (MyBest) is strictly mandatory. `studentv2_pass` is optional — leave it empty `""` to log in with MyBest only, locking SIAKAD-dependent features until connected later. If `studentv2_pass` is supplied but incorrect, login still succeeds into an Elearning-only session with a non-blocking warning in `data.warnings`.
 - **IP blacklist**: exceeding the per-IP limit bans the IP from this endpoint for 15 minutes, escalating to 1 hour and 24 hours on repeat offenses within 24 hours. Banned requests return `429 IP_BLACKLISTED` with `error.retry_after` (seconds) and a `Retry-After` header, and never reach the campus servers.
-- **CAPTCHA**: wajib `mira_captcha` dari `POST /v1/auth/mira-captcha`. Kode Mira salah/kosong membalas `401 MIRA_CAPTCHA_INVALID` dengan tantangan segar di `error.mira_captcha`. CAPTCHA kampus tidak perlu dijawab user: backend meng-auto-solve (OCR + probe password dummy). Bila auto-solve gagal, endpoint membalas `401 AUTH_CAPTCHA_REQUIRED` dengan `error.fallback_captcha` `{id, image, label, host}`; kirim jawaban user pada `campus_captcha` saat mencoba lagi. CAPTCHA kampus manual masih bisa diambil lewat `POST /v1/auth/captcha` (per host) bila dibutuhkan.
+- **CAPTCHA**: form login memakai CAPTCHA MyBest manual. Ambil tantangan lewat `POST /v1/auth/captcha` (`host: "elearning"`), lalu kirim jawaban user pada `campus_captcha`. Tanpa `campus_captcha`, server mencoba satu kandidat OCR (untuk klien API/MCP); bila tidak tersedia atau ditolak, membalas `401 AUTH_CAPTCHA_REQUIRED` dengan `error.fallback_captcha` `{id, image, label, host}`. Kode CAPTCHA kampus berlaku sekali pakai: setiap jawaban salah membalas `401 CAPTCHA_INVALID` dan butuh tantangan baru.
 - **Request Body**:
   ```json
   {
     "nim": "12345678",
-    "studentv2_pass": "siakad_password_or_empty",
+    "studentv2_pass": "",
     "elearning_pass": "mybest_password",
-    "mira_captcha": { "id": "9f1c...32hex", "code": "ABCD" },
-    "campus_captcha": { "id": "4c7d...32hex", "code": "ABCD" }
+    "campus_captcha": { "id": "4c7d...32hex", "code": "ABC" }
   }
   ```
-  `campus_captcha` hanya dikirim saat server meminta fallback (`AUTH_CAPTCHA_REQUIRED`).
+  Tidak ada lagi CAPTCHA milik Mira.
 - **Response**:
   ```json
   {

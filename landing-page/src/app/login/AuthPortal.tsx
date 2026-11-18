@@ -337,9 +337,7 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
   const [steps, setSteps] = useState<Record<StepKey, StepState>>(IDLE_STEPS);
   const [startedAt, setStartedAt] = useState(0);
   const [finished, setFinished] = useState(false);
-  // CAPTCHA Mira milik aplikasi: selalu diminta, tanpa NIM, tampil sejak halaman dibuka.
-  const [miraCaptcha, setMiraCaptcha] = useState<CaptchaState | null>(null);
-  // CAPTCHA kampus hanya muncul kalau auto-solve backend gagal (dari error.fallback_captcha).
+  // CAPTCHA MyBest manual: dimuat setelah NIM diisi dan wajib diketik user.
   const [fallbackCaptcha, setFallbackCaptcha] = useState<CaptchaState | null>(null);
   const [forgotSystem, setForgotSystem] = useState<PasswordSystem>("mybest");
   const nimRef = useRef<HTMLInputElement>(null);
@@ -360,11 +358,13 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
     if (onLogin && me?.nim && phase === "form") router.replace("/dashboard");
   }, [me, router, phase, onLogin]);
 
-  // Tantangan Mira tampil sejak halaman login dibuka, tanpa menunggu NIM.
+  // Muat CAPTCHA MyBest manual saat NIM sudah cukup panjang.
   useEffect(() => {
-    if (onLogin && view === "login") void loadMiraCaptcha();
+    if (onLogin && view === "login" && nim.trim().length >= 6) {
+      void reloadFallbackCaptcha("elearning");
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onLogin, view]);
+  }, [onLogin, view, nim]);
 
   if (onLogin && checkingSession && !me) {
     return (
@@ -401,19 +401,9 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
     window.requestAnimationFrame(() => nimRef.current?.focus());
   }
 
-  // Muat tantangan CAPTCHA Mira (SVG milik aplikasi, tanpa NIM).
-  async function loadMiraCaptcha() {
-    setMiraCaptcha({ id: "", image: "", label: "Mira", code: "", loading: true });
-    try {
-      const data = await apiFetch<{ id: string; image: string; expires_in?: number }>(
-        "/v1/auth/mira-captcha",
-        { json: {} }
-      );
-      setMiraCaptcha({ id: data.id, image: data.image, label: "Mira", code: "" });
-    } catch {
-      setMiraCaptcha(null);
-      setError(new ApiError("CAPTCHA_UNAVAILABLE", "Gagal memuat CAPTCHA. Tekan muat ulang untuk mencoba lagi.", 0));
-    }
+  // Muat tantangan CAPTCHA MyBest untuk form login.
+  async function loadMyBestCaptcha() {
+    await reloadFallbackCaptcha("elearning");
   }
 
   // CAPTCHA kampus fallback dari payload error AUTH_CAPTCHA_REQUIRED (sudah berisi id+gambar).
@@ -441,15 +431,10 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
     }
   }
 
-  function setCaptchaCode(which: "mira" | "fallback", code: string) {
-    // Kode dikirim apa adanya (cukup buang spasi tepi); server Mira case-insensitive,
-    // kampus tidak, jadi jangan di-uppercase di sini.
+  function setCaptchaCode(_which: "fallback", code: string) {
+    // Kode dikirim apa adanya; cukup buang spasi di tepi.
     const trimmed = code.trim();
-    if (which === "mira") {
-      setMiraCaptcha((prev) => (prev ? { ...prev, code: trimmed } : prev));
-    } else {
-      setFallbackCaptcha((prev) => (prev ? { ...prev, code: trimmed } : prev));
-    }
+    setFallbackCaptcha((prev) => (prev ? { ...prev, code: trimmed } : prev));
   }
 
   function handleNimChange(value: string) {
@@ -469,10 +454,10 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
       );
       return;
     }
-    // CAPTCHA Mira wajib diisi: tantangan tanpa NIM, gerbang anti-bot milik aplikasi.
-    if (!miraCaptcha?.id || !miraCaptcha.code) {
-      if (!miraCaptcha || miraCaptcha.loading) void loadMiraCaptcha();
-      setError(new ApiError("CAPTCHA_REQUIRED", "Isi kode CAPTCHA Mira dulu, lalu tekan Masuk.", 0));
+    // CAPTCHA MyBest wajib diisi (gambar dari kampus, bukan CAPTCHA Mira).
+    if (!fallbackCaptcha?.id || !fallbackCaptcha.code) {
+      if (!fallbackCaptcha || fallbackCaptcha.loading) void loadMyBestCaptcha();
+      setError(new ApiError("CAPTCHA_REQUIRED", "Isi kode CAPTCHA MyBest dulu, lalu tekan Masuk.", 0));
       return;
     }
     setSubmitting(true);
@@ -498,10 +483,7 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
           nim: nim.trim(),
           studentv2_pass: "",
           elearning_pass: mybestPass.trim(),
-          mira_captcha: { id: miraCaptcha.id, code: miraCaptcha.code },
-          ...(fallbackCaptcha?.id && fallbackCaptcha.code
-            ? { campus_captcha: { id: fallbackCaptcha.id, code: fallbackCaptcha.code } }
-            : {}),
+          campus_captcha: { id: fallbackCaptcha.id, code: fallbackCaptcha.code },
         },
       });
 
@@ -532,52 +514,21 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
       if (apiErr.retryAfter && apiErr.status === 429) {
         block(apiErr.retryAfter);
       }
-      // Kampus butuh CAPTCHA manusia: auto-solve backend gagal, tampilkan gambar fallback.
-      if (apiErr.code === "AUTH_CAPTCHA_REQUIRED") {
-        if (apiErr.fallbackCaptcha?.id) {
+      // CAPTCHA MyBest salah/kedaluwarsa: ambil gambar baru, tampilkan pesan server.
+      if (
+        apiErr.code === "AUTH_CAPTCHA_REQUIRED" ||
+        apiErr.code === "CAPTCHA_EXPIRED" ||
+        apiErr.code === "CAPTCHA_INVALID" ||
+        apiErr.code === "INVALID_CREDENTIALS"
+      ) {
+        if (apiErr.code === "AUTH_CAPTCHA_REQUIRED" && apiErr.fallbackCaptcha?.id) {
           applyFallbackCaptcha(apiErr.fallbackCaptcha);
-        } else if (fallbackCaptcha) {
-          await reloadFallbackCaptcha((fallbackCaptcha.label === "SIAKAD" ? "siakad" : "elearning") as CaptchaHost);
         } else {
           await reloadFallbackCaptcha("elearning");
         }
         setPhase("form");
         setSteps(IDLE_STEPS);
         setFinished(false);
-        void loadMiraCaptcha(); // tantangan Mira lama sudah terpakai
-        setError(
-          new ApiError(
-            "AUTH_CAPTCHA_REQUIRED",
-            apiErr.message || "Auto-solve CAPTCHA gagal. Isi kode CAPTCHA kampus, lalu tekan Masuk.",
-            401
-          )
-        );
-        return;
-      }
-      // Kode Mira salah: server mengirim tantangan segar di error.mira_captcha.
-      if (apiErr.code === "MIRA_CAPTCHA_INVALID") {
-        if (apiErr.miraCaptcha?.id) {
-          setMiraCaptcha({ ...apiErr.miraCaptcha, label: "Mira", code: "" });
-        } else {
-          void loadMiraCaptcha();
-        }
-        setPhase("form");
-        setSteps(IDLE_STEPS);
-        setFinished(false);
-        setError(apiErr);
-        setFinished(true);
-        return;
-      }
-      // Kode CAPTCHA kampus sekali pakai: minta gambar baru agar user tidak mengulang kode lama.
-      if (apiErr.code === "CAPTCHA_EXPIRED" || apiErr.code === "CAPTCHA_INVALID") {
-        await reloadFallbackCaptcha(fallbackCaptcha?.label === "SIAKAD" ? "siakad" : "elearning");
-        setPhase("form");
-        setSteps(IDLE_STEPS);
-        setFinished(false);
-      }
-      if (apiErr.code === "INVALID_CREDENTIALS") {
-        setFallbackCaptcha(null); // kredensial salah, captcha kampus tidak dibutuhkan lagi
-        void loadMiraCaptcha();
       }
       if (apiErr.status === 429) {
         // Ditolak sebelum menyentuh server kampus.
@@ -763,59 +714,10 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
                     </div>
                   </div>
 
-                  {miraCaptcha && (
-                    <div className="space-y-2 rounded-lg border border-[#0369A1]/30 bg-[#F0F7FB] p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-mono text-[11px] font-semibold text-[#0369A1]">
-                          CAPTCHA Mira
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => void loadMiraCaptcha()}
-                          disabled={miraCaptcha.loading}
-                          className="inline-flex min-h-8 items-center gap-1 font-mono text-[11px] font-semibold text-[#0369A1] hover:underline disabled:opacity-60"
-                        >
-                          <RefreshCw
-                            className={`h-3 w-3 ${miraCaptcha.loading ? "animate-spin" : ""}`}
-                            aria-hidden="true"
-                          />
-                          Muat ulang
-                        </button>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        {miraCaptcha.image ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={miraCaptcha.image}
-                            alt="Kode CAPTCHA Mira"
-                            className="h-14 w-auto shrink-0 rounded border border-stroke bg-white"
-                          />
-                        ) : (
-                          <span className="flex h-14 w-32 shrink-0 items-center justify-center rounded border border-stroke bg-white font-mono text-[11px] text-secondary">
-                            {miraCaptcha.loading ? "Memuat..." : "Gagal"}
-                          </span>
-                        )}
-                        <input
-                          value={miraCaptcha.code}
-                          onChange={(e) => setCaptchaCode("mira", e.target.value)}
-                          maxLength={5}
-                          required
-                          autoComplete="off"
-                          autoCapitalize="characters"
-                          autoCorrect="off"
-                          spellCheck={false}
-                          placeholder="Kode"
-                          aria-label="Kode CAPTCHA Mira"
-                          className={`${fieldClass} min-w-0 flex-1 font-mono`}
-                        />
-                      </div>
-                    </div>
-                  )}
-
                   {fallbackCaptcha && (
-                    <div className="space-y-2 rounded-lg border border-[#B45309]/30 bg-[#FFFBEB] p-3">
+                    <div className="space-y-2 rounded-lg border border-[#0369A1]/30 bg-[#F0F7FB] p-3">
                       <p className="text-xs text-secondary leading-relaxed">
-                        Auto-solve CAPTCHA kampus gagal kali ini. Masukkan kode CAPTCHA {fallbackCaptcha.label} dari gambar, lalu tekan Masuk.
+                        Ketik kode CAPTCHA MyBest dari gambar di bawah. Kode berlaku sekali pakai.
                       </p>
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-mono text-[11px] font-semibold text-[#B45309]">

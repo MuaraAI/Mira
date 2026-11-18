@@ -217,7 +217,6 @@ async def api_key_auth_middleware(request: Request, call_next):
         "/health",
         "/v1/capabilities",
         "/v1/auth/login",
-        "/v1/auth/mira-captcha",
         "/v1/auth/captcha",
         "/v1/auth/forgot-password",
         "/v1/stats",

@@ -140,7 +140,6 @@ def _creds(nim="12345678", sv="PassLama123", el="rahasia99"):
         "nim": nim,
         "studentv2_pass": sv,
         "elearning_pass": el,
-        "mira_captcha": {"id": "stub-mira", "code": "abcd"},
     }
 
 

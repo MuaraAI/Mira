@@ -118,7 +118,6 @@ async def _login_elearning_only(ac: AsyncClient) -> object:
                 "nim": "12345678",
                 "studentv2_pass": "",
                 "elearning_pass": "el_pass",
-                "mira_captcha": {"id": "stub-mira", "code": "abcd"},
             },
         )
 
@@ -153,7 +152,6 @@ async def test_login_wrong_siakad_still_success_with_warning(fake_redis):
                     "nim": "12345678",
                     "studentv2_pass": "wrong",
                     "elearning_pass": "el_pass",
-                    "mira_captcha": {"id": "stub-mira", "code": "abcd"},
                 },
             )
         assert res.status_code == 200
@@ -180,7 +178,6 @@ async def test_login_mybest_wrong_returns_401(fake_redis):
                     "nim": "12345678",
                     "studentv2_pass": "sv",
                     "elearning_pass": "wrong",
-                    "mira_captcha": {"id": "stub-mira", "code": "abcd"},
                 },
             )
         assert res.status_code == 401
@@ -200,7 +197,6 @@ async def test_login_full_credentials_unlocks_siakad(fake_redis):
                 "nim": "12345678",
                 "studentv2_pass": "sv_pass",
                 "elearning_pass": "el_pass",
-                "mira_captcha": {"id": "stub-mira", "code": "abcd"},
             },
         )
         assert res.status_code == 200
@@ -231,7 +227,6 @@ async def test_me_reports_systems_flags(fake_redis):
                     "nim": "12345678",
                     "studentv2_pass": "sv",
                     "elearning_pass": "el",
-                    "mira_captcha": {"id": "stub-mira", "code": "abcd"},
                 },
             )
         token2 = res2.cookies.get("ubsi_session")

@@ -1494,18 +1494,11 @@ class ElearningClient(UpstreamSession):
                     return False
                 token = m.group(1)
                 if captcha is None:
-                    # Default-deny: solver lama hanya boleh dipakai untuk
-                    # CAPTCHA SVG <text> yang dikenal. Regex matematikanya juga
-                    # cocok dengan "3+3" di base64 PNG dan pernah mengirim
-                    # captcha_answer=6 ke kampus. Jangan POST tanpa jawaban relay.
-                    if _elearning_image_captcha(r1.text) or "<text" not in r1.text:
-                        self._login_failure = "captcha"
-                        return False
-                    try:
-                        captcha = str(solve_captcha(r1.text))
-                    except ValueError:
-                        self._login_failure = "captcha"
-                        return False
+                    # Tanpa jawaban relay (login latar / re-login 15 menit):
+                    # selesaikan CAPTCHA gambar dengan OCR. Kode sekali pakai,
+                    # jadi satu POST per tantangan dan berhenti saat kampus
+                    # menolak tanpa pesan.
+                    return self._ocr_login(nim, password)
 
             payload = {
                 "_token": token,
@@ -1546,6 +1539,66 @@ class ElearningClient(UpstreamSession):
         except Exception as err:
             logger.error("Elearning login exception for %s: %s", nim, err)
             return False
+
+
+    def _ocr_login(self, nim: str, password: str) -> bool:
+        """Login latar dengan CAPTCHA OCR (khusus re-login sesi 15 menit).
+
+        CAPTCHA kampus sekali pakai: satu kode per POST. Berhenti mencoba saat
+        kampus menolak tanpa pesan (kode hangus / soft reject) agar tidak
+        menambah hitungan gagal kampus.
+        """
+        from app.captcha_autosolver import MAX_CAPTCHA_ATTEMPTS, candidate_session_sync
+
+        login_url = f"{self.BASE_URL}/login"
+        for attempt in range(MAX_CAPTCHA_ATTEMPTS):
+            try:
+                session, candidates = candidate_session_sync("elearning", nim)
+            except Exception as err:
+                logger.warning("OCR CAPTCHA gagal dibuat untuk %s: %s", nim, err)
+                self._login_failure = "captcha"
+                self._login_errors = []
+                return False
+            if not candidates:
+                continue
+            client = self.get_client()
+            client.cookies.clear()
+            for name, value in (session.get("cookies") or {}).items():
+                client.cookies.set(name, value)
+            response = client.post(
+                login_url,
+                data={
+                    "_token": str(session.get("token") or ""),
+                    "username": nim,
+                    "password": password,
+                    "captcha_answer": candidates[0],
+                },
+            )
+            final_url = str(response.url)
+            if response.status_code == 200 and "/login" not in final_url:
+                self._mark_logged_in(nim)
+                return True
+            if "dashboard" in final_url or "elearning.bsi.ac.id/user" in final_url:
+                self._mark_logged_in(nim)
+                return True
+            reason, errors = classify_login_failure(
+                response.text, _elearning_image_captcha(response.text)
+            )
+            self._login_failure, self._login_errors = reason, errors
+            logger.info(
+                "OCR CAPTCHA percobaan %s/%s nim=%s kode=%s alasan=%s pesan=%s",
+                attempt + 1,
+                MAX_CAPTCHA_ATTEMPTS,
+                nim,
+                candidates[0],
+                reason,
+                (errors[0][:80] if errors else "-"),
+            )
+            if reason != "captcha" or not errors:
+                return False
+        if not self._login_failure or self._login_failure == "unknown":
+            self._login_failure = "captcha"
+        return False
 
     def _check_relative_path(self, path: str) -> None:
         if "://" in path or path.startswith("//"):

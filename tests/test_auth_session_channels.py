@@ -97,7 +97,6 @@ async def _login(ac: AsyncClient, fake_redis: FakeRedis, nim: str = "12345678") 
             "nim": nim,
             "studentv2_pass": "sv_pass",
             "elearning_pass": "el_pass",
-            "mira_captcha": {"id": "stub-mira", "code": "abcd"},
         },
     )
     assert res.status_code == 200
@@ -116,7 +115,6 @@ async def test_login_success_sets_cookie_and_stores_session(fake_redis):
                 "nim": "12345678",
                 "studentv2_pass": "sv",
                 "elearning_pass": "el",
-                "mira_captcha": {"id": "stub-mira", "code": "abcd"},
             },
         )
         assert res.status_code == 200
@@ -151,26 +149,10 @@ async def test_login_invalid_credentials_returns_401(monkeypatch):
                 "nim": "12345678",
                 "studentv2_pass": "",
                 "elearning_pass": "wrong",
-                "mira_captcha": {"id": "stub-mira", "code": "abcd"},
             },
         )
         assert res.status_code == 401
         assert res.json()["error"]["code"] == "INVALID_CREDENTIALS"
-
-
-@pytest.mark.asyncio
-async def test_login_without_mira_captcha_returns_fresh_challenge():
-    """Gerbang CAPTCHA Mira: body tanpa mira_captcha ditolak dengan tantangan baru."""
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        res = await ac.post(
-            "/v1/auth/login",
-            json={"nim": "12345678", "studentv2_pass": "", "elearning_pass": "el"},
-        )
-        assert res.status_code == 401
-        error = res.json()["error"]
-        assert error["code"] == "MIRA_CAPTCHA_INVALID"
-        assert error["mira_captcha"]["id"] == "stub-mira"
 
 
 @pytest.mark.asyncio

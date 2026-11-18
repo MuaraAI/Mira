@@ -107,7 +107,6 @@ async def _login(ac: AsyncClient, nim: str = "12345678") -> str:
             "nim": nim,
             "studentv2_pass": "sv_pass",
             "elearning_pass": "el_pass",
-            "mira_captcha": {"id": "stub-mira", "code": "abcd"},
         },
     )
     assert res.status_code == 200

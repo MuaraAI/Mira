@@ -23,9 +23,7 @@ export class ApiError extends Error {
   retryAfter?: number;
   /** Nama field input yang salah, dipakai untuk menandai/menggetarkan input terkait. */
   fields?: string[];
-  /** Tantangan CAPTCHA Mira baru (dikirim server saat kode Mira ditolak). */
-  miraCaptcha?: CaptchaChallenge;
-  /** CAPTCHA kampus untuk fallback manual saat auto-solve backend gagal. */
+  /** CAPTCHA MyBest untuk form login manual. */
   fallbackCaptcha?: CaptchaChallenge;
 
   constructor(
@@ -34,7 +32,6 @@ export class ApiError extends Error {
     status: number,
     retryAfter?: number,
     fields?: string[],
-    miraCaptcha?: CaptchaChallenge,
     fallbackCaptcha?: CaptchaChallenge
   ) {
     super(message);
@@ -42,12 +39,11 @@ export class ApiError extends Error {
     this.status = status;
     this.retryAfter = retryAfter;
     this.fields = fields;
-    this.miraCaptcha = miraCaptcha;
     this.fallbackCaptcha = fallbackCaptcha;
   }
 }
 
-/** Tantangan CAPTCHA dari server Mira (SVG sendiri) atau fallback kampus (PNG). */
+/** Tantangan CAPTCHA kampus (PNG base64). */
 export interface CaptchaChallenge {
   id: string;
   image: string;
@@ -62,7 +58,7 @@ interface EnvelopeError {
   retry_after?: number;
   fields?: string[];
   captcha_hosts?: string[];
-  mira_captcha?: CaptchaChallenge;
+
   fallback_captcha?: CaptchaChallenge;
 }
 
@@ -157,7 +153,6 @@ export async function apiFetch<T>(
       res.status,
       typeof err?.retry_after === "number" ? err.retry_after : undefined,
       Array.isArray(err?.fields) ? err.fields : undefined,
-      err?.mira_captcha?.id ? err.mira_captcha : undefined,
       err?.fallback_captcha?.id ? err.fallback_captcha : undefined
     );
   }
