@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, ApiError } from "@/lib/api";
 
 interface LecturerRow {
   kode: string;
@@ -66,8 +66,12 @@ async function loadDirectory(): Promise<Map<string, string>> {
       cached = { map, at: Date.now(), ok: map.size > 0 };
       return map;
     })
-    .catch(() => {
-      cached = { map: new Map(), at: Date.now(), ok: false };
+    .catch((err) => {
+      // 503 = SIAKAD dimatikan di Mira: direktori nama tidak tersedia.
+      // Simpan sebagai "permanen kosong" agar tidak menembak endpoint mati berulang,
+      // dan biarkan pemanggil menampilkan kode dosen.
+      const disabled = err instanceof ApiError && err.status === 503;
+      cached = { map: new Map(), at: disabled ? Number.MAX_SAFE_INTEGER : Date.now(), ok: false };
       return cached.map;
     })
     .finally(() => {

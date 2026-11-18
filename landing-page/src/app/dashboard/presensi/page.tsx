@@ -170,9 +170,9 @@ function PresenceSkeleton() {
 export default function PresensiPage() {
   const { confirm } = useDialog();
   const coursesApi = useApi<CourseItem[]>("/v1/elearning/courses", { persistMs: COURSES_PERSIST_MS });
-  // Cadangan kode dosen dari jadwal SIAKAD.
+  // Cadangan kode dosen dari jadwal MyBest.
   const scheduleApi = useApi<{ kode: string; nama: string; kode_dosen?: string; hari?: string; jam?: string; ruang?: string }[]>(
-    "/v1/studentv2/schedule",
+    "/v1/elearning/schedule",
     { persistMs: COURSES_PERSIST_MS }
   );
   const makeupsApi = useApi<MakeupItem[]>("/v1/elearning/makeups", { persistMs: MAKEUP_PERSIST_MS });

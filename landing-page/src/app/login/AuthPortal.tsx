@@ -329,11 +329,7 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
   const router = useRouter();
   const [view, setView] = useState<AuthView>(initialView);
   const [nim, setNim] = useState("");
-  const [siakadPass, setSiakadPass] = useState("");
   const [mybestPass, setMybestPass] = useState("");
-  // Lazy SIAKAD: login cukup MyBest; CAPTCHA kampus di-auto-solve di backend,
-  // SIAKAD bisa dihubungkan belakangan dari dashboard.
-  const [skipSiakad, setSkipSiakad] = useState(true);
   const [agree, setAgree] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
@@ -487,13 +483,8 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
     setPhase("checking");
 
     await sleep(350);
-    const effectiveSiakad = skipSiakad ? "" : siakadPass.trim();
-    // Jika SIAKAD dilewati, tandai done langsung tanpa menunggu upstream
-    if (!effectiveSiakad) {
-      mark({ form: "done", siakad: "done", mybest: "running" });
-    } else {
-      mark({ form: "done", siakad: "running", mybest: "running" });
-    }
+    // Login hanya MyBest: SIAKAD tidak lagi dihubungkan dari Mira.
+    mark({ form: "done", siakad: "done", mybest: "running" });
 
     try {
       const res = await apiFetch<{
@@ -505,7 +496,7 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
         signal: AbortSignal.timeout(LOGIN_TIMEOUT_MS),
         json: {
           nim: nim.trim(),
-          studentv2_pass: effectiveSiakad,
+          studentv2_pass: "",
           elearning_pass: mybestPass.trim(),
           mira_captcha: { id: miraCaptcha.id, code: miraCaptcha.code },
           ...(fallbackCaptcha?.id && fallbackCaptcha.code
@@ -514,12 +505,7 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
         },
       });
 
-      // SIAKAD: sukses jika sistemnya true, kalau salah tandai gagal sesaat tapi tetap lanjut
-      if (res?.systems?.siakad === false && effectiveSiakad) {
-        mark({ siakad: "failed" });
-      } else {
-        mark({ siakad: "done" });
-      }
+
       await sleep(180);
       mark({ mybest: "done", session: "running" });
 
@@ -532,7 +518,7 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
         setApiCache("/v1/auth/me", {
           nim: res.nim,
           auth_type: "session",
-          systems: res.systems ?? { siakad: Boolean(effectiveSiakad), mybest: true },
+          systems: res.systems ?? { siakad: false, mybest: true },
         });
       }
       await sleep(300);
@@ -706,7 +692,7 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
             ) : (
               <div className="login-form-in">
                 <p className="mb-6 text-sm leading-relaxed text-secondary">
-                  Password dicek langsung ke server kampus, lalu disimpan terenkripsi selama sesi aktif (7 hari) supaya kamu nggak perlu login ulang. Butuh nilai atau KRS? Hubungkan SIAKAD dari dashboard kapan saja.
+                  Login dengan akun MyBest. Password dicek langsung ke server kampus, lalu disimpan terenkripsi selama sesi aktif (7 hari). Nilai akhir, KHS, dan KRS dibuka di students.bsi.ac.id.
                 </p>
 
                 {blockedUntil && (
@@ -752,59 +738,7 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
                     />
                   </div>
 
-                  {skipSiakad ? (
-                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#CFE2EE] bg-[#F8FBFD] px-3.5 py-3">
-                        <p className="min-w-0 flex-1 text-xs text-secondary leading-snug">
-                          SIAKAD dilewati: CAPTCHA kampus di-auto-solve di belakang layar. Nilai, KRS, dan kartu ujian terbuka setelah kamu menghubungkan SIAKAD dari dashboard.
-                        </p>
-                      <button
-                        type="button"
-                        onClick={() => setSkipSiakad(false)}
-                        className="inline-flex min-h-8 items-center whitespace-nowrap font-mono text-[11px] font-semibold text-[#0369A1] hover:underline"
-                      >
-                        Hubungkan SIAKAD juga
-                      </button>
-                    </div>
-                  ) : (
-                    <PasswordField
-                      id="studentv2_pass"
-                      label="Password SIAKAD"
-                      name="studentv2_pass"
-                      value={siakadPass}
-                      onChange={setSiakadPass}
-                      autoComplete="current-password"
-                      required
-                      action={
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSkipSiakad(true);
-                            setSiakadPass("");
-                          }}
-                          className="inline-flex items-center font-mono text-[11px] font-semibold text-[#0369A1] hover:underline"
-                        >
-                          Lewati SIAKAD
-                        </button>
-                      }
-                      hint={
-                        <div className="space-y-1">
-                          <p className="font-mono text-[11px] text-secondary">
-                            Opsional. CAPTCHA SIAKAD diurus otomatis; jika auto-solve gagal, SIAKAD bisa dihubungkan dari dashboard.
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setForgotSystem("siakad");
-                              go("forgot");
-                            }}
-                            className="inline-flex min-h-8 items-center font-mono text-[11px] font-semibold text-[#0369A1] hover:underline"
-                          >
-                            Lupa password SIAKAD?
-                          </button>
-                        </div>
-                      }
-                    />
-                  )}
+
 
                   <div>
                     <PasswordField

@@ -21,8 +21,7 @@ import {
 import { useApi, AuthMeResponse } from "@/lib/api";
 import { findSubmission, formatShortDate, parseDeadline } from "@/lib/assignments";
 import { TodayClassCard, type TodayClass } from "@/components/TodayClassCard";
-import { splitProgram } from "@/lib/profile";
-import { LockedSiakadCard } from "@/components/LockedSiakadCard";
+import { SiaKadLockedCard } from "@/components/SiaKadLockedCard";
 import {
   EmptyState,
   ErrorState,
@@ -31,16 +30,7 @@ import {
 } from "@/components/dashboard-ui";
 import { DAY_NAMES, dayIndex, describeRoom, sessionTiming, shortDate } from "@/lib/schedule";
 
-interface StudentProfile {
-  nim?: string;
-  nama?: string;
-  program_studi?: string;
-  lokasi_cabang?: string;
-  kelas?: string;
-  semester_aktif?: string;
-  status_aktif?: string;
-  dosen_pa?: string;
-}
+
 
 interface ScheduleItem {
   id: string;
@@ -122,9 +112,7 @@ const norm = (v?: string | null) => (v ?? "").trim().toLowerCase();
 
 export default function DashboardOverviewPage() {
   const me = useApi<AuthMeResponse>("/v1/auth/me");
-  const profile = useApi<StudentProfile>("/v1/studentv2/profile", { persistMs: PERSIST_12H });
-  const schedule = useApi<ScheduleItem[]>("/v1/studentv2/schedule", { persistMs: PERSIST_12H });
-  const khs = useApi<KhsData>("/v1/studentv2/khs", { persistMs: PERSIST_12H });
+  const schedule = useApi<ScheduleItem[]>("/v1/elearning/schedule", { persistMs: PERSIST_12H });
   const assignments = useApi<AssignmentsData>("/v1/elearning/assignments", { persistMs: 6 * 60 * 60 * 1000, refreshMs: 5 * 60_000 });
   // Token presensi per mapel berasal dari daftar mapel MyBest (dicocokkan dengan jadwal SIAKAD lewat kode/nama).
   const courses = useApi<ElearningCourse[]>("/v1/elearning/courses", { persistMs: PERSIST_12H });
@@ -135,7 +123,7 @@ export default function DashboardOverviewPage() {
     { persistMs: PERSIST_12H }
   );
   const [now, setNow] = useState(() => new Date());
-  const [connectSiakadOpen, setConnectSiakadOpen] = useState(false);
+
   useEffect(() => {
     const t = window.setInterval(() => setNow(new Date()), 30_000);
     return () => window.clearInterval(t);
@@ -203,25 +191,17 @@ export default function DashboardOverviewPage() {
 
   // Selama request belum selesai tampilkan skeleton, bukan fallback, supaya teks tidak berganti di tengah jalan.
   const isPending = (q: { loading: boolean; data: unknown }) => q.loading && !q.data;
-  const profilePending = isPending(profile);
+  const profilePending = isPending(elearningProfile);
   const schedulePending = isPending(schedule);
-  const khsPending = isPending(khs);
   const assignmentsPending = isPending(assignments);
 
-  const nim = me.data?.nim ?? profile.data?.nim ?? "-";
-  const rawName = (profile.data?.nama || elearningProfile.data?.nama || "").trim();
+  const nim = me.data?.nim ?? "-";
+  const rawName = (elearningProfile.data?.nama || "").trim();
   const firstName = rawName.split(/\s+/)[0] ?? "";
   // Tampilkan rapi ("Verzio").
   const displayName = firstName ? firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase() : `Mahasiswa`;
-  const hasKhs = Boolean(khs.data && (khs.data.total_sks ?? 0) > 0);
-  const { prodi: prodiName, kampus: kampusName } = splitProgram(profile.data);
-  const prodi = prodiName || (courses.data && courses.data.length > 0 ? "Mahasiswa Aktif" : "Data belum tersedia");
-  const kampus = kampusName;
-  const semester = profile.data?.semester_aktif || "-";
-  const kelas = profile.data?.kelas || courses.data?.[0]?.kelas || "";
-
-  const ipkValue = khs.data?.ipk != null ? khs.data.ipk.toFixed(2) : "-";
-  const totalSks = khs.data?.total_sks != null ? String(khs.data.total_sks) : "-";
+  const prodi = courses.data && courses.data.length > 0 ? "Mahasiswa Aktif" : "Data belum tersedia";
+  const kelas = courses.data?.[0]?.kelas || "";
 
   const tasksList = assignments.data?.tasks ?? [];
   const submissionsList = assignments.data?.submissions ?? [];
@@ -249,41 +229,10 @@ export default function DashboardOverviewPage() {
 
   return (
     <div className="space-y-7">
-      {schedule.error?.status === 401 && (
-        <div className="px-card bg-amber-50 border-2 border-dashed border-amber-300 p-4 text-xs text-amber-950">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-200/80 px-1.5 py-0.5">
-                Mode MyBest
-              </span>
-              <span>
-                Kamu masuk menggunakan akun MyBest LMS. Hubungkan akun SIAKAD untuk memuat IPK kumulatif dan transkrip resmi.
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setConnectSiakadOpen((v) => !v)}
-              className="font-mono font-bold text-amber-900 underline hover:text-amber-700"
-            >
-              {connectSiakadOpen ? "Tutup" : "Hubungkan SIAKAD"}
-            </button>
-          </div>
-          {connectSiakadOpen && (
-            <div className="mt-4 pt-4 border-t border-amber-200">
-              <LockedSiakadCard
-                title="Hubungkan Akun SIAKAD"
-                description="Masukkan password SIAKAD (students.bsi.ac.id) untuk membuka kartu KHS, KRS, dan transkrip nilai resmi."
-                onConnected={() => {
-                  setConnectSiakadOpen(false);
-                  schedule.reload();
-                  profile.reload();
-                  khs.reload();
-                }}
-              />
-            </div>
-          )}
-        </div>
-      )}
+      <SiaKadLockedCard
+        title="Nilai akhir, KHS, dan KRS ada di SIAKAD"
+        description="Mira memakai data MyBest: jadwal, tugas, presensi, dan nilai tugas. Untuk IPK, KHS, dan KRS, buka portal kampus."
+      />
 
       {/* 1. Hero: pita aksen dengan sapaan + identitas, lalu sorotan kelas dan pintasan */}
       <section className="overflow-hidden bg-white shadow-[0_0_0_2px_#163A55,6px_6px_0_0_#9CC6E0]" aria-label="Ringkasan hari ini">
@@ -311,14 +260,6 @@ export default function DashboardOverviewPage() {
                 {prodi}
                 {kelas ? ` ${kelas}` : ""}
               </span>
-              <span aria-hidden="true">·</span>
-              <span>Semester {semester}</span>
-              {kampus && (
-                <>
-                  <span aria-hidden="true" className="hidden sm:inline">·</span>
-                  <span className="hidden sm:inline">{kampus}</span>
-                </>
-              )}
             </p>
           )}
         </div>
@@ -395,11 +336,10 @@ export default function DashboardOverviewPage() {
           href="/dashboard/nilai"
           label="IPK"
           icon={GraduationCap}
-          pending={khsPending}
-          value={hasKhs ? ipkValue : "Belum ada"}
-          small={!hasKhs}
-          suffix={hasKhs ? "/ 4.00" : undefined}
-          note={hasKhs ? `${totalSks} SKS lulus` : "Muncul akhir semester"}
+          pending={false}
+          value="Di SIAKAD"
+          small
+          note="Buka portal kampus"
         />
         <MetricCard
           href="#heading-kelas-hari-ini"
