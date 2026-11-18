@@ -168,7 +168,6 @@ export function LockedSiakadCard({
             </p>
           </div>
 
-          {open && (
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-[#0369A1]">
@@ -190,10 +189,10 @@ export function LockedSiakadCard({
                   <img
                     src={captcha.image}
                     alt="Kode CAPTCHA SIAKAD"
-                    className="h-14 w-auto rounded border border-stroke bg-white"
+                    className="h-14 w-auto shrink-0 rounded border border-stroke bg-white"
                   />
                 ) : (
-                  <span className="flex h-14 w-32 items-center justify-center rounded border border-stroke bg-white font-mono text-[11px] text-secondary">
+                  <span className="flex h-14 w-32 shrink-0 items-center justify-center rounded border border-stroke bg-white font-mono text-[11px] text-secondary">
                     {captcha?.loading ? "Memuat..." : "Gagal"}
                   </span>
                 )}
@@ -210,7 +209,7 @@ export function LockedSiakadCard({
                   spellCheck={false}
                   placeholder="Kode"
                   aria-label="Kode CAPTCHA SIAKAD"
-                  className={`${inputClass} font-mono text-sm`}
+                  className={`${inputClass} min-w-0 flex-1 font-mono text-sm`}
                 />
               </div>
               {captchaError && (
@@ -219,7 +218,6 @@ export function LockedSiakadCard({
                 </p>
               )}
             </div>
-          )}
 
           {error && (
             <div className="flex items-start gap-2 bg-rose-50 border border-rose-200 p-3 text-xs text-rose-800" role="alert">

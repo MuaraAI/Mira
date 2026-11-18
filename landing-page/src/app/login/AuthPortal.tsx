@@ -865,10 +865,10 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
                                 <img
                                   src={cap.image}
                                   alt={`Kode CAPTCHA ${cap.label}`}
-                                  className="h-14 w-auto rounded border border-stroke bg-white"
+                                  className="h-14 w-auto shrink-0 rounded border border-stroke bg-white"
                                 />
                               ) : (
-                                <span className="flex h-14 w-32 items-center justify-center rounded border border-stroke bg-white font-mono text-[11px] text-secondary">
+                                <span className="flex h-14 w-32 shrink-0 items-center justify-center rounded border border-stroke bg-white font-mono text-[11px] text-secondary">
                                   {cap.loading ? "Memuat..." : "Gagal"}
                                 </span>
                               )}
@@ -883,7 +883,7 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
                                 spellCheck={false}
                                 placeholder="Kode"
                                 aria-label={`Kode CAPTCHA ${cap.label}`}
-                                className={`${fieldClass} font-mono`}
+                                className={`${fieldClass} min-w-0 flex-1 font-mono`}
                               />
                             </div>
                           </div>
