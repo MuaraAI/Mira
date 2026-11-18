@@ -3,11 +3,8 @@
 import { LogIn, LogOut, ShieldAlert, ShieldCheck, ShieldX, School } from "lucide-react";
 import { useApi, AuthMeResponse } from "@/lib/api";
 import { useLogout } from "@/lib/logout";
-import { DosenInfo } from "@/components/DosenInfo";
-import { splitProgram } from "@/lib/profile";
 import { useSecurityStatus } from "@/lib/security";
 import { ChangePasswordCard } from "@/components/ChangePasswordCard";
-import { LockedSiakadCard } from "@/components/LockedSiakadCard";
 import {
   ErrorState,
   LoadingState,
@@ -16,20 +13,11 @@ import {
   primaryButtonClass,
 } from "@/components/dashboard-ui";
 
-interface StudentProfile {
-  nim?: string;
-  nama?: string;
-  program_studi?: string;
-  lokasi_cabang?: string;
-  kelas?: string;
-  semester_aktif?: string;
-  status_aktif?: string;
-  dosen_pa?: string;
-}
+
 
 export default function SesiPage() {
   const meApi = useApi<AuthMeResponse>("/v1/auth/me");
-  const profileApi = useApi<StudentProfile>("/v1/studentv2/profile");
+  const profileApi = useApi<{ nama?: string; email?: string }>("/v1/elearning/profile");
   const securityApi = useSecurityStatus();
 
   const { logout, busy } = useLogout();
@@ -39,12 +27,9 @@ export default function SesiPage() {
   }
   if (meApi.error) return <ErrorState error={meApi.error} onRetry={meApi.reload} />;
 
-  const nim = meApi.data?.nim ?? profileApi.data?.nim ?? "-";
+  const nim = meApi.data?.nim ?? "-";
   const studentName = profileApi.data?.nama || `Mahasiswa (${nim})`;
-  const { prodi: prodiName, kampus: kampusName } = splitProgram(profileApi.data);
-  const prodi = prodiName || "-";
-  const kampus = kampusName || "-";
-  const dosenPa = profileApi.data?.dosen_pa?.trim() || "";
+  const email = profileApi.data?.email?.trim() || "-";
 
   return (
     <div className="space-y-6">
@@ -53,17 +38,7 @@ export default function SesiPage() {
         description="Aktivitas login, ganti password kampus, profil, dan keluar dari perangkat."
       />
 
-      {meApi.data?.systems?.siakad === false && (
-        <LockedSiakadCard
-          title="Akun SIAKAD Belum Terhubung"
-          description="Kamu login menggunakan akun MyBest saja. Hubungkan akun SIAKAD untuk membuka profil lengkap, dosen PA, jadwal kuliah, nilai, KRS, dan kartu ujian."
-          onConnected={() => {
-            meApi.reload();
-            profileApi.reload();
-            securityApi.reload();
-          }}
-        />
-      )}
+
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <LoginActivityCard security={securityApi.data} />
@@ -101,43 +76,11 @@ export default function SesiPage() {
               </div>
               <div>
                 <dt className="text-[10px] font-mono uppercase text-secondary font-bold">
-                  Kelas / Semester
+                  Email MyBest
                 </dt>
-                <dd className="text-foreground">
-                  {profileApi.data?.kelas || "-"} (Smt {profileApi.data?.semester_aktif || "1"})
-                </dd>
+                <dd className="break-all text-foreground">{email}</dd>
               </div>
             </div>
-
-            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-stroke/60">
-              <div>
-                <dt className="text-[10px] font-mono uppercase text-secondary font-bold">
-                  Program Studi
-                </dt>
-                <dd className="text-foreground font-medium">
-                  {prodi}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-[10px] font-mono uppercase text-secondary font-bold">
-                  Kampus Cabang
-                </dt>
-                <dd className="text-foreground">
-                  {kampus}
-                </dd>
-              </div>
-            </div>
-
-            {dosenPa && (
-              <div className="pt-2 border-t border-stroke/60">
-                <dt className="text-[10px] font-mono uppercase text-secondary font-bold">
-                  Dosen Pembimbing Akademik (PA)
-                </dt>
-                <dd className="text-foreground font-medium">
-                  <DosenInfo kode={dosenPa} />
-                </dd>
-              </div>
-            )}
           </dl>
         </div>
 

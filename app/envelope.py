@@ -22,7 +22,8 @@ def success_response(
 def error_response(
     code: str,
     message: str,
-    module: Optional[str] = None
+    module: Optional[str] = None,
+    extra: Optional[dict[str, Any]] = None
 ) -> dict[str, Any]:
     err_obj: dict[str, Any] = {
         "code": code,
@@ -30,6 +31,8 @@ def error_response(
     }
     if module:
         err_obj["module"] = module
+    if extra:
+        err_obj.update(extra)
     return {
         "success": False,
         "error": err_obj,

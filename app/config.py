@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     UPSTREAM_SESSION_MAX_AGE: int = 780
     # Password default kampus yang diingatkan untuk segera diganti (dipisahkan koma)
     CAMPUS_DEFAULT_PASSWORDS: str = ""
+    # Saklar SIAKAD: False = seluruh endpoint SIAKAD balas 503 + CTA ke situs kampus.
+    SIAKAD_ENABLED: bool = False
+    SIAKAD_CTA_URL: str = "https://students.bsi.ac.id"
     # Scraper Proxy Configuration (Opsional - Single Proxy / Rotating Pool)
     SCRAPER_PROXY: str = ""
     SCRAPER_PROXY_POOL: str = ""

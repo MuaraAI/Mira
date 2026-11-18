@@ -347,7 +347,7 @@ export function KomunitasApp() {
       .then(async ({ needs_onboarding }) => {
         if (needs_onboarding) {
           setPhase("onboarding");
-          apiFetch<{ nama?: string }>("/v1/studentv2/profile")
+          apiFetch<{ nama?: string }>("/v1/elearning/profile")
             .then((p) => p?.nama && setSuggestedName(titleCase(p.nama)))
             .catch(() => {});
           return;

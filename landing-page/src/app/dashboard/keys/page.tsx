@@ -381,7 +381,7 @@ export default function ApiKeysPage() {
                 <p className="text-code-text/60 text-[11px] mb-1"># 1. Ambil Jadwal Kuliah kamu lewat cURL:</p>
                 <pre className="text-[#7DD3FC]">
                   {`curl -H "Authorization: Bearer muara_mira_YOUR_KEY" \\
-  https://api.muaraai.com/v1/mira/v1/studentv2/schedule`}
+  https://api.muaraai.com/v1/mira/v1/elearning/schedule`}
                 </pre>
               </div>
               <div className="pt-2 border-t border-white/10">
@@ -390,7 +390,7 @@ export default function ApiKeysPage() {
 {`import requests
 
 headers = {"Authorization": "Bearer muara_mira_YOUR_KEY"}
-res = requests.get("https://api.muaraai.com/v1/mira/v1/studentv2/schedule", headers=headers)
+res = requests.get("https://api.muaraai.com/v1/mira/v1/elearning/schedule", headers=headers)
 print(res.json())`}
                 </pre>
               </div>
