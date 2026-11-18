@@ -446,12 +446,19 @@ async def login(req_body: LoginRequest, request: Request):
         outcomes=outcomes,
     )
     el_reason, el_errors = outcomes.get("elearning", ("unknown", []))
-    logger.info(
-        "Login MyBest nim=%s captcha=manual alasan=%s pesan=%s",
-        nim,
-        el_reason,
-        (el_errors[0][:80] if el_errors else "-"),
-    )
+    sumber = "manual" if req_body.campus_captcha else "ocr"
+    if el_reason == "captcha":
+        # Level warning: log INFO default dibuang pm2, padahal inilah yang perlu
+        # ditelusuri saat user melaporkan kode CAPTCHA ditolak.
+        logger.warning(
+            "Login MyBest ditolak captcha nim=%s sumber=%s panjang_kode=%s pesan=%s",
+            nim,
+            sumber,
+            len(el_code or ""),
+            (el_errors[0][:120] if el_errors else "-"),
+        )
+    else:
+        logger.info("Login MyBest nim=%s sumber=%s alasan=%s", nim, sumber, el_reason)
 
     # Brute-force & login guard: hitung sukses jika MyBest valid (dan SIAKAD valid jika diisi)
     attempt_success = bool(el_ok and (sv2_ok or not siakad_attempted))
