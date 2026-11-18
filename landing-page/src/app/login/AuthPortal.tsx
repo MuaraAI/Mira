@@ -344,6 +344,7 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
   const [fallbackCaptcha, setFallbackCaptcha] = useState<CaptchaState | null>(null);
   const [forgotSystem, setForgotSystem] = useState<PasswordSystem>("mybest");
   const nimRef = useRef<HTMLInputElement>(null);
+  const captchaRef = useRef<HTMLInputElement>(null);
   const captchaGeneration = useRef(0);
   const { blockedUntil, remainingMs, block } = useBlockedUntil();
   const { status: maintenance } = useMaintenance();
@@ -540,6 +541,8 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
         setPhase("form");
         setSteps(IDLE_STEPS);
         setFinished(false);
+        // NIM & password tetap terisi; kursor pindah ke kolom kode yang baru.
+        window.requestAnimationFrame(() => captchaRef.current?.focus());
       }
       if (apiErr.status === 429) {
         // Ditolak sebelum menyentuh server kampus.
@@ -776,6 +779,7 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
                           </span>
                         )}
                         <input
+                          ref={captchaRef}
                           value={fallbackCaptcha.code}
                           onChange={(e) => setCaptchaCode("fallback", e.target.value)}
                           maxLength={8}
