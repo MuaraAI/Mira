@@ -1,4 +1,4 @@
-const CACHE_NAME = "ubsi-pwa-v2";
+const CACHE_NAME = "ubsi-pwa-v3";
 const PRECACHE_URLS = ["/offline.html", "/manifest.webmanifest", "/pwa/icon-192.png", "/pwa/icon-512.png"];
 
 self.addEventListener("install", (event) => {

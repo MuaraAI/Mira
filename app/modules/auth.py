@@ -423,8 +423,15 @@ async def login(req_body: LoginRequest, request: Request):
             return await _captcha_fallback_response("elearning")
         el_code = req_body.campus_captcha.code
     else:
-        # Klien tanpa CAPTCHA manual (API/MCP): satu percobaan kandidat OCR.
-        # Form web selalu mengirim kode manual, jadi UI tidak memakai jalur ini.
+        # Browser (bundle lama bisa tidak mengirim kode): jangan menebak, kirim
+        # tantangan manual. Klien API/MCP tanpa header browser tetap dapat satu
+        # percobaan OCR supaya integrasi otomatis tidak putus.
+        dari_browser = (
+            request.headers.get("x-requested-with") == "dashboard"
+            or bool(request.headers.get("origin"))
+        )
+        if dari_browser:
+            return await _captcha_fallback_response("elearning")
         try:
             el_session, el_candidates = await candidate_session("elearning", nim)
         except Exception as err:
