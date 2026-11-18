@@ -231,20 +231,39 @@ async def test_captcha_endpoint_reports_upstream_failure():
 
 
 @pytest.mark.asyncio
-async def test_login_rejects_expired_captcha_challenge():
+async def test_login_fallback_issues_new_captcha_when_expired():
+    """Challenge kampus kedaluwarsa di fallback: server terbitkan captcha baru."""
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        with patch("app.captcha_relay.consume_challenge", AsyncMock(return_value=None)):
+        with (
+            patch("app.mira_captcha.verify_challenge", AsyncMock(return_value=True)),
+            patch("app.captcha_relay.consume_challenge", AsyncMock(return_value=None)),
+            patch(
+                "app.captcha_relay.create_challenge",
+                AsyncMock(
+                    return_value={
+                        "id": "f" * 32,
+                        "image": "data:image/png;base64,AAA",
+                        "label": "MyBest",
+                        "expires_in": 300,
+                    }
+                ),
+            ),
+        ):
             res = await ac.post(
                 "/v1/auth/login",
                 json={
                     "nim": "12345678",
                     "elearning_pass": "secret",
-                    "captcha_elearning": {"id": "a" * 32, "code": "ABC"},
+                    "mira_captcha": {"id": "m" * 32, "code": "ABCD"},
+                    "campus_captcha": {"id": "a" * 32, "code": "ABC"},
                 },
             )
     assert res.status_code == 401
-    assert res.json()["error"]["code"] == "CAPTCHA_EXPIRED"
+    error = res.json()["error"]
+    assert error["code"] == "AUTH_CAPTCHA_REQUIRED"
+    assert error["fallback_captcha"]["host"] == "elearning"
+    assert error["fallback_captcha"]["id"] == "f" * 32
 
 
 @pytest.mark.asyncio
@@ -370,6 +389,18 @@ async def test_login_requires_nonce_cookie_from_captcha_endpoint(monkeypatch, tm
     monkeypatch.setattr(
         "app.modules.auth.verify_live_credentials", AsyncMock(return_value=(False, True))
     )
+    monkeypatch.setattr("app.mira_captcha.verify_challenge", AsyncMock(return_value=True))
+    monkeypatch.setattr(
+        "app.captcha_relay.create_challenge",
+        AsyncMock(
+            return_value={
+                "id": "f" * 32,
+                "image": "data:image/png;base64,AAA",
+                "label": "MyBest",
+                "expires_in": 300,
+            }
+        ),
+    )
     monkeypatch.setattr("app.modules.news.news_client.fetch_posts", lambda *a, **k: [])
     monkeypatch.setattr("app.modules.news.news_client.fetch_post_detail", lambda *a, **k: {})
     from app.channels_db import init_db
@@ -380,7 +411,8 @@ async def test_login_requires_nonce_cookie_from_captcha_endpoint(monkeypatch, tm
         "nim": "12345678",
         "studentv2_pass": "",
         "elearning_pass": "el_pass",
-        "captcha_elearning": {"id": "c" * 32, "code": "abc"},
+        "mira_captcha": {"id": "m" * 32, "code": "abcd"},
+        "campus_captcha": {"id": "c" * 32, "code": "abc"},
     }
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
@@ -388,9 +420,9 @@ async def test_login_requires_nonce_cookie_from_captcha_endpoint(monkeypatch, tm
         ac.cookies.set("ubsi_captcha_elearning", "nonce-abc")
         with_cookie = await ac.post(
             "/v1/auth/login",
-            json={**body, "captcha_elearning": {"id": "d" * 32, "code": "abc"}},
+            json={**body, "campus_captcha": {"id": "d" * 32, "code": "abc"}},
         )
 
     assert no_cookie.status_code == 401
-    assert no_cookie.json()["error"]["code"] == "CAPTCHA_EXPIRED"
+    assert no_cookie.json()["error"]["code"] == "AUTH_CAPTCHA_REQUIRED"
     assert with_cookie.status_code == 200

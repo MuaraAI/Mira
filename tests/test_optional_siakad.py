@@ -114,7 +114,12 @@ async def _login_elearning_only(ac: AsyncClient) -> object:
     ):
         return await ac.post(
             "/v1/auth/login",
-            json={"nim": "12345678", "studentv2_pass": "", "elearning_pass": "el_pass"},
+            json={
+                "nim": "12345678",
+                "studentv2_pass": "",
+                "elearning_pass": "el_pass",
+                "mira_captcha": {"id": "stub-mira", "code": "abcd"},
+            },
         )
 
 
@@ -144,7 +149,12 @@ async def test_login_wrong_siakad_still_success_with_warning(fake_redis):
         ):
             res = await ac.post(
                 "/v1/auth/login",
-                json={"nim": "12345678", "studentv2_pass": "wrong", "elearning_pass": "el_pass"},
+                json={
+                    "nim": "12345678",
+                    "studentv2_pass": "wrong",
+                    "elearning_pass": "el_pass",
+                    "mira_captcha": {"id": "stub-mira", "code": "abcd"},
+                },
             )
         assert res.status_code == 200
         data = res.json()["data"]
@@ -166,13 +176,17 @@ async def test_login_mybest_wrong_returns_401(fake_redis):
         ):
             res = await ac.post(
                 "/v1/auth/login",
-                json={"nim": "12345678", "studentv2_pass": "sv", "elearning_pass": "wrong"},
+                json={
+                    "nim": "12345678",
+                    "studentv2_pass": "sv",
+                    "elearning_pass": "wrong",
+                    "mira_captcha": {"id": "stub-mira", "code": "abcd"},
+                },
             )
         assert res.status_code == 401
         error = res.json()["error"]
-        # Tanpa CAPTCHA, server belum bisa menyimpulkan password salah.
-        assert error["code"] == "AUTH_CAPTCHA_REQUIRED"
-        assert set(error["captcha_hosts"]) == {"elearning", "siakad"}
+        # Auto-solve CAPTCHA sukses (stub), jadi penolakan murni kredensial.
+        assert error["code"] == "INVALID_CREDENTIALS"
         assert not [k for k in fake_redis.kv if k.startswith("ubsi:session:")]
 
 
@@ -182,7 +196,12 @@ async def test_login_full_credentials_unlocks_siakad(fake_redis):
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         res = await ac.post(
             "/v1/auth/login",
-            json={"nim": "12345678", "studentv2_pass": "sv_pass", "elearning_pass": "el_pass"},
+            json={
+                "nim": "12345678",
+                "studentv2_pass": "sv_pass",
+                "elearning_pass": "el_pass",
+                "mira_captcha": {"id": "stub-mira", "code": "abcd"},
+            },
         )
         assert res.status_code == 200
         data = res.json()["data"]
@@ -208,7 +227,12 @@ async def test_me_reports_systems_flags(fake_redis):
         ):
             res2 = await ac.post(
                 "/v1/auth/login",
-                json={"nim": "12345678", "studentv2_pass": "sv", "elearning_pass": "el"},
+                json={
+                    "nim": "12345678",
+                    "studentv2_pass": "sv",
+                    "elearning_pass": "el",
+                    "mira_captcha": {"id": "stub-mira", "code": "abcd"},
+                },
             )
         token2 = res2.cookies.get("ubsi_session")
         me2 = await ac.get("/v1/auth/me", headers={"Authorization": f"Bearer {token2}"})
@@ -309,15 +333,31 @@ async def test_connect_siakad_wrong_password_rejected(fake_redis):
             "app.modules.auth.verify_siakad_login",
             AsyncMock(return_value=False),
         ):
-            # Tanpa CAPTCHA: kampus mewajibkan kode, server belum bisa menyimpulkan password salah.
+            # Auto-solve CAPTCHA sukses (stub): password salah langsung terdeteksi.
             missing = await ac.post(
                 "/v1/auth/credentials",
                 json={"system": "siakad", "password": "salah"},
                 headers=auth,
             )
-        assert missing.status_code == 401
-        assert missing.json()["error"]["code"] == "AUTH_CAPTCHA_REQUIRED"
-        assert missing.json()["error"]["captcha_hosts"] == ["siakad"]
+        assert missing.status_code == 400
+        assert missing.json()["error"]["code"] == "INVALID_CREDENTIALS"
+
+        # Auto-solve gagal: server minta CAPTCHA manusia lewat fallback_captcha.
+        with (
+            patch("app.captcha_autosolver.solve_campus_captcha", AsyncMock(return_value=None)),
+            patch(
+                "app.captcha_relay.create_challenge",
+                AsyncMock(return_value={"id": "f" * 32, "image": "data:image/png;base64,AAA", "label": "SIAKAD", "expires_in": 300}),
+            ),
+        ):
+            fallback = await ac.post(
+                "/v1/auth/credentials",
+                json={"system": "siakad", "password": "salah"},
+                headers=auth,
+            )
+        assert fallback.status_code == 401
+        assert fallback.json()["error"]["code"] == "AUTH_CAPTCHA_REQUIRED"
+        assert fallback.json()["error"]["fallback_captcha"]["host"] == "siakad"
 
         with (
             patch("app.modules.auth.verify_siakad_login", AsyncMock(return_value=False)),
@@ -331,12 +371,13 @@ async def test_connect_siakad_wrong_password_rejected(fake_redis):
                 json={
                     "system": "siakad",
                     "password": "salah",
-                    "captcha": {"id": "a" * 32, "code": "ABCD"},
+                    "campus_captcha": {"id": "a" * 32, "code": "ABCD"},
                 },
                 headers=auth,
             )
         assert connected.status_code == 400
         assert connected.json()["error"]["code"] == "INVALID_CREDENTIALS"
+
         payload = _session_payload(fake_redis)
         assert payload["studentv2_pass"] == ""
 

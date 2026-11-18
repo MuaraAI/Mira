@@ -133,7 +133,12 @@ async def test_trigger_reminder_includes_pwa_push(tmp_path, monkeypatch):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         res = await ac.post(
             "/v1/auth/login",
-            json={"nim": "12345678", "studentv2_pass": "p", "elearning_pass": "p"},
+            json={
+                "nim": "12345678",
+                "studentv2_pass": "p",
+                "elearning_pass": "p",
+                "mira_captcha": {"id": "stub-mira", "code": "abcd"},
+            },
         )
         token = res.cookies.get("ubsi_session")
         with patch(

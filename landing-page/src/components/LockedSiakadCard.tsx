@@ -59,8 +59,9 @@ export function LockedSiakadCard({
   }
 
   function openForm() {
+    // CAPTCHA kampus tidak diminta di muka: backend mencoba auto-solve dulu,
+    // gambar fallback hanya muncul kalau server menolak dengan AUTH_CAPTCHA_REQUIRED.
     setOpen(true);
-    void loadCaptcha();
   }
 
   function closeForm() {
@@ -75,11 +76,6 @@ export function LockedSiakadCard({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!password.trim() || loading) return;
-    if (!captcha || captcha.loading || !captcha.id || !captcha.code.trim()) {
-      setError("Isi kode CAPTCHA SIAKAD dari gambar di atas dulu, lalu tekan Hubungkan.");
-      if (!captcha || !captcha.loading) void loadCaptcha();
-      return;
-    }
 
     setLoading(true);
     setError(null);
@@ -88,7 +84,9 @@ export function LockedSiakadCard({
         json: {
           system: "siakad",
           password: password.trim(),
-          captcha: { id: captcha.id, code: captcha.code.trim() },
+          ...(captcha?.id && captcha.code.trim()
+            ? { campus_captcha: { id: captcha.id, code: captcha.code.trim() } }
+            : {}),
         },
       });
       // Bersihkan cache me dan endpoint studentv2 agar request ulang langsung fresh
@@ -101,13 +99,22 @@ export function LockedSiakadCard({
         }
       }, 700);
     } catch (err) {
-      // Challenge CAPTCHA sekali pakai: setiap gagal wajib memuat gambar baru.
-      void loadCaptcha();
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : "Gagal menghubungkan akun SIAKAD. Coba lagi."
-      );
+      if (err instanceof ApiError) {
+        if (err.code === "AUTH_CAPTCHA_REQUIRED" && err.fallbackCaptcha?.id) {
+          // Auto-solve backend gagal: server mengirim CAPTCHA kampus baru untuk user.
+          setCaptcha({ ...err.fallbackCaptcha, label: err.fallbackCaptcha.label ?? "SIAKAD", code: "", loading: false });
+          setError(err.message);
+          setLoading(false);
+          return;
+        }
+        if (err.code === "CAPTCHA_INVALID" || err.code === "CAPTCHA_EXPIRED") {
+          // Challenge kampus sekali pakai: muat gambar baru untuk percobaan berikutnya.
+          void loadCaptcha();
+        }
+        setError(err.message);
+      } else {
+        setError("Gagal menghubungkan akun SIAKAD. Coba lagi.");
+      }
     } finally {
       setLoading(false);
     }
@@ -168,10 +175,11 @@ export function LockedSiakadCard({
             </p>
           </div>
 
+            {captcha && (
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-[#0369A1]">
-                  CAPTCHA SIAKAD
+                  CAPTCHA {captcha.label}
                 </span>
                 <button
                   type="button"
@@ -188,7 +196,7 @@ export function LockedSiakadCard({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={captcha.image}
-                    alt="Kode CAPTCHA SIAKAD"
+                    alt="Kode CAPTCHA kampus"
                     className="h-14 w-auto shrink-0 rounded border border-stroke bg-white"
                   />
                 ) : (
@@ -208,7 +216,7 @@ export function LockedSiakadCard({
                   autoCorrect="off"
                   spellCheck={false}
                   placeholder="Kode"
-                  aria-label="Kode CAPTCHA SIAKAD"
+                  aria-label="Kode CAPTCHA kampus"
                   className={`${inputClass} min-w-0 flex-1 font-mono text-sm`}
                 />
               </div>
@@ -218,6 +226,7 @@ export function LockedSiakadCard({
                 </p>
               )}
             </div>
+            )}
 
           {error && (
             <div className="flex items-start gap-2 bg-rose-50 border border-rose-200 p-3 text-xs text-rose-800" role="alert">
@@ -244,7 +253,7 @@ export function LockedSiakadCard({
             </button>
             <button
               type="submit"
-              disabled={loading || success || !password.trim() || !captcha || captcha.loading || !captcha.id}
+              disabled={loading || success || !password.trim() || Boolean(captcha && (captcha.loading || !captcha.id))}
               className={`${primaryButtonClass} text-xs`}
             >
               {loading ? "Memverifikasi..." : success ? "Terhubung" : "Simpan & Buka Fitur"}

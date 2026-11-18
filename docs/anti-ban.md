@@ -43,8 +43,13 @@ Multi-page crawler operations introduce random delays of 0.8–1.5 seconds betwe
 - **Konteks**: Sejak pertengahan November 2026 form login `students.bsi.ac.id` dan `elearning.bsi.ac.id` mewajibkan CAPTCHA gambar (`name="captcha"` / `name="captcha_answer"`). Tanpa kode yang benar, login selalu ditolak dan berakhir kembali di halaman `/login`.
 - **Masalah**: Worker notifikasi berjalan tiap 10 menit untuk setiap NIM dan setiap kategori. Jika login selalu gagal, pola ini menghasilkan ratusan POST `/login` per jam hingga kampus membalas **HTTP 429** untuk seluruh IP server, sehingga user yang sesinya masih hidup ikut gagal.
 - **Solusi** (`app/upstream_session.py`):
-  - Login gagal karena CAPTCHA -> cooldown 20 menit untuk NIM tersebut (`AUTH_CAPTCHA_REQUIRED`).
+  - Login gagal karena CAPTCHA -> cooldown 60 detik untuk NIM tersebut (`AUTH_CAPTCHA_REQUIRED`; sejak PR #182 dipendekkan dari 20 menit agar absen user tidak terkunci).
   - Login gagal karena kredensial -> cooldown 10 menit (`AUTH_FAILED`).
   - Respons HTTP 429 -> cooldown 5 menit untuk seluruh host, mengikuti header `Retry-After` bila ada (`UPSTREAM_THROTTLED`).
   - Cooldown hanya menggerbang **percobaan login baru**; request dengan sesi yang masih valid tetap berjalan.
   - Worker notifikasi melewati NIM yang sedang cooldown tanpa mencetak traceback.
+
+### G. Auto-Solve CAPTCHA Kampus (sejak 2026-11-18)
+- Login user dan hubungkan SIAKAD mencoba meng-auto-solve CAPTCHA kampus di backend: OCR voting + probe validasi memakai password dummy (`app/captcha_autosolver.py`), maksimal 5 tantangan dan 4 kandidat per tantangan; 429 dari kampus menghentikan loop segera.
+- Worker notifikasi tetap default-deny: CAPTCHA gambar tidak pernah ditebak, tanpa jawaban relay tidak ada POST ke kampus.
+- Gerbang anti-bot pindah ke CAPTCHA SVG milik Mira (`app/mira_captcha.py`), rate limit 20/menit/IP.

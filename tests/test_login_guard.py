@@ -135,7 +135,13 @@ def _client():
 
 
 def _creds(nim="12345678", sv="PassLama123", el="rahasia99"):
-    return {"nim": nim, "studentv2_pass": sv, "elearning_pass": el}
+    # conftest stub_campus_captcha memverifikasi Mira stub, kode bebas.
+    return {
+        "nim": nim,
+        "studentv2_pass": sv,
+        "elearning_pass": el,
+        "mira_captcha": {"id": "stub-mira", "code": "abcd"},
+    }
 
 
 # ---------- LoginGuard unit ----------
