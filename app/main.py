@@ -4,7 +4,7 @@ import os
 import secrets
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator, Optional
-from fastapi import FastAPI, Request, status, HTTPException
+from fastapi import Depends, FastAPI, Request, status, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,6 +16,8 @@ from app.envelope import error_response, success_response
 from app.docs import get_api_docs
 from app.router_helper import close_background_tasks
 from app.modules.studentv2 import router as studentv2_router, studentv2_client
+from app.modules.capabilities import router as capabilities_router
+from app.deps import require_siakad_enabled
 from app.modules.elearning import router as elearning_router, pooled_elearning_client, ujian_router
 from app.modules.elibrary import router as elibrary_router
 from app.modules.news import router as news_router
@@ -162,7 +164,8 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-app.include_router(studentv2_router)
+app.include_router(studentv2_router, dependencies=[Depends(require_siakad_enabled)])
+app.include_router(capabilities_router)
 app.include_router(elearning_router)
 app.include_router(elibrary_router)
 app.include_router(news_router)
@@ -212,6 +215,7 @@ async def api_key_auth_middleware(request: Request, call_next):
     # /v1/notifications/pwa/vapid-key publik: browser butuh kunci ini SEBELUM auth ada
     public_paths = {
         "/health",
+        "/v1/capabilities",
         "/v1/auth/login",
         "/v1/auth/mira-captcha",
         "/v1/auth/captcha",

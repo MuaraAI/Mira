@@ -85,3 +85,22 @@ def require_elearning_creds(
             module="elearning"
         )
     )
+
+
+def require_siakad_enabled() -> None:
+    """Gerbang tunggal SIAKAD: 503 + CTA bila saklar SIAKAD_ENABLED mati.
+
+    Dipasang lewat include_router(dependencies=[...]) dan juga dipanggil langsung
+    dari endpoint auth yang memicu request ke students.bsi.ac.id.
+    """
+    if settings.SIAKAD_ENABLED:
+        return
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail=error_response(
+            code="SIAKAD_DISABLED",
+            message="SIAKAD dinonaktifkan di Mira. Buka students.bsi.ac.id untuk nilai, KHS, dan KRS.",
+            module="siakad",
+            extra={"cta_url": settings.SIAKAD_CTA_URL},
+        ),
+    )

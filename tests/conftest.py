@@ -61,3 +61,12 @@ def stub_campus_captcha(monkeypatch):
         "app.captcha_autosolver.solve_campus_captcha",
         AsyncMock(return_value=({"cookies": {"stub": "1"}, "token": "stub"}, "STUB")),
     )
+
+
+@pytest.fixture(autouse=True)
+def siakad_enabled_for_legacy_tests(monkeypatch):
+    """Produksi default `SIAKAD_ENABLED=False`; suite lama menguji SIAKAD aktif.
+
+    Test mode-mati mem-monkeypatch settings ke False di badan test (menimpa ini).
+    """
+    monkeypatch.setattr(settings, "SIAKAD_ENABLED", True)
