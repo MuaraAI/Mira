@@ -299,6 +299,20 @@ Returns runtime status and Redis connectivity.
   }
   ```
 
+### `GET /v1/capabilities`
+Status fitur kampus yang aktif, dibaca frontend sebelum login.
+- **Access**: Public
+- **Response**:
+  ```json
+  { "success": true, "data": { "siakad": { "enabled": false, "cta_url": "https://students.bsi.ac.id" } } }
+  ```
+- Saat `SIAKAD_ENABLED=false` (default produksi), endpoint `/v1/studentv2/*`, `POST /v1/auth/captcha` dengan `host=siakad`, `POST /v1/auth/forgot-password` dengan `system=siakad`, `POST /v1/auth/verify` dengan `studentv2_pass` terisi, `POST /v1/auth/credentials`, dan ganti password SIAKAD membalas `503`:
+  ```json
+  { "success": false, "error": { "code": "SIAKAD_DISABLED", "message": "...", "module": "siakad", "cta_url": "https://students.bsi.ac.id" } }
+  ```
+- Login tetap sukses dengan `studentv2_pass` kosong maupun terisi: nilainya diabaikan, `systems.siakad` selalu `false`, dan `data.warnings` memuat catatan "SIAKAD dinonaktifkan".
+- Menghidupkan kembali: set `SIAKAD_ENABLED=true` di `.env` lalu restart backend. Tampilan frontend tetap MyBest-only (perubahan UI terpisah).
+
 ### `GET /metrics`
 Returns operational metrics regarding active login session pools and cache status.
 - **Access**: Public
@@ -319,6 +333,8 @@ Returns operational metrics regarding active login session pools and cache statu
 ## 2. StudentV2 (SIAKAD)
 
 All StudentV2 endpoints require active student authentication (session login, personal API key `muara_mira_***` / `muara_ubsi_***`, or developer headers `X-Studentv2-NIM` & `X-Studentv2-Pass`).
+
+> Sejak 2026-11-18 seksi ini **mati secara default**. Saat `SIAKAD_ENABLED=false`, semua endpoint membalas `503 SIAKAD_DISABLED` dengan `error.cta_url` ke `students.bsi.ac.id`. Frontend memakai MyBest: `/v1/elearning/schedule` untuk jadwal, `/v1/elearning/profile` untuk nama/email, `/v1/elearning/grades` untuk rekap tugas.
 
 ### `GET /v1/studentv2/dashboard`
 Retrieves course schedule, raw grades, news, and circular announcements in parallel within a single request.

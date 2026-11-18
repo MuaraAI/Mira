@@ -54,8 +54,8 @@ export default function MateriPage() {
   const { notify } = useDialog();
   useEffect(() => preloadPdfjs(), []);
   const coursesApi = useApi<CourseItem[]>("/v1/elearning/courses");
-  // Jadwal SIAKAD dipakai untuk hari kuliah + cadangan kode dosen bila kartu MyBest tidak mencantumkannya.
-  const scheduleApi = useApi<{ kode: string; nama: string; hari?: string; kode_dosen?: string }[]>("/v1/studentv2/schedule");
+  // Jadwal MyBest dipakai untuk hari kuliah + cadangan kode dosen bila kartu mata kuliah tidak mencantumkannya.
+  const scheduleApi = useApi<{ kode: string; nama: string; hari?: string; kode_dosen?: string }[]>("/v1/elearning/schedule");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [view, setView] = useState<"dosen" | "resmi">("dosen");
   const [preview, setPreview] = useState<{ url: string; title: string; subtitle?: string } | null>(null);

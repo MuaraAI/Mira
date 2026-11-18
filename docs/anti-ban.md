@@ -53,3 +53,6 @@ Multi-page crawler operations introduce random delays of 0.8–1.5 seconds betwe
 - Login user dan hubungkan SIAKAD mencoba meng-auto-solve CAPTCHA kampus di backend: OCR voting + probe validasi memakai password dummy (`app/captcha_autosolver.py`), maksimal 5 tantangan dan 4 kandidat per tantangan; 429 dari kampus menghentikan loop segera.
 - Worker notifikasi tetap default-deny: CAPTCHA gambar tidak pernah ditebak, tanpa jawaban relay tidak ada POST ke kampus.
 - Gerbang anti-bot pindah ke CAPTCHA SVG milik Mira (`app/mira_captcha.py`), rate limit 20/menit/IP.
+
+### H. SIAKAD Dimatikan (2026-11-18)
+Saklar `SIAKAD_ENABLED=false` menghentikan seluruh lalu lintas ke `students.bsi.ac.id`: router studentv2, CAPTCHA SIAKAD, lupa password SIAKAD, verifikasi master-key, credentials, ganti password, dan notifier. User membaca nilai/KHS/KRS langsung di portal kampus lewat CTA. Menghidupkan lagi cukup set env ke `true` dan restart.
