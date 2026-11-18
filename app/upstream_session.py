@@ -96,7 +96,14 @@ def classify_login_failure(html: str, has_captcha_form: bool) -> tuple[str, list
 # Cooldown mencegah penembakan login berulang saat kampus menolak (CAPTCHA baru,
 # kredensial salah, atau 429). Tanpa ini, worker notifikasi + retry membuat IP
 # server kena rate limit sehingga user yang sah ikut gagal login.
-CAPTCHA_COOLDOWN_SECONDS = 20 * 60
+#
+# Sejak default-deny CAPTCHA (PR #180), kegagalan beralasan "captcha" tidak
+# pernah POST ke kampus: biayanya satu GET halaman login. Cooldown panjang
+# tidak melindungi apa pun lagi dan hanya mengunci absen/tugas/notifikasi NIM
+# terkait selama puluhan menit (terukur pada insiden 2026-11-17: user tidak
+# bisa absen). Karena itu cooldown captcha dibuat pendek; perlindungan flood
+# yang sesungguhnya ada di rate limiter API, login_guard, dan blok 429 host.
+CAPTCHA_COOLDOWN_SECONDS = 60
 CREDENTIAL_COOLDOWN_SECONDS = 10 * 60
 THROTTLE_COOLDOWN_SECONDS = 5 * 60
 # Kegagalan tanpa penyebab jelas: cooldown pendek supaya worker tidak login ulang tiap siklus.
