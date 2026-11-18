@@ -30,9 +30,27 @@ dalam string base64, lalu mengirim `captcha_answer=6`. Kampus menjawab
   `/v1/auth/credentials` mengirim cookie yang sesuai saat mengonsumsi tantangan.
 - `landing-page/src/app/login/AuthPortal.tsx`: CAPTCHA dimuat saat NIM mencapai
   8 digit dengan nilai input terbaru, bukan menunggu blur atau login gagal.
+- `landing-page/src/components/LockedSiakadCard.tsx`: alur "Hubungkan SIAKAD"
+  memuat CAPTCHA SIAKAD dari `/v1/auth/captcha` (host `siakad`, NIM dari
+  `/v1/auth/me`), mengirim `captcha: {id, code}` ke `/v1/auth/credentials`,
+  dan memuat gambar baru setiap gagal karena challenge sekali pakai.
+
+## Lazy SIAKAD (2026-11-17, lanjutan)
+
+Login default kini MyBest-only: satu password dan satu CAPTCHA MyBest.
+SIAKAD jadi opt-in di form login dan lazily dihubungkan dari dashboard lewat
+tombol "Hubungkan Akun SIAKAD" (`LockedSiakadCard`) yang sudah menyertakan
+CAPTCHA SIAKAD. Kontrak endpoint tidak berubah: `/v1/auth/credentials`
+memvalidasi challenge via cookie `ubsi_captcha_siakad` (PR sebelumnya).
+
+Alasan: kedua kampus kini memakai CAPTCHA PNG (SIAKAD tidak lagi SVG-math),
+OCR tesseract terukur 15-25% benar pada sampel hari ini, dan auto-solve
+latar belakang adalah akar insiden lock 20 NIM. Detail investigasi format
+CAPTCHA SIAKAD: `GET /login/captcha/web` mengembalikan JSON `{"image": ...}`,
+form login memakai field `captcha`, dan kode salah di-redirect 302 ke
+endpoint CAPTCHA.
 
 ## Non-goal
-
 - Tidak menambah CAPTCHA buatan Mira.
 - Tidak memecahkan CAPTCHA kampus dengan OCR atau vendor pihak ketiga.
 - Tidak mengubah prioritas sumber data dashboard.

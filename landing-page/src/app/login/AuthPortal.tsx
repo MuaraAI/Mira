@@ -18,7 +18,7 @@ const VIEW_PATH: Record<AuthView, string> = {
 };
 
 const VIEW_COPY: Record<AuthView, { title: string; accent: string; subtitle: string }> = {
-  login: { title: "Mira", accent: "Portal", subtitle: "Masuk pakai akun SIAKAD dan MyBest." },
+  login: { title: "Mira", accent: "Portal", subtitle: "Masuk pakai akun MyBest. SIAKAD bisa dihubungkan belakangan." },
   forgot: { title: "Lupa", accent: "Password", subtitle: "Masukkan NIM dan email, link reset dikirim kampus." },
 };
 
@@ -38,7 +38,7 @@ interface CaptchaState {
 }
 
 const STEPS: { key: StepKey; label: string; detail: string }[] = [
-  { key: "form", label: "Cek isian", detail: "NIM dan kedua password" },
+  { key: "form", label: "Cek isian", detail: "NIM dan password MyBest" },
   { key: "siakad", label: "Login ke SIAKAD", detail: "students.bsi.ac.id" },
   { key: "mybest", label: "Login ke MyBest", detail: "elearning.bsi.ac.id" },
   { key: "session", label: "Menyimpan sesi", detail: "Terenkripsi, aktif 7 hari" },
@@ -334,7 +334,8 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
   const [nim, setNim] = useState("");
   const [siakadPass, setSiakadPass] = useState("");
   const [mybestPass, setMybestPass] = useState("");
-  const [skipSiakad, setSkipSiakad] = useState(false);
+  // Lazy SIAKAD: login cukup MyBest + 1 captcha; SIAKAD dihubungkan belakangan dari dashboard.
+  const [skipSiakad, setSkipSiakad] = useState(true);
   const [agree, setAgree] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
@@ -703,7 +704,7 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
             ) : (
               <div className="login-form-in">
                 <p className="mb-6 text-sm leading-relaxed text-secondary">
-                  Password dicek langsung ke SIAKAD dan MyBest, lalu disimpan terenkripsi selama sesi aktif (7 hari) supaya kamu nggak perlu login ulang.
+                  Password dicek langsung ke server kampus, lalu disimpan terenkripsi selama sesi aktif (7 hari) supaya kamu nggak perlu login ulang. Butuh nilai atau KRS? Hubungkan SIAKAD dari dashboard kapan saja.
                 </p>
 
                 {blockedUntil && (
@@ -750,43 +751,51 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
                     />
                   </div>
 
-                  <PasswordField
-                    id="studentv2_pass"
-                    label="Password SIAKAD"
-                    name="studentv2_pass"
-                    value={siakadPass}
-                    onChange={setSiakadPass}
-                    onBlur={preloadSiakadCaptcha}
-                    autoComplete="current-password"
-                    disabled={skipSiakad}
-                    required={!skipSiakad}
-                    action={
+                  {skipSiakad ? (
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#CFE2EE] bg-[#F8FBFD] px-3.5 py-3">
+                      <p className="min-w-0 flex-1 text-xs text-secondary leading-snug">
+                        SIAKAD dilewati: login cukup satu CAPTCHA. Nilai, KRS, dan kartu ujian terbuka setelah kamu menghubungkan SIAKAD dari dashboard.
+                      </p>
                       <button
                         type="button"
-                        onClick={() => {
-                          setSkipSiakad((prev) => !prev);
-                          if (!skipSiakad) {
+                        onClick={() => setSkipSiakad(false)}
+                        className="inline-flex min-h-8 items-center whitespace-nowrap font-mono text-[11px] font-semibold text-[#0369A1] hover:underline"
+                      >
+                        Hubungkan SIAKAD juga
+                      </button>
+                    </div>
+                  ) : (
+                    <PasswordField
+                      id="studentv2_pass"
+                      label="Password SIAKAD"
+                      name="studentv2_pass"
+                      value={siakadPass}
+                      onChange={setSiakadPass}
+                      onBlur={preloadSiakadCaptcha}
+                      autoComplete="current-password"
+                      required
+                      action={
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSkipSiakad(true);
                             setSiakadPass("");
                             setCaptchas((prev) => {
                               const next = { ...prev };
                               delete next.siakad;
                               return next;
                             });
-                          }
-                        }}
-                        className="inline-flex items-center font-mono text-[11px] font-semibold text-[#0369A1] hover:underline"
-                      >
-                        {skipSiakad ? "Isi sekarang" : "Lewati SIAKAD"}
-                      </button>
-                    }
-                    hint={
-                      <div className="space-y-1">
-                        <p className="font-mono text-[11px] text-secondary">
-                          {skipSiakad
-                            ? "SIAKAD dilewati. Fitur jadwal & nilai akan terkunci sampai kamu menghubungkannya."
-                            : "Opsional. Jika gagal atau belum ingat, kamu bisa lewati dulu."}
-                        </p>
-                        {!skipSiakad && (
+                          }}
+                          className="inline-flex items-center font-mono text-[11px] font-semibold text-[#0369A1] hover:underline"
+                        >
+                          Lewati SIAKAD
+                        </button>
+                      }
+                      hint={
+                        <div className="space-y-1">
+                          <p className="font-mono text-[11px] text-secondary">
+                            Opsional. Jika gagal atau belum ingat, kamu bisa lewati dulu.
+                          </p>
                           <button
                             type="button"
                             onClick={() => {
@@ -797,10 +806,10 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
                           >
                             Lupa password SIAKAD?
                           </button>
-                        )}
-                      </div>
-                    }
-                  />
+                        </div>
+                      }
+                    />
+                  )}
 
                   <div>
                     <PasswordField
@@ -856,10 +865,10 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
                                 <img
                                   src={cap.image}
                                   alt={`Kode CAPTCHA ${cap.label}`}
-                                  className="h-14 w-auto rounded border border-stroke bg-white"
+                                  className="h-14 w-auto shrink-0 rounded border border-stroke bg-white"
                                 />
                               ) : (
-                                <span className="flex h-14 w-32 items-center justify-center rounded border border-stroke bg-white font-mono text-[11px] text-secondary">
+                                <span className="flex h-14 w-32 shrink-0 items-center justify-center rounded border border-stroke bg-white font-mono text-[11px] text-secondary">
                                   {cap.loading ? "Memuat..." : "Gagal"}
                                 </span>
                               )}
@@ -874,7 +883,7 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
                                 spellCheck={false}
                                 placeholder="Kode"
                                 aria-label={`Kode CAPTCHA ${cap.label}`}
-                                className={`${fieldClass} font-mono`}
+                                className={`${fieldClass} min-w-0 flex-1 font-mono`}
                               />
                             </div>
                           </div>
