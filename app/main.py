@@ -166,6 +166,9 @@ app = FastAPI(
 
 app.include_router(studentv2_router, dependencies=[Depends(require_siakad_enabled)])
 app.include_router(capabilities_router)
+from app.maintenance import install as install_maintenance, is_whitelisted, maintenance_active, maintenance_response
+
+install_maintenance(app)
 app.include_router(elearning_router)
 app.include_router(elibrary_router)
 app.include_router(news_router)
@@ -216,6 +219,7 @@ async def api_key_auth_middleware(request: Request, call_next):
     public_paths = {
         "/health",
         "/v1/capabilities",
+        "/v1/maintenance",
         "/v1/auth/login",
         "/v1/auth/captcha",
         "/v1/auth/forgot-password",
@@ -303,6 +307,8 @@ async def api_key_auth_middleware(request: Request, call_next):
 
         session_data = await session_store.resolve(session_token)
         if session_data:
+            if maintenance_active() and not is_whitelisted(session_data["nim"]):
+                return maintenance_response()
             request.state.is_master = False
             request.state.key_id = f"session:{session_data['nim']}"
             request.state.nim = session_data["nim"]
@@ -327,6 +333,10 @@ async def api_key_auth_middleware(request: Request, call_next):
                 extra={"cta_url": settings.SIAKAD_CTA_URL},
             ),
         )
+
+    # Maintenance: permintaan tanpa sesi tetap ditolak 503 (bukan 401).
+    if maintenance_active():
+        return maintenance_response()
 
     # 3d. Master Key check via X-API-Key
     if not api_key:

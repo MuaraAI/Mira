@@ -341,6 +341,20 @@ async def login(req_body: LoginRequest, request: Request):
         )
 
     nim = req_body.nim.strip()
+
+    from app.maintenance import is_whitelisted, maintenance_active, maintenance_response
+
+    if maintenance_active() and not is_whitelisted(nim):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=error_response(
+                code="MAINTENANCE",
+                message=settings.MAINTENANCE_MESSAGE,
+                module="maintenance",
+                extra={"reason": settings.MAINTENANCE_REASON},
+            ),
+        )
+
     raw_sv_pass = (req_body.studentv2_pass or "").strip()
     if not settings.SIAKAD_ENABLED:
         # SIAKAD mati: kredensial diabaikan, tidak ada request ke students.bsi.ac.id.
