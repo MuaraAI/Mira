@@ -227,6 +227,22 @@ async def get_active_subscriptions_for_nim(nim: str) -> list[dict[str, str]]:
     return await run_in_threadpool(_sync_get_active_by_nim, nim)
 
 
+def _sync_all_active_nims() -> list[str]:
+    conn = _connect()
+    try:
+        rows = conn.execute(
+            "SELECT DISTINCT nim FROM pwa_push_subscriptions WHERE is_active = 1"
+        ).fetchall()
+        return [str(r["nim"]) for r in rows]
+    finally:
+        conn.close()
+
+
+async def list_all_active_nims() -> list[str]:
+    """Semua NIM yang punya minimal satu device aktif (untuk broadcast pengumuman)."""
+    return await run_in_threadpool(_sync_all_active_nims)
+
+
 def _sync_prune(endpoint: str) -> bool:
     conn = _connect()
     try:

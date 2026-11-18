@@ -226,3 +226,41 @@ async def send_test_push(request: Request):
         "total_devices": len(subs),
         "message": f"Notifikasi uji coba terkirim ke {delivered} perangkat",
     })
+
+
+class BroadcastRequest(BaseModel):
+    title: str = Field(..., min_length=1, max_length=80)
+    body: str = Field(..., min_length=1, max_length=400)
+    url: str = Field("/dashboard", min_length=1, max_length=200)
+    tag: str = Field("mira-announcement", min_length=1, max_length=64)
+
+
+@router.post("/broadcast")
+async def broadcast(request: Request, body: BroadcastRequest):
+    """Kirim pengumuman ke semua device aktif. Hanya Master Key (admin)."""
+    if not getattr(request.state, "is_master", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=error_response(
+                code="FORBIDDEN",
+                message="Broadcast hanya untuk Master Key.",
+                module="pwa-push",
+            ),
+        )
+    if not body.url.startswith("/") or body.url.startswith("//"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_response(
+                code="VALIDATION_ERROR",
+                message="URL harus path internal Mira (diawali '/').",
+                module="pwa-push",
+            ),
+        )
+
+    from app.pwa_webpush import dispatch_pwa_broadcast
+
+    result = await dispatch_pwa_broadcast(
+        {"title": body.title, "body": body.body, "url": body.url, "tag": body.tag},
+        ttl=86400,
+    )
+    return success_response(data=result)
