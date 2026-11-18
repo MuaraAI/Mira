@@ -344,7 +344,7 @@ async def test_connect_siakad_wrong_password_rejected(fake_redis):
 
         # Auto-solve gagal: server minta CAPTCHA manusia lewat fallback_captcha.
         with (
-            patch("app.captcha_autosolver.solve_campus_captcha", AsyncMock(return_value=None)),
+            patch("app.captcha_autosolver.candidate_session", AsyncMock(return_value=({"cookies": {}, "token": "t"}, []))),
             patch(
                 "app.captcha_relay.create_challenge",
                 AsyncMock(return_value={"id": "f" * 32, "image": "data:image/png;base64,AAA", "label": "SIAKAD", "expires_in": 300}),

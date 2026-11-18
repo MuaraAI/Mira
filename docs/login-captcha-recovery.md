@@ -146,3 +146,19 @@ Endpoint `/v1/auth/captcha` untuk `host=siakad`, `/v1/auth/forgot-password` untu
 `error.cta_url`. Nilai akhir, KHS, dan KRS dibaca user langsung di
 `students.bsi.ac.id`. Kontrak lengkap: `docs/api.md` seksi
 `GET /v1/capabilities`, desain: `docs/specs/2026-11-18-siakad-disable-design.md`.
+
+## CAPTCHA kampus sekali pakai: auto-solve tanpa probe (2026-11-18, lanjutan)
+
+Terukur di produksi: satu kode CAPTCHA MyBest hanya berlaku untuk **satu POST**
+login. Probe validasi (password dummy) memvalidasi kode, tetapi POST login asli
+dengan kode yang sama selalu ditolak `Kode keamanan salah`, sehingga user
+melihat `CAPTCHA_INVALID` walau OCR benar.
+
+Perbaikan: `app/captcha_autosolver.py` tidak lagi memprobe. Ia hanya mengambil
+tantangan baru (`candidate_session`) lalu mengembalikan kandidat OCR teratas.
+`POST /v1/auth/login` mencoba kandidat itu langsung pada login asli dengan
+password user; bila kampus membalas alasan `captcha`, server mengambil
+tantangan baru dan mencoba lagi (maksimal 3 percobaan), lalu jatuh ke fallback
+`AUTH_CAPTCHA_REQUIRED` + `fallback_captcha` bila semuanya gagal. Password salah
+langsung berhenti di percobaan pertama (alasan `credentials`), jadi tidak ada
+POST berulang tanpa guna.

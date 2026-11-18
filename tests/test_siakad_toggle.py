@@ -221,8 +221,8 @@ def _wire_login(monkeypatch, tmp_path, *, siakad_enabled: bool):
 @pytest.mark.asyncio
 async def test_login_ignores_siakad_pass_when_disabled(monkeypatch, tmp_path):
     _wire_login(monkeypatch, tmp_path, siakad_enabled=False)
-    solver = AsyncMock(return_value=({"cookies": {}, "token": "t"}, "KODE"))
-    monkeypatch.setattr("app.captcha_autosolver.solve_campus_captcha", solver)
+    solver = AsyncMock(return_value=({"cookies": {}, "token": "t"}, ["KODE"]))
+    monkeypatch.setattr("app.captcha_autosolver.candidate_session", solver)
     monkeypatch.setattr(
         "app.modules.auth.verify_live_credentials", AsyncMock(return_value=(False, True))
     )
