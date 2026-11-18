@@ -137,7 +137,6 @@ async def test_trigger_reminder_includes_pwa_push(tmp_path, monkeypatch):
                 "nim": "12345678",
                 "studentv2_pass": "p",
                 "elearning_pass": "p",
-                "mira_captcha": {"id": "stub-mira", "code": "abcd"},
             },
         )
         token = res.cookies.get("ubsi_session")
