@@ -93,7 +93,12 @@ def mock_news_scraper(monkeypatch):
 async def _login(ac: AsyncClient, fake_redis: FakeRedis, nim: str = "12345678") -> str:
     res = await ac.post(
         "/v1/auth/login",
-        json={"nim": nim, "studentv2_pass": "sv_pass", "elearning_pass": "el_pass"},
+        json={
+            "nim": nim,
+            "studentv2_pass": "sv_pass",
+            "elearning_pass": "el_pass",
+            "mira_captcha": {"id": "stub-mira", "code": "abcd"},
+        },
     )
     assert res.status_code == 200
     token = res.cookies.get("ubsi_session")
@@ -107,7 +112,12 @@ async def test_login_success_sets_cookie_and_stores_session(fake_redis):
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         res = await ac.post(
             "/v1/auth/login",
-            json={"nim": "12345678", "studentv2_pass": "sv", "elearning_pass": "el"},
+            json={
+                "nim": "12345678",
+                "studentv2_pass": "sv",
+                "elearning_pass": "el",
+                "mira_captcha": {"id": "stub-mira", "code": "abcd"},
+            },
         )
         assert res.status_code == 200
         assert "ubsi_session" in res.cookies
@@ -127,39 +137,40 @@ async def test_login_success_sets_cookie_and_stores_session(fake_redis):
 
 @pytest.mark.asyncio
 async def test_login_invalid_credentials_returns_401(monkeypatch):
-    monkeypatch.setattr(
-        "app.modules.auth.verify_live_credentials",
-        AsyncMock(return_value=(True, False)),
-    )
-    # Kampus mewajibkan CAPTCHA: tanpa jawaban, server melaporkan kebutuhan CAPTCHA
-    # (bukan langsung menyimpulkan password salah).
+    async def verify(nim, el_pass, sv_pass, *, outcomes=None, **kwargs):
+        if outcomes is not None:
+            outcomes["elearning"] = ("credentials", [])
+        return False, False
+
+    monkeypatch.setattr("app.modules.auth.verify_live_credentials", verify)
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         res = await ac.post(
             "/v1/auth/login",
-            json={"nim": "12345678", "studentv2_pass": "sv", "elearning_pass": "wrong"},
+            json={
+                "nim": "12345678",
+                "studentv2_pass": "",
+                "elearning_pass": "wrong",
+                "mira_captcha": {"id": "stub-mira", "code": "abcd"},
+            },
         )
         assert res.status_code == 401
-        assert res.json()["error"]["code"] == "AUTH_CAPTCHA_REQUIRED"
-        assert res.json()["error"]["captcha_hosts"] == ["elearning", "siakad"]
-
-        # Dengan jawaban CAPTCHA lengkap, kegagalan berarti kredensial/kode salah.
-        with patch(
-            "app.captcha_relay.consume_challenge",
-            AsyncMock(return_value={"token": "t", "cookies": {}}),
-        ):
-            res = await ac.post(
-                "/v1/auth/login",
-                json={
-                    "nim": "12345678",
-                    "studentv2_pass": "sv",
-                    "elearning_pass": "wrong",
-                    "captcha_elearning": {"id": "a" * 32, "code": "ABC"},
-                    "captcha_siakad": {"id": "b" * 32, "code": "ABCD"},
-                },
-            )
-        assert res.status_code == 401
         assert res.json()["error"]["code"] == "INVALID_CREDENTIALS"
+
+
+@pytest.mark.asyncio
+async def test_login_without_mira_captcha_returns_fresh_challenge():
+    """Gerbang CAPTCHA Mira: body tanpa mira_captcha ditolak dengan tantangan baru."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        res = await ac.post(
+            "/v1/auth/login",
+            json={"nim": "12345678", "studentv2_pass": "", "elearning_pass": "el"},
+        )
+        assert res.status_code == 401
+        error = res.json()["error"]
+        assert error["code"] == "MIRA_CAPTCHA_INVALID"
+        assert error["mira_captcha"]["id"] == "stub-mira"
 
 
 @pytest.mark.asyncio

@@ -77,3 +77,62 @@ Regression test offline: `tests/test_elearning_login_image_captcha.py`,
 `tests/test_login_clears_captcha_cooldown.py`, dan tiga test nonce di
 `tests/test_captcha_relay.py`. Suite backend dan build frontend dijalankan sebelum PR.
 Deploy produksi tetap butuh persetujuan terpisah.
+
+## CAPTCHA Mira + auto-solve latar belakang (2026-11-18, arsitektur baru)
+
+Keputusan user: CAPTCHA milik Mira sendiri muncul otomatis tanpa NIM,
+sedangkan CAPTCHA kampus (MyBest/SIAKAD) di-auto-solve di backend.
+CAPTCHA manusia kampus hanya jadi fallback saat auto-solve gagal.
+
+### Alur baru
+
+1. `POST /v1/auth/mira-captcha` mengirim tantangan SVG buatan Mira
+   (`app/mira_captcha.py`): kode 5 karakter, charset tanpa ambigu (tanpa
+   0/O, 1/I), TTL 600 detik di Redis (`ubsi:mira-captcha:<id>`), rate limit
+   20/menit/IP. Verifikasi case-insensitive dan typo-tolerant: challenge
+   hanya dihapus saat kode cocok (Lua `EVAL`, Redis 6 tanpa GETDEL).
+2. `POST /v1/auth/login` wajib `mira_captcha` (`LoginRequest`). Kode Mira
+   salah -> 401 `MIRA_CAPTCHA_INVALID` plus tantangan segar di
+   `error.mira_captcha`.
+3. Backend lalu auto-solve CAPTCHA kampus (`app/captcha_autosolver.py`):
+   ambil tantangan dari `captcha_relay`, OCR voting (ImageMagick +
+   tesseract), lalu validasi tiap kandidat dengan probe login memakai
+   `DUMMY_PASSWORD` (bukan password user). Alasan kampus "credentials"
+   berarti kode diterima; "captcha" berarti coba kandidat berikutnya;
+   "throttled" menghentikan loop. Maksimal 5 tantangan, 4 kandidat per
+   tantangan.
+4. Auto-solve gagal -> 401 `AUTH_CAPTCHA_REQUIRED` dengan
+   `error.fallback_captcha` (`id`, `image`, `label`, `host`) dan cookie
+   nonce per host. User mengisi kode kampus, lalu mengirim ulang dengan
+   `campus_captcha: {id, code}`.
+5. `/v1/auth/credentials` (hubungkan SIAKAD) memakai alur yang sama;
+   field lama `captcha` diganti `campus_captcha`.
+6. Frontend: `AuthPortal.tsx` memuat CAPTCHA Mira sejak halaman dibuka
+   (tanpa NIM), tanpa preload CAPTCHA kampus; `LockedSiakadCard.tsx`
+   hanya menampilkan CAPTCHA kampus kalau server mengirim fallback.
+
+### Risiko operasional
+
+- Probe login dengan password dummy menambah 1-4 POST login kampus per
+  percobaan login user per host. Limit `MAX_CHALLENGES` menjaga lonjakan;
+  probe 429 ("throttled") menghentikan loop segera.
+- Akurasi OCR kampus masih rendah (15-25% pada sampel), jadi probe
+  sering menghabiskan kandidat. Fallback manusia menjamin user tetap
+  bisa masuk, hanya lebih lambat.
+- Solver lama tetap default-deny: CAPTCHA gambar tidak pernah ditebak
+  oleh worker notifikasi.
+
+### Kontrak baru pada penolakan
+
+| Kode | Payload tambahan | Arti |
+|---|---|---|
+| `MIRA_CAPTCHA_INVALID` | `error.mira_captcha` {id, image, expires_in} | Kode Mira salah/kosong; tantangan segar siap dipakai |
+| `AUTH_CAPTCHA_REQUIRED` | `error.fallback_captcha` {id, image, label, host} | Auto-solve gagal; isi kode kampus lalu kirim `campus_captcha` |
+
+### Verifikasi
+
+`tests/test_mira_captcha.py` (create/verify/sekali pakai/salah),
+`tests/test_captcha_autosolver.py` (kandidat valid, retry tantangan,
+throttle, probe SIAKAD), dan pembaruan kontrak di `tests/conftest.py`
+(stub offline Mira + auto-solve untuk seluruh suite). Suite backend
+501 passed; build frontend lolos.

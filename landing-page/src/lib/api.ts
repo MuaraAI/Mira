@@ -23,8 +23,10 @@ export class ApiError extends Error {
   retryAfter?: number;
   /** Nama field input yang salah, dipakai untuk menandai/menggetarkan input terkait. */
   fields?: string[];
-  /** Host kampus yang menuntut CAPTCHA (mis. ["elearning", "siakad"]). */
-  captchaHosts?: string[];
+  /** Tantangan CAPTCHA Mira baru (dikirim server saat kode Mira ditolak). */
+  miraCaptcha?: CaptchaChallenge;
+  /** CAPTCHA kampus untuk fallback manual saat auto-solve backend gagal. */
+  fallbackCaptcha?: CaptchaChallenge;
 
   constructor(
     code: string,
@@ -32,15 +34,26 @@ export class ApiError extends Error {
     status: number,
     retryAfter?: number,
     fields?: string[],
-    captchaHosts?: string[]
+    miraCaptcha?: CaptchaChallenge,
+    fallbackCaptcha?: CaptchaChallenge
   ) {
     super(message);
     this.code = code;
     this.status = status;
     this.retryAfter = retryAfter;
     this.fields = fields;
-    this.captchaHosts = captchaHosts;
+    this.miraCaptcha = miraCaptcha;
+    this.fallbackCaptcha = fallbackCaptcha;
   }
+}
+
+/** Tantangan CAPTCHA dari server Mira (SVG sendiri) atau fallback kampus (PNG). */
+export interface CaptchaChallenge {
+  id: string;
+  image: string;
+  label?: string;
+  host?: string;
+  expires_in?: number;
 }
 
 interface EnvelopeError {
@@ -49,6 +62,8 @@ interface EnvelopeError {
   retry_after?: number;
   fields?: string[];
   captcha_hosts?: string[];
+  mira_captcha?: CaptchaChallenge;
+  fallback_captcha?: CaptchaChallenge;
 }
 
 interface EnvelopePayload {
@@ -142,7 +157,8 @@ export async function apiFetch<T>(
       res.status,
       typeof err?.retry_after === "number" ? err.retry_after : undefined,
       Array.isArray(err?.fields) ? err.fields : undefined,
-      Array.isArray(err?.captcha_hosts) ? err.captcha_hosts : undefined
+      err?.mira_captcha?.id ? err.mira_captcha : undefined,
+      err?.fallback_captcha?.id ? err.fallback_captcha : undefined
     );
   }
   return payload?.data as T;
