@@ -103,7 +103,12 @@ def _valid_keys() -> dict[str, str]:
 async def _login(ac: AsyncClient, nim: str = "12345678") -> str:
     res = await ac.post(
         "/v1/auth/login",
-        json={"nim": nim, "studentv2_pass": "sv_pass", "elearning_pass": "el_pass"},
+        json={
+            "nim": nim,
+            "studentv2_pass": "sv_pass",
+            "elearning_pass": "el_pass",
+            "mira_captcha": {"id": "stub-mira", "code": "abcd"},
+        },
     )
     assert res.status_code == 200
     token = res.cookies.get("ubsi_session")
