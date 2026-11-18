@@ -319,3 +319,39 @@ async def test_change_password_siakad_disabled_but_elearning_ok(monkeypatch, tmp
     assert blocked.json()["error"]["code"] == "SIAKAD_DISABLED"
     assert allowed.status_code == 200
     assert changed == [("mybest", "12345678", "el", "Kuat2026x")]
+
+
+@pytest.mark.asyncio
+async def test_session_store_returns_mybest_only_credentials(monkeypatch):
+    from app import session_store as store_mod
+    from app.config import settings
+
+    fake = FakeRedis()
+    monkeypatch.setattr("app.session_store.session_store._client", fake)
+    monkeypatch.setattr("app.config.settings.SIAKAD_ENABLED", False)
+
+    payload = store_mod._encrypt_payload(
+        {"nim": "12345678", "studentv2_pass": "", "elearning_pass": "el"},
+        settings.API_KEY,
+    )
+    token_hash = store_mod._hash_token("tok")
+    fake.kv[store_mod._KEY_PREFIX + token_hash] = payload
+    fake.sets[store_mod._INDEX_PREFIX + "12345678"] = {token_hash}
+
+    creds = await store_mod.session_store.get_credentials_for_nim("12345678")
+    assert creds == ("12345678", "", "el")
+
+
+@pytest.mark.asyncio
+async def test_api_keys_db_returns_mybest_only_credentials(monkeypatch, tmp_path):
+    from app import api_keys_db
+
+    monkeypatch.setattr("app.config.settings.SQLITE_DB_PATH", str(tmp_path / "keys.db"))
+    monkeypatch.setattr("app.config.settings.API_KEY", "test-secret-key-12345")
+    monkeypatch.setattr("app.config.settings.SIAKAD_ENABLED", False)
+
+    api_keys_db.init_api_keys_db()
+    await api_keys_db.create_api_key("12345678", "hp", "", "el")
+
+    creds = await api_keys_db.get_credentials_for_nim("12345678")
+    assert creds == ("12345678", "", "el")

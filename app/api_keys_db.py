@@ -248,8 +248,8 @@ def _sync_credentials_for_nim(nim: str) -> Optional[tuple[str, str, str]]:
                 data = json.loads(f.decrypt(row["encrypted_creds"].encode("utf-8")).decode("utf-8"))
             except Exception:
                 continue
-            if data.get("studentv2_pass") and data.get("elearning_pass"):
-                return nim, str(data["studentv2_pass"]), str(data["elearning_pass"])
+            if data.get("elearning_pass"):
+                return nim, str(data.get("studentv2_pass") or ""), str(data["elearning_pass"])
         return None
     finally:
         conn.close()

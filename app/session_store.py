@@ -164,8 +164,8 @@ class SessionStore:
         for token_hash in token_hashes:
             raw = await client.get(_KEY_PREFIX + token_hash)
             data = _decrypt_payload(raw, settings.API_KEY) if raw else None
-            if data and data.get("studentv2_pass") and data.get("elearning_pass"):
-                return str(data["nim"]), str(data["studentv2_pass"]), str(data["elearning_pass"])
+            if data and data.get("nim") and data.get("elearning_pass"):
+                return str(data["nim"]), str(data.get("studentv2_pass") or ""), str(data["elearning_pass"])
         return None
 
     async def update_password_for_nim(self, nim: str, field: str, new_password: str) -> int:
