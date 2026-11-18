@@ -12,6 +12,7 @@ from app.envelope import success_response, error_response
 from app.limiter import limiter
 from app.modules.studentv2 import StudentV2Client, studentv2_client
 from app.modules.elearning import ElearningClient, elearning_client
+from app.deps import require_siakad_enabled
 from app.login_guard import LOGIN_IP_LIMIT, login_guard
 from app.password_change import (
     SYSTEMS as PASSWORD_SYSTEMS,
@@ -114,7 +115,7 @@ async def verify_siakad_login(
 class VerifyCredentialsRequest(BaseModel):
     nim: str = Field(..., min_length=3, description="NIM Mahasiswa")
     elearning_pass: str = Field(..., min_length=1, description="Password MyBest Elearning")
-    studentv2_pass: str = Field(..., min_length=1, description="Password SIAKAD Students")
+    studentv2_pass: str = Field(default="", description="Password SIAKAD Students (opsional saat SIAKAD_ENABLED=false)")
 
 @router.post("/verify")
 async def verify_credentials(req_body: VerifyCredentialsRequest, request: Request):
@@ -133,6 +134,8 @@ async def verify_credentials(req_body: VerifyCredentialsRequest, request: Reques
             )
         )
 
+    if req_body.studentv2_pass.strip() and not settings.SIAKAD_ENABLED:
+        require_siakad_enabled()
     nim = req_body.nim.strip()
     el_pass = req_body.elearning_pass.strip()
     sv_pass = req_body.studentv2_pass.strip()
@@ -153,20 +156,20 @@ async def verify_credentials(req_body: VerifyCredentialsRequest, request: Reques
     sv2_ok, el_ok = await verify_live_credentials(nim, el_pass, sv_pass)
     all_valid = bool(sv2_ok and el_ok)
 
-    return success_response(
-        data={
-            "valid": all_valid,
-            "nim": nim,
-            "elearning": {
-                "valid": bool(el_ok),
-                "message": None if el_ok else "Password MyBest salah atau captcha gagal",
-            },
-            "studentv2": {
-                "valid": bool(sv2_ok),
-                "message": None if sv2_ok else "Password SIAKAD salah atau akun tidak ditemukan",
-            }
+    data = {
+        "valid": all_valid,
+        "nim": nim,
+        "elearning": {
+            "valid": bool(el_ok),
+            "message": None if el_ok else "Password MyBest salah atau captcha gagal",
+        },
+    }
+    if settings.SIAKAD_ENABLED:
+        data["studentv2"] = {
+            "valid": bool(sv2_ok),
+            "message": None if sv2_ok else "Password SIAKAD salah atau akun tidak ditemukan",
         }
-    )
+    return success_response(data=data)
 
 
 async def verify_live_credentials(
@@ -253,7 +256,8 @@ class LoginRequest(BaseModel):
 async def captcha_challenge(req_body: CaptchaChallengeRequest, request: Request):
     """Ambil tantangan CAPTCHA kampus untuk ditampilkan di form login Mira."""
     from app.main import extract_client_ip
-
+    if req_body.host == "siakad" and not settings.SIAKAD_ENABLED:
+        require_siakad_enabled()
     client_ip = extract_client_ip(request)
     if not await limiter.is_allowed(f"captcha:{client_ip}", limit=20):
         raise HTTPException(
@@ -1010,6 +1014,9 @@ class ForgotPasswordRequest(BaseModel):
 @router.post("/forgot-password")
 async def forgot_password(body: ForgotPasswordRequest, request: Request):
     """Minta link reset password ke email terdaftar, setelah NIM dan email dicek cocok."""
+    if body.system == "siakad" and not settings.SIAKAD_ENABLED:
+        require_siakad_enabled()
+
     blocked = await _guard_public_auth(request)
     if blocked:
         return blocked
