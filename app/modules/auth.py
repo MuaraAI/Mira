@@ -374,8 +374,8 @@ async def login(req_body: LoginRequest, request: Request):
         detail = error_response(
             code="AUTH_CAPTCHA_REQUIRED",
             message=(
-                "Auto-solve CAPTCHA kampus gagal kali ini. Masukkan kode "
-                "CAPTCHA kampus dari gambar terbaru, lalu coba lagi."
+                "Masukkan kode CAPTCHA MyBest dari gambar terbaru, "
+                "lalu tekan Masuk."
             ),
             module="auth",
         )
@@ -840,8 +840,8 @@ async def connect_credentials(body: ConnectCredentialsRequest, request: Request)
             detail = error_response(
                 code="AUTH_CAPTCHA_REQUIRED",
                 message=(
-                    "Auto-solve CAPTCHA kampus gagal kali ini. Masukkan kode "
-                    "CAPTCHA kampus dari gambar terbaru, lalu coba lagi."
+                    "Masukkan kode CAPTCHA SIAKAD dari gambar terbaru, "
+                    "lalu coba lagi."
                 ),
                 module="auth",
             )
