@@ -463,13 +463,14 @@ async def login(req_body: LoginRequest, request: Request):
         # CAPTCHA kampus sekali pakai: satu kode per POST. Coba kandidat OCR
         # teratas pada login asli, minta tantangan baru bila kode ditolak.
         solved = False
-        for _ in range(MAX_CAPTCHA_ATTEMPTS):
+        for attempt in range(MAX_CAPTCHA_ATTEMPTS):
             try:
                 el_session, el_candidates = await candidate_session("elearning", nim)
             except Exception as err:
                 logger.warning("Gagal ambil CAPTCHA MyBest untuk %s: %s", nim, err)
                 continue
             if not el_candidates:
+                logger.info("CAPTCHA OCR kosong untuk %s (percobaan %s)", nim, attempt + 1)
                 continue
             sv_session, sv_code = await _siakad_challenge()
             sv2_ok, el_ok = await verify_live_credentials(
@@ -482,8 +483,23 @@ async def login(req_body: LoginRequest, request: Request):
                 sv_captcha=sv_code,
                 outcomes=outcomes,
             )
-            if el_ok or outcomes.get("elearning", ("unknown",))[0] != "captcha":
+            reason, errors = outcomes.get("elearning", ("unknown", []))
+            logger.info(
+                "CAPTCHA percobaan %s/%s nim=%s kode=%s alasan=%s pesan=%s",
+                attempt + 1,
+                MAX_CAPTCHA_ATTEMPTS,
+                nim,
+                el_candidates[0],
+                reason,
+                (errors[0][:80] if errors else "-"),
+            )
+            if el_ok or reason != "captcha":
                 solved = True
+                break
+            if not errors:
+                # Kampus balas halaman login tanpa pesan (kode hangus/soft reject).
+                # Mengulang cepat tidak membantu dan menambah hitungan gagal kampus.
+                logger.warning("Kampus membalas tanpa pesan captcha untuk %s; berhenti mencoba", nim)
                 break
         if not solved:
             return await _captcha_fallback_response("elearning")
