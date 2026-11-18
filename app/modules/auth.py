@@ -385,11 +385,11 @@ async def login(req_body: LoginRequest, request: Request):
         detail["error"]["mira_captcha"] = fresh_mira
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
 
-    # CAPTCHA kampus: auto-solve di belakang (OCR kandidat + probe validasi
-    # dengan password dummy). Bila autosolver gagal, kirim tantangan kampus
-    # ke user sebagai fallback dan terima jawabannya via `campus_captcha`.
+    # CAPTCHA kampus sekali pakai: kandidat OCR dipakai langsung pada login asli
+    # (tanpa probe) supaya tidak hangus sebelum kredensial dicek. Bila semua
+    # kandidat ditolak, kirim tantangan kampus ke user sebagai fallback dan
+    # terima jawabannya via `campus_captcha`.
     from app.captcha_relay import consume_challenge, create_challenge
-    from app.captcha_autosolver import solve_campus_captcha
 
     is_https = request.url.scheme == "https"
 
@@ -424,8 +424,21 @@ async def login(req_body: LoginRequest, request: Request):
         )
         return response
 
-    el_session: Optional[dict] = None
-    el_code: Optional[str] = None
+    from app.captcha_autosolver import MAX_CAPTCHA_ATTEMPTS, candidate_session
+
+    async def _siakad_challenge() -> tuple[Optional[dict], Optional[str]]:
+        if not siakad_attempted:
+            return None, None
+        try:
+            session, candidates = await candidate_session("siakad", nim)
+        except Exception as err:
+            logger.warning("Gagal ambil CAPTCHA SIAKAD untuk %s: %s", nim, err)
+            return None, None
+        return session, (candidates[0] if candidates else None)
+
+    outcomes: dict = {}
+    sv2_ok = False
+    el_ok = False
     if req_body.campus_captcha:
         el_session = await consume_challenge(
             req_body.campus_captcha.id,
@@ -435,31 +448,45 @@ async def login(req_body: LoginRequest, request: Request):
         )
         if el_session is None:
             return await _captcha_fallback_response("elearning")
-        el_code = req_body.campus_captcha.code
+        sv_session, sv_code = await _siakad_challenge()
+        sv2_ok, el_ok = await verify_live_credentials(
+            nim,
+            el_pass,
+            raw_sv_pass,
+            el_session=el_session,
+            el_captcha=req_body.campus_captcha.code,
+            sv_session=sv_session,
+            sv_captcha=sv_code,
+            outcomes=outcomes,
+        )
     else:
-        solved = await solve_campus_captcha("elearning", nim)
-        if solved is None:
+        # CAPTCHA kampus sekali pakai: satu kode per POST. Coba kandidat OCR
+        # teratas pada login asli, minta tantangan baru bila kode ditolak.
+        solved = False
+        for _ in range(MAX_CAPTCHA_ATTEMPTS):
+            try:
+                el_session, el_candidates = await candidate_session("elearning", nim)
+            except Exception as err:
+                logger.warning("Gagal ambil CAPTCHA MyBest untuk %s: %s", nim, err)
+                continue
+            if not el_candidates:
+                continue
+            sv_session, sv_code = await _siakad_challenge()
+            sv2_ok, el_ok = await verify_live_credentials(
+                nim,
+                el_pass,
+                raw_sv_pass,
+                el_session=el_session,
+                el_captcha=el_candidates[0],
+                sv_session=sv_session,
+                sv_captcha=sv_code,
+                outcomes=outcomes,
+            )
+            if el_ok or outcomes.get("elearning", ("unknown",))[0] != "captcha":
+                solved = True
+                break
+        if not solved:
             return await _captcha_fallback_response("elearning")
-        el_session, el_code = solved
-
-    sv_session: Optional[dict] = None
-    sv_code: Optional[str] = None
-    if siakad_attempted:
-        sv_solved = await solve_campus_captcha("siakad", nim)
-        if sv_solved is not None:
-            sv_session, sv_code = sv_solved
-
-    outcomes: dict = {}
-    sv2_ok, el_ok = await verify_live_credentials(
-        nim,
-        el_pass,
-        raw_sv_pass,
-        el_session=el_session,
-        el_captcha=el_code,
-        sv_session=sv_session,
-        sv_captcha=sv_code,
-        outcomes=outcomes,
-    )
 
     # Brute-force & login guard: hitung sukses jika MyBest valid (dan SIAKAD valid jika diisi)
     attempt_success = bool(el_ok and (sv2_ok or not siakad_attempted))
@@ -797,7 +824,7 @@ async def connect_credentials(body: ConnectCredentialsRequest, request: Request)
         require_siakad_enabled()
 
     from app.captcha_relay import consume_challenge, create_challenge
-    from app.captcha_autosolver import solve_campus_captcha
+    from app.captcha_autosolver import candidate_session
 
     is_https = request.url.scheme == "https"
     pwd = body.password.strip()
@@ -822,8 +849,13 @@ async def connect_credentials(body: ConnectCredentialsRequest, request: Request)
             )
         sv_code = body.campus_captcha.code
     else:
-        solved = await solve_campus_captcha("siakad", nim)
-        if solved is None:
+        sv_session = None
+        try:
+            sv_session, sv_candidates = await candidate_session("siakad", nim)
+        except Exception:
+            sv_candidates = []
+        sv_code = sv_candidates[0] if sv_candidates else None
+        if sv_code is None:
             nonce = secrets.token_urlsafe(24)
             fallback = await create_challenge("siakad", nim, nonce=nonce)
             detail = error_response(
@@ -853,7 +885,7 @@ async def connect_credentials(body: ConnectCredentialsRequest, request: Request)
                 samesite="lax",
             )
             return response
-        sv_session, sv_code = solved
+
 
     ok = await verify_siakad_login(nim, pwd, session=sv_session, captcha=sv_code)
     if not ok:

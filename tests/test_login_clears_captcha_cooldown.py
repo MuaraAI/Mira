@@ -56,8 +56,8 @@ async def test_successful_login_clears_captcha_cooldown(monkeypatch, tmp_path):
     monkeypatch.setattr("app.modules.auth.verify_live_credentials", AsyncMock(return_value=(False, True)))
     monkeypatch.setattr("app.mira_captcha.verify_challenge", AsyncMock(return_value=True))
     monkeypatch.setattr(
-        "app.captcha_autosolver.solve_campus_captcha",
-        AsyncMock(return_value=({"cookies": {"sess": "abc"}, "token": "tok"}, "KODE")),
+        "app.captcha_autosolver.candidate_session",
+        AsyncMock(return_value=({"cookies": {"sess": "abc"}, "token": "tok"}, ["KODE"])),
     )
     monkeypatch.setattr("app.limiter.limiter.is_allowed", AsyncMock(return_value=True))
     monkeypatch.setattr(

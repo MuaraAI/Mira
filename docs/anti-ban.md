@@ -50,7 +50,7 @@ Multi-page crawler operations introduce random delays of 0.8–1.5 seconds betwe
   - Worker notifikasi melewati NIM yang sedang cooldown tanpa mencetak traceback.
 
 ### G. Auto-Solve CAPTCHA Kampus (sejak 2026-11-18)
-- Login user dan hubungkan SIAKAD mencoba meng-auto-solve CAPTCHA kampus di backend: OCR voting + probe validasi memakai password dummy (`app/captcha_autosolver.py`), maksimal 5 tantangan dan 4 kandidat per tantangan; 429 dari kampus menghentikan loop segera.
+- Login user dan hubungkan SIAKAD mencoba meng-auto-solve CAPTCHA kampus di backend: OCR voting, kandidat teratas dipakai langsung pada login asli (CAPTCHA kampus sekali pakai per POST), maksimal 3 tantangan baru per percobaan login (`app/captcha_autosolver.py`); password salah berhenti di percobaan pertama, 429 dari kampus menghentikan loop.
 - Worker notifikasi tetap default-deny: CAPTCHA gambar tidak pernah ditebak, tanpa jawaban relay tidak ada POST ke kampus.
 - Gerbang anti-bot pindah ke CAPTCHA SVG milik Mira (`app/mira_captcha.py`), rate limit 20/menit/IP.
 

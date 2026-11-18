@@ -58,8 +58,8 @@ def stub_campus_captcha(monkeypatch):
         AsyncMock(return_value={"id": "stub-mira", "image": "data:image/svg+xml;base64,STVBUg==", "expires_in": 600}),
     )
     monkeypatch.setattr(
-        "app.captcha_autosolver.solve_campus_captcha",
-        AsyncMock(return_value=({"cookies": {"stub": "1"}, "token": "stub"}, "STUB")),
+        "app.captcha_autosolver.candidate_session",
+        AsyncMock(return_value=({"cookies": {"stub": "1"}, "token": "stub"}, ["STUB"])),
     )
 
 

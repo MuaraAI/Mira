@@ -18,7 +18,7 @@ const VIEW_PATH: Record<AuthView, string> = {
 };
 
 const VIEW_COPY: Record<AuthView, { title: string; accent: string; subtitle: string }> = {
-  login: { title: "Mira", accent: "Portal", subtitle: "Masuk pakai akun MyBest. SIAKAD bisa dihubungkan belakangan." },
+  login: { title: "Mira", accent: "Portal", subtitle: "Masuk pakai akun MyBest. Data dan tugas kuliah langsung terbuka." },
   forgot: { title: "Lupa", accent: "Password", subtitle: "Masukkan NIM dan email, link reset dikirim kampus." },
 };
 
@@ -619,7 +619,7 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
             <span className="text-[#FCD34D]">Satu pintu.</span>
           </p>
           <p className="mt-8 max-w-md font-mono text-sm leading-7 text-[#9CC6E0]">
-            Satu login untuk SIAKAD, MyBest, presensi, dan nilai. Password dicek langsung ke server kampus, lalu disimpan terenkripsi.
+            Satu login MyBest untuk jadwal, tugas, presensi, dan nilai tugas. Password dicek langsung ke server kampus, lalu disimpan terenkripsi.
           </p>
         </div>
 
