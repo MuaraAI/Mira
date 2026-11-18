@@ -2,23 +2,19 @@
 
 import { useState } from "react";
 import {
-  Award,
   ExternalLink,
-  FileText,
   AlertCircle,
   Calendar,
   Clock,
   Timer,
   FileQuestion,
   Download,
-  Printer,
   Building2,
   CheckCircle2,
   Sparkles,
 } from "lucide-react";
-import { useApi, apiDownload, apiFetch, ApiError } from "@/lib/api";
-import { safeExternalHref } from "@/lib/links";
-import { LockedSiakadCard } from "@/components/LockedSiakadCard";
+import { useApi, apiDownload, ApiError } from "@/lib/api";
+import { SiaKadLockedCard } from "@/components/SiaKadLockedCard";
 import {
   EmptyState,
   ErrorState,
@@ -56,12 +52,7 @@ interface ExamScheduleResponse {
   exams: ExamItem[];
 }
 
-interface SiakadExamData {
-  title?: string;
-  jadwal_online_url?: string | null;
-  soal_offline_url?: string | null;
-  gate?: string | null;
-}
+
 
 const DEFAULT_TYPES = [
   { key: "uts", label: "UTS" },
@@ -86,18 +77,13 @@ export default function UjianPage() {
   const [selectedType, setSelectedType] = useState<string>("uts");
   const [downloadingToken, setDownloadingToken] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
-  const [connectOpen, setConnectOpen] = useState(false);
+
 
   // 1. Data jenis ujian & jadwal ujian daring dari ujiankampusa.bsi.ac.id
   const typesApi = useApi<ExamTypesResponse>("/v1/elearning/exams");
   const scheduleApi = useApi<ExamScheduleResponse>(`/v1/elearning/exams/${selectedType}`);
 
-  // 2. Data kartu ujian & soal offline dari SIAKAD (students.bsi.ac.id)
-  const utsSiakad = useApi<SiakadExamData>("/v1/studentv2/uts");
-  const uasSiakad = useApi<SiakadExamData>("/v1/studentv2/uas");
 
-  const isSiakad401 = utsSiakad.error?.status === 401 || uasSiakad.error?.status === 401;
-  const currentSiakad = selectedType === "uas" ? uasSiakad.data : utsSiakad.data;
 
   const rawTypes = typesApi.data?.types;
   const examTypes = rawTypes && rawTypes.length > 0 ? rawTypes : DEFAULT_TYPES;
@@ -120,107 +106,19 @@ export default function UjianPage() {
       setDownloadingToken(null);
     }
   }
-  const [printingKrs, setPrintingKrs] = useState(false);
 
-  async function handlePrintKrs() {
-    setPrintingKrs(true);
-    setDownloadError(null);
-    try {
-      const res = await apiFetch<{ html: string }>("/v1/studentv2/krs/print?format=json");
-      if (!res?.html) {
-        throw new Error("Gagal mengambil lembar cetak Kartu Ujian (KRS) dari SIAKAD.");
-      }
-      const printWindow = window.open("", "_blank");
-      if (printWindow) {
-        printWindow.document.open();
-        printWindow.document.write(res.html);
-        printWindow.document.close();
-        setTimeout(() => {
-          try {
-            printWindow.focus();
-            printWindow.print();
-          } catch {}
-        }, 350);
-      } else {
-        const blob = new Blob([res.html], { type: "text/html;charset=utf-8" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "Cetak_Kartu_Ujian_KRS.html";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }
-    } catch (err) {
-      setDownloadError(err instanceof Error ? err.message : "Gagal memproses cetak Kartu Ujian (KRS).");
-    } finally {
-      setPrintingKrs(false);
-    }
-  }
-
-  const reloadAll = () => {
-    typesApi.reload();
-    scheduleApi.reload();
-    utsSiakad.reload();
-    uasSiakad.reload();
-  };
 
   return (
     <div className="space-y-6">
-      {/* Mode MyBest Banner jika SIAKAD belum terhubung */}
-      {isSiakad401 && (
-        <div className="px-card bg-amber-50 border-2 border-dashed border-amber-300 p-4 text-xs text-amber-950">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-200/80 px-1.5 py-0.5">
-                Mode MyBest
-              </span>
-              <span>
-                Jadwal ujian daring ditampilkan langsung dari ujiankampusa. Hubungkan akun SIAKAD untuk mengunduh soal ujian offline resmi.
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setConnectOpen((v) => !v)}
-              className="font-mono font-bold text-amber-900 underline hover:text-amber-700"
-            >
-              {connectOpen ? "Tutup Form" : "Hubungkan SIAKAD"}
-            </button>
-          </div>
-          {connectOpen && (
-            <div className="mt-4 pt-4 border-t border-amber-200">
-              <LockedSiakadCard
-                title="Hubungkan Akun SIAKAD"
-                description="Masukkan password SIAKAD (students.bsi.ac.id) untuk membuka kartu ujian UTS/UAS dan berkas soal resmi."
-                onConnected={() => {
-                  setConnectOpen(false);
-                  reloadAll();
-                }}
-              />
-            </div>
-          )}
-        </div>
-      )}
+
 
       {/* Header Halaman */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <PageHeader
-          title="Jadwal & Kartu Ujian (UTS & UAS)"
-          description="Jadwal pelaksanaan ujian online resmi dari ujiankampusa.bsi.ac.id dan kartu ujian kampus UBSI."
+          title="Jadwal Ujian (UTS & UAS)"
+          description="Jadwal pelaksanaan ujian online resmi dari ujiankampusa.bsi.ac.id."
         />
         <div className="flex flex-wrap items-center gap-2 shrink-0">
-          {!isSiakad401 && (
-            <button
-              type="button"
-              onClick={handlePrintKrs}
-              disabled={printingKrs}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#0369A1] hover:bg-[#075985] shadow-sm transition-all disabled:opacity-50 rounded-sm"
-            >
-              <Printer className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>{printingKrs ? "Menyiapkan Kartu..." : "Cetak Kartu Ujian Fisik (KRS)"}</span>
-            </button>
-          )}
           <a
             href="https://ujiankampusa.bsi.ac.id/jadwal"
             target="_blank"
@@ -232,6 +130,11 @@ export default function UjianPage() {
           </a>
         </div>
       </div>
+
+      <SiaKadLockedCard
+        title="Kartu ujian fisik dan soal offline ada di SIAKAD"
+        description="Mira hanya menampilkan jadwal ujian daring. Untuk kartu ujian fisik, kelompok ruang, dan berkas soal resmi, buka students.bsi.ac.id."
+      />
 
       {/* Tab Switcher Jenis Ujian */}
       <div className="w-full">
@@ -269,40 +172,7 @@ export default function UjianPage() {
         </div>
       )}
 
-      {/* SIAKAD Status Gate (jika ada info dari SIAKAD) */}
-      {currentSiakad?.gate && (
-        <div className="flex items-start gap-3 border-l-4 border-[#F59E0B] bg-[#FEF3F9] px-4 py-3" role="status">
-          <AlertCircle className="w-4 h-4 text-[#B45309] shrink-0 mt-0.5" aria-hidden="true" />
-          <div className="min-w-0">
-            <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#92400E]">
-              Pemberitahuan SIAKAD Kampus
-            </p>
-            <p className="mt-0.5 text-xs font-medium text-[#78350F]">{currentSiakad.gate}</p>
-          </div>
-        </div>
-      )}
 
-      {/* SIAKAD Download Soal Bar (jika link soal tersedia) */}
-      {safeExternalHref(currentSiakad?.soal_offline_url) && (
-        <div className="glass-card p-4 border-l-4 border-l-[#0F766E] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <FileText className="w-4 h-4 text-[#0F766E] shrink-0" aria-hidden="true" />
-            <div>
-              <p className="text-xs font-bold text-foreground">Berkas Soal Ujian Resmi Tersedia</p>
-              <p className="text-[11px] text-secondary">Unduh lembar soal ujian offline yang disediakan oleh panitia kampus.</p>
-            </div>
-          </div>
-          <a
-            href={safeExternalHref(currentSiakad?.soal_offline_url)!}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0F766E] hover:bg-[#0D655E] text-white text-xs font-semibold shadow-sm transition-all shrink-0"
-          >
-            <Download className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>Unduh Soal Ujian (PDF)</span>
-          </a>
-        </div>
-      )}
 
       {/* Konten Utama Jadwal Ujian */}
       {scheduleApi.loading ? (

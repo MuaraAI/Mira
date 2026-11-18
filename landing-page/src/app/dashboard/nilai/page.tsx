@@ -1,78 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import {
-  GraduationCap,
-  Award,
-  Layers,
-  FileSpreadsheet,
-  TrendingUp,
-  BookOpen,
-  CheckSquare,
-  Clock,
-  MessageSquare,
-  Download,
-  Share2,
-  Eye,
-  EyeOff,
-} from "lucide-react";
-import { toPng } from "html-to-image";
-import { useApi, ApiError } from "@/lib/api";
-import { LockedSiakadCard } from "@/components/LockedSiakadCard";
+import { BookOpen, FileSpreadsheet } from "lucide-react";
+import { useApi } from "@/lib/api";
 import { gradeValue } from "@/lib/assignments";
 import {
   EmptyState,
   ErrorState,
   LoadingState,
   PageHeader,
-  ghostButtonClass,
-  primaryButtonClass,
 } from "@/components/dashboard-ui";
-import {
-  FORMATS,
-  SITE,
-  ShowcaseCard,
-  VARIANT_OPTIONS,
-  buildShowcase,
-  getVariantBadge,
-  type Format,
-  type KrsData,
-  type ShowcaseVariant,
-  type StudentProfile,
-  type Theme,
-} from "@/components/ShowcaseCard";
-import { PixelTrophy } from "@/components/PixelIcons";
-import { SideSheet } from "@/components/SideSheet";
-
-interface KhsItem {
-  no: number;
-  kode: string;
-  mata_kuliah: string;
-  sks: number;
-  nilai: string;
-  mutu: number;
-  keterangan?: string;
-}
-
-interface KhsData {
-  items: KhsItem[];
-  total_mutu: number;
-  total_sks: number;
-  ipk: number;
-}
-
-interface GradeItem {
-  id: string;
-  kode: string;
-  nama: string;
-  sks: number;
-  uts: number | null;
-  uas: number | null;
-  tugas: number | null;
-  absen: number | null;
-  total: number | null;
-  grade: string | null;
-}
+import { SiaKadLockedCard } from "@/components/SiaKadLockedCard";
 
 interface ElearningSubmissionItem {
   id: string;
@@ -107,13 +44,16 @@ interface ElearningGradesData {
   per_pertemuan: ElearningPertemuanGrade[];
 }
 
-const average = (values: number[]) => (values.length ? values.reduce((a, b) => a + b, 0) / values.length : null);
+const average = (values: number[]) =>
+  values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
 
 /** MyBest memakai 0 untuk tugas yang belum diperiksa dosen: hitung ulang supaya 0 tidak dianggap nilai. */
 function normalizeElearningGrades(data: ElearningGradesData | null): ElearningGradesData | null {
   if (!data) return data;
   const perPertemuan = (data.per_pertemuan ?? []).map((pert) => {
-    const graded = pert.items.map((item) => gradeValue(item.nilai)).filter((v): v is number => v !== null);
+    const graded = pert.items
+      .map((item) => gradeValue(item.nilai))
+      .filter((v): v is number => v !== null);
     return {
       ...pert,
       sudah_dinilai: graded.length,
@@ -124,7 +64,9 @@ function normalizeElearningGrades(data: ElearningGradesData | null): ElearningGr
     };
   });
   const items = perPertemuan.flatMap((pert) => pert.items);
-  const graded = items.map((item) => gradeValue(item.nilai)).filter((v): v is number => v !== null);
+  const graded = items
+    .map((item) => gradeValue(item.nilai))
+    .filter((v): v is number => v !== null);
   const perMatkul: ElearningGradesData["per_matkul"] = {};
   for (const item of items) {
     const value = gradeValue(item.nilai);
@@ -147,780 +89,134 @@ function normalizeElearningGrades(data: ElearningGradesData | null): ElearningGr
 }
 
 export default function NilaiPage() {
-  const profileApi = useApi<StudentProfile>("/v1/studentv2/profile");
-  const krsApi = useApi<KrsData>("/v1/studentv2/krs");
-  const khsApi = useApi<KhsData>("/v1/studentv2/khs");
-  const gradesApiRaw = useApi<{ items: GradeItem[]; gate: string | null }>("/v1/studentv2/grades");
-  const gradesApi = { ...gradesApiRaw, data: gradesApiRaw.data?.items ?? [] };
-  const gradesGate = gradesApiRaw.data?.gate ?? null;
-  const elearningRaw = useApi<ElearningGradesData>("/v1/elearning/grades");
-  const elearningApi = { ...elearningRaw, data: normalizeElearningGrades(elearningRaw.data) };
-  const [activeTab, setActiveTab] = useState<ShowcaseVariant>("khs");
-  const [flexingOpen, setFlexingOpen] = useState(false);
-  const [theme, setTheme] = useState<Theme>("night");
-  const [format, setFormat] = useState<Format>("post");
-  const [hideNim, setHideNim] = useState(true);
-  const [busy, setBusy] = useState<"download" | "share" | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const cardRef = useRef<HTMLDivElement>(null);
-  const previewRef = useRef<HTMLDivElement>(null);
-  const [previewWidth, setPreviewWidth] = useState(340);
-
-  // Kartu pratinjau mengikuti lebar panel (maks 440px di desktop) supaya tidak terpotong di HP.
-  useEffect(() => {
-    if (!flexingOpen) return;
-    const node = previewRef.current;
-    if (!node) return;
-    const update = () => setPreviewWidth(Math.max(220, Math.min(440, Math.floor(node.clientWidth - 10))));
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [flexingOpen]);
-
-  const isSiakad401 = khsApi.error?.status === 401;
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("flexing") === "1") {
-      setFlexingOpen(true);
-    }
-    const tabParam = params.get("tab");
-    if (tabParam === "khs" || tabParam === "murni" || tabParam === "elearning") {
-      setActiveTab(tabParam);
-    } else if (isSiakad401) {
-      setActiveTab("elearning");
-    }
-  }, [isSiakad401]);
-
-  if (khsApi.loading && gradesApi.loading && elearningApi.loading) {
-    return <LoadingState label="Memuat transkrip nilai akademik" />;
-  }
-  if (khsApi.error && elearningApi.error) {
-    if (isSiakad401) {
-      return (
-        <div className="space-y-6">
-          <PageHeader
-            title="Transkrip Nilai Akademik"
-            description="KHS semester, nilai mata kuliah SIAKAD, dan rekap tugas MyBest."
-          />
-          <LockedSiakadCard
-            title="Transkrip Nilai Terkunci"
-            description="Nilai KHS dan transkrip semester diambil dari SIAKAD. Hubungkan akun SIAKAD untuk melihat IPK, SKS, nilai huruf tiap mata kuliah, dan membuat kartu pencapaian."
-            onConnected={() => {
-              khsApi.reload();
-              gradesApiRaw.reload();
-              profileApi.reload();
-              elearningRaw.reload();
-            }}
-          />
-        </div>
-      );
-    }
-    return <ErrorState error={khsApi.error} onRetry={() => { khsApi.reload(); elearningRaw.reload(); }} />;
-  }
-
-  const khs = khsApi.data;
-  const khsItems = khs?.items ?? [];
-  const rawGrades = gradesApi.data ?? [];
-
-  const ipkFormatted = khs?.ipk ? khs.ipk.toFixed(2) : "0.00";
-  const totalSks = khs?.total_sks ?? 0;
-  const totalMutu = khs?.total_mutu ? khs.total_mutu.toFixed(1) : "0.0";
-
-  const showcaseData = buildShowcase(
-    profileApi.data,
-    khsApi.data,
-    krsApi.data,
-    gradesApi.data,
-    elearningApi.data,
-  );
-  const activeBadge = getVariantBadge(showcaseData, activeTab);
-  const fileName = `mira-flexing-${activeTab}-${format}.png`;
-
-  const renderCardPng = async () => {
-    const node = cardRef.current?.querySelector<HTMLElement>(".flexcard-card");
-    if (!node) throw new Error("Kartu belum siap");
-    const { width, height } = FORMATS[format];
-    return toPng(node, {
-      width,
-      height,
-      pixelRatio: 1,
-      cacheBust: true,
-      style: { transform: "none" },
-    });
-  };
-
-  const downloadCard = async () => {
-    setBusy("download");
-    setMessage(null);
-    try {
-      const url = await renderCardPng();
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fileName;
-      a.click();
-      setMessage("Gambar tersimpan. Siap diunggah ke Story, Feed, atau LinkedIn.");
-    } catch {
-      setMessage("Gagal membuat gambar. Coba lagi.");
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const shareCard = async () => {
-    setBusy("share");
-    setMessage(null);
-    try {
-      const blob = await (await fetch(await renderCardPng())).blob();
-      const file = new File([blob], fileName, { type: "image/png" });
-      if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: `Flexing ${VARIANT_OPTIONS.find((v) => v.value === activeTab)?.label ?? "Nilai"} di Mira`,
-          text: `Cek progres kuliahku di https://${SITE}`,
-        });
-      } else {
-        setMessage("Perangkat ini belum mendukung bagikan langsung. Gunakan tombol Unduh.");
-      }
-    } catch (error) {
-      if ((error as Error).name !== "AbortError") {
-        setMessage("Gagal membagikan gambar. Gunakan tombol Unduh.");
-      }
-    } finally {
-      setBusy(null);
-    }
-  };
+  const gradesRaw = useApi<ElearningGradesData>("/v1/elearning/grades");
+  const grades = normalizeElearningGrades(gradesRaw.data);
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col">
-        <PageHeader
-          title="Nilai & Kartu Hasil Studi (KHS)"
-          description="IPK, rincian nilai murni SIAKAD, dan rekap nilai tugas MyBest."
+      <PageHeader
+        title="Transkrip Nilai Akademik"
+        description="Rekap nilai tugas dan kuis dari MyBest. Nilai akhir, KHS, dan IPK ada di SIAKAD."
+      />
+
+      <SiaKadLockedCard
+        title="Nilai akhir, KHS, dan KRS ada di SIAKAD"
+        description="Mira tidak lagi menyimpan data nilai akhir, IPK, atau KRS. Buka students.bsi.ac.id untuk melihatnya langsung di portal kampus."
+      />
+
+      {gradesRaw.loading ? (
+        <LoadingState label="Memuat rekapitulasi nilai tugas MyBest" />
+      ) : gradesRaw.error ? (
+        <ErrorState error={gradesRaw.error} onRetry={gradesRaw.reload} />
+      ) : !grades || grades.total_tugas === 0 ? (
+        <EmptyState
+          mascot="/maskot/mura-nilai.png"
+          title="Belum ada riwayat tugas yang dinilai."
+          description="Nilai tugas muncul di sini setelah kamu mengumpulkan tugas dan dosen selesai menilai."
         />
-
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="px-seg" role="tablist" aria-label="Jenis nilai">
-            {VARIANT_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                role="tab"
-                aria-selected={activeTab === opt.value}
-                onClick={() => setActiveTab(opt.value)}
-                className={`px-seg-btn whitespace-nowrap ${activeTab === opt.value ? "px-seg-on" : ""}`}
-              >
-                <span className="sm:hidden">{opt.shortLabel}</span>
-                <span className="hidden sm:inline">{opt.label}</span>
-              </button>
-            ))}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setFlexingOpen(true)}
-            aria-haspopup="dialog"
-            className="px-btn inline-flex min-h-11 w-full items-center justify-center gap-2.5 whitespace-nowrap px-4 text-sm font-bold lg:w-auto"
-          >
-            <PixelTrophy className="h-4 w-4 shrink-0 text-[#FCD34D]" aria-hidden="true" />
-            <span>Flexing Nilai</span>
-            <span className="bg-[#FCD34D] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#072033]">{activeBadge.rank}</span>
-          </button>
-        </div>
-      </div>
-
-      <SideSheet
-        open={flexingOpen}
-        onClose={() => setFlexingOpen(false)}
-        side="right"
-        width="lg"
-        titleId="flexing-title"
-        eyebrow="Flexing Nilai"
-        title={VARIANT_OPTIONS.find((v) => v.value === activeTab)?.label ?? "Kartu Nilai"}
-        subtitle="Pilih kartu, atur tampilan, lalu unduh atau bagikan."
-        footer={
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <button type="button" onClick={downloadCard} disabled={busy !== null} className={`${primaryButtonClass} whitespace-nowrap`}>
-                <Download className="h-4 w-4 shrink-0" aria-hidden="true" />
-                {busy === "download" ? "Membuat..." : "Unduh PNG"}
-              </button>
-              <button type="button" onClick={shareCard} disabled={busy !== null} className={`${ghostButtonClass} whitespace-nowrap`}>
-                <Share2 className="h-4 w-4 shrink-0" aria-hidden="true" />
-                {busy === "share" ? "Menyiapkan..." : "Bagikan"}
-              </button>
-            </div>
-            {message && (
-              <p className="text-xs font-medium text-[#0369A1]" role="status">
-                {message}
-              </p>
-            )}
-          </div>
-        }
-      >
-        <div className="space-y-5">
-          {gradesGate && (
-            <div className="flex items-start gap-3 border-l-4 border-[#F59E0B] bg-[#FEF3C7] px-4 py-3" role="status">
-              <div className="min-w-0">
-                <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#92400E]">Info Kampus</p>
-                <p className="mt-0.5 text-sm font-semibold text-[#78350F]">{gradesGate}</p>
-              </div>
-            </div>
-          )}
-          <div className="px-seg px-seg-fill" role="tablist" aria-label="Pilih kartu">
-            {VARIANT_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                role="tab"
-                aria-selected={activeTab === opt.value}
-                onClick={() => setActiveTab(opt.value)}
-                className={`px-seg-btn whitespace-nowrap ${activeTab === opt.value ? "px-seg-on" : ""}`}
-              >
-                {opt.shortLabel}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex items-start justify-between gap-3 border-l-4 border-[#0369A1] bg-[#F0F7FB] px-4 py-3">
-            <div className="min-w-0">
-              <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-secondary">Badge</p>
-              <p className="mt-0.5 font-mono text-sm font-bold text-foreground">{activeBadge.code}</p>
-              <p className="mt-0.5 text-xs text-secondary">{activeBadge.subtitle}</p>
-            </div>
-            <span className="shrink-0 bg-[#072033] px-2 py-1 font-mono text-[10px] font-bold text-white">{activeBadge.rank}</span>
-          </div>
-
-          <div ref={previewRef} className="w-full pr-2 pb-2">
-            <div ref={cardRef} className="mx-auto w-fit">
-              <ShowcaseCard
-                data={showcaseData}
-                theme={theme}
-                format={format}
-                hideNim={hideNim}
-                variant={activeTab}
-                previewWidth={previewWidth}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="font-mono text-[11px] font-bold uppercase tracking-wider text-secondary">Tema</p>
-              <div className="px-seg px-seg-fill mt-2" role="radiogroup" aria-label="Tema kartu">
-                {(
-                  [
-                    { value: "night", label: "Malam" },
-                    { value: "mist", label: "Terang" },
-                  ] as const
-                ).map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    role="radio"
-                    aria-checked={theme === opt.value}
-                    onClick={() => setTheme(opt.value)}
-                    className={`px-seg-btn ${theme === opt.value ? "px-seg-on" : ""}`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <p className="font-mono text-[11px] font-bold uppercase tracking-wider text-secondary">Ukuran</p>
-              <div className="px-seg px-seg-fill mt-2" role="radiogroup" aria-label="Ukuran kartu">
-                {(Object.keys(FORMATS) as Format[]).map((key) => (
-                  <button
-                    key={key}
-                    type="button"
-                    role="radio"
-                    aria-checked={format === key}
-                    onClick={() => setFormat(key)}
-                    className={`px-seg-btn ${format === key ? "px-seg-on" : ""}`}
-                  >
-                    {key === "post" ? "4:5" : "9:16"}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setHideNim((v) => !v)}
-            aria-pressed={hideNim}
-            className={`${ghostButtonClass} w-full`}
-          >
-            {hideNim ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
-            {hideNim ? "NIM disamarkan" : "NIM ditampilkan"}
-          </button>
-
-          <p className="text-xs leading-5 text-secondary">
-            Gambar 1080px dibuat langsung di perangkatmu. Data nilai tidak dikirim ke mana pun.
-          </p>
-        </div>
-      </SideSheet>
-
-      {/* Top Academic Stat Cards */}
-      {activeTab === "elearning" ? (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="glass-card p-5 border-l-4 border-l-[#0369A1]">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-secondary">
-                Rata-Rata Skor Tugas
-              </span>
-              <Award className="w-5 h-5 text-[#0369A1]" aria-hidden="true" />
-            </div>
-            <div className="mt-2 flex items-baseline gap-1">
-              <span className="text-3xl font-display font-bold text-foreground">
-                {elearningApi.data?.rata_nilai != null ? elearningApi.data.rata_nilai.toFixed(1) : "-"}
-              </span>
-              <span className="text-xs text-secondary font-mono">/ 100</span>
-            </div>
-            <p className="mt-1 text-xs text-secondary">
-              Rata-rata seluruh tugas yang telah dinilai
-            </p>
-          </div>
-
-          <div className="glass-card p-5 border-l-4 border-l-[#0F766E]">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-secondary">
-                Tugas Sudah Dinilai
-              </span>
-              <CheckSquare className="w-5 h-5 text-[#0F766E]" aria-hidden="true" />
-            </div>
-            <div className="mt-2 flex items-baseline gap-1">
-              <span className="text-3xl font-display font-bold text-foreground">
-                {elearningApi.data?.sudah_dinilai ?? 0}
-              </span>
-              <span className="text-xs text-secondary">
-                / {elearningApi.data?.total_tugas ?? 0} Tugas
-              </span>
-            </div>
-            <p className="mt-1 text-xs text-secondary">
-              {elearningApi.data?.belum_dinilai
-                ? `${elearningApi.data.belum_dinilai} tugas menunggu penilaian dosen`
-                : "Semua tugas terkumpul telah dinilai"}
-            </p>
-          </div>
-
-          <div className="glass-card p-5 border-l-4 border-l-[#3B5A70]">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-secondary">
-                Rentang Skor
-              </span>
-              <TrendingUp className="w-5 h-5 text-[#3B5A70]" aria-hidden="true" />
-            </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-sm font-semibold text-foreground">
-                Tertinggi: <strong className="font-mono text-[#0F766E]">{elearningApi.data?.nilai_max ?? "-"}</strong>
-              </span>
-              <span className="text-xs text-secondary">|</span>
-              <span className="text-sm font-semibold text-foreground">
-                Terendah: <strong className="font-mono text-[#BE123C]">{elearningApi.data?.nilai_min ?? "-"}</strong>
-              </span>
-            </div>
-            <p className="mt-1 text-xs text-secondary">
-              Berdasarkan evaluasi tugas pertemuan
-            </p>
-          </div>
-        </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="glass-card p-5 border-l-4 border-l-[#0369A1]">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-secondary">
-                Indeks Prestasi Kumulatif
-              </span>
-              <GraduationCap className="w-5 h-5 text-[#0369A1]" aria-hidden="true" />
-            </div>
-            <div className="mt-2 flex items-baseline gap-1">
-              <span className="text-3xl font-display font-bold text-foreground">
-                {ipkFormatted}
-              </span>
-              <span className="text-xs text-secondary font-mono">/ 4.00</span>
-            </div>
-            <p className="mt-1 text-xs text-secondary">
-              Berdasarkan KHS semester berjalan
-            </p>
+        <>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              { label: "Total tugas", value: String(grades.total_tugas) },
+              { label: "Sudah dinilai", value: String(grades.sudah_dinilai) },
+              { label: "Rata-rata", value: grades.rata_nilai?.toFixed(1) ?? "-" },
+              { label: "Nilai tertinggi", value: grades.nilai_max?.toFixed(1) ?? "-" },
+            ].map((stat) => (
+              <div key={stat.label} className="glass-card p-4">
+                <p className="font-mono text-[11px] uppercase tracking-wider text-secondary">{stat.label}</p>
+                <p className="mt-1 font-display text-2xl font-bold text-foreground tabular-nums">{stat.value}</p>
+              </div>
+            ))}
           </div>
 
-          <div className="glass-card p-5 border-l-4 border-l-[#0F766E]">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-secondary">
-                Total SKS Lulus
-              </span>
-              <Layers className="w-5 h-5 text-[#0F766E]" aria-hidden="true" />
-            </div>
-            <div className="mt-2 flex items-baseline gap-1">
-              <span className="text-3xl font-display font-bold text-foreground">
-                {totalSks}
-              </span>
-              <span className="text-xs text-secondary">SKS</span>
-            </div>
-            <p className="mt-1 text-xs text-secondary">
-              Beban sks terdaftar di sistem
-            </p>
-          </div>
-
-          <div className="glass-card p-5 border-l-4 border-l-[#3B5A70]">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-secondary">
-                Total Bobot Mutu
-              </span>
-              <TrendingUp className="w-5 h-5 text-[#3B5A70]" aria-hidden="true" />
-            </div>
-            <div className="mt-2 flex items-baseline gap-1">
-              <span className="text-3xl font-display font-bold text-foreground">
-                {totalMutu}
-              </span>
-              <span className="text-xs text-secondary">Poin</span>
-            </div>
-            <p className="mt-1 text-xs text-secondary">
-              Akumulasi (SKS x Bobot Mutu)
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Tab 1: KHS Table */}
-      {activeTab === "khs" && (
-        isSiakad401 ? (
-          <LockedSiakadCard
-            title="Kartu Hasil Studi Terkunci"
-            description="Nilai KHS dan transkrip semester diambil dari SIAKAD. Hubungkan akun SIAKAD untuk melihat IPK, SKS, dan nilai huruf mata kuliah."
-            onConnected={() => {
-              khsApi.reload();
-              gradesApiRaw.reload();
-              profileApi.reload();
-            }}
-          />
-        ) : (
-        <div className="glass-card overflow-hidden">
-          <div className="p-4 border-b border-stroke flex items-center justify-between flex-wrap gap-x-4 gap-y-1">
-            <h3 className="font-display font-bold text-sm text-foreground">
-              Tabel Kartu Hasil Studi (KHS)
-            </h3>
-            <span className="text-xs text-secondary font-mono">
-              Total {khsItems.length} Mata Kuliah
-            </span>
-          </div>
-
-          {khsItems.length === 0 ? (
-            <div className="p-8 text-center text-secondary text-sm">
-              Belum ada nilai KHS yang dirilis untuk semester ini.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="px-table w-full md:min-w-[640px] text-sm text-left">
-                <thead>
-                  <tr className="border-b border-stroke bg-[#F7FAFC] text-xs font-mono uppercase tracking-wider text-secondary">
-                    <th scope="col" className="px-4 py-3">No</th>
-                    <th scope="col" className="px-4 py-3">Kode</th>
-                    <th scope="col" className="px-4 py-3">Mata Kuliah</th>
-                    <th scope="col" className="px-4 py-3 text-center">SKS</th>
-                    <th scope="col" className="px-4 py-3 text-center">Nilai Huruf</th>
-                    <th scope="col" className="px-4 py-3 text-center">Bobot Mutu</th>
-                    <th scope="col" className="px-4 py-3">Keterangan</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {khsItems.map((item) => (
-                    <tr
-                      key={item.kode || item.no}
-                      className="border-b border-stroke/60 last:border-0 hover:bg-[#F0F7FB]/50"
-                    >
-                      <td data-label="No" className="px-4 py-3 text-secondary font-mono text-xs">
-                        {item.no}
-                      </td>
-                      <td data-label="Kode" className="px-4 py-3 font-mono font-bold text-[#0369A1] text-xs">
-                        {item.kode}
-                      </td>
-                      <td data-label="Mata Kuliah" data-primary="" className="px-4 py-3 font-semibold text-foreground">
-                        {item.mata_kuliah}
-                      </td>
-                      <td data-label="SKS" className="px-4 py-3 text-center text-secondary">
-                        {item.sks}
-                      </td>
-                      <td data-label="Nilai Huruf" className="px-4 py-3 text-center">
-                        <span
-                          className={`inline-flex items-center justify-center w-7 h-7 rounded-full font-bold text-xs ${
-                            item.nilai === "A"
-                              ? "bg-[#0F766E]/15 text-[#0D5F58]"
-                              : item.nilai === "B"
-                              ? "bg-[#0369A1]/15 text-[#0369A1]"
-                              : item.nilai === "C"
-                              ? "bg-[#9A3412]/15 text-[#9A3412]"
-                              : "bg-[#BE123C]/15 text-[#BE123C]"
-                          }`}
-                        >
-                          {item.nilai || "-"}
-                        </span>
-                      </td>
-                      <td data-label="Bobot Mutu" className="px-4 py-3 text-center font-mono font-semibold text-foreground">
-                        {item.mutu}
-                      </td>
-                      <td data-label="Keterangan" className="px-4 py-3 text-xs text-secondary">
-                        {item.keterangan || "LULUS"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-        )
-      )}
-
-      {/* Tab 2: Nilai Murni Breakdown */}
-      {activeTab === "murni" && (
-        isSiakad401 ? (
-          <LockedSiakadCard
-            title="Nilai Murni Terkunci"
-            description="Rincian komponen nilai murni (UTS, UAS, Tugas, Presensi) diambil dari SIAKAD. Hubungkan akun SIAKAD untuk melihat evaluasi penilaian tiap mata kuliah."
-            onConnected={() => {
-              khsApi.reload();
-              gradesApiRaw.reload();
-              profileApi.reload();
-            }}
-          />
-        ) : (
-        <div className="glass-card overflow-hidden">
-          <div className="p-4 border-b border-stroke flex items-center justify-between flex-wrap gap-x-4 gap-y-1">
-            <h3 className="font-display font-bold text-sm text-foreground">
-              Rincian Komponen Nilai Murni
-            </h3>
-            <span className="text-xs text-secondary font-mono">
-              Bobot Absen (20%), Tugas (25%), UTS (25%), UAS (30%)
-            </span>
-          </div>
-
-          {rawGrades.length === 0 ? (
-            <div className="p-8 text-center text-secondary text-sm">
-              Belum ada rincian nilai murni yang dirilis dari dosen.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="px-table w-full md:min-w-[720px] text-sm text-left">
-                <thead>
-                  <tr className="border-b border-stroke bg-[#F7FAFC] text-xs font-mono uppercase tracking-wider text-secondary">
-                    <th scope="col" className="px-4 py-3">Mata Kuliah</th>
-                    <th scope="col" className="px-4 py-3 text-center">SKS</th>
-                    <th scope="col" className="px-4 py-3 text-center">Absen</th>
-                    <th scope="col" className="px-4 py-3 text-center">Tugas</th>
-                    <th scope="col" className="px-4 py-3 text-center">UTS</th>
-                    <th scope="col" className="px-4 py-3 text-center">UAS</th>
-                    <th scope="col" className="px-4 py-3 text-center">Total Akhir</th>
-                    <th scope="col" className="px-4 py-3 text-center">Grade</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rawGrades.map((g) => (
-                    <tr
-                      key={g.id || g.kode}
-                      className="border-b border-stroke/60 last:border-0 hover:bg-[#F0F7FB]/50"
-                    >
-                      <td data-label="Mata Kuliah" data-primary="" className="px-4 py-3 font-semibold text-foreground">
-                        <div>
-                          <span>{g.nama}</span>
-                          <span className="block text-[10px] font-mono text-[#0369A1]">
-                            {g.kode}
-                          </span>
-                        </div>
-                      </td>
-                      <td data-label="SKS" className="px-4 py-3 text-center text-secondary font-mono">
-                        {g.sks}
-                      </td>
-                      <td data-label="Absen" className="px-4 py-3 text-center font-mono text-secondary">
-                        {g.absen ?? "-"}
-                      </td>
-                      <td data-label="Tugas" className="px-4 py-3 text-center font-mono text-secondary">
-                        {g.tugas ?? "-"}
-                      </td>
-                      <td data-label="UTS" className="px-4 py-3 text-center font-mono text-secondary">
-                        {g.uts ?? "-"}
-                      </td>
-                      <td data-label="UAS" className="px-4 py-3 text-center font-mono text-secondary">
-                        {g.uas ?? "-"}
-                      </td>
-                      <td data-label="Total Akhir" className="px-4 py-3 text-center font-mono font-bold text-foreground">
-                        {g.total ?? "-"}
-                      </td>
-                      <td data-label="Grade" className="px-4 py-3 text-center">
-                        <span
-                          className={`inline-flex items-center justify-center w-7 h-7 rounded-full font-bold text-xs ${
-                            g.grade === "A"
-                              ? "bg-[#0F766E]/15 text-[#0D5F58]"
-                              : g.grade === "B"
-                              ? "bg-[#0369A1]/15 text-[#0369A1]"
-                              : g.grade === "C"
-                              ? "bg-[#9A3412]/15 text-[#9A3412]"
-                              : "bg-[#BE123C]/15 text-[#BE123C]"
-                          }`}
-                        >
-                          {g.grade || "-"}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-        )
-      )}
-
-      {/* Tab 3: Elearning MyBest Grades */}
-      {activeTab === "elearning" && (
-        <div className="space-y-6">
-          {elearningApi.loading ? (
-            <LoadingState label="Memuat rekapitulasi nilai tugas MyBest" />
-          ) : elearningApi.error ? (
-            <ErrorState error={elearningApi.error} onRetry={elearningApi.reload} />
-          ) : !elearningApi.data || elearningApi.data.total_tugas === 0 ? (
-            <EmptyState
-              mascot="/maskot/mura-nilai.png"
-              title="Belum ada riwayat tugas yang dinilai."
-              description="Nilai tugas muncul di sini setelah kamu kumpulin tugas dan dosen selesai menilai."
-            />
-          ) : (
-            <>
-              {/* Ringkasan Rata-Rata Per Matkul */}
-              {Object.keys(elearningApi.data.per_matkul || {}).length > 0 && (
-                <div className="glass-card p-5">
-                  <h3 className="font-display font-bold text-sm text-foreground mb-3 flex items-center gap-2">
-                    <BookOpen className="w-4 h-4 text-[#0369A1]" aria-hidden="true" />
-                    Rata-Rata Nilai Tugas Per Mata Kuliah
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {Object.entries(elearningApi.data.per_matkul).map(([kode, val]) => (
-                      <div
-                        key={kode}
-                        className="p-3.5 rounded-sm bg-[#F7FAFC] border border-stroke/70 flex items-center justify-between"
-                      >
-                        <div>
-                          <span className="text-xs font-mono font-bold text-[#0369A1]">
-                            {kode}
-                          </span>
-                          <span className="block text-[11px] text-secondary">
-                            {val.total_tugas} Tugas Dinilai
-                          </span>
-                        </div>
-                        <span className="text-lg font-mono font-bold text-foreground bg-white px-2.5 py-1 rounded border border-stroke">
-                          {val.rata_nilai.toFixed(1)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Rincian Per Pertemuan */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-display font-bold text-sm text-foreground flex items-center gap-2">
-                    <FileSpreadsheet className="w-4 h-4 text-[#0369A1]" aria-hidden="true" />
-                    Rincian Penilaian Tugas Per Pertemuan
-                  </h3>
-                  <span className="text-xs text-secondary font-mono">
-                    Total {elearningApi.data.per_pertemuan.length} Pertemuan Terdaftar
-                  </span>
-                </div>
-
-                {elearningApi.data.per_pertemuan.map((pert) => (
-                  <div key={pert.pertemuan} className="glass-card overflow-hidden">
-                    <div className="p-4 bg-[#F7FAFC] border-b border-stroke flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="inline-block px-2.5 py-1 rounded text-xs font-mono font-bold bg-[#0369A1] text-white">
-                          Pertemuan {pert.pertemuan}
-                        </span>
-                        <span className="text-xs text-secondary">
-                          {pert.total_tugas} Tugas ({pert.sudah_dinilai} dinilai)
-                        </span>
-                      </div>
-                      {pert.rata_nilai != null && (
-                        <span className="text-xs font-mono font-semibold text-[#0F766E] bg-[#F0F7FB] px-2.5 py-0.5 rounded-pill border border-[#0F766E]/20">
-                          Rata-rata: {pert.rata_nilai.toFixed(1)}
-                        </span>
-                      )}
+          {Object.keys(grades.per_matkul).length > 0 && (
+            <div className="glass-card p-5">
+              <h3 className="mb-3 flex items-center gap-2 font-display text-sm font-bold text-foreground">
+                <BookOpen className="h-4 w-4 text-[#0369A1]" aria-hidden="true" />
+                Rata-Rata Nilai Tugas Per Mata Kuliah
+              </h3>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {Object.entries(grades.per_matkul).map(([kode, val]) => (
+                  <div
+                    key={kode}
+                    className="flex items-center justify-between rounded-sm border border-stroke/70 bg-[#F7FAFC] p-3.5"
+                  >
+                    <div>
+                      <span className="font-mono text-xs font-bold text-[#0369A1]">{kode}</span>
+                      <span className="block text-[11px] text-secondary">
+                        {val.total_tugas} tugas dinilai
+                      </span>
                     </div>
-
-                    <div className="divide-y divide-stroke/60">
-                      {pert.items.map((item) => {
-                        const numericScore = gradeValue(item.nilai) ?? 0;
-                        const hasScore = gradeValue(item.nilai) !== null;
-
-                        return (
-                          <div
-                            key={item.id || item.judul}
-                            className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:bg-[#F0F7FB]/40 transition-colors"
-                          >
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-mono font-bold uppercase text-[#0369A1] bg-[#F0F7FB] px-2 py-0.5 rounded">
-                                  {item.kode || "MATKUL"}
-                                </span>
-                                <span className="text-xs font-semibold text-secondary">
-                                  {item.mata_kuliah}
-                                </span>
-                              </div>
-                              <h4 className="text-sm font-bold text-foreground">
-                                {item.judul}
-                              </h4>
-                              {item.tanggal_kumpul && (
-                                <p className="text-[11px] text-secondary flex items-center gap-1">
-                                  <Clock className="w-3 h-3" aria-hidden="true" />
-                                  Dikumpulkan: {item.tanggal_kumpul}
-                                </p>
-                              )}
-                              {item.komentar_dosen && (
-                                <p className="text-xs text-secondary bg-[#F7FAFC] p-2.5 rounded border border-stroke/60 flex items-start gap-1.5 mt-2">
-                                  <MessageSquare className="w-3.5 h-3.5 text-[#0369A1] shrink-0 mt-0.5" aria-hidden="true" />
-                                  <span>Catatan Dosen: &quot;{item.komentar_dosen}&quot;</span>
-                                </p>
-                              )}
-                            </div>
-
-                            <div className="shrink-0 self-start sm:self-center">
-                              {hasScore ? (
-                                <div className="text-right">
-                                  <span
-                                    className={`inline-flex items-center justify-center px-3 py-1 rounded-pill font-mono font-bold text-sm ${
-                                      numericScore >= 80
-                                        ? "bg-[#0F766E]/15 text-[#0D5F58] border border-[#0F766E]/20"
-                                        : numericScore >= 70
-                                        ? "bg-[#0369A1]/15 text-[#0369A1] border border-[#0369A1]/20"
-                                        : "bg-[#9A3412]/15 text-[#9A3412] border border-[#9A3412]/20"
-                                    }`}
-                                  >
-                                    {numericScore}
-                                  </span>
-                                  <span className="block text-[10px] text-secondary font-mono text-center mt-0.5">
-                                    Nilai
-                                  </span>
-                                </div>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-pill text-[11px] font-semibold bg-[#F7FAFC] text-secondary border border-stroke">
-                                  <Clock className="w-3 h-3" aria-hidden="true" />
-                                  Menunggu Koreksi
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                    <span className="rounded border border-stroke bg-white px-2.5 py-1 font-mono text-lg font-bold text-foreground">
+                      {val.rata_nilai.toFixed(1)}
+                    </span>
                   </div>
                 ))}
               </div>
-            </>
+            </div>
           )}
-        </div>
+
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="flex items-center gap-2 font-display text-sm font-bold text-foreground">
+                <FileSpreadsheet className="h-4 w-4 text-[#0369A1]" aria-hidden="true" />
+                Rincian Penilaian Tugas Per Pertemuan
+              </h3>
+              <span className="font-mono text-xs text-secondary">
+                Total {grades.per_pertemuan.length} pertemuan terdaftar
+              </span>
+            </div>
+
+            {grades.per_pertemuan.map((pert) => (
+              <div key={pert.pertemuan} className="glass-card overflow-hidden">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stroke bg-[#F7FAFC] p-4">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-block rounded bg-[#0369A1] px-2.5 py-1 font-mono text-xs font-bold text-white">
+                      Pertemuan {pert.pertemuan}
+                    </span>
+                    <span className="text-xs text-secondary">
+                      {pert.total_tugas} tugas ({pert.sudah_dinilai} dinilai)
+                    </span>
+                  </div>
+                  {pert.rata_nilai != null && (
+                    <span className="rounded-pill border border-[#0F766E]/20 bg-[#F0F7FB] px-2.5 py-0.5 font-mono text-xs font-semibold text-[#0F766E]">
+                      Rata-rata: {pert.rata_nilai.toFixed(1)}
+                    </span>
+                  )}
+                </div>
+
+                <div className="divide-y divide-stroke/60">
+                  {pert.items.map((item) => {
+                    const score = gradeValue(item.nilai);
+                    return (
+                      <div key={item.id || item.judul} className="flex flex-wrap items-center justify-between gap-2 p-3.5">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-foreground">{item.judul}</p>
+                          <p className="font-mono text-[11px] text-secondary">
+                            {[item.kode, item.mata_kuliah, item.tanggal_kumpul].filter(Boolean).join(" · ") || "-"}
+                          </p>
+                          {item.komentar_dosen && (
+                            <p className="mt-1 text-xs text-secondary">{item.komentar_dosen}</p>
+                          )}
+                        </div>
+                        <span
+                          className={`shrink-0 rounded border px-2.5 py-1 font-mono text-sm font-bold ${
+                            score === null
+                              ? "border-stroke bg-[#F7FAFC] text-secondary"
+                              : "border-[#0F766E]/30 bg-[#F0F7FB] text-[#0F766E]"
+                          }`}
+                        >
+                          {score === null ? "Belum dinilai" : score.toFixed(0)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
