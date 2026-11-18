@@ -958,3 +958,23 @@ UBSI API exposes an official Model Context Protocol (MCP) Server with **80 AI Ag
 - Authentication: `Authorization: Bearer muara_mira_<key>` (or legacy `muara_ubsi_<key>`)
 - Full reference, schema specifications, and agent prompt templates: See [docs/mcp.md](mcp.md).
 
+
+### `GET /v1/maintenance`
+Status maintenance publik untuk frontend (tanpa data pribadi).
+- **Access**: Public
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "enabled": true,
+      "message": "Mohon maaf, Mira untuk saat ini sedang maintenance.",
+      "reason": "Pihak BSI mengubah CAPTCHA MyBest/SIAKAD dan sedang kami perbaiki, jadi Mira belum bisa dipakai."
+    }
+  }
+  ```
+- Saat `MAINTENANCE_MODE=true`, semua endpoint non-publik membalas `503`:
+  ```json
+  { "success": false, "error": { "code": "MAINTENANCE", "message": "...", "module": "maintenance", "reason": "..." } }
+  ```
+  Pengecualian: NIM di `MAINTENANCE_WHITELIST_NIMS` (dipisah koma) tetap boleh login dan memakai dashboard. `/health`, `/v1/capabilities`, dan `/v1/maintenance` tetap terbuka.

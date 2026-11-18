@@ -26,6 +26,15 @@ class Settings(BaseSettings):
     # Saklar SIAKAD: False = seluruh endpoint SIAKAD balas 503 + CTA ke situs kampus.
     SIAKAD_ENABLED: bool = False
     SIAKAD_CTA_URL: str = "https://students.bsi.ac.id"
+    # Maintenance mode: blokir semua API/dashboard kecuali NIM di whitelist.
+    MAINTENANCE_MODE: bool = False
+    MAINTENANCE_MESSAGE: str = "Mohon maaf, Mira untuk saat ini sedang maintenance."
+    MAINTENANCE_REASON: str = (
+        "Pihak BSI mengubah CAPTCHA MyBest/SIAKAD dan sedang kami perbaiki, "
+        "jadi Mira belum bisa dipakai."
+    )
+    # NIM yang tetap boleh login/dashboard saat maintenance (dipisah koma).
+    MAINTENANCE_WHITELIST_NIMS: str = ""
     # Scraper Proxy Configuration (Opsional - Single Proxy / Rotating Pool)
     SCRAPER_PROXY: str = ""
     SCRAPER_PROXY_POOL: str = ""

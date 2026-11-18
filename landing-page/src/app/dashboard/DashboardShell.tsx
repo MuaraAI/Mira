@@ -10,6 +10,8 @@ import { DashboardMobileNav } from "@/components/DashboardMobileNav";
 import PwaPushBanner from "@/components/PwaPushBanner";
 import { DefaultPasswordBanner, LoginTodayBadge } from "@/components/SecurityWidgets";
 import { DialogProvider } from "@/components/ConfirmDialog";
+import { MaintenanceContent } from "@/components/MaintenanceContent";
+import { useMaintenance } from "@/lib/maintenance";
 import { useLogout } from "@/lib/logout";
 
 function getPageTitle(pathname: string): string {
@@ -65,7 +67,16 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   );
 }
 
+function MaintenanceScreen({ message, reason }: { message: string; reason: string }) {
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center py-10">
+      <MaintenanceContent message={message} reason={reason} />
+    </div>
+  );
+}
+
 function ShellLayout({ children }: { children: React.ReactNode }) {
+  const { status: maintenance } = useMaintenance();
   const pathname = usePathname();
   const { logout, busy } = useLogout();
   const { authed, checking, error, reload, nim, hasSiakad } = useRequireSession();
@@ -130,6 +141,11 @@ function ShellLayout({ children }: { children: React.ReactNode }) {
         >
           {checking ? (
             <LoadingState label="Memeriksa sesi mahasiswa" />
+          ) : error?.code === "MAINTENANCE" ? (
+            <MaintenanceScreen
+              message={maintenance?.message ?? "Mira sedang maintenance."}
+              reason={maintenance?.reason ?? ""}
+            />
           ) : error ? (
             <ErrorState error={error} onRetry={reload} />
           ) : authed ? (
