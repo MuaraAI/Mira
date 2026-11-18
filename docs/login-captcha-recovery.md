@@ -37,6 +37,22 @@ dalam string base64, lalu mengirim `captcha_answer=6`. Kampus menjawab
 - Tidak memecahkan CAPTCHA kampus dengan OCR atau vendor pihak ketiga.
 - Tidak mengubah prioritas sumber data dashboard.
 
+## Hotfix cooldown CAPTCHA (2026-11-18)
+
+Insiden: user tidak bisa absen. Sesi MyBest mati setelah idle (~15 menit),
+login ulang otomatis ditolak karena butuh CAPTCHA, dan NIM masuk cooldown
+captcha 20 menit yang tersimpan in-memory per worker (2 worker) sehingga
+re-login di satu worker tidak menyembuhkan worker lain. Semua request
+upstream NIM terkait membalas 502 `AUTH_CAPTCHA_REQUIRED`.
+
+Sejak default-deny, kegagalan login beralasan captcha tidak pernah POST ke
+kampus: biayanya satu GET halaman login. Cooldown panjang tidak melindungi
+apa pun dan hanya mengunci fitur user, jadi `CAPTCHA_COOLDOWN_SECONDS`
+diperpendek 20 menit menjadi 60 detik. Perlindungan flood tetap ada di rate
+limiter API (60 req/menit/IP), login_guard (10 login/menit/IP), dan blok host
+429 (5 menit). Test `test_captcha_cooldown_constant_is_reasonably_long`
+diganti `test_captcha_cooldown_constant_is_short`.
+
 ## Verifikasi
 
 Regression test offline: `tests/test_elearning_login_image_captcha.py`,

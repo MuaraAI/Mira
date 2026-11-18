@@ -183,7 +183,10 @@ def test_unknown_login_failure_marks_cooldown_and_stops_retrying():
     assert client.login_calls == 1
 
 
-def test_captcha_cooldown_constant_is_reasonably_long():
-    # Cooldown harus lebih panjang dari satu siklus worker (10 menit default)
-    # supaya tidak ada login berulang di siklus berikutnya.
-    assert CAPTCHA_COOLDOWN_SECONDS > 10 * 60
+def test_captcha_cooldown_constant_is_short():
+    # Sejak default-deny (PR #180), login gagal-captcha tidak pernah POST ke
+    # kampus: biayanya satu GET halaman login. Cooldown panjang tidak melindungi
+    # apa pun lagi, hanya mengunci absen/tugas/notifikasi NIM terkait. Batasi
+    # agar user pulih cepat dan cukup memicu login ulang ber-CAPTCHA.
+    assert CAPTCHA_COOLDOWN_SECONDS <= 120
+    assert CAPTCHA_COOLDOWN_SECONDS >= 30
