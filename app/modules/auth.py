@@ -362,6 +362,9 @@ async def login(req_body: LoginRequest, request: Request):
 
     nim = req_body.nim.strip()
     raw_sv_pass = (req_body.studentv2_pass or "").strip()
+    if not settings.SIAKAD_ENABLED:
+        # SIAKAD mati: kredensial diabaikan, tidak ada request ke students.bsi.ac.id.
+        raw_sv_pass = ""
     el_pass = req_body.elearning_pass.strip()
     siakad_attempted = bool(raw_sv_pass)
 
@@ -483,6 +486,8 @@ async def login(req_body: LoginRequest, request: Request):
     # sertakan warning ramah agar user tahu fitur SIAKAD belum aktif.
     effective_sv_pass = raw_sv_pass if sv2_ok else ""
     warnings: list[str] = []
+    if not settings.SIAKAD_ENABLED:
+        warnings.append("SIAKAD dinonaktifkan; nilai, KHS, dan KRS dibuka di students.bsi.ac.id.")
     if siakad_attempted and not sv2_ok:
         sv_reason, sv_errors = outcomes.get("studentv2", ("unknown", []))
         if sv_session is None:
@@ -788,6 +793,9 @@ async def connect_credentials(body: ConnectCredentialsRequest, request: Request)
             ),
         )
 
+    if not settings.SIAKAD_ENABLED:
+        require_siakad_enabled()
+
     from app.captcha_relay import consume_challenge, create_challenge
     from app.captcha_autosolver import solve_campus_captcha
 
@@ -916,6 +924,9 @@ async def change_password(body: ChangePasswordRequest, request: Request):
         )
 
     stored = getattr(request.state, field, "") or ""
+
+    if body.system == "siakad" and not settings.SIAKAD_ENABLED:
+        require_siakad_enabled()
     if not stored:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
