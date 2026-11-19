@@ -979,6 +979,72 @@ def parse_makeup_classes(html: str) -> list[dict[str, Any]]:
             unique.append(rec)
     return unique
 
+def parse_toefl(html: str) -> list[dict[str, Any]]:
+    """Daftar materi dan jadwal TOEFL dari MyBest `/toefl`.
+
+    Tabel `copy-print-csv` memakai header: No, Kode Mtk, Kategori, Materi,
+    Judul Materi, Dosen, Waktu, Ujian Mulai, Ujian Selesai, Aksi. Akun tanpa
+    materi TOEFL mengembalikan tabel kosong, jadi parser harus tahan tbody
+    kosong dan hanya memilih tabel yang punya kolom khas TOEFL.
+    """
+    page = Adaptor(html)
+    key_by_header = {
+        "no": "no",
+        "kode mtk": "kode_mtk",
+        "kategori": "kategori",
+        "materi": "materi",
+        "judul materi": "judul_materi",
+        "dosen": "dosen",
+        "waktu": "waktu",
+        "ujian mulai": "ujian_mulai",
+        "ujian selesai": "ujian_selesai",
+        "aksi": "aksi",
+    }
+    records: list[dict[str, Any]] = []
+
+    for table in page.css("table"):
+        headers = [" ".join(th.get_all_text().split()).lower() for th in table.css("thead th, tr th")]
+        if not headers:
+            continue
+        # Tabel lain di MyBest (jadwal, kuis) tidak punya kombinasi ini.
+        if "kategori" not in headers or "judul materi" not in headers:
+            continue
+        for row in table.css("tbody tr"):
+            cells = row.css("td")
+            if not cells:
+                continue
+            rec: dict[str, Any] = {}
+            for index, cell in enumerate(cells):
+                if index >= len(headers):
+                    break
+                key = key_by_header.get(headers[index])
+                if not key:
+                    continue
+                text = " ".join(cell.get_all_text().split())
+                if key == "no":
+                    rec["no"] = int(text) if text.isdigit() else (text or None)
+                elif key == "aksi":
+                    rec["aksi"] = text or None
+                    rec["aksi_url"] = None
+                    links = [a.attrib.get("href") for a in cell.css("a[href]")]
+                    if links:
+                        href = links[0]
+                        rec["aksi_url"] = (
+                            href if href.startswith("http") else f"https://elearning.bsi.ac.id{href}"
+                        )
+                else:
+                    rec[key] = text or None
+            if not any(value for key, value in rec.items() if key != "no"):
+                continue
+            rec.setdefault("id", hashlib.sha256(
+                "|".join(
+                    str(rec.get(field) or "")
+                    for field in ("kode_mtk", "judul_materi", "waktu", "ujian_mulai")
+                ).encode("utf-8")
+            ).hexdigest()[:12])
+            records.append(rec)
+    return records
+
 def get_official_guides() -> list[dict[str, str]]:
     """Daftar buku panduan resmi MyBest perkuliahan mahasiswa UBSI."""
     return [
@@ -3294,6 +3360,20 @@ async def get_makeup_classes(creds: tuple[str, str] = Depends(require_elearning_
         name="makeups",
         fetch=lambda: pooled_elearning_client.fetch_page("/kuliah-pengganti", nim, password),
         parse=parse_makeup_classes,
+        ttl=settings.TTL_ASSIGNMENTS,
+        cache_params={"nim": nim},
+    )
+
+
+@router.get("/toefl")
+async def get_toefl(creds: tuple[str, str] = Depends(require_elearning_creds)):
+    """Daftar materi dan jadwal TOEFL MyBest (kosong bila belum ada paket)."""
+    nim, password = creds
+    return await cached_endpoint(
+        module="elearning",
+        name="toefl",
+        fetch=lambda: pooled_elearning_client.fetch_page("/toefl", nim, password),
+        parse=parse_toefl,
         ttl=settings.TTL_ASSIGNMENTS,
         cache_params={"nim": nim},
     )
