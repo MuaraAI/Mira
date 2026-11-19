@@ -95,7 +95,7 @@ const MCP_AGENT_PROMPT = `Tolong pasang dan integrasikan Model Context Protocol 
 Catat aturan dan kapabilitas Mira Academic OS ini ke dalam file panduan context kamu (seperti \`AGENTS.md\`, \`CLAUDE.md\`, atau \`SOUL.md\`):
 - Peran: Asisten akademik cerdas untuk mahasiswa UBSI berbasis data real-time akun kampus sendiri.
 - Cakupan 6 Layanan Kampus:
-  * SIAKAD: Jadwal kuliah mingguan, rekap Nilai Murni, KHS semester, KRS, dan kartu ujian.
+  * SIAKAD (opsional, tautkan di Sesi & Keamanan): rekap Nilai Murni, KHS semester, KRS, dan kartu ujian.
   * MyBest LMS: Mata kuliah aktif, pelacak tugas & deadline, presensi kehadiran mandiri, unduh materi kuliah, dan kuis.
   * Ujian Online: Jadwal ujian semester dan kartu peserta via SSO MyBest.
   * Perpustakaan OPAC: Pencarian katalog buku fisik & stok cabang.

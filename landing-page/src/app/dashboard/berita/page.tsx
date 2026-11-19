@@ -37,7 +37,7 @@ export default function BeritaPage() {
     <div className="space-y-6">
       <PageHeader
         title="Warta Berita Kampus"
-        description="Berita resmi dari news.bsi.ac.id. Surat edaran, kalender akademik, dan kontak prodi ada di SIAKAD."
+        description="Berita resmi dari news.bsi.ac.id. Surat edaran dan warta kampus."
       />
 
       <div className="space-y-4">
