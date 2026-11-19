@@ -5,7 +5,6 @@ import { ArrowLeft, LogIn, MailCheck, RotateCcw, Send } from "lucide-react";
 import { apiFetch, ApiError } from "@/lib/api";
 import { inputClass, primaryButtonClass } from "@/components/dashboard-ui";
 import { PASSWORD_SYSTEM_LABEL, PasswordSystem } from "@/lib/security";
-import { useCapabilities } from "@/lib/capabilities";
 
 const fieldClass = `${inputClass} min-h-12 text-base sm:text-sm`;
 const RESET_TTL_MINUTES = 60;
@@ -46,11 +45,9 @@ function useFieldErrors() {
 }
 
 function SystemToggle({ value, onChange, disabled }: { value: PasswordSystem; onChange: (v: PasswordSystem) => void; disabled?: boolean }) {
-  const { data: capabilities } = useCapabilities();
-  // SIAKAD dimatikan: hanya MyBest yang bisa direset dari Mira.
-  const systems: PasswordSystem[] = capabilities?.siakad.enabled
-    ? ["mybest", "siakad"]
-    : ["mybest"];
+  // Login dan reset password hanya untuk MyBest. Tautan SIAKAD dikelola di
+  // dalam dashboard (Sesi & Keamanan), bukan di layar login.
+  const systems: PasswordSystem[] = ["mybest"];
   return (
     <div role="radiogroup" aria-label="Akun yang direset" className="grid grid-cols-2 gap-2">
       {systems.map((key) => {
