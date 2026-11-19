@@ -41,7 +41,13 @@ export default function SesiPage() {
 
 
 
-      <CampusSystemsCard me={meApi.data} />
+      <CampusSystemsCard
+        me={meApi.data}
+        onChanged={() => {
+          meApi.reload();
+          securityApi.reload();
+        }}
+      />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <LoginActivityCard security={securityApi.data} />
