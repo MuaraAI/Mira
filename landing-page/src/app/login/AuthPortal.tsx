@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, Eye, EyeOff, LogIn, RefreshCw, ShieldBan, X } from "lucide-react";
+import { ArrowLeft, Check, Eye, EyeOff, LogIn, ShieldBan, X } from "lucide-react";
 import { apiFetch, ApiError, useApi, setApiCache, writeSessionToken } from "@/lib/api";
 import { inputClass, primaryButtonClass } from "@/components/dashboard-ui";
 import { Monogram } from "@/components/Monogram";
@@ -29,15 +29,6 @@ const fieldClass = `${inputClass} min-h-12 text-base sm:text-sm`;
 
 type StepKey = "form" | "siakad" | "mybest" | "session" | "redirect";
 type StepState = "pending" | "running" | "done" | "failed";
-
-type CaptchaHost = "siakad" | "elearning";
-interface CaptchaState {
-  id: string;
-  image: string;
-  label: string;
-  code: string;
-  loading?: boolean;
-}
 
 const STEPS: { key: StepKey; label: string; detail: string }[] = [
   { key: "form", label: "Cek isian", detail: "NIM dan password MyBest" },
@@ -340,12 +331,8 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
   const [steps, setSteps] = useState<Record<StepKey, StepState>>(IDLE_STEPS);
   const [startedAt, setStartedAt] = useState(0);
   const [finished, setFinished] = useState(false);
-  // CAPTCHA MyBest manual: dimuat setelah NIM diisi dan wajib diketik user.
-  const [fallbackCaptcha, setFallbackCaptcha] = useState<CaptchaState | null>(null);
   const [forgotSystem, setForgotSystem] = useState<PasswordSystem>("mybest");
   const nimRef = useRef<HTMLInputElement>(null);
-  const captchaRef = useRef<HTMLInputElement>(null);
-  const captchaGeneration = useRef(0);
   const { blockedUntil, remainingMs, block } = useBlockedUntil();
   const { status: maintenance } = useMaintenance();
 
@@ -363,14 +350,6 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
   useEffect(() => {
     if (onLogin && me?.nim && phase === "form") router.replace("/dashboard");
   }, [me, router, phase, onLogin]);
-
-  // Muat CAPTCHA MyBest setelah user berhenti mengetik (hindari balapan request).
-  useEffect(() => {
-    if (!onLogin || view !== "login" || nim.trim().length < 6) return;
-    const timer = window.setTimeout(() => void reloadFallbackCaptcha("elearning"), 400);
-    return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onLogin, view, nim]);
 
   if (onLogin && checkingSession && !me) {
     return (
@@ -407,48 +386,6 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
     window.requestAnimationFrame(() => nimRef.current?.focus());
   }
 
-  // Muat tantangan CAPTCHA MyBest untuk form login.
-  async function loadMyBestCaptcha() {
-    await reloadFallbackCaptcha("elearning");
-  }
-
-  // CAPTCHA kampus fallback dari payload error AUTH_CAPTCHA_REQUIRED (sudah berisi id+gambar).
-  function applyFallbackCaptcha(challenge: { id: string; image: string; label?: string; host?: string }) {
-    setFallbackCaptcha({
-      id: challenge.id,
-      image: challenge.image,
-      label: challenge.label ?? (challenge.host === "siakad" ? "SIAKAD" : "MyBest"),
-      code: "",
-    });
-  }
-
-  // Muat ulang fallback via endpoint lama (challenge kampus sekali pakai).
-  async function reloadFallbackCaptcha(host: CaptchaHost) {
-    const label = host === "siakad" ? "SIAKAD" : "MyBest";
-    // Guard generasi: respons lama tidak boleh menimpa gambar lebih baru karena
-    // nonce cookie hanya cocok dengan tantangan terakhir.
-    const generation = captchaGeneration.current + 1;
-    captchaGeneration.current = generation;
-    setFallbackCaptcha({ id: "", image: "", label, code: "", loading: true });
-    try {
-      const data = await apiFetch<{ id: string; image: string; label: string }>("/v1/auth/captcha", {
-        json: { nim: nim.trim(), host },
-      });
-      if (captchaGeneration.current !== generation) return;
-      setFallbackCaptcha({ ...data, code: "" });
-    } catch {
-      if (captchaGeneration.current !== generation) return;
-      setFallbackCaptcha(null);
-      setError(new ApiError("CAPTCHA_UNAVAILABLE", "Gagal memuat CAPTCHA kampus. Coba lagi.", 0));
-    }
-  }
-
-  function setCaptchaCode(_which: "fallback", code: string) {
-    // Kode dikirim apa adanya; cukup buang spasi di tepi.
-    const trimmed = code.trim();
-    setFallbackCaptcha((prev) => (prev ? { ...prev, code: trimmed } : prev));
-  }
-
   function handleNimChange(value: string) {
     setNim(value);
   }
@@ -464,12 +401,6 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
           0
         )
       );
-      return;
-    }
-    // CAPTCHA MyBest wajib diisi (gambar dari kampus, bukan CAPTCHA Mira).
-    if (!fallbackCaptcha?.id || !fallbackCaptcha.code) {
-      if (!fallbackCaptcha || fallbackCaptcha.loading) void loadMyBestCaptcha();
-      setError(new ApiError("CAPTCHA_REQUIRED", "Isi kode CAPTCHA MyBest dulu, lalu tekan Masuk.", 0));
       return;
     }
     setSubmitting(true);
@@ -495,7 +426,6 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
           nim: nim.trim(),
           studentv2_pass: "",
           elearning_pass: mybestPass.trim(),
-          campus_captcha: { id: fallbackCaptcha.id, code: fallbackCaptcha.code },
         },
       });
 
@@ -526,23 +456,11 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
       if (apiErr.retryAfter && apiErr.status === 429) {
         block(apiErr.retryAfter);
       }
-      // CAPTCHA MyBest salah/kedaluwarsa: ambil gambar baru, tampilkan pesan server.
-      if (
-        apiErr.code === "AUTH_CAPTCHA_REQUIRED" ||
-        apiErr.code === "CAPTCHA_EXPIRED" ||
-        apiErr.code === "CAPTCHA_INVALID" ||
-        apiErr.code === "INVALID_CREDENTIALS"
-      ) {
-        if (apiErr.code === "AUTH_CAPTCHA_REQUIRED" && apiErr.fallbackCaptcha?.id) {
-          applyFallbackCaptcha(apiErr.fallbackCaptcha);
-        } else {
-          await reloadFallbackCaptcha("elearning");
-        }
+      // Kredensial ditolak: kembalikan ke form dengan NIM & password tetap terisi.
+      if (apiErr.code === "INVALID_CREDENTIALS" || apiErr.code === "CAPTCHA_INVALID") {
         setPhase("form");
         setSteps(IDLE_STEPS);
         setFinished(false);
-        // NIM & password tetap terisi; kursor pindah ke kolom kode yang baru.
-        window.requestAnimationFrame(() => captchaRef.current?.focus());
       }
       if (apiErr.status === 429) {
         // Ditolak sebelum menyentuh server kampus.
@@ -740,61 +658,6 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
                       </button>
                     </div>
                   </div>
-
-                  {fallbackCaptcha && (
-                    <div className="space-y-2 rounded-lg border border-[#0369A1]/30 bg-[#F0F7FB] p-3">
-                      <p className="text-xs text-secondary leading-relaxed">
-                        Ketik kode CAPTCHA MyBest dari gambar di bawah. Kode berlaku sekali pakai.
-                      </p>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-mono text-[11px] font-semibold text-[#B45309]">
-                          CAPTCHA {fallbackCaptcha.label}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void reloadFallbackCaptcha(fallbackCaptcha.label === "SIAKAD" ? "siakad" : "elearning")
-                          }
-                          disabled={fallbackCaptcha.loading}
-                          className="inline-flex min-h-8 items-center gap-1 font-mono text-[11px] font-semibold text-[#B45309] hover:underline disabled:opacity-60"
-                        >
-                          <RefreshCw
-                            className={`h-3 w-3 ${fallbackCaptcha.loading ? "animate-spin" : ""}`}
-                            aria-hidden="true"
-                          />
-                          Muat ulang
-                        </button>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        {fallbackCaptcha.image ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={fallbackCaptcha.image}
-                            alt={`Kode CAPTCHA ${fallbackCaptcha.label}`}
-                            className="h-14 w-auto shrink-0 rounded border border-stroke bg-white"
-                          />
-                        ) : (
-                          <span className="flex h-14 w-32 shrink-0 items-center justify-center rounded border border-stroke bg-white font-mono text-[11px] text-secondary">
-                            {fallbackCaptcha.loading ? "Memuat..." : "Gagal"}
-                          </span>
-                        )}
-                        <input
-                          ref={captchaRef}
-                          value={fallbackCaptcha.code}
-                          onChange={(e) => setCaptchaCode("fallback", e.target.value)}
-                          maxLength={8}
-                          required
-                          autoComplete="off"
-                          autoCapitalize="off"
-                          autoCorrect="off"
-                          spellCheck={false}
-                          placeholder="Kode"
-                          aria-label={`Kode CAPTCHA ${fallbackCaptcha.label}`}
-                          className={`${fieldClass} min-w-0 flex-1 font-mono`}
-                        />
-                      </div>
-                    </div>
-                  )}
 
                   <label htmlFor="agree" className="flex cursor-pointer items-start gap-3 pt-1">
                     <input

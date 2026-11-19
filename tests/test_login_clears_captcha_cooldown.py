@@ -105,10 +105,6 @@ async def test_mybest_only_failure_reports_captcha_invalid(monkeypatch, tmp_path
     monkeypatch.setattr("app.login_guard.login_guard.record_attempt", AsyncMock())
     monkeypatch.setattr("app.modules.news.news_client.fetch_posts", lambda *a, **k: [])
     monkeypatch.setattr("app.modules.news.news_client.fetch_post_detail", lambda *a, **k: {})
-    monkeypatch.setattr(
-        "app.captcha_relay.consume_challenge",
-        AsyncMock(return_value={"host": "elearning", "nim": "12345678", "token": "tok", "cookies": {}}),
-    )
 
     async def verify(nim, el_pass, sv_pass, *, outcomes=None, **kwargs):
         if outcomes is not None:
@@ -128,7 +124,6 @@ async def test_mybest_only_failure_reports_captcha_invalid(monkeypatch, tmp_path
                 "nim": "12345678",
                 "studentv2_pass": "",
                 "elearning_pass": "el_pass",
-                "campus_captcha": {"id": "a" * 32, "code": "abc"},
             },
         )
 

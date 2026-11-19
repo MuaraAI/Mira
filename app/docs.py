@@ -28,7 +28,7 @@ API_DOCS_DATA: dict[str, Any] = {
                 "path": "/v1/auth/login",
                 "method": "POST",
                 "auth": "Public",
-                "description": "Login mandiri menggunakan NIM dan password SIAKAD & MyBest. Mengembalikan session token AES-256-GCM (sliding 7 hari). Maks 10 percobaan/menit per IP; lebih dari itu IP diblokir sementara.",
+                "description": "Login mandiri menggunakan NIM dan password MyBest (SIAKAD opsional). CAPTCHA kampus diselesaikan OCR di server tanpa input user. Mengembalikan session token AES-256-GCM (sliding 7 hari). Maks 10 percobaan/menit per IP; lebih dari itu IP diblokir sementara.",
                 "payload": {"nim": "string", "studentv2_pass": "string", "elearning_pass": "string"},
             },
             {

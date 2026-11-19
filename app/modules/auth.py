@@ -35,10 +35,6 @@ logger = logging.getLogger("app.auth")
 router = APIRouter(prefix="/v1/auth", tags=["auth"])
 studentv2_client = StudentV2Client()
 
-CAPTCHA_NONCE_COOKIES = {
-    "siakad": "ubsi_captcha_siakad",
-    "elearning": "ubsi_captcha_elearning",
-}
 _SYSTEM_LABEL = {"elearning": "MyBest", "studentv2": "SIAKAD"}
 _CAMPUS_MESSAGE_PREVIEW = 160
 
@@ -226,79 +222,10 @@ async def verify_live_credentials(
     return sv2_ok, el_ok
 
 
-class CaptchaAnswer(BaseModel):
-    id: str = Field(..., min_length=8, max_length=64, description="ID tantangan CAPTCHA")
-    code: str = Field(..., min_length=1, max_length=8, description="Kode yang dibaca user")
-
-
-class CaptchaChallengeRequest(BaseModel):
-    nim: str = Field(..., min_length=3, description="NIM Mahasiswa")
-    host: str = Field(..., pattern="^(siakad|elearning)$", description="siakad atau elearning")
-
-
 class LoginRequest(BaseModel):
     nim: str = Field(..., min_length=3, description="NIM Mahasiswa")
     studentv2_pass: str = Field("", description="Password SIAKAD Students (opsional: kosongkan untuk lewati)")
     elearning_pass: str = Field(..., min_length=1, description="Password MyBest Elearning")
-
-    campus_captcha: Optional[CaptchaAnswer] = Field(
-        None,
-        description=(
-            "Jawaban CAPTCHA kampus (fallback manusia) bila auto-solve gagal; "
-            "id+image dikirim server pada AUTH_CAPTCHA_REQUIRED"
-        ),
-    )
-
-
-@router.post("/captcha")
-async def captcha_challenge(req_body: CaptchaChallengeRequest, request: Request):
-    """Ambil tantangan CAPTCHA kampus untuk ditampilkan di form login Mira."""
-    from app.main import extract_client_ip
-    if req_body.host == "siakad" and not settings.SIAKAD_ENABLED:
-        require_siakad_enabled()
-    client_ip = extract_client_ip(request)
-    if not await limiter.is_allowed(f"captcha:{client_ip}", limit=20):
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=error_response(
-                code="RATE_LIMIT_EXCEEDED",
-                message="Terlalu banyak permintaan CAPTCHA. Coba lagi sebentar.",
-                module="auth",
-            ),
-        )
-
-    from app.captcha_relay import create_challenge
-
-    nonce = secrets.token_urlsafe(24)
-    try:
-        challenge = await create_challenge(
-            req_body.host, req_body.nim.strip(), nonce=nonce
-        )
-    except Exception as err:
-        logger.warning("Gagal membuat tantangan CAPTCHA %s: %s", req_body.host, err)
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=error_response(
-                code="CAPTCHA_UNAVAILABLE",
-                message="Gagal mengambil CAPTCHA dari server kampus. Coba lagi.",
-                module="auth",
-            ),
-        ) from err
-
-    is_https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
-    response = JSONResponse(
-        status_code=status.HTTP_200_OK,
-        content=success_response(data=challenge),
-    )
-    response.set_cookie(
-        key=CAPTCHA_NONCE_COOKIES[req_body.host],
-        value=nonce,
-        max_age=challenge["expires_in"],
-        httponly=True,
-        secure=is_https,
-        samesite="lax",
-    )
-    return response
 
 
 @router.post("/login")
@@ -362,44 +289,7 @@ async def login(req_body: LoginRequest, request: Request):
     el_pass = req_body.elearning_pass.strip()
     siakad_attempted = bool(raw_sv_pass)
 
-    # CAPTCHA form login memakai CAPTCHA MyBest milik kampus, diketik user.
-    # Mira tidak lagi punya CAPTCHA sendiri.
-    from app.captcha_relay import consume_challenge, create_challenge
-
-    is_https = request.url.scheme == "https"
-
-    async def _captcha_fallback_response(host: str) -> JSONResponse:
-        nonce = secrets.token_urlsafe(24)
-        fallback = await create_challenge(host, nim, nonce=nonce)
-        detail = error_response(
-            code="AUTH_CAPTCHA_REQUIRED",
-            message=(
-                "Masukkan kode CAPTCHA MyBest dari gambar terbaru, "
-                "lalu tekan Masuk."
-            ),
-            module="auth",
-        )
-        detail["error"]["fallback_captcha"] = {
-            "id": fallback["id"],
-            "image": fallback["image"],
-            "label": fallback["label"],
-            "host": host,
-        }
-        response = JSONResponse(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            content=detail,
-        )
-        response.set_cookie(
-            CAPTCHA_NONCE_COOKIES[host],
-            nonce,
-            max_age=fallback["expires_in"],
-            httponly=True,
-            secure=is_https,
-            samesite="lax",
-        )
-        return response
-
-    from app.captcha_autosolver import candidate_session
+    from app.captcha_autosolver import MAX_CAPTCHA_ATTEMPTS, candidate_session
 
     async def _siakad_challenge() -> tuple[Optional[dict], Optional[str]]:
         if not siakad_attempted:
@@ -411,61 +301,56 @@ async def login(req_body: LoginRequest, request: Request):
             return None, None
         return session, (candidates[0] if candidates else None)
 
+    sv_session, sv_code = await _siakad_challenge()
     outcomes: dict = {}
-    if req_body.campus_captcha:
-        el_session = await consume_challenge(
-            req_body.campus_captcha.id,
-            "elearning",
-            nim,
-            nonce=request.cookies.get(CAPTCHA_NONCE_COOKIES["elearning"]),
-        )
-        if el_session is None:
-            return await _captcha_fallback_response("elearning")
-        el_code = req_body.campus_captcha.code
-    else:
-        # Browser (bundle lama bisa tidak mengirim kode): jangan menebak, kirim
-        # tantangan manual. Klien API/MCP tanpa header browser tetap dapat satu
-        # percobaan OCR supaya integrasi otomatis tidak putus.
-        dari_browser = (
-            request.headers.get("x-requested-with") == "dashboard"
-            or bool(request.headers.get("origin"))
-        )
-        if dari_browser:
-            return await _captcha_fallback_response("elearning")
+    el_ok = False
+    el_reason = "unknown"
+    el_errors: list[str] = []
+    el_code = ""
+
+    # CAPTCHA MyBest diselesaikan OCR di server. Kampus membakar kode setiap
+    # POST dan menolak senyap saat terlalu sering, jadi setiap percobaan
+    # memakai tantangan baru dan berhenti begitu alasan bukan lagi "captcha"
+    # (password salah / throttle): menambah percobaan tidak akan menolong.
+    for attempt in range(MAX_CAPTCHA_ATTEMPTS):
         try:
             el_session, el_candidates = await candidate_session("elearning", nim)
         except Exception as err:
             logger.warning("Gagal ambil CAPTCHA MyBest untuk %s: %s", nim, err)
             el_candidates = []
         if not el_candidates:
-            return await _captcha_fallback_response("elearning")
+            el_reason = "captcha"
+            el_errors = []
+            break
         el_code = el_candidates[0]
-
-    sv_session, sv_code = await _siakad_challenge()
-    sv2_ok, el_ok = await verify_live_credentials(
-        nim,
-        el_pass,
-        raw_sv_pass,
-        el_session=el_session,
-        el_captcha=el_code,
-        sv_session=sv_session,
-        sv_captcha=sv_code,
-        outcomes=outcomes,
-    )
-    el_reason, el_errors = outcomes.get("elearning", ("unknown", []))
-    sumber = "manual" if req_body.campus_captcha else "ocr"
-    if el_reason == "captcha":
-        # Level warning: log INFO default dibuang pm2, padahal inilah yang perlu
-        # ditelusuri saat user melaporkan kode CAPTCHA ditolak.
-        logger.warning(
-            "Login MyBest ditolak captcha nim=%s sumber=%s panjang_kode=%s pesan=%s",
+        sv2_ok, el_ok = await verify_live_credentials(
             nim,
-            sumber,
-            len(el_code or ""),
+            el_pass,
+            raw_sv_pass,
+            el_session=el_session,
+            el_captcha=el_code,
+            sv_session=sv_session,
+            sv_captcha=sv_code,
+            outcomes=outcomes,
+        )
+        el_reason, el_errors = outcomes.get("elearning", ("unknown", []))
+        if el_ok or el_reason != "captcha":
+            break
+        logger.warning(
+            "CAPTCHA MyBest ditolak OCR nim=%s percobaan=%s/%s kode=%s pesan=%s",
+            nim,
+            attempt + 1,
+            MAX_CAPTCHA_ATTEMPTS,
+            el_code,
             (el_errors[0][:120] if el_errors else "-"),
         )
+
+    if el_reason == "captcha" and not el_ok:
+        logger.warning(
+            "Login MyBest gagal CAPTCHA setelah %s percobaan nim=%s", MAX_CAPTCHA_ATTEMPTS, nim
+        )
     else:
-        logger.info("Login MyBest nim=%s sumber=%s alasan=%s", nim, sumber, el_reason)
+        logger.info("Login MyBest nim=%s alasan=%s", nim, el_reason)
 
     # Brute-force & login guard: hitung sukses jika MyBest valid (dan SIAKAD valid jika diisi)
     attempt_success = bool(el_ok and (sv2_ok or not siakad_attempted))
@@ -772,13 +657,6 @@ async def security_status(request: Request):
 class ConnectCredentialsRequest(BaseModel):
     system: str = Field(..., pattern="^(siakad)$", description="Sistem kampus yang ingin dihubungkan (saat ini: siakad)")
     password: str = Field(..., min_length=1, max_length=128, description="Password akun kampus")
-    campus_captcha: Optional[CaptchaAnswer] = Field(
-        None,
-        description=(
-            "Jawaban CAPTCHA kampus (fallback manusia) bila auto-solve gagal; "
-            "id+image dikirim server pada AUTH_CAPTCHA_REQUIRED"
-        ),
-    )
 
 
 @router.post("/credentials")
@@ -802,72 +680,28 @@ async def connect_credentials(body: ConnectCredentialsRequest, request: Request)
     if not settings.SIAKAD_ENABLED:
         require_siakad_enabled()
 
-    from app.captcha_relay import consume_challenge, create_challenge
-    from app.captcha_autosolver import candidate_session
+    from app.captcha_autosolver import MAX_CAPTCHA_ATTEMPTS, candidate_session
 
-    is_https = request.url.scheme == "https"
     pwd = body.password.strip()
 
-    sv_session: Optional[dict] = None
-    sv_code: Optional[str] = None
-    if body.campus_captcha:
-        sv_session = await consume_challenge(
-            body.campus_captcha.id,
-            "siakad",
-            nim,
-            nonce=request.cookies.get(CAPTCHA_NONCE_COOKIES["siakad"]),
-        )
-        if sv_session is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=error_response(
-                    code="CAPTCHA_EXPIRED",
-                    message="Kode CAPTCHA kedaluwarsa atau sudah dipakai. Muat ulang lalu coba lagi.",
-                    module="auth",
-                ),
-            )
-        sv_code = body.campus_captcha.code
-    else:
-        sv_session = None
+    # SIAKAD juga memakai CAPTCHA: selesaikan lewat OCR dengan tantangan baru
+    # tiap percobaan, berhenti saat alasan bukan lagi "captcha".
+    sv_ok = False
+    for attempt in range(MAX_CAPTCHA_ATTEMPTS):
         try:
             sv_session, sv_candidates = await candidate_session("siakad", nim)
-        except Exception:
+        except Exception as err:
+            logger.warning("Gagal ambil CAPTCHA SIAKAD untuk %s: %s", nim, err)
             sv_candidates = []
-        sv_code = sv_candidates[0] if sv_candidates else None
-        if sv_code is None:
-            nonce = secrets.token_urlsafe(24)
-            fallback = await create_challenge("siakad", nim, nonce=nonce)
-            detail = error_response(
-                code="AUTH_CAPTCHA_REQUIRED",
-                message=(
-                    "Masukkan kode CAPTCHA SIAKAD dari gambar terbaru, "
-                    "lalu coba lagi."
-                ),
-                module="auth",
-            )
-            detail["error"]["fallback_captcha"] = {
-                "id": fallback["id"],
-                "image": fallback["image"],
-                "label": fallback["label"],
-                "host": "siakad",
-            }
-            response = JSONResponse(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                content=detail,
-            )
-            response.set_cookie(
-                CAPTCHA_NONCE_COOKIES["siakad"],
-                nonce,
-                max_age=fallback["expires_in"],
-                httponly=True,
-                secure=is_https,
-                samesite="lax",
-            )
-            return response
+        if not sv_candidates:
+            break
+        sv_ok = await verify_siakad_login(
+            nim, pwd, session=sv_session, captcha=sv_candidates[0]
+        )
+        if sv_ok:
+            break
 
-
-    ok = await verify_siakad_login(nim, pwd, session=sv_session, captcha=sv_code)
-    if not ok:
+    if not sv_ok:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=error_response(

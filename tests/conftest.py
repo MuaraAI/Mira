@@ -42,12 +42,12 @@ def reset_upstream_login_blocks():
 
 @pytest.fixture(autouse=True)
 def stub_campus_captcha(monkeypatch):
-    """Login kini selalu memverifikasi CAPTCHA Mira lalu auto-solve CAPTCHA kampus.
+    """Login menyelesaikan CAPTCHA kampus lewat OCR di server.
 
     Tanpa stub, tiap POST /v1/auth/login menyentuh Redis nyata dan server kampus:
-    login mencoba satu kandidat OCR lalu memanggil endpoint kampus. Tes yang butuh perilaku asli
-    (fallback, tantangan nyata) mem-patch ulang di badan tes;
-    patch di badan tes menimpa hasil fixture ini.
+    login mengambil tantangan CAPTCHA lalu memanggil endpoint kampus. Tes yang
+    butuh perilaku lain (percobaan berulang, tantangan kosong) mem-patch ulang di
+    badan tes; patch di badan tes menimpa hasil fixture ini.
     """
     from unittest.mock import AsyncMock
 
