@@ -68,28 +68,29 @@ async def test_unknown_host_rejected():
         await candidate_session("host-asal", "12345678")
 
 
-def test_ocr_prefers_ddddocr_over_tesseract(monkeypatch):
-    """ddddocr (model ONNX) jadi kandidat utama; tesseract cadangan."""
+def test_ocr_skips_tesseract_when_ddddocr_succeeds(monkeypatch):
+    """Jalur cepat: ddddocr berhasil berarti tesseract tidak dijalankan sama sekali."""
     import subprocess as sp
 
     from app import captcha_autosolver
 
-    class FakeRun:
-        def __init__(self, stdout=""):
-            self.stdout = stdout
+    calls = []
 
     def fake_run(cmd, **kwargs):
-        if cmd and cmd[0] == "tesseract":
-            return FakeRun("ZZ\n")
-        return FakeRun("")
+        calls.append(cmd[0])
+
+        class R:
+            stdout = "ZZ\n"
+
+        return R()
 
     monkeypatch.setattr(sp, "run", fake_run)
     monkeypatch.setattr(captcha_autosolver, "_ddddocr_candidate", lambda png: ["AB12"])
 
     candidates = captcha_autosolver.ocr_candidates(b"fake-png")
 
-    assert candidates[0] == "AB12"
-    assert "ZZ" in candidates
+    assert candidates == ["AB12"]
+    assert calls == []
 
 
 def test_ocr_falls_back_to_tesseract_when_ddddocr_missing(monkeypatch):
