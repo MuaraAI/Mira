@@ -75,49 +75,22 @@ Pre-validation endpoint to verify that student credentials actually authenticate
   }
   ```
 
-### `POST /v1/auth/captcha`
-Kampus (`students.bsi.ac.id` dan `elearning.bsi.ac.id`) mewajibkan CAPTCHA gambar pada form login. Endpoint ini mengambil tantangan CAPTCHA, menyimpan cookie + `_token` sesi login di Redis (TTL 5 menit, sekali pakai), lalu mengembalikan gambar untuk ditampilkan di form Mira.
-- **Access**: Public
-- **Rate Limit**: Max 20 permintaan per menit per client IP.
-- **Request Body**:
-  ```json
-  { "nim": "12345678", "host": "siakad" }
-  ```
-  `host` hanya `siakad` atau `elearning`.
-- **Response**:
-  ```json
-  {
-    "success": true,
-    "data": {
-      "id": "9f1c...32hex",
-      "host": "siakad",
-      "label": "SIAKAD",
-      "image": "data:image/png;base64,...",
-      "expires_in": 300
-    }
-  }
-  ```
-- **Error**: `503 CAPTCHA_UNAVAILABLE` bila server kampus tidak bisa dihubungi atau token form tidak ditemukan.
-- **Cookie browser**: respons menetapkan cookie HttpOnly `ubsi_captcha_<host>` (`ubsi_captcha_siakad` atau `ubsi_captcha_elearning`, TTL 5 menit, SameSite Lax). Cookie ini terikat ke tantangan yang dibuat dan wajib dikirim browser saat `POST /v1/auth/login` atau `POST /v1/auth/credentials` agar jawaban CAPTCHA bisa dikonsumsi; tanpa cookie itu tantangan membalas `401 CAPTCHA_EXPIRED`. Client non-browser yang meniru alur ini harus mempertahankan cookie seperti browser.
-
-
 ### `POST /v1/auth/login`
 Authenticates student credentials live against campus portals, creates an in-memory session in Redis (sliding 7 days TTL), and issues a session cookie `ubsi_session` plus bearer token.
 - **Access**: Public
 - **Rate Limit**: Max 10 attempts per rolling minute per client IP, plus max 5 requests/minute per NIM.
 - **Optional SIAKAD**: `elearning_pass` (MyBest) is strictly mandatory. `studentv2_pass` is optional — leave it empty `""` to log in with MyBest only, locking SIAKAD-dependent features until connected later. If `studentv2_pass` is supplied but incorrect, login still succeeds into an Elearning-only session with a non-blocking warning in `data.warnings`.
 - **IP blacklist**: exceeding the per-IP limit bans the IP from this endpoint for 15 minutes, escalating to 1 hour and 24 hours on repeat offenses within 24 hours. Banned requests return `429 IP_BLACKLISTED` with `error.retry_after` (seconds) and a `Retry-After` header, and never reach the campus servers.
-- **CAPTCHA**: form login memakai CAPTCHA MyBest manual. Ambil tantangan lewat `POST /v1/auth/captcha` (`host: "elearning"`), lalu kirim jawaban user pada `campus_captcha`. Tanpa `campus_captcha`, server mencoba satu kandidat OCR (untuk klien API/MCP); bila tidak tersedia atau ditolak, membalas `401 AUTH_CAPTCHA_REQUIRED` dengan `error.fallback_captcha` `{id, image, label, host}`. Kode CAPTCHA kampus berlaku sekali pakai: setiap jawaban salah membalas `401 CAPTCHA_INVALID` dan butuh tantangan baru.
+- **CAPTCHA**: diselesaikan OCR di server, tanpa input user. Server mengambil tantangan kampus, membacanya dengan ddddocr, lalu memakai kode itu pada POST login. Setiap percobaan memakai tantangan baru (kode kampus sekali pakai) sampai maksimal 3 kali; berhenti begitu alasan bukan lagi CAPTCHA (password salah atau throttle). Bila semua percobaan gagal, endpoint membalas `401 CAPTCHA_INVALID` dan user diminta menekan Masuk lagi.
 - **Request Body**:
   ```json
   {
     "nim": "12345678",
     "studentv2_pass": "",
-    "elearning_pass": "mybest_password",
-    "campus_captcha": { "id": "4c7d...32hex", "code": "ABC" }
+    "elearning_pass": "mybest_password"
   }
   ```
-  Tidak ada lagi CAPTCHA milik Mira.
+  Tidak ada CAPTCHA milik Mira maupun kode yang perlu diketik user.
 - **Response**:
   ```json
   {
@@ -138,13 +111,12 @@ Authenticates student credentials live against campus portals, creates an in-mem
 Connects an optional campus system (such as SIAKAD) to an existing active session. Verifies credentials against the upstream campus portal, then atomically updates the stored credentials across all active sessions and Personal API Keys for the student.
 - **Access**: Dashboard Session Token only.
 - **Rate Limit**: Max 5 attempts/minute per NIM.
-- **CAPTCHA**: biasanya backend meng-auto-solve CAPTCHA SIAKAD sendiri. Bila auto-solve gagal, endpoint membalas `401 AUTH_CAPTCHA_REQUIRED` dengan `error.fallback_captcha` (`host: "siakad"`); ulangi permintaan dengan `campus_captcha: {id, code}`.
+- **CAPTCHA**: diselesaikan OCR di server dengan tantangan baru per percobaan (maksimal 3). Bila semuanya gagal, endpoint membalas `400 INVALID_CREDENTIALS`.
 - **Request Body**:
   ```json
   {
     "system": "siakad",
-    "password": "new_siakad_password",
-    "campus_captcha": { "id": "4c7d...32hex", "code": "ABCD" }
+    "password": "new_siakad_password"
   }
   ```
 - **Response**:
@@ -290,7 +262,7 @@ Status fitur kampus yang aktif, dibaca frontend sebelum login.
   ```json
   { "success": true, "data": { "siakad": { "enabled": false, "cta_url": "https://students.bsi.ac.id" } } }
   ```
-- Saat `SIAKAD_ENABLED=false` (default produksi), endpoint `/v1/studentv2/*`, `POST /v1/auth/captcha` dengan `host=siakad`, `POST /v1/auth/forgot-password` dengan `system=siakad`, `POST /v1/auth/verify` dengan `studentv2_pass` terisi, `POST /v1/auth/credentials`, dan ganti password SIAKAD membalas `503`:
+- Saat `SIAKAD_ENABLED=false` (default produksi), endpoint `/v1/studentv2/*`, `POST /v1/auth/forgot-password` dengan `system=siakad`, `POST /v1/auth/verify` dengan `studentv2_pass` terisi, `POST /v1/auth/credentials`, dan ganti password SIAKAD membalas `503`:
   ```json
   { "success": false, "error": { "code": "SIAKAD_DISABLED", "message": "...", "module": "siakad", "cta_url": "https://students.bsi.ac.id" } }
   ```

@@ -88,33 +88,6 @@ async def test_siakad_paths_return_503_when_disabled(path, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_captcha_siakad_disabled_but_elearning_ok(monkeypatch):
-    monkeypatch.setattr("app.config.settings.SIAKAD_ENABLED", False)
-    async with AsyncClient(
-        transport=ASGITransport(app=app),
-        base_url="http://test",
-        headers={"_skip_auto_auth": "1"},
-    ) as ac:
-        blocked = await ac.post("/v1/auth/captcha", json={"nim": "12345678", "host": "siakad"})
-        assert blocked.status_code == 503
-        assert blocked.json()["error"]["code"] == "SIAKAD_DISABLED"
-
-        with patch(
-            "app.captcha_relay.create_challenge",
-            AsyncMock(
-                return_value={
-                    "id": "a" * 32,
-                    "image": "data:image/png;base64,AAA",
-                    "label": "MyBest",
-                    "expires_in": 300,
-                }
-            ),
-        ):
-            allowed = await ac.post("/v1/auth/captcha", json={"nim": "12345678", "host": "elearning"})
-    assert allowed.status_code == 200
-
-
-@pytest.mark.asyncio
 async def test_forgot_password_siakad_disabled(monkeypatch):
     monkeypatch.setattr("app.config.settings.SIAKAD_ENABLED", False)
     async with AsyncClient(
@@ -411,23 +384,29 @@ async def test_studentv2_without_auth_returns_503(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_browser_login_without_captcha_gets_manual_challenge(monkeypatch, tmp_path):
-    """Bundle frontend lama tidak mengirim campus_captcha: server harus minta kode manual,
-    bukan menebak dengan OCR lalu membalas CAPTCHA_INVALID."""
+async def test_login_retries_captcha_with_new_challenges(monkeypatch, tmp_path):
+    """CAPTCHA diselesaikan OCR: kode ditolak berarti ambil tantangan baru, bukan menyerah."""
     _wire_login(monkeypatch, tmp_path, siakad_enabled=False)
-    solver = AsyncMock(return_value=({"cookies": {}, "token": "t"}, ["TEBAK"]))
-    monkeypatch.setattr("app.captcha_autosolver.candidate_session", solver)
-    monkeypatch.setattr(
-        "app.captcha_relay.create_challenge",
-        AsyncMock(
-            return_value={
-                "id": "f" * 32,
-                "image": "data:image/png;base64,AAA",
-                "label": "MyBest",
-                "expires_in": 300,
-            }
-        ),
+
+    sessions = iter(
+        [
+            ({"cookies": {}, "token": "t1"}, ["AAA"]),
+            ({"cookies": {}, "token": "t2"}, ["BBB"]),
+        ]
     )
+    monkeypatch.setattr(
+        "app.captcha_autosolver.candidate_session", AsyncMock(side_effect=lambda *a, **k: next(sessions))
+    )
+
+    attempts = []
+
+    async def verify(nim, el_pass, sv_pass, *, el_session=None, el_captcha=None, outcomes=None, **kwargs):
+        attempts.append((el_session["token"], el_captcha))
+        if outcomes is not None:
+            outcomes["elearning"] = ("captcha", [])
+        return False, False
+
+    monkeypatch.setattr("app.modules.auth.verify_live_credentials", verify)
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         res = await ac.post(
@@ -436,8 +415,37 @@ async def test_browser_login_without_captcha_gets_manual_challenge(monkeypatch, 
             json={"nim": "12345678", "studentv2_pass": "", "elearning_pass": "el"},
         )
 
+    # Dua percobaan dengan tantangan berbeda, lalu menyerah tanpa minta kode manual.
+    assert attempts == [("t1", "AAA"), ("t2", "BBB")]
     assert res.status_code == 401
-    error = res.json()["error"]
-    assert error["code"] == "AUTH_CAPTCHA_REQUIRED"
-    assert error["fallback_captcha"]["id"] == "f" * 32
-    assert solver.await_count == 0
+    assert res.json()["error"]["code"] == "CAPTCHA_INVALID"
+
+
+@pytest.mark.asyncio
+async def test_login_stops_captcha_retries_when_reason_is_credentials(monkeypatch, tmp_path):
+    """Password salah tidak boleh memicu percobaan CAPTCHA tambahan."""
+    _wire_login(monkeypatch, tmp_path, siakad_enabled=False)
+    monkeypatch.setattr(
+        "app.captcha_autosolver.candidate_session",
+        AsyncMock(return_value=({"cookies": {}, "token": "t"}, ["AAA"])),
+    )
+
+    attempts = []
+
+    async def verify(nim, el_pass, sv_pass, *, outcomes=None, **kwargs):
+        attempts.append(1)
+        if outcomes is not None:
+            outcomes["elearning"] = ("credentials", ["These credentials do not match our records."])
+        return False, False
+
+    monkeypatch.setattr("app.modules.auth.verify_live_credentials", verify)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.post(
+            "/v1/auth/login",
+            json={"nim": "12345678", "studentv2_pass": "", "elearning_pass": "salah"},
+        )
+
+    assert len(attempts) == 1
+    assert res.status_code == 401
+    assert res.json()["error"]["code"] == "INVALID_CREDENTIALS"

@@ -23,33 +23,19 @@ export class ApiError extends Error {
   retryAfter?: number;
   /** Nama field input yang salah, dipakai untuk menandai/menggetarkan input terkait. */
   fields?: string[];
-  /** CAPTCHA MyBest untuk form login manual. */
-  fallbackCaptcha?: CaptchaChallenge;
-
   constructor(
     code: string,
     message: string,
     status: number,
     retryAfter?: number,
-    fields?: string[],
-    fallbackCaptcha?: CaptchaChallenge
+    fields?: string[]
   ) {
     super(message);
     this.code = code;
     this.status = status;
     this.retryAfter = retryAfter;
     this.fields = fields;
-    this.fallbackCaptcha = fallbackCaptcha;
   }
-}
-
-/** Tantangan CAPTCHA kampus (PNG base64). */
-export interface CaptchaChallenge {
-  id: string;
-  image: string;
-  label?: string;
-  host?: string;
-  expires_in?: number;
 }
 
 interface EnvelopeError {
@@ -58,8 +44,6 @@ interface EnvelopeError {
   retry_after?: number;
   fields?: string[];
   captcha_hosts?: string[];
-
-  fallback_captcha?: CaptchaChallenge;
 }
 
 interface EnvelopePayload {
@@ -152,8 +136,7 @@ export async function apiFetch<T>(
       err?.message ?? `Permintaan gagal dengan status ${res.status}.`,
       res.status,
       typeof err?.retry_after === "number" ? err.retry_after : undefined,
-      Array.isArray(err?.fields) ? err.fields : undefined,
-      err?.fallback_captcha?.id ? err.fallback_captcha : undefined
+      Array.isArray(err?.fields) ? err.fields : undefined
     );
   }
   return payload?.data as T;
