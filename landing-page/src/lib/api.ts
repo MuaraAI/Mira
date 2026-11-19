@@ -296,6 +296,27 @@ export function clearApiCache(pathPrefix?: string) {
   } catch {}
 }
 
+/**
+ * Endpoint SIAKAD hanya sah setelah user menautkan akun. Cache dari sesi lama
+ * (saat masih tertaut) tidak boleh menutupi 401 terbaru, karena UI akan
+ * menampilkan angka yang tidak lagi bisa diambil.
+ */
+function isSiakadPath(path: string) {
+  return path.startsWith("/v1/studentv2/");
+}
+
+/** Drop semua cache (memori + perangkat) untuk satu path saat sumbernya menolak. */
+function dropCached(path: string) {
+  memoryCache.delete(path);
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.removeItem(PERSIST_PREFIX + path);
+    localStorage.removeItem(PERSIST_PREFIX + path);
+  } catch {
+    /* penyimpanan diblokir: cache memori sudah dibuang */
+  }
+}
+
 function initialState<T>(path: string, ttl: number, skipCache: boolean, persistMs: number): ApiState<T> {
   if (!path) return { data: null, loading: false, error: null, path };
   if (!skipCache && typeof window !== "undefined") {
@@ -363,6 +384,14 @@ export function useApi<T>(
       })
       .catch((error: ApiError) => {
         if (!alive) return;
+        // SIAKAD menolak (belum tertaut / kredensial dilepas): cache lama tidak
+        // lagi sah. Buang, lalu tampilkan keadaan error supaya UI bisa menawarkan
+        // tautan, bukan menyajikan angka dari sesi sebelumnya.
+        if (isSiakadPath(path) && (error.status === 401 || error.status === 403)) {
+          dropCached(path);
+          setState({ data: null, loading: false, error, path });
+          return;
+        }
         // Ada data lama untuk path ini: tetap tampilkan, jangan ganti dengan layar error.
         setState((s) => (s.path === path && s.data !== null ? { ...s, loading: false } : { ...s, loading: false, error, path }));
       })
@@ -396,7 +425,13 @@ export function useApi<T>(
               : { data, loading: false, error: null, path }
           );
         })
-        .catch(() => {
+        .catch((error: ApiError) => {
+          if (!alive) return;
+          if (isSiakadPath(path) && (error.status === 401 || error.status === 403)) {
+            dropCached(path);
+            setState({ data: null, loading: false, error, path });
+            return;
+          }
           /* gagal sesaat: biarkan data terakhir tetap tampil */
         })
         .finally(() => {
