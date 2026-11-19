@@ -10,7 +10,7 @@
 Dashboard PWA, REST API, dan MCP Server untuk SIAKAD, MyBest, Ujian Online, Perpustakaan, Berita, dan Repository UBSI.
 
 [![Website](https://img.shields.io/badge/website-mira.muaraai.com-0369A1?style=flat-square)](https://mira.muaraai.com)
-[![Release](https://img.shields.io/badge/release-v3.0.0-0369A1?style=flat-square)](https://github.com/MuaraAI/Mira/releases)
+[![Release](https://img.shields.io/badge/release-v3.5.0-0369A1?style=flat-square)](https://github.com/MuaraAI/Mira/releases)
 [![License](https://img.shields.io/github/license/MuaraAI/Mira?style=flat-square&color=374151)](LICENSE)
 ![Python](https://img.shields.io/badge/python-3.12%2B-3776AB?style=flat-square&logo=python&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-15-000000?style=flat-square&logo=nextdotjs&logoColor=white)
@@ -54,13 +54,13 @@ Video dibuat dengan [Remotion](https://www.remotion.dev); sumber, naskah, dan ca
 
 ## Kenapa Mira?
 
-Layanan kuliah UBSI tersebar di enam portal berbeda dan sesinya habis setiap 15 menit. Mira menggabungkan semuanya dalam satu login, tetap aktif selama 7 hari, dan bisa dipasang di HP seperti aplikasi biasa.
+Layanan kuliah UBSI tersebar di enam portal berbeda. Mira menyatukannya dalam satu login aktif 7 hari dan memperbarui sesi kampus saat diperlukan, jadi bisa dipasang di HP seperti aplikasi biasa.
 
 | Layanan | Portal | Yang tersedia di Mira |
 |---|---|---|
-| SIAKAD | `students.bsi.ac.id` | Profil, jadwal, nilai, KHS, KRS, kartu ujian |
-| MyBest | `elearning.bsi.ac.id` | Mata kuliah, tugas, presensi, materi, kuis, forum |
-| Ujian Online | `ujiankampusa.bsi.ac.id` | Jadwal dan kartu ujian (UTS, UAS, Her) |
+| SIAKAD | `students.bsi.ac.id` | Profil akademik, KHS per semester, KRS, ruang ujian. **Opsional**: ditautkan manual di Sesi & Keamanan |
+| MyBest | `elearning.bsi.ac.id` | Login utama. Jadwal kuliah, tugas, presensi, materi, kuis, forum, TOEFL |
+| Ujian Online | `ujiankampusa.bsi.ac.id` | Jadwal ujian (UTS, UAS, Her) dan unduh bukti ujian PDF |
 | Perpustakaan | `elibrary.bsi.ac.id` | Cari buku dan skripsi, stok, lokasi rak |
 | Berita | `news.bsi.ac.id` | Berita kampus resmi |
 | Repository | `repository.bsi.ac.id` | Publikasi riset terbaru |
@@ -69,8 +69,11 @@ Layanan kuliah UBSI tersebar di enam portal berbeda dan sesinya habis setiap 15 
 
 **Untuk mahasiswa**
 - PWA yang bisa dipasang di Android, iOS, dan desktop.
-- Notifikasi push: kelas segera mulai, presensi dibuka, deadline tugas.
-- Auto-relogin: tidak perlu login ulang tiap 15 menit.
+- Login MyBest-only, tanpa mengetik CAPTCHA: kode diselesaikan OCR di server.
+- Auto-relogin: sesi kampus diperbarui sendiri saat diperlukan.
+- Notifikasi push ringkasan: kelas segera mulai, presensi dibuka, deadline tugas, digest berita harian.
+- Sesi & Keamanan: countdown sesi, tautkan/lepas SIAKAD, ganti password kampus.
+- Kartu Flexing: unduh PNG 1080px dari nilai tugas MyBest.
 - Pratinjau dan unduh materi kuliah langsung di dashboard.
 - Komunitas: chat, spaces, dan profil antarmahasiswa.
 
@@ -78,7 +81,7 @@ Layanan kuliah UBSI tersebar di enam portal berbeda dan sesinya habis setiap 15 
 - Personal API Key (`muara_mira_*`) untuk bot Discord, Telegram, atau skrip pribadi.
 - REST API dengan envelope JSON standar dan dokumentasi Swagger.
 - Cache Redis dua tingkat dengan fallback data terakhir saat kampus down.
-- MCP Server dengan 80 tools untuk AI agent.
+- MCP Server dengan 80 tools (40 primer `mira_*` + 40 alias `ubsi_*`) untuk AI agent.
 
 ## Keamanan
 
@@ -97,7 +100,7 @@ Temukan celah keamanan? Laporkan sesuai [SECURITY.md](SECURITY.md).
 
 ## Quickstart
 
-**Mahasiswa:** buka [mira.muaraai.com](https://mira.muaraai.com), login dengan NIM serta password SIAKAD dan MyBest, lalu pasang sebagai aplikasi.
+**Mahasiswa:** buka [mira.muaraai.com](https://mira.muaraai.com), login dengan NIM dan password MyBest, lalu pasang sebagai aplikasi. SIAKAD bisa ditautkan belakangan di Sesi & Keamanan.
 
 **Developer:**
 

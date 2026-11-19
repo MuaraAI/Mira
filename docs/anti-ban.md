@@ -54,5 +54,5 @@ Multi-page crawler operations introduce random delays of 0.8–1.5 seconds betwe
 - Worker notifikasi tetap default-deny: CAPTCHA gambar tidak pernah ditebak, tanpa jawaban relay tidak ada POST ke kampus.
 - Anti-bot form login: rate limit 10/menit/IP + login guard 10/menit/IP + limit per NIM 5/menit.
 
-### H. SIAKAD Dimatikan (2026-11-18)
-Saklar `SIAKAD_ENABLED=false` menghentikan seluruh lalu lintas ke `students.bsi.ac.id`: router studentv2, CAPTCHA SIAKAD, lupa password SIAKAD, verifikasi master-key, credentials, ganti password, dan notifier. User membaca nilai/KHS/KRS langsung di portal kampus lewat CTA. Menghidupkan lagi cukup set env ke `true` dan restart.
+### H. SIAKAD Opsional (2026-11-19)
+Saklar `SIAKAD_ENABLED` kini `true` di produksi (sejak 2026-11-19). Login tetap **MyBest-only**: SIAKAD tidak disentuh sampai user menautkannya di Sesi & Keamanan dengan password SIAKAD-nya sendiri. Password SIAKAD **tidak diwarisi** dari MyBest, karena menebak dengan password yang sama menambah login gagal dan bisa mengunci akun SIAKAD. Saat saklar dimatikan, seluruh lalu lintas ke `students.bsi.ac.id` kembali diblokir dengan `503 SIAKAD_DISABLED`.

@@ -1,4 +1,10 @@
-# Perbaikan alur login dan CAPTCHA (2026-11-17)
+# Perbaikan alur login dan CAPTCHA
+
+> **Status akhir (2026-11-19, v3.5.0):** form login **tidak** menampilkan CAPTCHA.
+> Server menyelesaikannya dengan OCR (ddddocr, ~20 ms) memakai tantangan baru per
+> percobaan, maksimal 3 percobaan. `POST /v1/auth/captcha`, CAPTCHA Mira, dan
+> `app/mira_captcha.py` sudah dihapus. Bagian di bawah adalah catatan riwayat
+> insiden 2026-11-17; beberapa detail sengaja dipertahankan sebagai konteks.
 
 ## Intent
 
@@ -6,9 +12,13 @@ Worker notifikasi mengirim jutaan login ke MyBest dengan jawaban CAPTCHA tebakan
 Jalur itu mengunci NIM lewat cooldown 20 menit sehingga user sah ikut gagal login,
 absen, tugas, dan dashboard. Form login juga baru memuat CAPTCHA setelah NIM di-blur.
 
-Pendekatan yang dipilih: perbaiki akar di worker, hapus cooldown setelah login relay
-berhasil, tampilkan CAPTCHA begitu NIM valid, dan ikatkan tantangan ke cookie nonce
-per host. Tidak ada OCR atau auto-solve CAPTCHA kampus.
+Pendekatan awal (2026-11-17): perbaiki akar di worker, hapus cooldown setelah login
+relay berhasil, tampilkan CAPTCHA begitu NIM valid, dan ikatkan tantangan ke cookie
+nonce per host.
+
+**Catatan:** bagian "tidak ada OCR" dan "CAPTCHA ditampilkan ke user" sudah TIDAK
+berlaku. Sejak 2026-11-19 server menyelesaikan CAPTCHA sendiri lewat OCR. Lihat
+blok status di atas.
 
 ## Akar masalah
 
@@ -167,7 +177,7 @@ otomatis lewat OCR (ddddocr) dengan tantangan baru per percobaan.
 `POST /v1/auth/mira-captcha`, modul `app/mira_captcha.py`, dan seluruh tesnya
 dihapus.
 
-Sesi MyBest mati setelah ~15 menit idle. Sebelumnya re-login latar selalu gagal
+Sesi MyBest mati setelah idle (cookie kampus 45 menit **sliding**). Sebelumnya re-login latar selalu gagal
 karena butuh CAPTCHA (`AUTH_CAPTCHA_REQUIRED` pada absen/tugas). Sekarang
 `ElearningClient._ocr_login()` menyelesaikan CAPTCHA itu dengan OCR: satu
 tantangan baru per percobaan (kode sekali pakai), maksimal 3 percobaan, berhenti
