@@ -143,6 +143,14 @@ class SessionStore:
         nim = data.get("nim")
         if nim:
             await client.expire(_INDEX_PREFIX + nim, SESSION_TTL_SECONDS)
+        # Sisa umur sesi ikut dikirim: dashboard menampilkan countdown dan
+        # memutuskan kapan perlu mengingatkan user login ulang.
+        try:
+            remaining = int(await client.ttl(key))
+        except Exception:
+            remaining = -1
+        if remaining and remaining > 0:
+            data["expires_in"] = remaining
         return data
 
     async def delete(self, token: str) -> None:

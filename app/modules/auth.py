@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from datetime import datetime, timedelta, timezone
 import re
 import secrets
 from typing import Optional
@@ -509,7 +510,13 @@ async def me(request: Request):
             data={
                 "identity": "master",
                 "nim": None,
+                "session": None,
                 "systems": {"siakad": True, "mybest": True},
+                # Master memakai kredensial per-request (header), bukan sesi tertaut.
+                "links": {
+                    "mybest": {"linked": True, "required": True, "linked_password": "request"},
+                    "siakad": {"linked": True, "required": False, "linked_password": "request"},
+                },
             }
         )
     if not nim:
@@ -521,13 +528,47 @@ async def me(request: Request):
         )
     sv_pass = getattr(request.state, "studentv2_pass", "") or ""
     el_pass = getattr(request.state, "elearning_pass", "") or ""
+
+    # Sisa umur sesi (detik). Sesi Mira sliding 7 hari: setiap request sukses
+    # memperpanjang, jadi angka ini = "kalau kamu berhenti membuka Mira".
+    expires_in = getattr(request.state, "session_expires_in", None)
+    session_info = None
+    if isinstance(expires_in, int) and expires_in > 0:
+        session_info = {
+            "expires_in": expires_in,
+            "expires_at": (datetime.now(timezone.utc) + timedelta(seconds=expires_in)).isoformat(),
+            "days_left": round(expires_in / 86400, 1),
+        }
+
+    # Password SIAKAD bisa berbeda dari MyBest (kampus memakai dua sistem akun).
+    # `linked_password` memberi tahu UI apakah tautan SIAKAD memakai password
+    # yang sama atau password terpisah, supaya user tidak bingung saat ganti.
+    if not sv_pass:
+        linked_password = None
+    elif sv_pass == el_pass:
+        linked_password = "mybest"
+    else:
+        linked_password = "separate"
+
     return success_response(
         data={
             "nim": nim,
             "auth_type": auth_type,
-            "systems": {
-                "siakad": bool(sv_pass),
-                "mybest": bool(el_pass),
+            "session": session_info,
+            # Kontrak lama tetap: boolean siap pakai untuk gerbang UI.
+            "systems": {"siakad": bool(sv_pass), "mybest": bool(el_pass)},
+            # Detail per sistem untuk halaman Sesi & Keamanan.
+            "links": {
+                "mybest": {
+                    "linked": bool(el_pass),
+                    "required": True,
+                    "linked_password": "mybest" if el_pass else None,
+                },
+                "siakad": {
+                    "linked": bool(sv_pass),
+                    "required": False,
+                    "linked_password": linked_password,
+                },
             },
         }
     )
