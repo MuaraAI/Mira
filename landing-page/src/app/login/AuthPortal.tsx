@@ -27,21 +27,19 @@ const VIEW_COPY: Record<AuthView, { title: string; accent: string; subtitle: str
 // iOS men-zoom input di bawah 16px, jadi di HP teks input dibuat 16px.
 const fieldClass = `${inputClass} min-h-12 text-base sm:text-sm`;
 
-type StepKey = "form" | "siakad" | "mybest" | "session" | "redirect";
+type StepKey = "form" | "kampus" | "session" | "redirect";
 type StepState = "pending" | "running" | "done" | "failed";
 
 const STEPS: { key: StepKey; label: string; detail: string }[] = [
   { key: "form", label: "Cek isian", detail: "NIM dan password MyBest" },
-  { key: "siakad", label: "Login ke SIAKAD", detail: "students.bsi.ac.id" },
-  { key: "mybest", label: "Login ke MyBest", detail: "elearning.bsi.ac.id" },
+  { key: "kampus", label: "Verifikasi ke kampus", detail: "elearning.bsi.ac.id" },
   { key: "session", label: "Menyimpan sesi", detail: "Terenkripsi, aktif 7 hari" },
   { key: "redirect", label: "Masuk ke dashboard", detail: "Sebentar lagi masuk" },
 ];
 
 const IDLE_STEPS: Record<StepKey, StepState> = {
   form: "pending",
-  siakad: "pending",
-  mybest: "pending",
+  kampus: "pending",
   session: "pending",
   redirect: "pending",
 };
@@ -411,8 +409,7 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
     setPhase("checking");
 
     await sleep(350);
-    // Login hanya MyBest: SIAKAD tidak lagi dihubungkan dari Mira.
-    mark({ form: "done", siakad: "done", mybest: "running" });
+    mark({ form: "done", kampus: "running" });
 
     try {
       const res = await apiFetch<{
@@ -422,16 +419,15 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
         warnings?: string[];
       }>("/v1/auth/login", {
         signal: AbortSignal.timeout(LOGIN_TIMEOUT_MS),
+        // Login web hanya memakai MyBest. SIAKAD ditautkan nanti di dashboard.
         json: {
           nim: nim.trim(),
-          studentv2_pass: "",
           elearning_pass: mybestPass.trim(),
         },
       });
 
 
-      await sleep(180);
-      mark({ mybest: "done", session: "running" });
+      mark({ kampus: "done", session: "running" });
 
       if (res?.token) {
         writeSessionToken(res.token);
@@ -464,14 +460,9 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
       }
       if (apiErr.status === 429) {
         // Ditolak sebelum menyentuh server kampus.
-        mark({ form: "failed", siakad: "pending", mybest: "pending" });
-      } else if (apiErr.code === "INVALID_CREDENTIALS") {
-        mark({
-          siakad: "failed",
-          mybest: "failed",
-        });
+        mark({ form: "failed", kampus: "pending" });
       } else {
-        mark({ siakad: "failed", mybest: "failed" });
+        mark({ kampus: "failed" });
       }
       setError(apiErr);
       setFinished(true);
@@ -588,7 +579,7 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
             ) : (
               <div className="login-form-in">
                 <p className="mb-6 text-sm leading-relaxed text-secondary">
-                  Login dengan akun MyBest. Password dicek langsung ke server kampus, lalu disimpan terenkripsi selama sesi aktif (7 hari). Nilai akhir, KHS, dan KRS dibuka di students.bsi.ac.id.
+                  Login dengan akun MyBest. Password dicek langsung ke server kampus, lalu disimpan terenkripsi selama sesi aktif (7 hari).
                 </p>
 
                 {blockedUntil && (
