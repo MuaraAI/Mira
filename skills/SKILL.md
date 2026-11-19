@@ -1,6 +1,6 @@
 ---
 name: mira
-version: 3.0.0
+version: 3.5.0
 description: Agent skill for consuming, extending, and operating Mira (Academic Operating System & REST API Aggregator for UBSI Services).
 metadata:
   repository: https://github.com/MuaraAI/Mira
@@ -45,10 +45,10 @@ Panduan operasional dan referensi teknis bagi AI Coding Agent dan pengembang yan
 | Domain | Key Endpoints | Deskripsi & Scope |
 |---|---|---|
 | **Sistem** | `GET /health`<br>`GET /metrics` | Status server, konektivitas Redis, dan metrik ukuran session pool |
-| **Autentikasi** | `POST /v1/auth/login`<br>`POST /v1/auth/logout`<br>`POST /v1/auth/verify`<br>`GET /v1/auth/me` | Login BSI mandiri NIM + password kampus, session token Redis sliding 7 hari, dan verifikasi kredensial |
+| **Autentikasi** | `POST /v1/auth/login`<br>`POST /v1/auth/logout`<br>`POST /v1/auth/logout_all`<br>`POST /v1/auth/verify`<br>`GET /v1/auth/me`<br>`POST /v1/auth/credentials`<br>`DELETE /v1/auth/credentials/siakad`<br>`POST /v1/auth/password`<br>`POST /v1/auth/forgot-password` | Login **MyBest-only** (CAPTCHA diselesaikan OCR di server), session token Redis sliding 7 hari, `/me` memuat countdown sesi dan status tautan sistem, tautkan/lepas SIAKAD manual, ganti password kampus, dan reset lewat email |
 | **Notifikasi** | `GET /v1/channels`<br>`POST /v1/channels`<br>`DELETE /v1/channels/{id}`<br>`POST /v1/channels/{id}/test` | Manajemen channel webhook personal mahasiswa (Discord, Telegram, Custom) di SQLite WAL |
-| **SIAKAD** | `GET /v1/studentv2/dashboard`<br>`GET /v1/studentv2/schedule`<br>`GET /v1/studentv2/grades`<br>`GET /v1/studentv2/announcements`<br>`GET /v1/studentv2/news` | Dashboard paralel (4 seksi sekaligus), jadwal kuliah aktif, nilai murni lengkap (UTS/UAS/Tugas/Grade), edaran PDF, dan arsip berita |
-| **MyBest LMS** | `GET /v1/elearning/courses`<br>`GET /v1/elearning/assignments`<br>`GET /v1/elearning/grades`<br>`GET /v1/elearning/presence`<br>`GET /v1/elearning/materials`<br>`GET /v1/elearning/quiz` | Kartu matkul & token, deadline tugas & nilai, rekapitulasi nilai per pertemuan, presensi hadir, tautan materi ZIP/PDF, kuis online |
+| **SIAKAD** (opsional, tautkan manual) | `GET /v1/studentv2/dashboard`<br>`GET /v1/studentv2/schedule`<br>`GET /v1/studentv2/grades`<br>`GET /v1/studentv2/khs`<br>`GET /v1/studentv2/khs-semester?semester={n}`<br>`GET /v1/studentv2/krs`<br>`GET /v1/studentv2/krs/print`<br>`GET /v1/studentv2/uts`<br>`GET /v1/studentv2/uas`<br>`GET /v1/studentv2/announcements` | Dashboard paralel, jadwal, nilai murni (UTS/UAS/Tugas/Grade), KHS kumulatif dan per semester (IPS), KRS + cetak kartu, ruang ujian UTS/UAS, edaran PDF. Profil memakai allowlist akademik; data pribadi tidak diambil |
+| **MyBest LMS** | `GET /v1/elearning/courses`<br>`GET /v1/elearning/assignments`<br>`GET /v1/elearning/grades`<br>`GET /v1/elearning/presence`<br>`GET /v1/elearning/materials`<br>`GET /v1/elearning/quiz`<br>`GET /v1/elearning/toefl`<br>`GET /v1/elearning/exams/{type}` | Kartu matkul & token, deadline tugas & nilai, rekapitulasi nilai per pertemuan, presensi hadir, materi ZIP/PDF, kuis, TOEFL, dan jadwal ujian |
 | **Perpustakaan** | `GET /v1/elibrary/search?q={query}&opsi={buku}`<br>`GET /v1/elibrary/book/{book_id}` | Pencarian OPAC katalog, metadata buku, klasifikasi, dan stok fisik di rak |
 | **Berita Resmi** | `GET /v1/news?page={1}&per_page={10}&search={query}`<br>`GET /v1/news/{id}`<br>`POST /v1/news/webhook/test` | Berita kampus resmi via native WP REST API (`news.bsi.ac.id`), auto-broadcaster Discord/Telegram/Custom, dan endpoint uji coba |
 | **Publikasi** | `GET /v1/repository/recent`<br>`GET /v1/repository/search?q={query}`<br>`GET /v1/ejournal/journals` | EPrints skripsi/penelitian terbaru dan katalog 23 jurnal ilmiah resmi UBSI via OAI bypass |

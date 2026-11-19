@@ -51,7 +51,7 @@ Deployed on `api.muaraai.com` or `mira.muaraai.com` with multi-tenancy:
 When proxied behind an API Gateway (e.g., Caddy handling `api.muaraai.com/v1/mira/*` and `/v1/ubsi-api/*`), set `ROOT_PATH=/v1/mira` (or `/v1/ubsi-api`) in `.env`. Swagger UI (`/docs`) and OpenAPI schema automatically adjust to the sub-path prefix.
 
 ### `POST /v1/auth/verify`
-Pre-validation endpoint to verify that student credentials actually authenticate against both campus portals (`students.bsi.ac.id` and `elearning.bsi.ac.id`). Dipakai juga oleh `POST /v1/auth/login` (via `verify_live_credentials`).
+Endpoint khusus Master Key untuk memvalidasi kredensial kampus secara langsung. Saat `SIAKAD_ENABLED=true`, endpoint memeriksa SIAKAD dan MyBest; pengguna tanpa akses Master Key login lewat `POST /v1/auth/login`, yang hanya memeriksa MyBest.
 - **Access**: Master Key Only (`request.state.is_master == True`). Key tidak dikenal return `401 UNAUTHORIZED`.
 - **Rate Limit**: Max 5 requests/minute per NIM (sliding-window anti-brute-force protection).
 - **Request Body**:
@@ -76,22 +76,22 @@ Pre-validation endpoint to verify that student credentials actually authenticate
   ```
 
 ### `POST /v1/auth/login`
-Authenticates student credentials live against campus portals, creates an in-memory session in Redis (sliding 7 days TTL), and issues a session cookie `ubsi_session` plus bearer token.
+Login utama memvalidasi NIM dan password MyBest, membuat sesi Redis (sliding TTL 7 hari), lalu menerbitkan cookie `ubsi_session` dan bearer token.
 - **Access**: Public
-- **Rate Limit**: Max 10 attempts per rolling minute per client IP, plus max 5 requests/minute per NIM.
-- **Optional SIAKAD**: `elearning_pass` (MyBest) is strictly mandatory. `studentv2_pass` is optional — leave it empty `""` to log in with MyBest only, locking SIAKAD-dependent features until connected later. If `studentv2_pass` is supplied but incorrect, login still succeeds into an Elearning-only session with a non-blocking warning in `data.warnings`.
-- **IP blacklist**: exceeding the per-IP limit bans the IP from this endpoint for 15 minutes, escalating to 1 hour and 24 hours on repeat offenses within 24 hours. Banned requests return `429 IP_BLACKLISTED` with `error.retry_after` (seconds) and a `Retry-After` header, and never reach the campus servers.
-- **CAPTCHA**: diselesaikan OCR di server, tanpa input user. Server mengambil tantangan kampus, membacanya dengan ddddocr, lalu memakai kode itu pada POST login. Setiap percobaan memakai tantangan baru (kode kampus sekali pakai) sampai maksimal 3 kali; berhenti begitu alasan bukan lagi CAPTCHA (password salah atau throttle). Bila semua percobaan gagal, endpoint membalas `401 CAPTCHA_INVALID` dan user diminta menekan Masuk lagi.
+- **Rate Limit**: Maksimal 10 percobaan per menit per IP dan 5 per menit per NIM.
+- **SIAKAD**: Login utama tidak menebak atau mewarisi password SIAKAD dari password MyBest. Hubungkan SIAKAD setelah login melalui `POST /v1/auth/credentials`.
+- **IP blacklist**: Pelanggaran batas per-IP memblokir endpoint selama 15 menit, lalu meningkat menjadi 1 jam dan 24 jam untuk pelanggaran berulang dalam 24 jam. Respons: `429 IP_BLACKLISTED`, `error.retry_after`, dan header `Retry-After`.
+- **CAPTCHA**: Diselesaikan OCR di server tanpa input pengguna. Setiap percobaan memakai tantangan baru dan dapat diulang maksimal 3 kali; proses berhenti jika kampus menolak karena alasan selain CAPTCHA. Setelah seluruh percobaan gagal, endpoint membalas `401 CAPTCHA_INVALID`.
 - **Request Body**:
   ```json
   {
     "nim": "12345678",
-    "studentv2_pass": "",
-    "elearning_pass": "mybest_password"
+    "elearning_pass": "password-dummy"
   }
   ```
-  Tidak ada CAPTCHA milik Mira maupun kode yang perlu diketik user.
-- **Response**:
+  Tidak ada CAPTCHA Mira atau kode CAPTCHA yang perlu diketik pengguna.
+- **Response**: `systems.mybest` menunjukkan hasil login MyBest; `systems.siakad` bernilai `false` sampai SIAKAD ditautkan terpisah.
+**Response**:
   ```json
   {
     "success": true,
@@ -99,13 +99,13 @@ Authenticates student credentials live against campus portals, creates an in-mem
       "nim": "12345678",
       "token": "ubsi_sess_random_token_32B",
       "message": "Login berhasil. Session aktif 7 hari (sliding).",
-      "systems": { "siakad": true, "mybest": true },
+      "systems": { "siakad": false, "mybest": true },
       "warnings": [],
-      "default_password": { "siakad": true, "mybest": false }
+      "default_password": { "siakad": false, "mybest": false }
     }
   }
   ```
-  `default_password` is `true` for a system still using the campus default password.
+  `systems.siakad` bernilai `false` sampai pengguna menautkan SIAKAD dengan password miliknya melalui `/v1/auth/credentials`.
 
 ### `POST /v1/auth/credentials`
 Connects an optional campus system (such as SIAKAD) to an existing active session. Verifies credentials against the upstream campus portal, then atomically updates the stored credentials across all active sessions and Personal API Keys for the student.

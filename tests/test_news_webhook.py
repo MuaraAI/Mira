@@ -65,7 +65,8 @@ async def test_poll_news_webhook_dispatches_new_articles(monkeypatch):
     
     with patch("app.cache.cache.get_client", return_value=mock_redis), \
          patch("app.modules.news.news_client.fetch_posts", return_value=mock_posts), \
-         patch("app.modules.news.broadcast_news_article", return_value={"custom": True}) as mock_broadcast:
+         patch("app.modules.news.broadcast_news_article", return_value={"custom": True}) as mock_broadcast, \
+         patch("app.modules.news._send_news_digest", return_value=0):
         
         count = await poll_news_webhook()
         assert count == 1
