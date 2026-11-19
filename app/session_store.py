@@ -168,6 +168,21 @@ class SessionStore:
                 return str(data["nim"]), str(data["studentv2_pass"]), str(data["elearning_pass"])
         return None
 
+    async def get_stored_siakad_password(self, nim: str) -> Optional[str]:
+        """Get stored SIAKAD password from any active session for this NIM.
+
+        Used when user logs in with MyBest only but has previously linked SIAKAD.
+        Returns the SIAKAD password if found in any active session, else None.
+        """
+        client = await self.get_client()
+        token_hashes = await client.smembers(_INDEX_PREFIX + nim)
+        for token_hash in token_hashes:
+            raw = await client.get(_KEY_PREFIX + token_hash)
+            data = _decrypt_payload(raw, settings.API_KEY) if raw else None
+            if data and data.get("studentv2_pass"):
+                return str(data["studentv2_pass"])
+        return None
+
     async def update_password_for_nim(self, nim: str, field: str, new_password: str) -> int:
         """Perbarui password tersimpan di semua sesi aktif NIM setelah ganti password sukses."""
         if field not in ("studentv2_pass", "elearning_pass"):

@@ -1140,6 +1140,13 @@ async def login_auto(req_body: AutoLoginRequest, request: Request):
 
     # SIAKAD optional
     effective_sv_pass = sv_pass if sv2_ok else ""
+    # If user didn't provide SIAKAD password but has one stored from previous link,
+    # inherit it so the new session also has SIAKAD connected
+    if not siakad_attempted and not effective_sv_pass:
+        stored_sv_pass = await session_store.get_stored_siakad_password(nim)
+        if stored_sv_pass:
+            effective_sv_pass = stored_sv_pass
+            logger.info("Inherited stored SIAKAD password for %s from existing session", nim)
     if siakad_attempted and not sv2_ok:
         reason, errors = outcomes.get("studentv2", ("unknown", []))
         if reason == "captcha":
