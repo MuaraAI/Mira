@@ -49,6 +49,8 @@ interface KhsData {
   total_mutu: number;
   total_sks: number;
   ipk: number;
+  ips?: number | null;
+  semester?: number | string | null;
 }
 
 interface AssignmentTask {
@@ -118,6 +120,8 @@ export default function DashboardOverviewPage() {
   const courses = useApi<ElearningCourse[]>("/v1/elearning/courses", { persistMs: PERSIST_12H });
   const elearningProfile = useApi<{ nama?: string; email?: string }>("/v1/elearning/profile", { persistMs: PERSIST_12H });
   const academicEvents = useApi<AcademicEventSummary[]>("/v1/academic/events", { persistMs: PERSIST_12H });
+  // KHS hanya tersedia setelah SIAKAD ditautkan; 401 = belum tertaut, bukan error.
+  const khs = useApi<KhsData>("/v1/studentv2/khs", { persistMs: PERSIST_12H });
   const utsExams = useApi<{ exams: { mata_kuliah: string; no_ruang?: string | null; tanggal_ujian?: string | null; waktu?: string | null }[] }>(
     "/v1/elearning/exams/uts",
     { persistMs: PERSIST_12H }
@@ -216,6 +220,9 @@ export default function DashboardOverviewPage() {
       .sort((a, b) => a.at - b.at)[0]?.t ?? null;
   const nextDeadline = nextTask ? parseDeadline(nextTask.selesai) : null;
   const hoursLeft = nextDeadline ? Math.max(0, Math.round((nextDeadline.getTime() - nowMs) / 3_600_000)) : null;
+
+  // 401 dari endpoint SIAKAD = user belum menautkan akun, bukan kegagalan.
+  const khsSiaKadMissing = khs.error?.status === 401;
 
   const liveClass = todayClasses.find((c) => c.timing?.state === "live") ?? null;
   const nextClass = todayClasses.find((c) => c.timing?.state === "soon" || c.timing?.state === "upcoming") ?? null;
@@ -331,13 +338,20 @@ export default function DashboardOverviewPage() {
       {/* 2. Metrik ringkas */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <MetricCard
-          href="/dashboard/nilai"
+          href={khsSiaKadMissing ? "/dashboard/sesi" : "/dashboard/nilai"}
           label="IPK"
           icon={GraduationCap}
-          pending={false}
-          value="Di SIAKAD"
+          pending={khs.loading && !khs.data && !khsSiaKadMissing}
+          value={khs.data?.ipk ? khs.data.ipk.toFixed(2) : khsSiaKadMissing ? "Tautkan" : "-"}
           small
-          note="Buka portal kampus"
+          note={
+            khsSiaKadMissing
+              ? "Tautkan SIAKAD untuk lihat IPK"
+              : khs.data?.total_sks
+                ? `${khs.data.total_sks} SKS terkumpul`
+                : "Belum ada nilai dirilis"
+          }
+          tone={khsSiaKadMissing ? "warn" : "ok"}
         />
         <MetricCard
           href="#heading-kelas-hari-ini"
