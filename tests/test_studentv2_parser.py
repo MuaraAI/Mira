@@ -61,9 +61,13 @@ def test_parse_profile():
     profile = parse_profile(html)
     assert profile["nim"] == "12345678"
     assert profile["nama"] == "MAHASISWA DUMMY"
-    assert profile["tempat_lahir"] == "JAKARTA"
-    assert profile["desa_kelurahan"] == "Menteng"
-    assert profile["rt_rw"] == "01/02"
+    # Data pribadi tidak boleh ikut tersimpan: hanya data akademik.
+    assert "tempat_lahir" not in profile
+    assert "desa_kelurahan" not in profile
+    assert "rt_rw" not in profile
+    assert "alamat" not in profile
+    assert "telepon" not in profile
+    assert "agama" not in profile
     assert "Informatika" in profile["program_studi"]
     assert profile["semester_aktif"] == "1"
     assert profile["status_aktif"] == "Aktif"
