@@ -144,12 +144,14 @@ async def test_broadcast_news_article_multi_channel(monkeypatch):
          patch("app.pwa_webpush.dispatch_pwa_to_category", new=AsyncMock(return_value=2)) as mock_pwa:
 
         results = await broadcast_news_article(sample_post)
-        assert results == {"discord": True, "telegram": True, "custom": True, "pwa-push": True}
+        # Push PWA sengaja tidak lagi dikirim per artikel: portal kampus menerbitkan
+        # beberapa artikel per jam, jadi push per artikel = spam. Ringkasan harian
+        # dikirim terpisah oleh _send_news_digest().
+        assert results == {"discord": True, "telegram": True, "custom": True}
         assert mock_dc.call_count == 1
         assert mock_tg.call_count == 1
         assert mock_custom.call_count == 1
-        mock_pwa.assert_awaited_once()
-        assert mock_pwa.await_args.args[0] == "berita-kampus"
+        mock_pwa.assert_not_awaited()
 
 @pytest.mark.asyncio
 async def test_news_webhook_test_endpoint_channels(monkeypatch):

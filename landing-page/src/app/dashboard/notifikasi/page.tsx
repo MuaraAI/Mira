@@ -18,7 +18,8 @@ import {
 } from "lucide-react";
 import { apiFetch, ApiError, useApi, clearApiCache } from "@/lib/api";
 import PwaPushDeviceSection from "@/components/PwaPushDeviceSection";
-import { NOTIFICATION_CATEGORIES, type NotificationCategoryId } from "@/lib/notification-categories";
+import { availableCategories, SIAKAD_ONLY_CATEGORIES, type NotificationCategoryId } from "@/lib/notification-categories";
+import { useCapabilities } from "@/lib/capabilities";
 import {
   ChannelActiveBadge,
   ChannelTypeBadge,
@@ -56,7 +57,8 @@ const CATEGORY_ICONS: Record<NotificationCategoryId, typeof Clock> = {
   "jadwal-ujian": FileText,
 };
 
-const AVAILABLE_CATEGORIES = NOTIFICATION_CATEGORIES.map((cat) => ({ ...cat, icon: CATEGORY_ICONS[cat.id] }));
+const withIcons = (categories: ReturnType<typeof availableCategories>) =>
+  categories.map((cat) => ({ ...cat, icon: CATEGORY_ICONS[cat.id] }));
 
 const TYPE_CONFIG = {
   discord: {
@@ -77,6 +79,12 @@ const TYPE_CONFIG = {
 
 export default function NotifikasiPage() {
   const { confirm } = useDialog();
+  const { data: capabilities } = useCapabilities();
+  const siakadEnabled = capabilities?.siakad.enabled ?? false;
+  const categories = withIcons(availableCategories(siakadEnabled));
+  const simulations = SIMULATIONS.filter(
+    (sim) => siakadEnabled || !SIAKAD_ONLY_CATEGORIES.includes(sim.id)
+  );
   const { data, loading, error, reload } = useApi<{ channels: Channel[]; total: number }>(
     "/v1/channels"
   );
@@ -88,7 +96,7 @@ export default function NotifikasiPage() {
   const [url, setUrl] = useState("");
   const [botToken, setBotToken] = useState("");
   const [chatId, setChatId] = useState("");
-  const [categories, setCategories] = useState<string[]>([
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([
     "matkul-besok",
     "quiz-tugas",
     "berita-kampus",
@@ -145,7 +153,7 @@ export default function NotifikasiPage() {
   const channels = data?.channels ?? [];
   const atLimit = channels.length >= MAX_CHANNELS;
   function toggleCategory(catId: string) {
-    setCategories((prev) =>
+    setSelectedCategories((prev) =>
       prev.includes(catId) ? prev.filter((c) => c !== catId) : [...prev, catId]
     );
   }
@@ -153,7 +161,7 @@ export default function NotifikasiPage() {
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
-    if (categories.length === 0) {
+    if (selectedCategories.length === 0) {
       setFormError("Minimal pilih satu kategori event notifikasi.");
       return;
     }
@@ -165,7 +173,7 @@ export default function NotifikasiPage() {
 
     setSaving(true);
     try {
-      const created = await apiFetch<{ id: number }>("/v1/channels", { json: { type, categories, config } });
+      const created = await apiFetch<{ id: number }>("/v1/channels", { json: { type, categories: selectedCategories, config } });
       clearApiCache("/v1/channels");
       if (created?.id) {
         await handleTest(created.id);
@@ -459,7 +467,7 @@ export default function NotifikasiPage() {
       >
         <form id="edit-category-form" onSubmit={handleEditCategories} className="space-y-4">
           {formError && <div className="bg-[#FFF1F2] p-3 text-xs text-[#BE123C]" role="alert">{formError}</div>}
-          <CategoryPicker selected={editCategories} onToggle={toggleEditCategory} />
+          <CategoryPicker selected={editCategories} onToggle={toggleEditCategory} categories={categories} />
         </form>
       </SideSheet>
 
@@ -532,7 +540,7 @@ export default function NotifikasiPage() {
 
           <div>
             <p className="mb-2 text-xs font-bold uppercase tracking-wider text-foreground">Yang mau dikirim</p>
-            <CategoryPicker selected={categories} onToggle={toggleCategory} />
+            <CategoryPicker selected={selectedCategories} onToggle={toggleCategory} categories={categories} />
           </div>
         </form>
       </SideSheet>
@@ -549,10 +557,18 @@ const SIMULATIONS: { id: NotificationCategoryId; label: string; icon: typeof Clo
 ];
 
 /** Daftar jenis notifikasi dengan kotak centang (dipakai form tambah dan ubah channel). */
-function CategoryPicker({ selected, onToggle }: { selected: string[]; onToggle: (id: string) => void }) {
+function CategoryPicker({
+  selected,
+  onToggle,
+  categories,
+}: {
+  selected: string[];
+  onToggle: (id: string) => void;
+  categories: ReturnType<typeof withIcons>;
+}) {
   return (
     <ul className="space-y-2.5">
-      {AVAILABLE_CATEGORIES.map((cat) => {
+      {categories.map((cat) => {
         const on = selected.includes(cat.id);
         const Icon = cat.icon;
         return (
