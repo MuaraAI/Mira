@@ -2100,7 +2100,9 @@ async def get_courses(creds: tuple[str, str] = Depends(require_elearning_creds))
     nim, password = creds
     return await cached_endpoint(
         module="elearning",
-        name="courses",
+        # Versi kunci dinaikkan saat bentuk hasil parser berubah. Entri lama
+        # (mis. `hari: ""` untuk kelas hari ini) tidak boleh tersaji lagi.
+        name="courses-v2",
         fetch=lambda: pooled_elearning_client.fetch_page("/sch", nim, password),
         parse=_parse_and_record_courses,
         ttl=settings.TTL_ASSIGNMENTS,
@@ -2114,7 +2116,9 @@ async def get_schedule(creds: tuple[str, str] = Depends(require_elearning_creds)
     nim, password = creds
     return await cached_endpoint(
         module="elearning",
-        name="courses",
+        # Versi kunci dinaikkan saat bentuk hasil parser berubah. Entri lama
+        # (mis. `hari: ""` untuk kelas hari ini) tidak boleh tersaji lagi.
+        name="courses-v2",
         fetch=lambda: pooled_elearning_client.fetch_page("/sch", nim, password),
         parse=_parse_and_record_courses,
         ttl=settings.TTL_ASSIGNMENTS,
