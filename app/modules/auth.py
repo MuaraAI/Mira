@@ -282,11 +282,15 @@ async def login(req_body: LoginRequest, request: Request):
             ),
         )
 
+    el_pass = req_body.elearning_pass.strip()
     raw_sv_pass = (req_body.studentv2_pass or "").strip()
     if not settings.SIAKAD_ENABLED:
         # SIAKAD mati: kredensial diabaikan, tidak ada request ke students.bsi.ac.id.
         raw_sv_pass = ""
-    el_pass = req_body.elearning_pass.strip()
+    elif not raw_sv_pass:
+        # Satu password untuk semua akun. Dashboard tidak lagi menampilkan kolom
+        # terpisah, jadi SIAKAD dicoba dengan password MyBest yang sama.
+        raw_sv_pass = el_pass
     siakad_attempted = bool(raw_sv_pass)
 
     from app.captcha_autosolver import MAX_CAPTCHA_ATTEMPTS, candidate_session
@@ -379,7 +383,10 @@ async def login(req_body: LoginRequest, request: Request):
     warnings: list[str] = []
     if not settings.SIAKAD_ENABLED:
         warnings.append("SIAKAD dinonaktifkan; nilai, KHS, dan KRS dibuka di students.bsi.ac.id.")
-    if siakad_attempted and not sv2_ok:
+    if siakad_attempted and not sv2_ok and (req_body.studentv2_pass or "").strip():
+        # Warning hanya untuk user yang memang mengisi password SIAKAD sendiri.
+        # Password yang diwarisi dari MyBest tidak boleh memunculkan keluhan:
+        # user tidak pernah mengetiknya dan tidak bisa memperbaikinya.
         sv_reason, sv_errors = outcomes.get("studentv2", ("unknown", []))
         if sv_session is None:
             # Auto-solve CAPTCHA SIAKAD gagal: password belum tentu salah.
