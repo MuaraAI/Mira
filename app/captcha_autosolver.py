@@ -21,7 +21,21 @@ MAX_CANDIDATES_PER_CHALLENGE = 4
 
 
 def ocr_candidates(png_bytes: bytes) -> list[str]:
-    """OCR voting: beberapa varian preprocessing, kandidat unik urut jumlah suara."""
+    """Kandidat jawaban CAPTCHA, ddddocr lebih dulu.
+
+    ddddocr (ONNX) akurat dan cepat (~20 ms). Tesseract hanya dijalankan kalau
+    ddddocr tidak tersedia atau tidak menghasilkan kandidat: 28 pemanggilan
+    convert+tesseract dulu memakan ~4,5 detik per tantangan, padahal
+    `_ocr_login` hanya memakai kandidat pertama.
+    """
+    primary = _ddddocr_candidate(png_bytes)
+    if primary:
+        return primary[:MAX_CANDIDATES_PER_CHALLENGE]
+    return _tesseract_candidates(png_bytes)[:MAX_CANDIDATES_PER_CHALLENGE]
+
+
+def _tesseract_candidates(png_bytes: bytes) -> list[str]:
+    """Cadangan: voting beberapa varian preprocessing lewat ImageMagick + tesseract."""
     votes: Counter = Counter()
     with tempfile.TemporaryDirectory() as tmp:
         src = Path(tmp) / "cap.png"
@@ -58,11 +72,7 @@ def ocr_candidates(png_bytes: bytes) -> list[str]:
                     )
                     if 2 <= len(code) <= 6:
                         votes[code] += 1
-    ranked = [code for code, _ in votes.most_common(MAX_CANDIDATES_PER_CHALLENGE)]
-    # ddddocr di depan: model ONNX lebih akurat; tesseract jadi cadangan.
-    primary = _ddddocr_candidate(png_bytes)
-    merged = primary + [code for code in ranked if code not in primary]
-    return merged[:MAX_CANDIDATES_PER_CHALLENGE]
+    return [code for code, _ in votes.most_common(MAX_CANDIDATES_PER_CHALLENGE)]
 
 
 async def candidate_session(host: str, nim: str) -> Optional[tuple[dict, list[str]]]:
