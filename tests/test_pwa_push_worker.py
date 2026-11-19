@@ -54,8 +54,9 @@ async def test_dispatch_prunes_404_and_keeps_201():
 
 
 @pytest.mark.asyncio
-async def test_broadcast_news_article_fans_out_to_pwa(monkeypatch):
-    from app.modules.news import broadcast_news_article
+async def test_news_digest_is_sent_once_instead_of_per_article(monkeypatch):
+    """Push berita dikirim sebagai ringkasan, bukan satu push per artikel."""
+    from app.modules.news import _send_news_digest
 
     await add_subscription("12345678", "https://fcm.googleapis.com/fcm/send/n1", "k", "a", "HP")
 
@@ -63,11 +64,19 @@ async def test_broadcast_news_article_fans_out_to_pwa(monkeypatch):
         "app.pwa_webpush.dispatch_pwa_to_category",
         AsyncMock(return_value=1),
     ) as mock_pwa:
-        results = await broadcast_news_article({"title": "Ujian", "id": 1})
+        sent = await _send_news_digest(
+            [{"title": "Artikel A"}, {"title": "Artikel B"}, {"title": "Artikel C"}, {"title": "Artikel D"}]
+        )
 
+    assert sent == 1
     mock_pwa.assert_awaited_once()
-    assert mock_pwa.await_args.args[0] == "berita-kampus"
-    assert results.get("pwa-push") is True
+    category, payload = mock_pwa.await_args.args[:2]
+    assert category == "berita-kampus"
+    assert payload["tag"] == "berita-kampus-digest"
+    # Maksimal tiga judul + penanda sisa artikel.
+    assert "Artikel A" in payload["body"] and "Artikel C" in payload["body"]
+    assert "Artikel D" not in payload["body"]
+    assert "+1 artikel lain" in payload["body"]
 
 
 @pytest.mark.asyncio

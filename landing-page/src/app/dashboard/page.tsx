@@ -229,11 +229,6 @@ export default function DashboardOverviewPage() {
 
   return (
     <div className="space-y-7">
-      <SiaKadLockedCard
-        title="Nilai akhir, KHS, dan KRS ada di SIAKAD"
-        description="Mira memakai data MyBest: jadwal, tugas, presensi, dan nilai tugas. Untuk IPK, KHS, dan KRS, buka portal kampus."
-      />
-
       {/* 1. Hero: pita aksen dengan sapaan + identitas, lalu sorotan kelas dan pintasan */}
       <section className="overflow-hidden bg-white shadow-[0_0_0_2px_#163A55,6px_6px_0_0_#9CC6E0]" aria-label="Ringkasan hari ini">
         <div
@@ -329,6 +324,9 @@ export default function DashboardOverviewPage() {
           ))}
         </nav>
       </section>
+
+      {/* Batas SIAKAD: satu baris ringkas, bukan kartu besar yang menutupi data MyBest */}
+      <SiaKadLockedCard compact />
 
       {/* 2. Metrik ringkas */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
