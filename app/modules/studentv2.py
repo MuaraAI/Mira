@@ -516,7 +516,7 @@ class StudentV2Client(UpstreamSession):
             return False
 
     def fetch_page(self, path: str, nim: str, password: str) -> str:
-        # Sesi upstream ~15 menit: diperbarui otomatis memakai kredensial session dashboard.
+        # Sesi upstream sliding 45 menit; login ulang hanya saat kampus balas halaman login.
         return self.authed_request("GET", path, nim, password).text
 
 class PooledStudentV2Client:

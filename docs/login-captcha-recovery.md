@@ -57,7 +57,7 @@ endpoint CAPTCHA.
 
 ## Hotfix cooldown CAPTCHA (2026-11-18)
 
-Insiden: user tidak bisa absen. Sesi MyBest mati setelah idle (~15 menit),
+Insiden: user tidak bisa absen. Sesi MyBest mati setelah idle (cookie kampus 45 menit sliding),
 login ulang otomatis ditolak karena butuh CAPTCHA, dan NIM masuk cooldown
 captcha 20 menit yang tersimpan in-memory per worker (2 worker) sehingga
 re-login di satu worker tidak menyembuhkan worker lain. Semua request

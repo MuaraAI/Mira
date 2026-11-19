@@ -1499,7 +1499,7 @@ class ElearningClient(UpstreamSession):
                     return False
                 token = m.group(1)
                 if captcha is None:
-                    # Tanpa jawaban relay (login latar / re-login 15 menit):
+                    # Tanpa jawaban relay (login latar saat sesi kampus mati):
                     # selesaikan CAPTCHA gambar dengan OCR. Kode sekali pakai,
                     # jadi satu POST per tantangan dan berhenti saat kampus
                     # menolak tanpa pesan.
@@ -1547,7 +1547,7 @@ class ElearningClient(UpstreamSession):
 
 
     def _ocr_login(self, nim: str, password: str) -> bool:
-        """Login latar dengan CAPTCHA OCR (khusus re-login sesi 15 menit).
+        """Login latar dengan CAPTCHA OCR saat sesi kampus benar-benar mati.
 
         CAPTCHA kampus sekali pakai: satu kode per POST. Berhenti mencoba saat
         kampus menolak tanpa pesan (kode hangus / soft reject) agar tidak
@@ -1616,7 +1616,7 @@ class ElearningClient(UpstreamSession):
 
     def fetch_page(self, path: str, nim: str, password: str) -> str:
         self._check_relative_path(path)
-        # Sesi MyBest ~15 menit: diperbarui otomatis memakai kredensial session dashboard.
+        # Sesi MyBest sliding 45 menit; login ulang hanya saat kampus balas halaman login.
         return self.authed_request("GET", path, nim, password).text
 
     def post_page(
