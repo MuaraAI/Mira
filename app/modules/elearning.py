@@ -1452,6 +1452,28 @@ class ElearningClient(UpstreamSession):
             )
         return self._client
 
+    def _session_client(self, session: dict[str, Any]) -> httpx.Client:
+        """Client sekali pakai yang membawa cookie sesi tempat CAPTCHA dibuat."""
+        from app.upstream_session import SHARED_SSL_CONTEXT
+
+        client = httpx.Client(
+            headers=self.HEADERS,
+            follow_redirects=True,
+            timeout=25.0,
+            proxy=self._proxy,
+            verify=SHARED_SSL_CONTEXT,
+        )
+        for name, value in (session.get("cookies") or {}).items():
+            client.cookies.set(name, value)
+        return client
+
+    def _adopt_cookies(self, source: httpx.Client) -> None:
+        """Salin cookie hasil login ke client bersama agar request berikutnya ikut sesi."""
+        shared = self.get_client()
+        shared.cookies.clear()
+        for cookie in source.cookies.jar:
+            shared.cookies.set(cookie.name, cookie.value, domain=cookie.domain, path=cookie.path)
+
     def close(self) -> None:
         if self._client is not None and not self._client.is_closed:
             try:
@@ -1469,21 +1491,23 @@ class ElearningClient(UpstreamSession):
         session: Optional[dict[str, Any]] = None,
     ) -> bool:
         """Login MyBest. `session` + `captcha` dipakai jalur relay CAPTCHA user."""
-        client = self.get_client()
-        client.cookies.clear()
         login_url = f"{self.BASE_URL}/login"
         self._login_failure = "unknown"
+        isolated: Optional[httpx.Client] = None
         try:
             if session:
-                # Tantangan CAPTCHA sudah dibuat pada sesi yang sama: pakai ulang
-                # cookie + token supaya kode CAPTCHA tetap valid.
-                for name, value in (session.get("cookies") or {}).items():
-                    client.cookies.set(name, value)
+                # Tantangan CAPTCHA dibuat pada sesi terpisah: pakai client sekali pakai
+                # supaya cookie sesi ini tidak menimpa cookie client bersama (yang bisa
+                # dipakai request login lain secara paralel → CAPTCHA terlihat salah).
+                isolated = self._session_client(session)
+                client = isolated
                 token = str(session.get("token") or "")
                 if not token:
                     self._login_failure = "captcha"
                     return False
             else:
+                client = self.get_client()
+                client.cookies.clear()
                 r1 = client.get(login_url)
                 if r1.status_code == 429:
                     self._login_failure = "throttled"
@@ -1514,9 +1538,13 @@ class ElearningClient(UpstreamSession):
             # Login sukses jika TIDAK lagi di halaman login dan status 200 (Laravel redirect ke intended page)
             is_login_page = "/login" in final_url and ("captcha_answer" in r2.text or "password" in r2.text)
             if not is_login_page and r2.status_code == 200:
+                if isolated is not None:
+                    self._adopt_cookies(isolated)
                 self._mark_logged_in(nim)
                 return True
             if "dashboard" in final_url or "elearning.bsi.ac.id/user" in final_url:
+                if isolated is not None:
+                    self._adopt_cookies(isolated)
                 self._mark_logged_in(nim)
                 return True
             if r2.status_code == 429:
@@ -1542,6 +1570,12 @@ class ElearningClient(UpstreamSession):
         except Exception as err:
             logger.error("Elearning login exception for %s: %s", nim, err)
             return False
+        finally:
+            if isolated is not None:
+                try:
+                    isolated.close()
+                except Exception:
+                    pass
 
     def _check_relative_path(self, path: str) -> None:
         if "://" in path or path.startswith("//"):

@@ -33,7 +33,7 @@ CAPTCHA_TTL_SECONDS = 300  # kampus: kode berlaku 5 menit, sekali pakai
 HOSTS: dict[str, dict[str, str]] = {
     "siakad": {
         "login_url": "https://students.bsi.ac.id/login",
-        "image_url": "https://students.bsi.ac.id/login/captcha/web",
+        "image_url": "https://students.bsi.ac.id/captcha/default",
         "field": "captcha",
         "module": "studentv2",
         "label": "SIAKAD",
@@ -64,6 +64,13 @@ def _extract_data_uri(payload: dict[str, Any]) -> str:
     image = payload.get("image")
     if isinstance(image, str) and image.startswith("data:image"):
         return image
+    # elearning /reload-captcha returns: {"svg": "<img src=\"data:image/png;base64,...\">"}
+    svg = payload.get("svg")
+    if isinstance(svg, str) and "data:image" in svg:
+        import re
+        match = re.search(r'data:image/[a-zA-Z]+;base64,[A-Za-z0-9+/=]+', svg)
+        if match:
+            return match.group(0)
     for value in payload.values():
         if isinstance(value, str):
             match = _DATA_URI_RE.search(value)
@@ -90,6 +97,8 @@ def _fetch_challenge_sync(host: str, nim: str) -> dict[str, Any]:
         if not token_match:
             raise ValueError("Token _token tidak ditemukan pada halaman login kampus")
 
+        # Fetch CAPTCHA from session-bound endpoint (same session as login page)
+        # This matches what the login page JavaScript does
         image_resp = client.get(spec["image_url"], headers=headers)
         image_resp.raise_for_status()
         image = _extract_data_uri(image_resp.json())

@@ -430,6 +430,28 @@ class StudentV2Client(UpstreamSession):
             )
         return self._client
 
+    def _session_client(self, session: dict[str, Any]) -> httpx.Client:
+        """Client sekali pakai yang membawa cookie sesi tempat CAPTCHA dibuat."""
+        from app.upstream_session import SHARED_SSL_CONTEXT
+
+        client = httpx.Client(
+            headers=self.HEADERS,
+            follow_redirects=True,
+            timeout=25.0,
+            proxy=self._proxy,
+            verify=SHARED_SSL_CONTEXT,
+        )
+        for name, value in (session.get("cookies") or {}).items():
+            client.cookies.set(name, value)
+        return client
+
+    def _adopt_cookies(self, source: httpx.Client) -> None:
+        """Salin cookie hasil login ke client bersama agar request berikutnya ikut sesi."""
+        shared = self.get_client()
+        shared.cookies.clear()
+        for cookie in source.cookies.jar:
+            shared.cookies.set(cookie.name, cookie.value, domain=cookie.domain, path=cookie.path)
+
     def close(self) -> None:
         if self._client is not None and not self._client.is_closed:
             try:
@@ -447,20 +469,22 @@ class StudentV2Client(UpstreamSession):
         session: Optional[dict[str, Any]] = None,
     ) -> bool:
         """Login SIAKAD. `session` + `captcha` dipakai jalur relay CAPTCHA user."""
-        client = self.get_client()
-        client.cookies.clear()
         login_url = f"{self.BASE_URL}/login"
         self._login_failure = "unknown"
+        isolated: Optional[httpx.Client] = None
         try:
             if session:
-                # Pakai cookie + token dari sesi tempat CAPTCHA dibuat.
-                for name, value in (session.get("cookies") or {}).items():
-                    client.cookies.set(name, value)
+                # CAPTCHA dibuat di sesi terpisah: client sekali pakai agar cookie
+                # tidak saling menimpa dengan client bersama (request paralel).
+                isolated = self._session_client(session)
+                client = isolated
                 token = str(session.get("token") or "")
                 if not token:
                     self._login_failure = "captcha"
                     return False
             else:
+                client = self.get_client()
+                client.cookies.clear()
                 r1 = client.get(login_url)
                 if r1.status_code == 429:
                     self._login_failure = "throttled"
@@ -484,6 +508,8 @@ class StudentV2Client(UpstreamSession):
                 payload["captcha"] = str(captcha)
             r2 = client.post(login_url, data=payload)
             if "mahasiswa/beranda" in str(r2.url) or "students.bsi.ac.id/mahasiswa" in str(r2.url) or "studentv2.bsi.ac.id/mahasiswa" in str(r2.url):
+                if isolated is not None:
+                    self._adopt_cookies(isolated)
                 self._mark_logged_in(nim)
                 return True
             if r2.status_code == 429:
@@ -510,6 +536,12 @@ class StudentV2Client(UpstreamSession):
         except Exception as err:
             logger.error("SIAKAD login exception for %s: %s", nim, err)
             return False
+        finally:
+            if isolated is not None:
+                try:
+                    isolated.close()
+                except Exception:
+                    pass
 
     def fetch_page(self, path: str, nim: str, password: str) -> str:
         # Sesi upstream ~15 menit: diperbarui otomatis memakai kredensial session dashboard.

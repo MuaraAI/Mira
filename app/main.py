@@ -22,6 +22,7 @@ from app.modules.news import router as news_router
 from app.modules.repository import router as repository_router
 from app.modules.ejournal import router as ejournal_router
 from app.modules.auth import router as auth_router
+from app.auto_login import router as auto_login_router
 from app.modules.channels import router as channels_router
 from app.modules.pwa_push import router as pwa_push_router
 from app.modules.links import router as links_router
@@ -169,6 +170,7 @@ app.include_router(news_router)
 app.include_router(repository_router)
 app.include_router(ejournal_router)
 app.include_router(auth_router)
+app.include_router(auto_login_router)
 app.include_router(channels_router)
 app.include_router(pwa_push_router)
 app.include_router(links_router)
@@ -211,15 +213,17 @@ async def api_key_auth_middleware(request: Request, call_next):
     # 2. Allow /health + /v1/auth/login + /v1/docs without auth (resilient to trailing slash)
     # /v1/notifications/pwa/vapid-key publik: browser butuh kunci ini SEBELUM auth ada
     public_paths = {
-        "/health",
-        "/v1/auth/login",
-        "/v1/auth/captcha",
-        "/v1/auth/forgot-password",
-        "/v1/stats",
-        "/v1/docs",
-        "/v1/notifications/pwa/vapid-key",
-        "/v1/academic/events",
-    }
+                "/health",
+                "/v1/auth/login",
+                "/v1/auth/captcha",
+                "/v1/auth/login-auto",
+                "/v1/auth/health-auto",
+                "/v1/auth/forgot-password",
+                "/v1/stats",
+                "/v1/docs",
+                "/v1/notifications/pwa/vapid-key",
+                "/v1/academic/events",
+            }
     if request.url.path.rstrip("/") in public_paths:
         return await call_next(request)
     # Gambar Komunitas (avatar/banner) dimuat lewat <img>, jadi publik; nama file berupa hash isi.
