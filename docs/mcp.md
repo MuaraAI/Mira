@@ -1,4 +1,4 @@
-# Model Context Protocol (MCP) Server Reference: Mira v3.0.0 (sebelumnya UBSI API)
+# Model Context Protocol (MCP) Server Reference: Mira v3.5.0 (sebelumnya UBSI API)
 
 Universal Model Context Protocol (MCP) Server untuk ekosistem akademik Universitas Bina Sarana Informatika (UBSI). Memungkinkan AI Coding Agent (**Claude Code**, **Cursor**, **Codex CLI**, **Hermes Agent**, **OpenCode**, dan **Claude Desktop**) berinteraksi secara aman dan terenkripsi dengan 6 layanan kampus UBSI.
 
@@ -106,6 +106,8 @@ Setiap tool akademik didaftarkan dalam dua nama: nama primer `mira_*` (rekomenda
 
 ### Kategori A: SIAKAD (students.bsi.ac.id) — 12 Fungsi
 
+> SIAKAD bersifat opsional: tool di kategori ini butuh akun SIAKAD yang sudah ditautkan lewat dashboard (Sesi & Keamanan) atau `session_token`/`api_key` milik user. Login Mira sendiri hanya memakai MyBest.
+
 | Nama Tool Primer | Alias Legacy | Parameter | Deskripsi & Kegunaan |
 |---|---|---|---|
 | `mira_get_profile` | `ubsi_get_profile` | `session_token?`, `api_key?` | Biodata lengkap mahasiswa: NIM, nama, prodi, kelas, semester aktif, kampus cabang, dosen PA. |
@@ -183,7 +185,7 @@ Server MCP Akademik UBSI: https://api.muaraai.com/v1/mira/mcp
 Autentikasi: Authorization: Bearer <PERSONAL_API_KEY_MIRA_ANDA>
 
 Kamu adalah asisten akademik mahasiswa UBSI yang terhubung ke server MCP di atas.
-Anda memiliki akses ke 80 tools MCP ("mira_*" primer dan "ubsi_*" legacy alias) untuk membantu perkuliahan harian.
+Anda memiliki akses ke 80 tools MCP (40 "mira_*" primer dan 40 "ubsi_*" legacy alias) untuk membantu perkuliahan harian.
 
 Aturan Kerja & Alur Pemanggilan Tools:
 1. Jadwal & Kelas:
