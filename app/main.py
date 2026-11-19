@@ -313,6 +313,7 @@ async def api_key_auth_middleware(request: Request, call_next):
             request.state.nim = session_data["nim"]
             request.state.elearning_pass = session_data["elearning_pass"]
             request.state.studentv2_pass = session_data["studentv2_pass"]
+            request.state.session_expires_in = session_data.get("expires_in")
             request.state.auth_type = "session"
             return await call_next(request)
         return await _reject_auth_failure(
