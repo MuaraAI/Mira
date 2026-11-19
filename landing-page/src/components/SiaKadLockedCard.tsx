@@ -20,6 +20,9 @@ export function SiaKadLockedCard({
   const { data } = useCapabilities();
   const ctaUrl = data?.siakad.cta_url || SIAKAD_CTA_FALLBACK;
 
+  // Saklar hidup: tidak ada batas yang perlu diumumkan.
+  if (data?.siakad.enabled) return null;
+
   if (compact) {
     return (
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-2 border-amber-300 bg-amber-50 px-3 py-2.5">
