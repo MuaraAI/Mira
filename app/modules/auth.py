@@ -790,6 +790,57 @@ async def connect_credentials(body: ConnectCredentialsRequest, request: Request)
     )
 
 
+@router.delete("/credentials/siakad")
+async def disconnect_siakad(request: Request):
+    """Lepas tautan SIAKAD dari sesi dan seluruh API key NIM ini.
+
+    MyBest tidak bisa dilepas: password MyBest adalah syarat sesi Mira sendiri.
+    """
+    nim = _require_session_nim(request)
+    if not getattr(request.state, "studentv2_pass", ""):
+        return success_response(
+            data={
+                "system": "siakad",
+                "connected": False,
+                "message": "SIAKAD memang belum tertaut.",
+                "sessions_updated": 0,
+                "api_keys_updated": 0,
+            }
+        )
+
+    from app.session_store import session_store
+    from app.api_keys_db import update_password_for_nim as update_keys
+
+    sessions = await session_store.update_password_for_nim(nim, "studentv2_pass", "")
+    try:
+        keys = await update_keys(nim, "studentv2_pass", "")
+    except Exception as err:
+        logger.error("Gagal melepas password SIAKAD dari API Key untuk %s: %s", nim, err)
+        keys = 0
+
+    request.state.studentv2_pass = ""
+    # Cookie sesi kampus tidak lagi dipakai: buang supaya request berikutnya
+    # tidak memakai sesi SIAKAD yang sudah dilepas.
+    for module in ("studentv2",):
+        try:
+            from app.campus_session_store import drop_cookies
+
+            drop_cookies(module, nim)
+        except Exception:
+            logger.debug("Gagal menghapus cookie sesi %s untuk %s", module, nim)
+
+    logger.info("SIAKAD dilepas untuk %s (%s sesi, %s API key)", nim, sessions, keys)
+    return success_response(
+        data={
+            "system": "siakad",
+            "connected": False,
+            "message": "Tautan SIAKAD dilepas. Fitur SIAKAD disembunyikan sampai kamu hubungkan lagi.",
+            "sessions_updated": sessions,
+            "api_keys_updated": keys,
+        }
+    )
+
+
 class ChangePasswordRequest(BaseModel):
     system: str = Field(..., pattern="^(siakad|mybest)$", description="Sistem kampus: siakad atau mybest")
     current_password: str = Field(..., min_length=1, max_length=128)
