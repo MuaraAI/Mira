@@ -13,7 +13,7 @@ import {
   ghostButtonClass,
   primaryButtonClass,
 } from "@/components/dashboard-ui";
-import { SiaKadLockedCard } from "@/components/SiaKadLockedCard";
+import { KhsSemesterCard } from "@/components/KhsSemesterCard";
 import {
   FORMATS,
   SITE,
@@ -198,12 +198,7 @@ export default function NilaiPage() {
     <div className="space-y-6">
       <PageHeader
         title="Transkrip Nilai Akademik"
-        description="Rekap nilai tugas dan kuis dari MyBest. Nilai akhir, KHS, dan IPK ada di SIAKAD."
-      />
-
-      <SiaKadLockedCard
-        title="Nilai akhir, KHS, dan KRS ada di SIAKAD"
-        description="Mira tidak lagi menyimpan data nilai akhir, IPK, atau KRS. Buka students.bsi.ac.id untuk melihatnya langsung di portal kampus."
+        description="KHS per semester dari SIAKAD, lalu rekap nilai tugas dan kuis dari MyBest."
       />
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -321,6 +316,15 @@ export default function NilaiPage() {
           </p>
         </div>
       </SideSheet>
+
+      <KhsSemesterCard />
+
+      <div className="border-t-2 border-dashed border-px-soft pt-6">
+        <h2 className="font-display text-base font-bold text-foreground">Rekap Nilai Tugas MyBest</h2>
+        <p className="mt-1 text-xs leading-relaxed text-secondary">
+          Nilai tugas dan kuis yang dikumpulkan lewat MyBest, dihitung per pertemuan.
+        </p>
+      </div>
 
       {gradesRaw.loading ? (
         <LoadingState label="Memuat rekapitulasi nilai tugas MyBest" />
