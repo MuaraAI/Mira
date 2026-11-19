@@ -347,6 +347,12 @@ API_DOCS_DATA: dict[str, Any] = {
                 "description": "Jadwal kuliah pengganti (make-up classes) yang terdaftar di MyBest.",
             },
             {
+                "path": "/v1/elearning/toefl",
+                "method": "GET",
+                "auth": "Session / API Key",
+                "description": "Materi dan jadwal TOEFL MyBest: kategori, judul materi, dosen, waktu, rentang ujian, dan tautan bukti. Kosong bila belum ada paket TOEFL.",
+            },
+            {
                 "path": "/v1/elearning/guides",
                 "method": "GET",
                 "auth": "Session / API Key",

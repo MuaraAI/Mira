@@ -690,6 +690,12 @@ Retrieves registered make-up classes / schedule replacements from MyBest (`/kuli
 - **Fields**: `kode`, `mata_kuliah`, `jadwal` (raw text), `tanggal` (ISO `YYYY-MM-DD` or `null`), `hari`, `jam` (`HH:MM-HH:MM`), `ruang`, `dosen`, `kelas`, `keterangan`, `token_absen`, `absen_path`.
 - **Absen pengganti**: when a make-up class carries an absen link, call `GET/POST /v1/elearning/presence?token={token_absen}&path={absen_path}`. `path` defaults to `absen-mhs` and must match `^absen[a-z0-9-]{0,40}$`.
 
+### `GET /v1/elearning/toefl`
+Lists TOEFL materials and exam schedule from MyBest (`/toefl`).
+- **Cache TTL**: 10 minutes (600 seconds)
+- **Fields**: `no`, `kode_mtk`, `kategori`, `materi`, `judul_materi`, `dosen`, `waktu`, `ujian_mulai`, `ujian_selesai`, `aksi`, `aksi_url` (absolute proof link or `null`), `id`.
+- **Empty state**: returns `data: []` when the student has no TOEFL package; the campus table renders headers only.
+
 ### `GET /v1/elearning/guides`
 Lists direct links to official PDF guide manuals for MyBest, Online Exam, and Quiz.
 
