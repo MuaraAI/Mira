@@ -14,8 +14,8 @@ ssh -q -o BatchMode=yes -o ConnectTimeout=5 "${VPS_HOST}" "echo 'SSH connection 
 echo "=== 2. Preparing remote directory ==="
 ssh "${VPS_HOST}" "sudo install -d -m 755 -o ubuntu -g netdev '${REMOTE_DIR}'"
 
-echo "=== 3. Syncing project files ==="
-rsync -avz --delete \
+echo "=== 3. Syncing project files (preserve remote-only files) ==="
+rsync -avz \
     --exclude='.git/' \
     --exclude='.venv/' \
     --exclude='__pycache__/' \
