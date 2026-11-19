@@ -14,6 +14,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useApi, apiDownload, ApiError } from "@/lib/api";
+import { ExamRoomLinks } from "@/components/ExamRoomLinks";
 import {
   EmptyState,
   ErrorState,
@@ -129,6 +130,8 @@ export default function UjianPage() {
           </a>
         </div>
       </div>
+
+      <ExamRoomLinks />
 
       {/* Tab Switcher Jenis Ujian */}
       <div className="w-full">
