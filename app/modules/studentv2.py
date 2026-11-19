@@ -16,7 +16,11 @@ from app.envelope import success_response, error_response
 from app.cache import cache
 from app.retry import retry_async
 from app.session_pool import SessionPool
-from app.upstream_session import UpstreamSession, classify_login_failure
+from app.upstream_session import (
+    UpstreamSession,
+    apply_session_cookies,
+    classify_login_failure,
+)
 from app.proxy import get_proxy
 from app.router_helper import cached_endpoint
 
@@ -448,14 +452,14 @@ class StudentV2Client(UpstreamSession):
     ) -> bool:
         """Login SIAKAD. `session` + `captcha` dipakai jalur relay CAPTCHA user."""
         client = self.get_client()
-        client.cookies.clear()
         login_url = f"{self.BASE_URL}/login"
         self._login_failure = "unknown"
         try:
             if session:
                 # Pakai cookie + token dari sesi tempat CAPTCHA dibuat.
-                for name, value in (session.get("cookies") or {}).items():
-                    client.cookies.set(name, value)
+                # Cookie harus berdomain, bukan host-only: kalau tidak, dua
+                # ci_session terkirim dan kampus memakai sesi lama.
+                apply_session_cookies(client, session.get("cookies") or {}, self.BASE_URL)
                 token = str(session.get("token") or "")
                 if not token:
                     self._login_failure = "captcha"
