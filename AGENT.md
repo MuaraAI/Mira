@@ -104,14 +104,24 @@ Dilarang keras melakukan direct commit dan direct push ke branch `main`! Setiap 
 ## 4. Aturan Ketat untuk AI Agent (Iron Rules)
 
 ### 1. Zero Secrets Rule (Keamanan Kredensial)
-* Jangan pernah membaca, mencetak ke chat, meng-hardcode, atau men-stage kredensial/token/password ke dalam git.
-* Semua rahasia (`API_KEY`, `STUDENTV2_NIM`, `STUDENTV2_PASS`, `ELEARNING_PASSWORD`, dll.) hanya boleh dibaca dari file `.env` lokal (terdaftar di `.gitignore`).
-* Dilarang menambahkan hardcoded fallback pada environment variable (misal: `os.getenv("KEY", "default_secret")`).
+* **JANGAN PERNAH PUSH KEY/PASSWORD/TOKEN.** Satu kali masuk git history = harus dianggap bocor dan wajib dirotasi. Tidak ada pengecualian untuk "cuma di PR body", "cuma di komentar", "cuma di fixture", atau "cuma contoh".
+* Jangan membaca, mencetak ke chat, meng-hardcode, atau men-stage kredensial ke git. Saat perlu memeriksa kelengkapan `.env`, tampilkan **nama variabel + panjang nilai** saja (`grep -o '^KEY='`), tidak pernah nilainya.
+* Semua rahasia (`API_KEY`, `STUDENTV2_NIM`, `STUDENTV2_PASS`, `ELEARNING_PASS`, dll.) hanya dari `.env` lokal (terdaftar di `.gitignore`). Nama variabel kredensial mahasiswa di repo ini: `USERNAME_NIM`, `ELEARNING_PW`, `STUDENTS_PW` (file `example/.env`).
+* Dilarang hardcoded fallback pada environment variable (`os.getenv("KEY", "default_secret")`). Env yang hilang harus gagal cepat dengan pesan jelas.
+* Kalau butuh kredensial untuk uji manual (bukan test suite), baca dari `.env` ke variabel proses, jangan pernah ditulis ke file repo, ke argumen CLI, atau ke log. Hapus file sementara setelah selesai.
+
+### 1b. Wajib Data Dummy untuk Test Suite
+* Test **tidak boleh** memakai NIM, password, token, atau email asli. Pakai nilai dummy yang jelas: `12345678`, `99999999`, `password-dummy`, `test@example.com`.
+* Fixture HTML di `tests/fixtures/` juga wajib dianonimkan: ganti nama/NIM/email mahasiswa asli sebelum di-commit.
+* Kalau butuh verifikasi live (cek perilaku kampus sungguhan), itu **bukan test**; jalankan sebagai skrip ad-hoc di luar `tests/`, dengan kredensial dari env, dan hapus setelah selesai.
+* Sebelum commit, jalankan pemeriksaan cepat: `git diff --cached | grep -nE '(nim|password|token|pass)\s*[:=]\s*[\"'"'"'][^\"'"'"']{6,}'` dan pastikan hasilnya hanya dummy.
 
 ### 2. Strict Offline TDD (Dilarang Live Hit di Test Suite)
 * Seluruh unit dan integration test di `tests/` **HARUS 100% OFFLINE**.
 * Dilarang mengirim request HTTP langsung ke server kampus BSI (`*.bsi.ac.id`) di dalam test suite pytest.
 * Setiap parser baru atau perbaikan parser wajib menggunakan file snapshot HTML statis di `tests/fixtures/`.
+* Redis, SQLite, dan Supabase juga wajib di-mock atau in-memory. Jika sebuah tes butuh Redis, pakai fake client di `tests/`; jangan menyentuh instance nyata.
+* Verifikasi perilaku kampus (CAPTCHA, sesi, rate limit) dilakukan manual di luar suite, lalu **hasilnya** dikunci sebagai tes offline dengan respons tiruan.
 
 ### 3. Anti-Slop & Frontend Design Standards (Direktori `/landing-page`)
 * **Zero Em-Dash:** Dilarang menggunakan karakter em dash (`—`) pada copy/metadata antarmuka; gunakan titik dua (`:`) atau titik (`.`).
@@ -125,7 +135,7 @@ Sebelum menyatakan tugas selesai, agen **WAJIB** menjalankan pengujian nyata:
 1. **Backend Tests:**
    ```bash
    .venv/bin/pytest -q
-   # Wajib 100% lulus (minimal 337 passed)
+   # Wajib 100% lulus
    ```
 2. **Frontend Build Check (jika memodifikasi `/landing-page`):**
    ```bash
@@ -211,6 +221,25 @@ npm run dev
 
 ### 6. Branch + PR, selalu
 * Semua perubahan lewat feature branch → PR → merge (detail di Seksi 3). **Dilarang direct push `main`**, termasuk perubahan "kecil".
+
+### 7. Arsitektur sesi & kredensial (WAJIB dipahami sebelum menyentuh auth)
+
+Satu login Mira menampung **dua kredensial kampus** dalam satu sesi:
+
+```
+ubsi_session (Redis, 7 hari SLIDING)
+  ├── nim
+  ├── elearning_pass   (wajib, MyBest)
+  └── studentv2_pass   (opsional, SIAKAD)
+```
+
+* **Sesi Mira 7 hari dan sliding**: setiap resolve sukses me-reset TTL (`app/session_store.py`). User yang membuka Mira sekali seminggu tetap masuk. Jangan menambahkan countdown/expiry kedua di lapisan lain.
+* **Sesi kampus jauh lebih pendek dan dikelola terpisah**: cookie MyBest ~45 menit (sliding), SIAKAD ~2 jam. Kalau cookie kampus mati, backend login ulang otomatis memakai password tersimpan; CAPTCHA diselesaikan `app/captcha_autosolver.py` (ddddocr, ~20 ms). User tidak perlu melakukan apa pun.
+* Yang memaksa user login ulang **hanya** perubahan password kampus.
+* `SIAKAD_ENABLED=true` di produksi sejak 2026-11-19. Saat saklar hidup dan `studentv2_pass` kosong, login memakai password MyBest yang sama (satu password untuk akun kampus). Nilai eksplisit selalu dihormati. Lihat `app/modules/auth.py` (blok `raw_sv_pass`).
+* `GET /v1/auth/me` mengembalikan `systems` (boolean, untuk gerbang UI), `session` (countdown dari TTL Redis), dan `links` (`linked_password`: `mybest` / `separate` / `null`). **Jangan mengubah bentuk `systems`** tanpa memperbarui `useRequireSession`, `ChangePasswordCard`, `AuthPortal`, dan `lib/security.ts`.
+* CAPTCHA kampus diselesaikan server. Form login **tidak** menampilkan CAPTCHA. Endpoint `POST /v1/auth/captcha` sudah dihapus; jangan dihidupkan lagi.
+* Data pribadi SIAKAD **tidak diambil**. `parse_profile` memakai allowlist akademik; tempat/tanggal lahir, alamat, telepon, agama, jenis kelamin, dan kondisi biaya sengaja ditolak di parser. Menambah field ke allowlist = keputusan produk, bukan teknis.
 
 ---
 
