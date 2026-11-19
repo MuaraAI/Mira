@@ -1,13 +1,16 @@
 """Penjaga sesi upstream BSI (SIAKAD students.bsi.ac.id dan MyBest elearning.bsi.ac.id).
 
-Sesi Laravel di server kampus kedaluwarsa sekitar 15 menit. Kredensial user
-sudah tersimpan terenkripsi di session dashboard, jadi client upstream bisa
-login ulang sendiri tanpa user harus relogin di UBSI API:
+Sesi Laravel kampus memakai cookie 45 menit yang diperbarui di setiap response
+(sliding), dan hanya satu sesi aktif per akun. Kredensial user sudah tersimpan
+terenkripsi di session dashboard, jadi client upstream bisa login ulang sendiri
+tanpa user harus relogin di UBSI API:
 
-1. Proaktif: sesi yang umurnya mendekati batas upstream diperbarui sebelum
-   request dikirim, jadi user tidak pernah kena halaman login kampus.
-2. Reaktif: response yang ternyata halaman login / 401 / 419 (CSRF page
-   expired) memicu satu kali login ulang lalu request diulang.
+1. Reaktif: request dikirim dengan sesi yang ada; response yang ternyata
+   halaman login / 401 / 419 (CSRF page expired) memicu satu kali login ulang
+   lalu request diulang. Tidak ada login proaktif berbasis umur, karena login
+   baru menendang sesi browser user (kampus hanya mengizinkan satu sesi).
+2. Hemat: cookie sesi tersimpan dipulihkan lebih dulu; CAPTCHA hanya dibuat
+   kalau sesi benar-benar sudah mati.
 3. Thread-safe: request paralel (dashboard memanggil banyak section sekaligus)
    berbagi satu login ulang, bukan login bersamaan yang saling membatalkan
    token CSRF dan captcha satu sama lain.
@@ -53,9 +56,6 @@ def apply_session_cookies(
     for name, value in cookies.items():
         jar.set(name, value, domain=host, path="/")
     client.cookies = jar
-
-# Perbarui sesi sedikit sebelum batas 15 menit upstream.
-DEFAULT_MAX_SESSION_AGE = 13 * 60
 
 _LOGIN_FORM_RE = re.compile(r"""<form[^>]+action=["'][^"']*/login["']""", re.IGNORECASE)
 _PASSWORD_INPUT_RE = re.compile(r"""name=["']password["']""", re.IGNORECASE)
@@ -179,9 +179,6 @@ def reset_blocks() -> None:
         _host_blocks.clear()
 
 
-def max_session_age() -> int:
-    return int(getattr(settings, "UPSTREAM_SESSION_MAX_AGE", DEFAULT_MAX_SESSION_AGE) or DEFAULT_MAX_SESSION_AGE)
-
 
 def is_logged_out_response(resp: Any) -> bool:
     """True jika response upstream menandakan sesi sudah tidak berlaku."""
@@ -236,9 +233,6 @@ class UpstreamSession:
         if nim:
             # Simpan cookie agar NIM tidak perlu CAPTCHA lagi selama sesi masih hidup.
             self._persist_cookies(nim)
-
-    def _session_is_fresh(self) -> bool:
-        return bool(self._logged_in) and (time.monotonic() - self._login_at) < max_session_age()
 
     def _blocked_error(self, reason: str) -> HTTPException:
         """Terjemahkan cooldown aktif menjadi error yang bisa dibaca frontend."""
@@ -313,8 +307,11 @@ class UpstreamSession:
         """
         cred_hash = self._hash_creds(nim, password)
         with self._session_lock:
+            # Tanpa batas umur: sesi kampus sliding 45 menit dan hanya satu
+            # sesi aktif per akun, jadi login proaktif justru menendang sesi
+            # browser user. Kedaluwarsa dideteksi dari response (reaktif).
             if (
-                self._session_is_fresh()
+                self._logged_in
                 and self._cred_hash == cred_hash
                 and (stale_since is None or self._login_at > stale_since)
             ):
