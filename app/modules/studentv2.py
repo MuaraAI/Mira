@@ -172,21 +172,15 @@ def parse_profile(html: str) -> dict[str, Any]:
     """Parse biodata dan status akademik mahasiswa dari /mahasiswa/data-pribadi."""
     page = Adaptor(html)
     profile: dict[str, Any] = {}
+    # Hanya data akademik. Data pribadi di halaman SIAKAD (tempat/tanggal lahir,
+    # alamat, RT/RW, kelurahan, kecamatan, kode pos, telepon, agama, jenis
+    # kelamin, kondisi biaya) sengaja TIDAK dipetakan: tidak satu pun fitur Mira
+    # membutuhkannya, dan mengambilnya berarti menyimpan data pribadi mahasiswa
+    # tanpa alasan.
     key_map = {
         "nim": "nim",
         "nama": "nama",
-        "tempat_lahir": "tempat_lahir",
-        "tanggal_lahir": "tanggal_lahir",
-        "alamat": "alamat",
-        "rt_rw": "rt_rw",
-        "desa_kelurahan": "desa_kelurahan",
-        "kecamatan": "kecamatan",
-        "kota": "kota",
-        "kode_pos": "kode_pos",
-        "telepon": "telepon",
         "email": "email",
-        "jenis_kelamin": "jenis_kelamin",
-        "agama": "agama",
         "program_studi": "program_studi",
         "tahun_masuk": "tahun_masuk",
         "pilihan_waktu": "pilihan_waktu",
@@ -195,16 +189,18 @@ def parse_profile(html: str) -> dict[str, Any]:
         "lokal": "lokal",
         "semester_aktif": "semester_aktif",
         "kondisi_aktif": "status_aktif",
-        "kondisi_biaya_kuliah": "kondisi_biaya_kuliah",
     }
     for row in page.css("form .row"):
         label = row.css("label")
         input_el = row.css("input")
         if label and input_el:
             raw_k = re.sub(r"[\s/]+", "_", label[0].get_all_text().strip().lower()).strip("_")
-            val = input_el[0].attrib.get("value", "").strip()
-            mapped = key_map.get(raw_k, raw_k)
-            profile[mapped] = val
+            mapped = key_map.get(raw_k)
+            if not mapped:
+                # Allowlist, bukan blocklist: label baru dari kampus tidak
+                # otomatis tersimpan (dulu semua label ikut, termasuk data pribadi).
+                continue
+            profile[mapped] = input_el[0].attrib.get("value", "").strip()
 
     # Terjemahkan kode cabang menjadi nama tampilan sekali di sumber (dipakai API, stats, social).
     if profile.get("lokasi_cabang"):
