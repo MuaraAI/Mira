@@ -24,7 +24,12 @@ from app.config import settings
 from app.deps import require_elearning_creds
 from app.envelope import success_response, error_response
 from app.session_pool import SessionPool
-from app.upstream_session import UpstreamSession, classify_login_failure, is_logged_out_response
+from app.upstream_session import (
+    UpstreamSession,
+    apply_session_cookies,
+    classify_login_failure,
+    is_logged_out_response,
+)
 from app.retry import retry_async
 from app.proxy import get_proxy
 from app.cache import WIB, cache
@@ -1470,15 +1475,15 @@ class ElearningClient(UpstreamSession):
     ) -> bool:
         """Login MyBest. `session` + `captcha` dipakai jalur relay CAPTCHA user."""
         client = self.get_client()
-        client.cookies.clear()
         login_url = f"{self.BASE_URL}/login"
         self._login_failure = "unknown"
         try:
             if session:
                 # Tantangan CAPTCHA sudah dibuat pada sesi yang sama: pakai ulang
-                # cookie + token supaya kode CAPTCHA tetap valid.
-                for name, value in (session.get("cookies") or {}).items():
-                    client.cookies.set(name, value)
+                # cookie + token supaya kode CAPTCHA tetap valid. Cookie wajib
+                # berdomain; entri host-only membuat dua mybest_session terkirim
+                # dan kampus memakai sesi lama (login seolah gagal CAPTCHA).
+                apply_session_cookies(client, session.get("cookies") or {}, self.BASE_URL)
                 token = str(session.get("token") or "")
                 if not token:
                     self._login_failure = "captcha"
@@ -1562,9 +1567,7 @@ class ElearningClient(UpstreamSession):
             if not candidates:
                 continue
             client = self.get_client()
-            client.cookies.clear()
-            for name, value in (session.get("cookies") or {}).items():
-                client.cookies.set(name, value)
+            apply_session_cookies(client, session.get("cookies") or {}, self.BASE_URL)
             response = client.post(
                 login_url,
                 data={

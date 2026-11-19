@@ -36,6 +36,24 @@ SHARED_HTTP_LIMITS = httpx.Limits(
     keepalive_expiry=30.0,
 )
 
+
+def apply_session_cookies(
+    client: httpx.Client, cookies: dict[str, str], base_url: str
+) -> None:
+    """Ganti jar cookie klien dengan entri berdomain.
+
+    `client.cookies.set(name, value)` tanpa domain menyimpan cookie host-only,
+    sedangkan Set-Cookie kampus memakai domain `elearning.bsi.ac.id`. Akibatnya
+    dua cookie bernama sama ikut terkirim pada request berikutnya dan Laravel
+    memakai yang lama (sesi belum login), sehingga login terbaca gagal CAPTCHA
+    meski kode dan password benar.
+    """
+    jar = httpx.Cookies()
+    host = httpx.URL(base_url).host
+    for name, value in cookies.items():
+        jar.set(name, value, domain=host, path="/")
+    client.cookies = jar
+
 # Perbarui sesi sedikit sebelum batas 15 menit upstream.
 DEFAULT_MAX_SESSION_AGE = 13 * 60
 
@@ -272,9 +290,7 @@ class UpstreamSession:
         if not cookies:
             return False
         client = self.get_client()
-        client.cookies.clear()
-        for name, value in cookies.items():
-            client.cookies.set(name, value)
+        apply_session_cookies(client, cookies, self.BASE_URL)
         try:
             resp = client.get(f"{self.BASE_URL}{self.PROBE_PATH}", follow_redirects=True)
         except Exception as err:
