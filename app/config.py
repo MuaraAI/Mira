@@ -19,8 +19,6 @@ class Settings(BaseSettings):
     VAPID_PUBLIC_KEY: str = ""
     VAPID_PRIVATE_KEY: str = ""
     VAPID_CLAIM_EMAIL: str = "admin@muaraai.com"
-    # Sesi SIAKAD/MyBest kedaluwarsa ~15 menit; diperbarui otomatis sebelum batas itu (detik)
-    UPSTREAM_SESSION_MAX_AGE: int = 780
     # Password default kampus yang diingatkan untuk segera diganti (dipisahkan koma)
     CAMPUS_DEFAULT_PASSWORDS: str = ""
     # Saklar SIAKAD: False = seluruh endpoint SIAKAD balas 503 + CTA ke situs kampus.

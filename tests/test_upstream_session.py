@@ -1,4 +1,4 @@
-"""Sesi SIAKAD/MyBest yang kedaluwarsa (~15 menit) harus dipulihkan otomatis tanpa relogin user."""
+"""Sesi SIAKAD/MyBest dipulihkan reaktif: tanpa login proaktif berbasis umur."""
 import threading
 import time
 
@@ -56,12 +56,17 @@ def test_expired_upstream_session_relogs_in_automatically():
     assert up.login_calls == 2
 
 
-def test_session_refreshed_before_upstream_limit(monkeypatch):
+def test_aged_session_is_not_relogged_proactively():
+    """Sesi berumur panjang tetap dipakai; login baru hanya saat kampus menolak."""
     up = FakeUpstream(campus_server)
     up.authed_request("GET", "/jadwal", "152", "pw")
     assert up.login_calls == 1
 
-    up._login_at -= 14 * 60  # sesi sudah berumur 14 menit
+    up._login_at -= 24 * 3600  # jauh melewati umur cookie kampus
+    up.authed_request("GET", "/jadwal", "152", "pw")
+    assert up.login_calls == 1
+
+    up.server_session_alive = False  # kampus yang memutus sesi
     up.authed_request("GET", "/jadwal", "152", "pw")
     assert up.login_calls == 2
 
@@ -123,4 +128,34 @@ def test_campus_clients_use_upstream_session(cls):
     client = cls()
     assert isinstance(client, UpstreamSession)
     client._mark_logged_in()
-    assert client._session_is_fresh()
+    assert client._logged_in
+
+
+@pytest.mark.parametrize("cls", [StudentV2Client, ElearningClient])
+def test_logged_in_session_is_not_reauthenticated_by_age(cls, monkeypatch):
+    """Umur sesi tidak memicu login baru: kampus hanya izinkan satu sesi per akun."""
+    client = cls()
+    client._logged_in = True
+    client._login_at = time.monotonic() - 24 * 3600
+    client._cred_hash = client._hash_creds("12345678", "pw")
+
+    def _boom(*args, **kwargs):
+        raise AssertionError("restore/login tidak boleh dipanggil hanya karena umur sesi")
+
+    monkeypatch.setattr(client, "_try_restore", _boom)
+    monkeypatch.setattr(client, "login", _boom)
+
+    assert client.ensure_session("12345678", "pw") is True
+
+
+def test_stale_since_forces_session_restore(monkeypatch):
+    """Response yang menandakan logout memicu pemulihan, bukan memakai sesi lama."""
+    client = ElearningClient()
+    client._logged_in = True
+    client._login_at = time.monotonic() - 60
+    client._cred_hash = client._hash_creds("12345678", "pw")
+    calls = []
+    monkeypatch.setattr(client, "_try_restore", lambda nim: calls.append(nim) or True)
+
+    assert client.ensure_session("12345678", "pw", stale_since=time.monotonic()) is True
+    assert calls == ["12345678"]

@@ -50,7 +50,7 @@ Multi-page crawler operations introduce random delays of 0.8–1.5 seconds betwe
   - Worker notifikasi melewati NIM yang sedang cooldown tanpa mencetak traceback.
 
 ### G. Auto-Solve CAPTCHA Kampus (sejak 2026-11-18)
-- Form login memakai CAPTCHA MyBest manual (CAPTCHA Mira dihapus). Re-login latar setelah sesi 15 menit diselesaikan OCR: satu kode per POST, maksimal 3 tantangan, berhenti saat kampus menolak tanpa pesan (`app/captcha_autosolver.py`, `ElearningClient._ocr_login`).
+- Form login memakai CAPTCHA MyBest manual (CAPTCHA Mira dihapus). Sesi kampus sliding 45 menit dan hanya satu sesi aktif per akun, jadi login ulang dilakukan reaktif saat kampus membalas halaman login, bukan proaktif berbasis umur. Re-login latar diselesaikan OCR: satu kode per POST, maksimal 3 tantangan, berhenti saat kampus menolak tanpa pesan (`app/captcha_autosolver.py`, `ElearningClient._ocr_login`).
 - Worker notifikasi tetap default-deny: CAPTCHA gambar tidak pernah ditebak, tanpa jawaban relay tidak ada POST ke kampus.
 - Anti-bot form login: rate limit 10/menit/IP + login guard 10/menit/IP + limit per NIM 5/menit.
 
