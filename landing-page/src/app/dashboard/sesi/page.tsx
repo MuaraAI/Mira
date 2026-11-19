@@ -1,10 +1,11 @@
 "use client";
 
 import { LogIn, LogOut, ShieldAlert, ShieldCheck, ShieldX, School } from "lucide-react";
-import { useApi, AuthMeResponse } from "@/lib/api";
+import { useApi } from "@/lib/api";
 import { useLogout } from "@/lib/logout";
 import { useSecurityStatus } from "@/lib/security";
 import { ChangePasswordCard } from "@/components/ChangePasswordCard";
+import { CampusSystemsCard, type MeLinks } from "@/components/CampusSystemsCard";
 import {
   ErrorState,
   LoadingState,
@@ -16,7 +17,7 @@ import {
 
 
 export default function SesiPage() {
-  const meApi = useApi<AuthMeResponse>("/v1/auth/me");
+  const meApi = useApi<MeLinks>("/v1/auth/me");
   const profileApi = useApi<{ nama?: string; email?: string }>("/v1/elearning/profile");
   const securityApi = useSecurityStatus();
 
@@ -39,6 +40,8 @@ export default function SesiPage() {
       />
 
 
+
+      <CampusSystemsCard me={meApi.data} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <LoginActivityCard security={securityApi.data} />

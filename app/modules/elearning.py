@@ -77,6 +77,22 @@ def parse_courses(html: str) -> list[dict[str, Any]]:
         raise ValueError("HTML_STRUCTURE_CHANGED: elearning course cards not found")
     courses = []
 
+    # MyBest memisahkan kartu menjadi dua seksi: "Jadwal Kuliah Hari Ini (Kamis)"
+    # dan "Jadwal Kuliah Hari Lainnya". Kartu seksi pertama tidak memuat hari di
+    # dalamnya (hanya jam), jadi harinya harus diambil dari judul seksi. Tanpa ini
+    # semua kelas hari ini punya `hari: ""` dan dashboard menganggap tidak ada
+    # jadwal maupun sesi absen.
+    # Judul seksi nyata: <span class="section-divider-title">... Jadwal Kuliah Hari Ini (Kamis)</span>.
+    # Komentar HTML juga memuat frasa serupa ("BAGIAN 1 ... (ATAS)"), jadi judul
+    # seksi dicari lewat elemen, bukan regex teks bebas.
+    today_day = None
+    for title in page.css(".section-divider-title"):
+        text = " ".join(title.get_all_text().split())
+        match = re.search(r"Hari Ini\s*\(([A-Za-z]+)\)", text, re.IGNORECASE)
+        if match:
+            today_day = match.group(1)
+            break
+
     for card in cards:
         # Layout MyBest baru (jadwal-card): title, pill kelas, info-row label/val, footer links.
         info: dict[str, str] = {}
@@ -101,6 +117,8 @@ def parse_courses(html: str) -> list[dict[str, Any]]:
             jam = jam or header_jam
         if not jam:
             _, jam = _split_schedule(" ".join(card.get_all_text().split()))
+        if not hari and today_day and "other-day" not in (card.attrib.get("class") or ""):
+            hari = today_day
 
         pill_el = card.css(".jadwal-kelas-pill")
         pill = pill_el[0].get_all_text().split(":")[-1].strip() if pill_el else ""
