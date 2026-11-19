@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Clock, ExternalLink, GraduationCap, Link2Off, School } from "lucide-react";
-import { useApi } from "@/lib/api";
-import { ghostButtonClass } from "@/components/dashboard-ui";
+import { apiFetch, ApiError, clearApiCache, useApi } from "@/lib/api";
+import { ghostButtonClass, inputClass } from "@/components/dashboard-ui";
 
 /** Bentuk data dari `GET /v1/auth/me` (lihat docs/api.md). */
 export interface MeLinks {
@@ -60,8 +60,59 @@ function useCountdown(initialSeconds?: number | null) {
   return seconds;
 }
 
-export function CampusSystemsCard({ me }: { me: MeLinks | null }) {
+export function CampusSystemsCard({ me, onChanged }: { me: MeLinks | null; onChanged?: () => void }) {
   const remaining = useCountdown(me?.session?.expires_in);
+  const [linking, setLinking] = useState(false);
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState<"link" | "unlink" | null>(null);
+  const [feedback, setFeedback] = useState<{ ok: boolean; message: string } | null>(null);
+
+  async function linkSiakad(event: React.FormEvent) {
+    event.preventDefault();
+    if (!password.trim() || busy) return;
+    setBusy("link");
+    setFeedback(null);
+    try {
+      await apiFetch("/v1/auth/credentials", {
+        method: "POST",
+        json: { system: "siakad", password: password.trim() },
+      });
+      setFeedback({ ok: true, message: "SIAKAD berhasil dihubungkan." });
+      setPassword("");
+      setLinking(false);
+      clearApiCache("/v1/auth/me");
+      clearApiCache("/v1/auth/security");
+      onChanged?.();
+    } catch (err) {
+      const apiErr = err instanceof ApiError ? err : null;
+      setFeedback({
+        ok: false,
+        message: apiErr?.message ?? "Gagal menghubungkan SIAKAD. Coba lagi.",
+      });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function unlinkSiakad() {
+    if (busy) return;
+    setBusy("unlink");
+    setFeedback(null);
+    try {
+      await apiFetch("/v1/auth/credentials/siakad", { method: "DELETE" });
+      setFeedback({ ok: true, message: "Tautan SIAKAD dilepas." });
+      clearApiCache("/v1/auth/me");
+      clearApiCache("/v1/auth/security");
+      onChanged?.();
+    } catch (err) {
+      const apiErr = err instanceof ApiError ? err : null;
+      setFeedback({ ok: false, message: apiErr?.message ?? "Gagal melepas tautan SIAKAD." });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+
   const mybest = me?.links?.mybest;
   const siakad = me?.links?.siakad;
 
@@ -117,14 +168,74 @@ export function CampusSystemsCard({ me }: { me: MeLinks | null }) {
       </div>
 
       {!siakad?.linked && (
-        <div className="flex flex-wrap items-center justify-between gap-3 bg-[#FFF7ED] p-3 shadow-[inset_0_0_0_2px_#FCD34D]">
+        <div className="space-y-3 bg-[#FFF7ED] p-3 shadow-[inset_0_0_0_2px_#FCD34D]">
           <p className="text-xs leading-relaxed text-[#92400E]">
             SIAKAD belum tertaut. Hubungkan supaya KRS, KHS, dan jadwal kuliah muncul di Mira.
           </p>
-          <Link href="/dashboard/sesi" className={`${ghostButtonClass} shrink-0 text-xs`}>
-            Hubungkan SIAKAD
-          </Link>
+          {linking ? (
+            <form onSubmit={linkSiakad} className="flex flex-col gap-2 sm:flex-row">
+              <label className="sr-only" htmlFor="siakad-password">
+                Password SIAKAD
+              </label>
+              <input
+                id="siakad-password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                placeholder="Password SIAKAD"
+                className={`${inputClass} min-w-0 flex-1`}
+                required
+              />
+              <div className="flex gap-2">
+                <button type="submit" disabled={busy !== null} className={`${ghostButtonClass} shrink-0 text-xs`}>
+                  {busy === "link" ? "Menghubungkan..." : "Hubungkan"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLinking(false);
+                    setPassword("");
+                  }}
+                  disabled={busy !== null}
+                  className={`${ghostButtonClass} shrink-0 text-xs`}
+                >
+                  Batal
+                </button>
+              </div>
+            </form>
+          ) : (
+            <button type="button" onClick={() => setLinking(true)} className={`${ghostButtonClass} text-xs`}>
+              Hubungkan SIAKAD
+            </button>
+          )}
         </div>
+      )}
+
+      {siakad?.linked && (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-stroke/60 pt-3">
+          <p className="text-[11px] text-secondary">
+            Melepas tautan menyembunyikan fitur SIAKAD, tapi jadwal dan tugas MyBest tetap jalan.
+          </p>
+          <button
+            type="button"
+            onClick={unlinkSiakad}
+            disabled={busy !== null}
+            className={`${ghostButtonClass} shrink-0 text-xs text-[#BE123C] hover:border-[#BE123C]/40`}
+          >
+            <Link2Off className="h-3.5 w-3.5" aria-hidden="true" />
+            {busy === "unlink" ? "Melepas..." : "Lepas tautan SIAKAD"}
+          </button>
+        </div>
+      )}
+
+      {feedback && (
+        <p
+          role="status"
+          className={`text-xs leading-relaxed ${feedback.ok ? "text-[#0F766E]" : "text-[#BE123C]"}`}
+        >
+          {feedback.message}
+        </p>
       )}
 
       <p className="flex items-start gap-2 border-t border-stroke/60 pt-3 text-[11px] leading-relaxed text-secondary">
