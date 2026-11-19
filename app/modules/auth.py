@@ -284,14 +284,14 @@ async def login(req_body: LoginRequest, request: Request):
         )
 
     el_pass = req_body.elearning_pass.strip()
+    # Login Mira hanya memakai MyBest. Password SIAKAD TIDAK diwarisi dari
+    # MyBest: dua sistem kampus ini punya password sendiri-sendiri, dan menebak
+    # dengan password yang sama hanya menambah hitungan login gagal di kampus
+    # sampai akun SIAKAD ikut terkunci. User menautkan SIAKAD secara manual di
+    # dashboard (Sesi & Keamanan) memakai password SIAKAD-nya sendiri.
     raw_sv_pass = (req_body.studentv2_pass or "").strip()
     if not settings.SIAKAD_ENABLED:
-        # SIAKAD mati: kredensial diabaikan, tidak ada request ke students.bsi.ac.id.
         raw_sv_pass = ""
-    elif not raw_sv_pass:
-        # Satu password untuk semua akun. Dashboard tidak lagi menampilkan kolom
-        # terpisah, jadi SIAKAD dicoba dengan password MyBest yang sama.
-        raw_sv_pass = el_pass
     siakad_attempted = bool(raw_sv_pass)
 
     from app.captcha_autosolver import MAX_CAPTCHA_ATTEMPTS, candidate_session
