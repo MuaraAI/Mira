@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import logging
 import re
+import urllib.parse
 from typing import Any, Optional
 
 import httpx
@@ -244,6 +245,53 @@ def parse_khs(html: str) -> dict[str, Any]:
                             khs["ipk"] = float(nums[0])
 
     return khs
+
+def parse_khs_semester(html: str) -> dict[str, Any]:
+    """KHS satu semester + IPS dari `/mahasiswa/khs-semester`.
+
+    Struktur tabel sama dengan `/khs` (parse_khs dipakai ulang), bedanya ringkasan
+    memakai INDEKS PRESTASI SEMESTER (IPS), bukan IPK kumulatif. Halaman juga
+    memuat daftar semester yang bisa dipilih.
+    """
+    data = parse_khs(html)
+    page = Adaptor(html)
+
+    semesters: list[dict[str, Any]] = []
+    select = page.css("select[name='semester']")
+    if select:
+        for opt in select[0].css("option"):
+            value = (opt.attrib.get("value") or "").strip()
+            if not value:
+                continue
+            semesters.append({
+                "semester": int(value) if value.isdigit() else value,
+                "label": " ".join(opt.get_all_text().split()),
+                "selected": "selected" in opt.attrib,
+            })
+
+    # Ringkasan kampus menaruh tiga angka berurutan (total mutu, total SKS, IPS)
+    # di sel sebelah kanan label, jadi angka pertama bukan IPS: ambil yang terakhir.
+    ips: Optional[float] = None
+    for row in page.css("tr"):
+        cells = row.css("td")
+        for index, cell in enumerate(cells):
+            if "INDEKS PRESTASI SEMESTER" not in " ".join(cell.get_all_text().split()).upper():
+                continue
+            if index + 1 < len(cells):
+                numbers = re.findall(r"\d+(?:\.\d+)?", cells[index + 1].get_all_text())
+                if numbers:
+                    ips = float(numbers[-1])
+            break
+        if ips is not None:
+            break
+
+    data["ips"] = ips
+    data["semesters"] = semesters
+    data["semester"] = next(
+        (item["semester"] for item in semesters if item["selected"]),
+        semesters[0]["semester"] if semesters else None,
+    )
+    return data
 
 def parse_krs(html: str) -> dict[str, Any]:
     """Parse Kartu Rencana Studi (KRS) aktif dari /mahasiswa/krs."""
@@ -745,6 +793,26 @@ async def get_khs(creds: tuple[str, str] = Depends(require_studentv2_creds)):
         ttl=settings.TTL_GRADES,
         cache_params={"nim": nim},
     )
+
+@router.get("/khs-semester")
+async def get_khs_semester(
+    semester: Optional[str] = Query(default=None, description="Nomor semester; kosong = default halaman"),
+    creds: tuple[str, str] = Depends(require_studentv2_creds),
+):
+    """KHS satu semester beserta IPS dan daftar semester yang tersedia."""
+    nim, password = creds
+    path = "/mahasiswa/khs-semester"
+    if semester:
+        path = f"{path}?semester={urllib.parse.quote(str(semester))}"
+    return await cached_endpoint(
+        module="studentv2",
+        name="khs-semester",
+        fetch=lambda: studentv2_client.fetch_page(path, nim, password),
+        parse=parse_khs_semester,
+        ttl=settings.TTL_GRADES,
+        cache_params={"nim": nim, "semester": semester or "default"},
+    )
+
 
 @router.get("/krs")
 async def get_krs(creds: tuple[str, str] = Depends(require_studentv2_creds)):
