@@ -3,14 +3,14 @@
   "version": "3.0.0",
   "private": true,
   "scripts": {
-    "postinstall": "node scripts/copy-pdf-worker.mjs",
-    "predev": "node scripts/copy-pdf-worker.mjs",
-    "dev": "next dev --port 3000",
-    "prebuild": "node scripts/copy-pdf-worker.mjs",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
-  },
+      "postinstall": "node scripts/copy-pdf-worker.mjs",
+      "predev": "node scripts/copy-pdf-worker.mjs",
+      "dev": "next dev --port 3002",
+      "prebuild": "node scripts/copy-pdf-worker.mjs",
+      "build": "next build",
+      "start": "next start --port 3002",
+      "lint": "next lint"
+    },
   "dependencies": {
     "@vercel/analytics": "^1.5.0",
     "html-to-image": "^1.11.13",

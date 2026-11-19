@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, Eye, EyeOff, LogIn, RefreshCw, ShieldBan, X } from "lucide-react";
+import { ArrowLeft, Check, Eye, EyeOff, LogIn, ShieldBan, X } from "lucide-react";
 import { apiFetch, ApiError, useApi, setApiCache, writeSessionToken } from "@/lib/api";
 import { inputClass, primaryButtonClass } from "@/components/dashboard-ui";
 import { Monogram } from "@/components/Monogram";
@@ -18,7 +18,7 @@ const VIEW_PATH: Record<AuthView, string> = {
 };
 
 const VIEW_COPY: Record<AuthView, { title: string; accent: string; subtitle: string }> = {
-  login: { title: "Mira", accent: "Portal", subtitle: "Masuk pakai akun SIAKAD dan MyBest." },
+  login: { title: "Mira", accent: "Portal", subtitle: "Masuk pakai akun SIAKAD dan MyBest. CAPTCHA diselesaikan otomatis." },
   forgot: { title: "Lupa", accent: "Password", subtitle: "Masukkan NIM dan email, link reset dikirim kampus." },
 };
 
@@ -28,19 +28,10 @@ const fieldClass = `${inputClass} min-h-12 text-base sm:text-sm`;
 type StepKey = "form" | "siakad" | "mybest" | "session" | "redirect";
 type StepState = "pending" | "running" | "done" | "failed";
 
-type CaptchaHost = "siakad" | "elearning";
-interface CaptchaState {
-  id: string;
-  image: string;
-  label: string;
-  code: string;
-  loading?: boolean;
-}
-
 const STEPS: { key: StepKey; label: string; detail: string }[] = [
   { key: "form", label: "Cek isian", detail: "NIM dan kedua password" },
-  { key: "siakad", label: "Login ke SIAKAD", detail: "students.bsi.ac.id" },
-  { key: "mybest", label: "Login ke MyBest", detail: "elearning.bsi.ac.id" },
+  { key: "siakad", label: "Login ke SIAKAD", detail: "students.bsi.ac.id (auto CAPTCHA)" },
+  { key: "mybest", label: "Login ke MyBest", detail: "elearning.bsi.ac.id (auto CAPTCHA)" },
   { key: "session", label: "Menyimpan sesi", detail: "Terenkripsi, aktif 7 hari" },
   { key: "redirect", label: "Masuk ke dashboard", detail: "Sebentar lagi masuk" },
 ];
@@ -55,8 +46,7 @@ const IDLE_STEPS: Record<StepKey, StepState> = {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Login memanggil dua server kampus; tanpa batas waktu UI bisa macet di "Memeriksa kredensial".
-const LOGIN_TIMEOUT_MS = 60_000;
+// Login memanggil dua server kampus; OCR bisa 2-4 menit. Timeout 5 menit.
 const MIN_NIM_LENGTH = 3;
 
 // Server memblokir IP yang spam login; simpan batas waktunya agar refresh halaman tidak bisa mengakali.
@@ -340,11 +330,9 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
   const [steps, setSteps] = useState<Record<StepKey, StepState>>(IDLE_STEPS);
   const [startedAt, setStartedAt] = useState(0);
   const [finished, setFinished] = useState(false);
-  // Kampus mewajibkan CAPTCHA gambar; jawabannya diketik user per host.
-  const [captchas, setCaptchas] = useState<Partial<Record<CaptchaHost, CaptchaState>>>({});
-  const [forgotSystem, setForgotSystem] = useState<PasswordSystem>("mybest");
-  const nimRef = useRef<HTMLInputElement>(null);
-  const { blockedUntil, remainingMs, block } = useBlockedUntil();
+    const [forgotSystem, setForgotSystem] = useState<PasswordSystem>("mybest");
+    const nimRef = useRef<HTMLInputElement>(null);
+    const { blockedUntil, remainingMs, block } = useBlockedUntil();
 
   // URL ikut tampilan supaya refresh tetap di layar yang sama.
   function go(next: AuthView) {
@@ -390,121 +378,58 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
   const mark = (updates: Partial<Record<StepKey, StepState>>) => setSteps((prev) => ({ ...prev, ...updates }));
 
   function backToForm() {
-    setPhase("form");
-    setSteps(IDLE_STEPS);
-    setFinished(false);
-    window.requestAnimationFrame(() => nimRef.current?.focus());
-  }
-
-  async function loadCaptcha(host: CaptchaHost) {
-    const label = host === "siakad" ? "SIAKAD" : "MyBest";
-    setCaptchas((prev) => ({
-      ...prev,
-      [host]: { id: "", image: "", label, code: "", loading: true },
-    }));
-    try {
-      const data = await apiFetch<{ id: string; image: string; label: string }>("/v1/auth/captcha", {
-        json: { nim: nim.trim(), host },
-      });
-      setCaptchas((prev) => ({ ...prev, [host]: { ...data, code: "" } }));
-    } catch (err) {
-      setCaptchas((prev) => {
-        const next = { ...prev };
-        delete next[host];
-        return next;
-      });
-      setError(
-        err instanceof ApiError
-          ? err
-          : new ApiError("CAPTCHA_UNAVAILABLE", "Gagal memuat CAPTCHA kampus. Coba lagi.", 0)
-      );
-    }
-  }
-
-  function setCaptchaCode(host: CaptchaHost, code: string) {
-    setCaptchas((prev) => {
-      const current = prev[host];
-      if (!current) return prev;
-      // Kampus mungkin membandingkan kode apa adanya (case-sensitive): jangan
-      // di-uppercase atau dibuang karakternya. Cukup buang spasi di tepi.
-      return { ...prev, [host]: { ...current, code: code.trim() } };
-    });
-  }
-
-  // CAPTCHA terikat ke NIM di server: ganti NIM berarti tantangan lama tidak berlaku lagi.
-  function handleNimChange(value: string) {
-    setNim(value);
-    setCaptchas({});
-  }
-
-  // Muat CAPTCHA sejak awal (saat NIM selesai diisi), jangan menunggu login gagal dulu.
-  function preloadCaptchas() {
-    if (nim.trim().length < MIN_NIM_LENGTH) return;
-    if (!captchas.elearning) void loadCaptcha("elearning");
-    if (!skipSiakad && siakadPass.trim() && !captchas.siakad) void loadCaptcha("siakad");
-  }
-
-  // CAPTCHA SIAKAD dimuat begitu password SIAKAD terisi, tanpa bergantung urutan pengisian NIM.
-  function preloadSiakadCaptcha() {
-    if (skipSiakad || nim.trim().length < MIN_NIM_LENGTH || !siakadPass.trim()) return;
-    if (!captchas.siakad) void loadCaptcha("siakad");
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (blockedUntil || submitting) return;
-    if (!agree) {
-      setError(
-        new ApiError(
-          "AGREEMENT_REQUIRED",
-          "Centang persetujuan Kebijakan Privasi dan Syarat Layanan sebelum masuk.",
-          0
-        )
-      );
-      return;
-    }
-    // Password SIAKAD diisi tapi CAPTCHA-nya belum ada: jangan kirim, minta user mengisi dulu.
-    if (!skipSiakad && siakadPass.trim() && !captchas.siakad?.id) {
-      void loadCaptcha("siakad");
-      setError(new ApiError("CAPTCHA_REQUIRED", "Isi CAPTCHA SIAKAD di bawah dulu, lalu tekan Masuk.", 0));
-      return;
-    }
-    setSubmitting(true);
-    setError(null);
-    setFinished(false);
-    setSteps({ ...IDLE_STEPS, form: "running" });
-    setStartedAt(Date.now());
-    setPhase("checking");
-
-    await sleep(350);
-    const effectiveSiakad = skipSiakad ? "" : siakadPass.trim();
-    // Jika SIAKAD dilewati, tandai done langsung tanpa menunggu upstream
-    if (!effectiveSiakad) {
-      mark({ form: "done", siakad: "done", mybest: "running" });
-    } else {
-      mark({ form: "done", siakad: "running", mybest: "running" });
+      setPhase("form");
+      setSteps(IDLE_STEPS);
+      setFinished(false);
+      window.requestAnimationFrame(() => nimRef.current?.focus());
     }
 
-    try {
-      const res = await apiFetch<{
-        nim: string;
-        token?: string;
-        systems?: { siakad: boolean; mybest: boolean };
-        warnings?: string[];
-      }>("/v1/auth/login", {
-        signal: AbortSignal.timeout(LOGIN_TIMEOUT_MS),
-        json: {
-          nim: nim.trim(),
-          studentv2_pass: effectiveSiakad,
-          elearning_pass: mybestPass.trim(),
-          ...(captchas.elearning?.id && captchas.elearning.code
-            ? { captcha_elearning: { id: captchas.elearning.id, code: captchas.elearning.code } }
-            : {}),
-          ...(effectiveSiakad && captchas.siakad?.id && captchas.siakad.code
-            ? { captcha_siakad: { id: captchas.siakad.id, code: captchas.siakad.code } }
-            : {}),
-        },
-      });
+    function handleNimChange(value: string) {
+      setNim(value);
+    }
+
+    async function handleSubmit(e: React.FormEvent) {
+        e.preventDefault();
+        if (blockedUntil || submitting) return;
+        if (!agree) {
+          setError(
+            new ApiError(
+              "AGREEMENT_REQUIRED",
+              "Centang persetujuan Kebijakan Privasi dan Syarat Layanan sebelum masuk.",
+              0
+            )
+          );
+          return;
+        }
+        setSubmitting(true);
+        setError(null);
+        setFinished(false);
+        setSteps({ ...IDLE_STEPS, form: "running" });
+        setStartedAt(Date.now());
+        setPhase("checking");
+
+        await sleep(350);
+        const effectiveSiakad = skipSiakad ? "" : siakadPass.trim();
+        // Jika SIAKAD dilewati, tandai done langsung tanpa menunggu upstream
+        if (!effectiveSiakad) {
+          mark({ form: "done", siakad: "done", mybest: "running" });
+        } else {
+          mark({ form: "done", siakad: "running", mybest: "running" });
+        }
+
+        try {
+              const res = await apiFetch<{
+                nim: string;
+                token?: string;
+                systems?: { siakad: boolean; mybest: boolean };
+                warnings?: string[];
+              }>("/api/mira-login", {
+                json: {
+                  nim: nim.trim(),
+                  siakadPassword: effectiveSiakad,
+                  mybestPassword: mybestPass.trim(),
+                },
+              });
 
       // SIAKAD: sukses jika sistemnya true, kalau salah tandai gagal sesaat tapi tetap lanjut
       if (res?.systems?.siakad === false && effectiveSiakad) {
@@ -535,56 +460,26 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
       router.replace("/dashboard");
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : new ApiError("ERROR", "Login gagal. Coba lagi.", 0);
-      if (apiErr.retryAfter && apiErr.status === 429) {
-        block(apiErr.retryAfter);
-      }
-      // Kampus mewajibkan CAPTCHA: muat gambar untuk host yang diminta lalu tunggu user.
-      if (apiErr.code === "AUTH_CAPTCHA_REQUIRED") {
-        const hosts = (apiErr.captchaHosts?.length ? apiErr.captchaHosts : ["elearning"]).filter(
-          (host): host is CaptchaHost => host === "siakad" || host === "elearning"
-        );
-        setPhase("form");
-        setSteps(IDLE_STEPS);
-        setFinished(false);
-        await Promise.all(hosts.map((host) => loadCaptcha(host)));
-        setError(
-          new ApiError(
-            "AUTH_CAPTCHA_REQUIRED",
-            "Kampus mewajibkan CAPTCHA. Baca kode pada gambar di bawah, lalu tekan Masuk.",
-            401
-          )
-        );
-        return;
-      }
-      // Kode CAPTCHA sekali pakai: minta gambar baru agar user tidak mengulang kode lama.
-      if (apiErr.code === "CAPTCHA_EXPIRED" || apiErr.code === "CAPTCHA_INVALID" || apiErr.code === "INVALID_CREDENTIALS") {
-        const hosts = Object.keys(captchas).filter(
-          (host): host is CaptchaHost => host === "siakad" || host === "elearning"
-        );
-        if (hosts.length) {
-          setPhase("form");
-          setSteps(IDLE_STEPS);
-          setFinished(false);
-          await Promise.all(hosts.map((host) => loadCaptcha(host)));
+            if (apiErr.retryAfter && apiErr.status === 429) {
+              block(apiErr.retryAfter);
+            }
+            if (apiErr.status === 429) {
+              // Ditolak sebelum menyentuh server kampus.
+              mark({ form: "failed", siakad: "pending", mybest: "pending" });
+            } else if (apiErr.code === "INVALID_CREDENTIALS") {
+              mark({
+                siakad: "failed",
+                mybest: "failed",
+              });
+            } else {
+              mark({ siakad: "failed", mybest: "failed" });
+            }
+            setError(apiErr);
+            setFinished(true);
+          } finally {
+            setSubmitting(false);
+          }
         }
-      }
-      if (apiErr.status === 429) {
-        // Ditolak sebelum menyentuh server kampus.
-        mark({ form: "failed", siakad: "pending", mybest: "pending" });
-      } else if (apiErr.code === "INVALID_CREDENTIALS") {
-        mark({
-          siakad: "failed",
-          mybest: "failed",
-        });
-      } else {
-        mark({ siakad: "failed", mybest: "failed" });
-      }
-      setError(apiErr);
-      setFinished(true);
-    } finally {
-      setSubmitting(false);
-    }
-  }
 
   return (
     <div className="flex min-h-[100dvh] bg-background text-foreground">
@@ -608,8 +503,8 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
             <span className="text-[#FCD34D]">Satu pintu.</span>
           </p>
           <p className="mt-8 max-w-md font-mono text-sm leading-7 text-[#9CC6E0]">
-            Satu login untuk SIAKAD, MyBest, presensi, dan nilai. Password dicek langsung ke server kampus, lalu disimpan terenkripsi.
-          </p>
+                      Satu login untuk SIAKAD, MyBest, presensi, dan nilai. Password dicek langsung ke server kampus, CAPTCHA diselesaikan otomatis.
+                    </p>
         </div>
 
         <div className="flex items-center justify-between font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-white/55">
@@ -650,11 +545,11 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
             </div>
 
             {onLogin && (
-            <ol className="mb-4 grid grid-cols-2 gap-3" aria-label="Tahap login">
-              {[
-                { n: 1, label: "Akun kampus", on: phase === "form" },
-                { n: 2, label: "Verifikasi", on: phase === "checking" },
-              ].map((step) => (
+                        <ol className="mb-4 grid grid-cols-2 gap-3" aria-label="Tahap login">
+                          {[
+                            { n: 1, label: "Akun kampus", on: phase === "form" },
+                            { n: 2, label: "Verifikasi otomatis", on: phase === "checking" },
+                          ].map((step) => (
                 <li
                   key={step.n}
                   aria-current={step.on ? "step" : undefined}
@@ -681,8 +576,9 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
             ) : (
               <div className="login-form-in">
                 <p className="mb-6 text-sm leading-relaxed text-secondary">
-                  Password dicek langsung ke SIAKAD dan MyBest, lalu disimpan terenkripsi selama sesi aktif (7 hari) supaya kamu nggak perlu login ulang.
-                </p>
+                                  Password dicek langsung ke SIAKAD dan MyBest, lalu disimpan terenkripsi selama sesi aktif (7 hari) supaya kamu nggak perlu login ulang.
+                                  CAPTCHA diselesaikan otomatis oleh server.
+                                </p>
 
                 {blockedUntil && (
                   <div className="px-frame mb-6 flex items-start gap-3 bg-[#FFF1F2] px-4 py-3 [--px-line:#FDA4AF]" role="alert">
@@ -712,51 +608,44 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
                       NIM
                     </label>
                     <input
-                      ref={nimRef}
-                      id="nim"
-                      name="nim"
-                      type="text"
-                      inputMode="numeric"
-                      required
-                      minLength={3}
-                      value={nim}
-                      onChange={(e) => handleNimChange(e.target.value)}
-                      onBlur={preloadCaptchas}
-                      autoComplete="username"
-                      placeholder="152xxxxx"
-                      className={`${fieldClass} font-mono tracking-wider`}
-                    />
+                                          ref={nimRef}
+                                          id="nim"
+                                          name="nim"
+                                          type="text"
+                                          inputMode="numeric"
+                                          required
+                                          minLength={3}
+                                          value={nim}
+                                          onChange={(e) => handleNimChange(e.target.value)}
+                                          autoComplete="username"
+                                          placeholder="152xxxxx"
+                                          className={`${fieldClass} font-mono tracking-wider`}
+                                        />
                   </div>
 
                   <PasswordField
-                    id="studentv2_pass"
-                    label="Password SIAKAD"
-                    name="studentv2_pass"
-                    value={siakadPass}
-                    onChange={setSiakadPass}
-                    onBlur={preloadSiakadCaptcha}
-                    autoComplete="current-password"
-                    disabled={skipSiakad}
-                    required={!skipSiakad}
+                                      id="studentv2_pass"
+                                      label="Password SIAKAD"
+                                      name="studentv2_pass"
+                                      value={siakadPass}
+                                      onChange={setSiakadPass}
+                                      autoComplete="current-password"
+                                      disabled={skipSiakad}
+                                      required={!skipSiakad}
                     action={
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSkipSiakad((prev) => !prev);
-                          if (!skipSiakad) {
-                            setSiakadPass("");
-                            setCaptchas((prev) => {
-                              const next = { ...prev };
-                              delete next.siakad;
-                              return next;
-                            });
-                          }
-                        }}
-                        className="inline-flex items-center font-mono text-[11px] font-semibold text-[#0369A1] hover:underline"
-                      >
-                        {skipSiakad ? "Isi sekarang" : "Lewati SIAKAD"}
-                      </button>
-                    }
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setSkipSiakad((prev) => !prev);
+                                              if (!skipSiakad) {
+                                                setSiakadPass("");
+                                              }
+                                            }}
+                                            className="inline-flex items-center font-mono text-[11px] font-semibold text-[#0369A1] hover:underline"
+                                          >
+                                            {skipSiakad ? "Isi sekarang" : "Lewati SIAKAD"}
+                                          </button>
+                                        }
                     hint={
                       <div className="space-y-1">
                         <p className="font-mono text-[11px] text-secondary">
@@ -803,65 +692,7 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
                     </div>
                   </div>
 
-                  {(Object.keys(captchas) as CaptchaHost[]).length > 0 && (
-                    <div className="space-y-3 rounded-lg border border-[#0369A1]/30 bg-[#F0F7FB] p-3">
-                      <p className="text-xs text-secondary leading-relaxed">
-                        Kampus mewajibkan CAPTCHA. Baca kode pada gambar, lalu lanjutkan.
-                      </p>
-                      {(Object.entries(captchas) as [CaptchaHost, CaptchaState][]).map(
-                        ([host, cap]) => (
-                          <div key={host} className="space-y-2">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="font-mono text-[11px] font-semibold text-[#0369A1]">
-                                CAPTCHA {cap.label}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => void loadCaptcha(host)}
-                                disabled={cap.loading}
-                                className="inline-flex min-h-8 items-center gap-1 font-mono text-[11px] font-semibold text-[#0369A1] hover:underline disabled:opacity-60"
-                              >
-                                <RefreshCw
-                                  className={`h-3 w-3 ${cap.loading ? "animate-spin" : ""}`}
-                                  aria-hidden="true"
-                                />
-                                Muat ulang
-                              </button>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              {cap.image ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={cap.image}
-                                  alt={`Kode CAPTCHA ${cap.label}`}
-                                  className="h-14 w-auto rounded border border-stroke bg-white"
-                                />
-                              ) : (
-                                <span className="flex h-14 w-32 items-center justify-center rounded border border-stroke bg-white font-mono text-[11px] text-secondary">
-                                  {cap.loading ? "Memuat..." : "Gagal"}
-                                </span>
-                              )}
-                              <input
-                                value={cap.code}
-                                onChange={(e) => setCaptchaCode(host, e.target.value)}
-                                maxLength={8}
-                                required={host === "elearning" || siakadPass.trim().length > 0}
-                                autoComplete="off"
-                                autoCapitalize="off"
-                                autoCorrect="off"
-                                spellCheck={false}
-                                placeholder="Kode"
-                                aria-label={`Kode CAPTCHA ${cap.label}`}
-                                className={`${fieldClass} font-mono`}
-                              />
-                            </div>
-                          </div>
-                        )
-                      )}
-                    </div>
-                  )}
-
-                  <label htmlFor="agree" className="flex cursor-pointer items-start gap-3 pt-1">
+                                  <label htmlFor="agree" className="flex cursor-pointer items-start gap-3 pt-1">
                     <input
                       id="agree"
                       type="checkbox"
@@ -894,17 +725,17 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
                   </label>
 
                   <button
-                    type="submit"
-                    disabled={submitting || Boolean(blockedUntil)}
-                    className={`${primaryButtonClass} min-h-12 w-full mt-2 disabled:opacity-60`}
-                  >
-                    {blockedUntil ? <ShieldBan className="h-4 w-4" aria-hidden="true" /> : <LogIn className="h-4 w-4" aria-hidden="true" />}
-                    {blockedUntil
-                      ? `Diblokir ${formatCountdown(remainingMs)}`
-                      : submitting
-                        ? "Memeriksa kredensial kampus"
-                        : "Masuk"}
-                  </button>
+                                      type="submit"
+                                      disabled={submitting || Boolean(blockedUntil)}
+                                      className={`${primaryButtonClass} min-h-12 w-full mt-2 disabled:opacity-60`}
+                                    >
+                                      {blockedUntil ? <ShieldBan className="h-4 w-4" aria-hidden="true" /> : <LogIn className="h-4 w-4" aria-hidden="true" />}
+                                      {blockedUntil
+                                        ? `Diblokir ${formatCountdown(remainingMs)}`
+                                        : submitting
+                                          ? "Memeriksa kredensial kampus (auto CAPTCHA)..."
+                                          : "Masuk"}
+                                    </button>
                 </form>
 
                 <p className="mt-6 border-t-2 border-dashed border-px-soft pt-4 text-xs text-secondary leading-relaxed">

@@ -121,7 +121,7 @@ function greeting(hour: number) {
 const norm = (v?: string | null) => (v ?? "").trim().toLowerCase();
 
 export default function DashboardOverviewPage() {
-  const me = useApi<AuthMeResponse>("/v1/auth/me");
+  const me = useApi<AuthMeResponse>("/v1/auth/me", { persistMs: 12 * 60 * 60 * 1000 });
   const profile = useApi<StudentProfile>("/v1/studentv2/profile", { persistMs: PERSIST_12H });
   const schedule = useApi<ScheduleItem[]>("/v1/studentv2/schedule", { persistMs: PERSIST_12H });
   const khs = useApi<KhsData>("/v1/studentv2/khs", { persistMs: PERSIST_12H });

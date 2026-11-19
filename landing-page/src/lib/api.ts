@@ -96,33 +96,44 @@ export async function apiFetch<T>(
   const token = readSessionToken();
   const { json, form, ...rest } = init ?? {};
   const method = rest.method ?? (json !== undefined || form !== undefined ? "POST" : "GET");
-  const request = () =>
-    fetch(`${base}${path}`, {
-      ...rest,
-      method,
-      credentials: "include",
-      cache: "no-store",
-      headers: {
-        ...(json !== undefined ? { "Content-Type": "application/json" } : {}),
-        // Ambient cookie auth di backend hanya aktif untuk request dashboard;
-        // GET pun wajib membawa penanda ini agar sesi cookie tidak teraba.
-        "X-Requested-With": "dashboard",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...rest.headers,
-      },
-      body: json !== undefined ? JSON.stringify(json) : form,
-    });
+  // Login butuh timeout lama (OCR bisa 2-4 menit). Gunakan AbortController.
+    const isLogin = method === "POST" && path === "/api/mira-login";
+    const timeoutMs = isLogin ? 5 * 60 * 1000 : 30 * 1000; // 5 menit login, 30 detik lain
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  // Jaringan HP sering putus sesaat: permintaan baca (GET) dicoba ulang dua kali sebelum dianggap gagal.
-  let res: Response | null = null;
-  for (let attempt = 0; attempt < (method === "GET" ? 3 : 1) && !res; attempt++) {
-    try {
-      res = await request();
-    } catch {
-      if (attempt === 2 || method !== "GET") break;
-      await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+    const request = () =>
+      fetch(`${base}${path}`, {
+        ...rest,
+        method,
+        credentials: "include",
+        cache: "no-store",
+        signal: controller.signal,
+        headers: {
+          ...(json !== undefined ? { "Content-Type": "application/json" } : {}),
+          // Ambient cookie auth di backend hanya aktif untuk request dashboard;
+          // GET pun wajib membawa penanda ini agar sesi cookie tidak teraba.
+          "X-Requested-With": "dashboard",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...rest.headers,
+        },
+        body: json !== undefined ? JSON.stringify(json) : form,
+      });
+
+    // Jaringan HP sering putus sesaat: permintaan baca (GET) dicoba ulang dua kali sebelum dianggap gagal.
+    let res: Response | null = null;
+    for (let attempt = 0; attempt < (method === "GET" ? 3 : 1) && !res; attempt++) {
+      try {
+        res = await request();
+      } catch (e) {
+        if (e instanceof Error && e.name === "AbortError") {
+          throw new ApiError("TIMEOUT", `Permintaan terlalu lama (${timeoutMs / 1000} detik). Server sedang memproses OCR, coba lagi.`, 0);
+        }
+        if (attempt === 2 || method !== "GET") break;
+        await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+      }
     }
-  }
+    clearTimeout(timeoutId);
   if (!res) {
     throw new ApiError("NETWORK_ERROR", "Tidak bisa terhubung ke server. Cek koneksi internetmu lalu coba lagi.", 0);
   }
@@ -135,17 +146,18 @@ export async function apiFetch<T>(
   }
 
   if (!res.ok) {
-    const err = payload?.detail?.error ?? payload?.error;
-    throw new ApiError(
-      err?.code ?? `HTTP_${res.status}`,
-      err?.message ?? `Permintaan gagal dengan status ${res.status}.`,
-      res.status,
-      typeof err?.retry_after === "number" ? err.retry_after : undefined,
-      Array.isArray(err?.fields) ? err.fields : undefined,
-      Array.isArray(err?.captcha_hosts) ? err.captcha_hosts : undefined
-    );
-  }
-  return payload?.data as T;
+      const err = payload?.detail?.error ?? payload?.error;
+      throw new ApiError(
+        err?.code ?? `HTTP_${res.status}`,
+        err?.message ?? `Permintaan gagal dengan status ${res.status}.`,
+        res.status,
+        typeof err?.retry_after === "number" ? err.retry_after : undefined,
+        Array.isArray(err?.fields) ? err.fields : undefined,
+        Array.isArray(err?.captcha_hosts) ? err.captcha_hosts : undefined
+      );
+    }
+    // Support both envelope { data: ... } and plain response { ... }
+    return (payload?.data ?? payload) as T;
 }
 
 /** Ambil berkas sebagai Blob (dipakai unduhan, pratinjau, dan ringkasan PDF). */
@@ -258,6 +270,14 @@ const PERSIST_PREFIX = "mira_api_cache:";
 
 export function setApiCache<T>(path: string, data: T) {
   memoryCache.set(path, { data, timestamp: Date.now() });
+  // Also persist to sessionStorage for client-side navigation survival
+  if (typeof window !== "undefined") {
+    try {
+      sessionStorage.setItem(PERSIST_PREFIX + path, JSON.stringify({ data, timestamp: Date.now() }));
+    } catch {
+      /* storage full/blocked: device cache is just a bonus */
+    }
+  }
 }
 
 /** Cache sesi di perangkat (sessionStorage): tampilan instan saat navigasi, dibersihkan saat sesi/tab ditutup. */
