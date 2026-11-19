@@ -25,13 +25,13 @@ dalam string base64, lalu mengirim `captcha_answer=6`. Kampus menjawab
   MyBest dan SIAKAD, sehingga sesi baru langsung dipakai jalur absen dan tugas.
 - `app/captcha_relay.py`: `create_challenge()` menyimpan nonce opsional;
   `consume_challenge()` memvalidasi nonce sebelum menghapus key Redis.
-- `app/modules/auth.py`: `/v1/auth/captcha` menetapkan cookie HttpOnly per host
+- `app/modules/auth.py`: login menyelesaikan CAPTCHA lewat OCR (tanpa endpoint tantangan)
   (`ubsi_captcha_siakad`, `ubsi_captcha_elearning`). `/v1/auth/login` dan
   `/v1/auth/credentials` mengirim cookie yang sesuai saat mengonsumsi tantangan.
 - `landing-page/src/app/login/AuthPortal.tsx`: CAPTCHA dimuat saat NIM mencapai
   8 digit dengan nilai input terbaru, bukan menunggu blur atau login gagal.
 - `landing-page/src/components/LockedSiakadCard.tsx`: alur "Hubungkan SIAKAD"
-  memuat CAPTCHA SIAKAD dari `/v1/auth/captcha` (host `siakad`, NIM dari
+  memuat CAPTCHA SIAKAD dari OCR (host `siakad`, NIM dari
   `/v1/auth/me`), mengirim `captcha: {id, code}` ke `/v1/auth/credentials`,
   dan memuat gambar baru setiap gagal karena challenge sekali pakai.
 
@@ -94,22 +94,19 @@ CAPTCHA manusia kampus hanya jadi fallback saat auto-solve gagal.
 2. `POST /v1/auth/login` wajib `mira_captcha` (`LoginRequest`). Kode Mira
    salah -> 401 `MIRA_CAPTCHA_INVALID` plus tantangan segar di
    `error.mira_captcha`.
-3. Backend lalu auto-solve CAPTCHA kampus (`app/captcha_autosolver.py`):
-   ambil tantangan dari `captcha_relay`, OCR voting (ImageMagick +
-   tesseract), lalu validasi tiap kandidat dengan probe login memakai
-   `DUMMY_PASSWORD` (bukan password user). Alasan kampus "credentials"
-   berarti kode diterima; "captcha" berarti coba kandidat berikutnya;
-   "throttled" menghentikan loop. Maksimal 5 tantangan, 4 kandidat per
-   tantangan.
-4. Auto-solve gagal -> 401 `AUTH_CAPTCHA_REQUIRED` dengan
-   `error.fallback_captcha` (`id`, `image`, `label`, `host`) dan cookie
-   nonce per host. User mengisi kode kampus, lalu mengirim ulang dengan
-   `campus_captcha: {id, code}`.
-5. `/v1/auth/credentials` (hubungkan SIAKAD) memakai alur yang sama;
-   field lama `captcha` diganti `campus_captcha`.
-6. Frontend: `AuthPortal.tsx` memuat CAPTCHA Mira sejak halaman dibuka
-   (tanpa NIM), tanpa preload CAPTCHA kampus; `LockedSiakadCard.tsx`
-   hanya menampilkan CAPTCHA kampus kalau server mengirim fallback.
+3. Backend menyelesaikan CAPTCHA kampus (`app/captcha_autosolver.py`):
+   ambil tantangan baru dari `captcha_relay`, baca dengan ddddocr
+   (~20 ms; tesseract hanya cadangan bila ddddocr tidak terpasang), lalu
+   pakai kode itu langsung pada POST login asli. Kode kampus sekali pakai,
+   jadi tidak ada probe validasi: satu kode untuk satu percobaan.
+4. Penolakan berulang: server mengulang dengan tantangan baru sampai
+   `MAX_CAPTCHA_ATTEMPTS` (3). Perulangan berhenti lebih awal bila alasan
+   kampus bukan lagi `captcha` (password salah atau throttle). Bila semua
+   percobaan gagal, endpoint membalas 401 `CAPTCHA_INVALID` tanpa gambar:
+   user cukup menekan Masuk lagi.
+5. `/v1/auth/credentials` (hubungkan SIAKAD) memakai alur OCR yang sama.
+6. Frontend: `AuthPortal.tsx` tidak menampilkan CAPTCHA sama sekali; form
+   hanya berisi NIM, password MyBest, dan persetujuan.
 
 ### Risiko operasional
 
@@ -127,7 +124,7 @@ CAPTCHA manusia kampus hanya jadi fallback saat auto-solve gagal.
 | Kode | Payload tambahan | Arti |
 |---|---|---|
 | `MIRA_CAPTCHA_INVALID` | `error.mira_captcha` {id, image, expires_in} | Kode Mira salah/kosong; tantangan segar siap dipakai |
-| `AUTH_CAPTCHA_REQUIRED` | `error.fallback_captcha` {id, image, label, host} | Auto-solve gagal; isi kode kampus lalu kirim `campus_captcha` |
+| `CAPTCHA_INVALID` | `error.message` | OCR gagal 3 tantangan berurutan; ulangi login |
 
 ### Verifikasi
 
@@ -141,7 +138,7 @@ throttle, probe SIAKAD), dan pembaruan kontrak di `tests/conftest.py`
 
 Sejak saklar `SIAKAD_ENABLED=false`, CAPTCHA SIAKAD tidak pernah diminta Mira:
 login hanya memakai MyBest, dan auto-solve CAPTCHA SIAKAD tidak dipanggil.
-Endpoint `/v1/auth/captcha` untuk `host=siakad`, `/v1/auth/forgot-password` untuk
+Endpoint `/v1/auth/forgot-password` untuk
 `system=siakad`, dan `/v1/auth/credentials` membalas `503 SIAKAD_DISABLED` dengan
 `error.cta_url`. Nilai akhir, KHS, dan KRS dibaca user langsung di
 `students.bsi.ac.id`. Kontrak lengkap: `docs/api.md` seksi
@@ -159,14 +156,14 @@ tantangan baru (`candidate_session`) lalu mengembalikan kandidat OCR teratas.
 `POST /v1/auth/login` mencoba kandidat itu langsung pada login asli dengan
 password user; bila kampus membalas alasan `captcha`, server mengambil
 tantangan baru dan mencoba lagi (maksimal 3 percobaan), lalu jatuh ke fallback
-`AUTH_CAPTCHA_REQUIRED` + `fallback_captcha` bila semuanya gagal. Password salah
+`CAPTCHA_INVALID` bila semuanya gagal. Password salah
 langsung berhenti di percobaan pertama (alasan `credentials`), jadi tidak ada
 POST berulang tanpa guna.
 
 ## CAPTCHA Mira dihapus + re-login latar pakai OCR (2026-11-18, final)
 
 Keputusan user: CAPTCHA milik Mira dihapus. Form login memakai CAPTCHA MyBest
-manual (gambar kampus, diketik user) dan kode dikirim sebagai `campus_captcha`.
+otomatis lewat OCR (ddddocr) dengan tantangan baru per percobaan.
 `POST /v1/auth/mira-captcha`, modul `app/mira_captcha.py`, dan seluruh tesnya
 dihapus.
 

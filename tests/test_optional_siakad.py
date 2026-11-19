@@ -337,37 +337,11 @@ async def test_connect_siakad_wrong_password_rejected(fake_redis):
         assert missing.status_code == 400
         assert missing.json()["error"]["code"] == "INVALID_CREDENTIALS"
 
-        # Auto-solve gagal: server minta CAPTCHA manusia lewat fallback_captcha.
-        with (
-            patch("app.captcha_autosolver.candidate_session", AsyncMock(return_value=({"cookies": {}, "token": "t"}, []))),
-            patch(
-                "app.captcha_relay.create_challenge",
-                AsyncMock(return_value={"id": "f" * 32, "image": "data:image/png;base64,AAA", "label": "SIAKAD", "expires_in": 300}),
-            ),
-        ):
-            fallback = await ac.post(
-                "/v1/auth/credentials",
-                json={"system": "siakad", "password": "salah"},
-                headers=auth,
-            )
-        assert fallback.status_code == 401
-        assert fallback.json()["error"]["code"] == "AUTH_CAPTCHA_REQUIRED"
-        assert fallback.json()["error"]["fallback_captcha"]["host"] == "siakad"
-
-        with (
-            patch("app.modules.auth.verify_siakad_login", AsyncMock(return_value=False)),
-            patch(
-                "app.captcha_relay.consume_challenge",
-                AsyncMock(return_value={"token": "t", "cookies": {}}),
-            ),
-        ):
+        # CAPTCHA SIAKAD diselesaikan OCR: password salah tetap dilaporkan 400.
+        with patch("app.modules.auth.verify_siakad_login", AsyncMock(return_value=False)):
             connected = await ac.post(
                 "/v1/auth/credentials",
-                json={
-                    "system": "siakad",
-                    "password": "salah",
-                    "campus_captcha": {"id": "a" * 32, "code": "ABCD"},
-                },
+                json={"system": "siakad", "password": "salah"},
                 headers=auth,
             )
         assert connected.status_code == 400

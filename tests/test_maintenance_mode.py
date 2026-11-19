@@ -63,26 +63,33 @@ def test_login_allowed_for_whitelisted_nim(monkeypatch):
     monkeypatch.setattr("app.config.settings.MAINTENANCE_WHITELIST_NIMS", "15260767, 99999999")
     monkeypatch.setattr(
         "app.captcha_autosolver.candidate_session",
-        AsyncMock(return_value=({"cookies": {}, "token": "t"}, [])),
+        AsyncMock(return_value=({"cookies": {}, "token": "t"}, ["ABC"])),
     )
     monkeypatch.setattr(
-        "app.captcha_relay.create_challenge",
-        AsyncMock(
-            return_value={
-                "id": "a" * 32,
-                "image": "data:image/png;base64,AAA",
-                "label": "MyBest",
-                "expires_in": 300,
-            }
-        ),
+        "app.modules.auth.verify_live_credentials", AsyncMock(return_value=(False, True))
     )
+    from tests.test_optional_siakad import FakeRedis
+
+    fake = FakeRedis()
+    monkeypatch.setattr("app.session_store.session_store._client", fake)
+    monkeypatch.setattr("app.limiter.limiter._client", fake)
+    monkeypatch.setattr("app.login_guard.login_guard._client", fake)
+    monkeypatch.setattr("app.limiter.limiter.is_allowed", AsyncMock(return_value=True))
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        "app.login_guard.login_guard.check_ip",
+        AsyncMock(return_value=SimpleNamespace(allowed=True, retry_after=0)),
+    )
+    monkeypatch.setattr("app.login_guard.login_guard.record_attempt", AsyncMock())
     client = TestClient(app)
     res = client.post(
         "/v1/auth/login",
         json={"nim": "15260767", "elearning_pass": "x"},
     )
-    assert res.status_code == 401
-    assert res.json()["error"]["code"] == "AUTH_CAPTCHA_REQUIRED"
+    # NIM whitelist benar-benar diproses login (bukan diblok maintenance).
+    assert res.status_code == 200
+    assert res.json()["error"] if False else res.json()["success"] is True
 
 
 def test_dashboard_endpoint_blocked_without_session(monkeypatch):
