@@ -14,7 +14,6 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useApi, apiDownload, ApiError } from "@/lib/api";
-import { SiaKadLockedCard } from "@/components/SiaKadLockedCard";
 import {
   EmptyState,
   ErrorState,
@@ -130,11 +129,6 @@ export default function UjianPage() {
           </a>
         </div>
       </div>
-
-      <SiaKadLockedCard
-        title="Kartu ujian fisik dan soal offline ada di SIAKAD"
-        description="Mira hanya menampilkan jadwal ujian daring. Untuk kartu ujian fisik, kelompok ruang, dan berkas soal resmi, buka students.bsi.ac.id."
-      />
 
       {/* Tab Switcher Jenis Ujian */}
       <div className="w-full">
