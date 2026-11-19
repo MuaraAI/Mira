@@ -697,9 +697,12 @@ async def get_dashboard(creds: tuple[str, str] = Depends(require_studentv2_creds
 async def get_profile(creds: tuple[str, str] = Depends(require_studentv2_creds)):
     """Biodata lengkap dan status akademik mahasiswa dari SIAKAD."""
     nim, password = creds
+    # Nama cache sengaja baru: entri `profile` lama masih memuat data pribadi
+    # (tempat lahir, alamat, telepon) dari sebelum parser dipangkas. Kunci cache
+    # diturunkan dari nama, jadi entri lama tidak akan pernah terbaca lagi.
     res = await cached_endpoint(
         module="studentv2",
-        name="profile",
+        name="profile-academic",
         fetch=lambda: studentv2_client.fetch_page("/mahasiswa/data-pribadi", nim, password),
         parse=parse_profile,
         ttl=settings.TTL_LIBRARY,
