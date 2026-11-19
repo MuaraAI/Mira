@@ -4,7 +4,7 @@ import { InstallAppButton } from "./InstallAppButton";
 import { StatsBadge } from "./StatsBadge";
 
 const features = [
-  { icon: CalendarDays, title: "SIAKAD: Jadwal Kuliah", text: "Jadwal mingguan, ruang, nama dosen pengampu, dan kalender akademik." },
+  { icon: CalendarDays, title: "Jadwal Kuliah", text: "Jadwal mingguan dari MyBest, lengkap dengan ruang, jam, dan nama dosen pengampu." },
   { icon: CheckSquare, title: "MyBest: Tugas & Kuis", text: "Deadline tugas, kumpulkan lembar tugas, pantau kuis, dan unduh 5 paket bahan ajar resmi: Slide, Modul, Silabus, RPS, RTM." },
   { icon: UserCheck, title: "Presensi Real-time", text: "Presensi kehadiran perkuliahan dengan verifikasi rekap otomatis dari server." },
   { icon: GraduationCap, title: "Ujian Online & Nilai", text: "Jadwal ujian kampus (Latihan, UTS, UAS), kartu ujian, KHS, dan IPK semester." },

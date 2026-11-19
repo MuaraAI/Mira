@@ -32,17 +32,6 @@ import { DAY_NAMES, dayIndex, describeRoom, sessionTiming, shortDate } from "@/l
 
 
 
-interface ScheduleItem {
-  id: string;
-  kode: string;
-  nama: string;
-  hari: string;
-  jam: string;
-  sks: number;
-  ruang: string;
-  kode_dosen: string;
-  kelompok_praktek?: string | null;
-}
 
 interface KhsData {
   items: unknown[];
@@ -114,7 +103,10 @@ const norm = (v?: string | null) => (v ?? "").trim().toLowerCase();
 
 export default function DashboardOverviewPage() {
   const me = useApi<AuthMeResponse>("/v1/auth/me");
-  const schedule = useApi<ScheduleItem[]>("/v1/elearning/schedule", { persistMs: PERSIST_12H });
+  // `/v1/elearning/schedule` dan `/v1/elearning/courses` memakai parser dan cache
+  // yang sama (keduanya halaman /sch). Dulu dashboard memanggil keduanya, jadi
+  // dua request identik per muat. Satu panggilan cukup.
+
   const assignments = useApi<AssignmentsData>("/v1/elearning/assignments", { persistMs: 6 * 60 * 60 * 1000, refreshMs: 5 * 60_000 });
   // Token presensi per mapel berasal dari daftar mapel MyBest (dicocokkan dengan jadwal SIAKAD lewat kode/nama).
   const courses = useApi<ElearningCourse[]>("/v1/elearning/courses", { persistMs: PERSIST_12H });
@@ -139,23 +131,21 @@ export default function DashboardOverviewPage() {
   );
 
   const todayIdx = now.getDay();
+  // Satu sumber: jadwal MyBest. Tidak ada fallback silang ke SIAKAD di sini,
+  // karena jadwal kuliah memang datang dari MyBest (/sch).
   const activeSchedule = useMemo(() => {
-    // MyBest lebih dulu: lebih stabil sekarang; SIAKAD dipakai bila MyBest kosong.
-    if (courses.data && courses.data.length > 0) {
-      return courses.data.map((c) => ({
-        id: c.id || `${c.kode}-${c.jam}`,
-        kode: c.kode || "",
-        nama: c.nama,
-        hari: c.hari || "",
-        jam: c.jam || "",
-        sks: c.sks || 0,
-        ruang: c.ruang || "",
-        kode_dosen: c.kode_dosen || "-",
-        kelompok_praktek: c.kelompok_praktek ?? null,
-      }));
-    }
-    return schedule.data ?? [];
-  }, [schedule.data, courses.data]);
+    return (courses.data ?? []).map((c) => ({
+      id: c.id || `${c.kode}-${c.jam}`,
+      kode: c.kode || "",
+      nama: c.nama,
+      hari: c.hari || "",
+      jam: c.jam || "",
+      sks: c.sks || 0,
+      ruang: c.ruang || "",
+      kode_dosen: c.kode_dosen || "-",
+      kelompok_praktek: c.kelompok_praktek ?? null,
+    }));
+  }, [courses.data]);
 
   const todayClasses: TodayClass[] = useMemo(() => {
     const list = activeSchedule.filter((s) => dayIndex(s.hari) === todayIdx);
@@ -196,7 +186,7 @@ export default function DashboardOverviewPage() {
   // Selama request belum selesai tampilkan skeleton, bukan fallback, supaya teks tidak berganti di tengah jalan.
   const isPending = (q: { loading: boolean; data: unknown }) => q.loading && !q.data;
   const profilePending = isPending(elearningProfile);
-  const schedulePending = isPending(schedule);
+  const schedulePending = isPending(courses);
   const assignmentsPending = isPending(assignments);
 
   const nim = me.data?.nim ?? "-";

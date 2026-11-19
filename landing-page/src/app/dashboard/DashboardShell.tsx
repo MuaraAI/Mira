@@ -158,7 +158,7 @@ function ShellLayout({ children }: { children: React.ReactNode }) {
         </main>
 
         <footer className={`py-4 px-6 text-center font-mono text-[11px] text-secondary border-t-2 border-dashed border-px-soft hidden ${chatRoute ? "" : "lg:block"}`}>
-          Mira bukan aplikasi resmi UBSI. Data diambil dari SIAKAD dan MyBest.
+          Mira bukan aplikasi resmi UBSI. Data diambil dari MyBest dan portal kampus.
         </footer>
       </div>
     </div>
