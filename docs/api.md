@@ -273,7 +273,8 @@ Status fitur kampus yang aktif, dibaca frontend sebelum login.
   { "success": false, "error": { "code": "SIAKAD_DISABLED", "message": "...", "module": "siakad", "cta_url": "https://students.bsi.ac.id" } }
   ```
 - Saat saklar mati, `studentv2_pass` diabaikan, `systems.siakad` selalu `false`, dan `data.warnings` memuat catatan "SIAKAD dinonaktifkan".
-- Saat saklar hidup dan `studentv2_pass` kosong, login memakai **password MyBest yang sama** (satu password untuk semua akun kampus). Nilai eksplisit selalu dihormati.
+- **Login hanya memakai MyBest.** `studentv2_pass` kosong berarti SIAKAD tidak disentuh sama sekali (`systems.siakad: false`, tanpa warning). Password SIAKAD **tidak diwarisi** dari password MyBest: dua sistem kampus punya password sendiri, dan menebak hanya menambah login gagal sampai akun SIAKAD terkunci.
+- Menautkan SIAKAD dilakukan setelah login lewat `POST /v1/auth/credentials` dengan password SIAKAD milik user (halaman Sesi & Keamanan), dan bisa dilepas lewat `DELETE /v1/auth/credentials/siakad`.
 - Frontend memakai `systems.siakad` untuk menyembunyikan kartu "ada di SIAKAD" saat fitur aktif.
 
 ### `GET /metrics`

@@ -1,8 +1,9 @@
-"""SIAKAD hidup lagi: password MyBest dipakai sebagai warisan.
+"""Login hanya MyBest; SIAKAD ditautkan manual, bukan mewarisi password.
 
-Saklar SIAKAD_ENABLED=false memblokir seluruh lalu lintas ke students.bsi.ac.id.
-Saat hidup, dashboard tetap tidak punya kolom password SIAKAD terpisah (satu
-password untuk semua akun kampus), jadi login memakai password MyBest yang sama.
+Dua sistem kampus punya password sendiri. Menebak password SIAKAD dengan
+password MyBest hanya menambah hitungan login gagal di kampus sampai akun
+SIAKAD ikut terkunci, jadi login tidak pernah mencoba SIAKAD tanpa password
+eksplisit dari user.
 """
 from unittest.mock import AsyncMock, patch
 
@@ -42,13 +43,14 @@ def _wire(monkeypatch, tmp_path, siakad_enabled: bool):
 
 
 @pytest.mark.asyncio
-async def test_siakad_uses_mybest_password_when_flag_on(monkeypatch, tmp_path):
+async def test_siakad_not_attempted_without_explicit_password(monkeypatch, tmp_path):
+    """Login tanpa password SIAKAD tidak boleh menyentuh SIAKAD sama sekali."""
     _wire(monkeypatch, tmp_path, siakad_enabled=True)
     calls = {}
 
     async def verify(nim, el_pass, sv_pass, **kwargs):
         calls["sv_pass"] = sv_pass
-        return True, True
+        return False, True
 
     monkeypatch.setattr("app.modules.auth.verify_live_credentials", verify)
 
@@ -59,9 +61,10 @@ async def test_siakad_uses_mybest_password_when_flag_on(monkeypatch, tmp_path):
         )
 
     assert res.status_code == 200
-    # Password SIAKAD diwarisi dari MyBest, bukan dikosongkan.
-    assert calls["sv_pass"] == "rahasia123"
-    assert res.json()["data"]["systems"]["siakad"] is True
+    # Tidak ada password SIAKAD: tidak ada percobaan ke students.bsi.ac.id.
+    assert calls["sv_pass"] == ""
+    assert res.json()["data"]["systems"]["siakad"] is False
+    assert res.json()["data"]["warnings"] == []
 
 
 @pytest.mark.asyncio
@@ -86,13 +89,10 @@ async def test_siakad_does_not_inherit_when_flag_off(monkeypatch, tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_inherited_password_failure_stays_silent(monkeypatch, tmp_path):
-    """Password warisan yang ditolak tidak memunculkan warning: user tidak mengetiknya."""
+async def test_no_siakad_warning_when_password_absent(monkeypatch, tmp_path):
     _wire(monkeypatch, tmp_path, siakad_enabled=True)
 
-    async def verify(nim, el_pass, sv_pass, *, outcomes=None, **kwargs):
-        if outcomes is not None:
-            outcomes["studentv2"] = ("credentials", ["Password salah"])
+    async def verify(nim, el_pass, sv_pass, **kwargs):
         return False, True
 
     monkeypatch.setattr("app.modules.auth.verify_live_credentials", verify)
@@ -104,8 +104,7 @@ async def test_inherited_password_failure_stays_silent(monkeypatch, tmp_path):
         )
 
     assert res.status_code == 200
-    warnings = res.json()["data"]["warnings"]
-    assert not any("SIAKAD" in w and "terkunci" in w for w in warnings)
+    assert res.json()["data"]["warnings"] == []
 
 
 @pytest.mark.asyncio
