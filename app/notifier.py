@@ -335,14 +335,19 @@ async def _absen_process_course(
     # Mahasiswa yang sudah absen manual di web kampus atau dosen yang sudah tutup sesi
     # tidak boleh lagi dikirimi notifikasi tuduhan belum absen.
     m_rekap = re.findall(r"rekap-side/([^\"'\s]+)", html)
+    attendance_verified = False
     if m_rekap:
         rekap_tok = extract_clean_token(m_rekap[0])
         try:
             raw_rekap = await pooled_elearning_client.fetch_page(
                 f"/rekap-side/{rekap_tok}", nim, elearning_password
             )
+            records = parse_presence_rekap(raw_rekap)
+            # Fetch sukses = data rekap terpercaya (walau kosong: berarti memang
+            # belum ada presensi hari ini), jadi pengingat boleh dikirim.
+            attendance_verified = True
             today = datetime.fromtimestamp(now_ts, WIB).date()
-            for record in parse_presence_rekap(raw_rekap):
+            for record in records:
                 status_absen = (record.get("status_absen") or "").lower()
                 if (
                     _record_date(record.get("tanggal", "")) == (today.year, today.month, today.day)
@@ -352,8 +357,19 @@ async def _absen_process_course(
                     # Terbukti sudah hadir hari ini: tandai selesai, stop pengingat.
                     await redis.set(key, json.dumps({**state, "done": True}), ex=86400)
                     return 0
+
         except Exception:
             logger.debug("Gagal fetch rekap presensi untuk verifikasi NIM %s", nim)
+    else:
+        # Tanpa link rekap kita tidak bisa membuktikan mahasiswa belum absen.
+        attendance_verified = True
+
+    # Rekap tidak terbaca = tidak ada bukti mahasiswa belum absen. Jangan kirim
+    # tuduhan "kamu belum presensi"; cek ulang nanti. Ini yang dulu membuat
+    # notifikasi tetap datang walau mahasiswa sudah absen di web kampus.
+    if not attendance_verified:
+        await redis.set(key, json.dumps({**state, "next": now_ts + ABSEN_RECHECK_SECONDS}), ex=86400)
+        return 0
 
     session_open = bool(inspect_session_status(html).get("can_submit"))
     action, new_state = absen_decision(state, session_open, now_ts)

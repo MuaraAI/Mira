@@ -137,7 +137,7 @@ def test_parse_quiz():
     assert len(quizzes) >= 1
     first = quizzes[0]
     assert first["paket"] == "LATIHAN"
-    assert first["status_aksi"] == "Ujian Lewat"
+    assert first["status_aksi"] == "Kerjakan"
 
 
 def test_parse_quiz_2026_six_column_layout():

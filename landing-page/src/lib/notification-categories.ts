@@ -1,4 +1,9 @@
 /** Kategori notifikasi (harus sama dengan ALLOWED_CATEGORIES di app/channel_validation.py). */
+export const SIAKAD_ONLY_CATEGORIES: readonly NotificationCategoryId[] = [
+  "pengumuman-siakad",
+  "nilai-keluar",
+];
+
 export const NOTIFICATION_CATEGORIES = [
   { id: "kelas-mulai", label: "Kelas Segera Mulai", desc: "15 menit sebelum kelas dan saat kelas dimulai, lengkap dengan jam dan ruang." },
   { id: "absen-kuliah", label: "Pengingat Absen", desc: "Saat sesi presensi dibuka, lalu diingatkan lagi tiap 10 menit sampai kamu absen." },
@@ -12,3 +17,10 @@ export const NOTIFICATION_CATEGORIES = [
 ] as const;
 
 export type NotificationCategoryId = (typeof NOTIFICATION_CATEGORIES)[number]["id"];
+
+/** Kategori yang memang bisa dikirim sekarang (SIAKAD mati = tanpa kabar SIAKAD). */
+export function availableCategories(siakadEnabled: boolean) {
+  return NOTIFICATION_CATEGORIES.filter(
+    (cat) => siakadEnabled || !SIAKAD_ONLY_CATEGORIES.includes(cat.id)
+  );
+}

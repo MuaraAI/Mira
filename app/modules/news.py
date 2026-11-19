@@ -6,6 +6,7 @@ import re
 import time
 import urllib.parse
 from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from typing import Any, Optional
 
 import httpx
@@ -46,9 +47,20 @@ def _h1_slot(now: Optional[datetime] = None) -> Optional[int]:
     eligible = [h for h in H1_REMINDER_HOURS if current.hour >= h]
     return eligible[-1] if eligible else None
 
+# MyBest menulis tanggal ringkas ("25 Sep 2026") dan lengkap ("25 September 2026").
 _ID_MONTHS = {
-    "januari": 1, "februari": 2, "maret": 3, "april": 4, "mei": 5, "juni": 6,
-    "juli": 7, "agustus": 8, "september": 9, "oktober": 10, "november": 11, "desember": 12
+    "januari": 1, "jan": 1,
+    "februari": 2, "feb": 2, "pebruari": 2,
+    "maret": 3, "mar": 3,
+    "april": 4, "apr": 4,
+    "mei": 5,
+    "juni": 6, "jun": 6,
+    "juli": 7, "jul": 7,
+    "agustus": 8, "agu": 8, "agt": 8, "agus": 8,
+    "september": 9, "sep": 9, "sept": 9,
+    "oktober": 10, "okt": 10,
+    "november": 11, "nov": 11, "nopember": 11,
+    "desember": 12, "des": 12,
 }
 
 
@@ -260,6 +272,25 @@ def build_schedule_notification(
     }
 
 
+_QUIZ_DONE_MARKERS = ("cetak bukti", "ujian lewat", "sudah dikerjakan", "selesai")
+
+
+def _quiz_is_actionable(quiz: dict[str, Any]) -> bool:
+    """True hanya untuk kuis yang masih bisa dikerjakan.
+
+    Kampus membiarkan riwayat kuis lama di /exercise. Status aksi jadi sinyal
+    utama; periode ujian diperiksa sebagai jaring pengaman bila status kosong.
+    """
+    status = str(quiz.get("status_aksi") or "").strip().lower()
+    if any(marker in status for marker in _QUIZ_DONE_MARKERS):
+        return False
+    deadline_text = str(quiz.get("ujian_selesai") or quiz.get("ujian_mulai") or "")
+    deadline = _parse_indonesian_date(deadline_text)
+    if deadline and deadline < datetime.now(ZoneInfo("Asia/Jakarta")).date():
+        return False
+    return True
+
+
 async def _dispatch_user_channel(channel: dict[str, Any], payload: dict[str, Any]) -> bool:
     config = channel["config"]
     if channel["type"] == "discord":
@@ -303,12 +334,15 @@ async def _produce_user_category(
             payload = None
             claimed_quiz_ids: list[str] = []
             claimed_task_ids: list[str] = []
+            claimed_grade_keys: list[str] = []
 
             async def _release_claimed_items():
                 for qid in claimed_quiz_ids:
                     await _release(f"ubsi:notify:quizseen:{nim}:{qid}")
                 for tid in claimed_task_ids:
                     await _release(f"ubsi:notify:taskseen:{nim}:{tid}")
+                for grade_key in claimed_grade_keys:
+                    await _release(grade_key)
             # Kampus bisa memblokir login (CAPTCHA baru / 429). Jangan menembak terus:
             # cukup lewati NIM ini sampai cooldown selesai, tanpa spam traceback.
             blocked = _upstream_block_reason(nim)
@@ -374,6 +408,12 @@ async def _produce_user_category(
                     qid = q.get("id")
                     if not qid:
                         continue
+                    # Kuis yang sudah selesai/lewat bukan kabar baru: MyBest tetap
+                    # menampilkan riwayatnya ("Cetak Bukti", "Ujian Lewat") selamanya,
+                    # jadi tanpa filter ini riwayat lama terkirim sebagai "Kuis Baru"
+                    # setiap kali TTL claim habis.
+                    if not _quiz_is_actionable(q):
+                        continue
                     if await _claim(f"ubsi:notify:quizseen:{nim}:{qid}", 7 * 24 * 3600):
                         claimed_quiz_ids.append(qid)
                         new_quizzes.append(q)
@@ -429,21 +469,36 @@ async def _produce_user_category(
                 if not student_password:
                     continue
                 from app.modules.studentv2 import parse_grades
+
+                from app.notifier import _claim as _claim_grade, _release as _release_grade
+
                 try:
                     raw_grades = await studentv2_client.fetch_page("/mahasiswa/nilai-murni", nim, student_password)
                     grades = parse_grades(raw_grades)
                 except Exception as exc:
                     logger.debug("Fetch nilai-keluar SIAKAD gagal (nim=%s): %s", nim, exc)
                     continue
-                graded = [g for g in grades if g.get("grade")]
-                if graded:
-                    target = graded[0]
+                # Satu kabar per mata kuliah, bukan "nilai terbaru" tiap hari:
+                # tanpa dedupe per mata kuliah, nilai yang sama dikirim berulang
+                # sampai kampus menambah nilai baru.
+                for target in grades:
+                    if not target.get("grade"):
+                        continue
+                    kode = str(target.get("kode") or "").strip()
+                    if not kode:
+                        continue
+                    grade_key = f"ubsi:notify:gradeseen:{nim}:{kode}:{target['grade']}"
+                    if not await _claim_grade(grade_key, 30 * 24 * 3600):
+                        continue
+                    claimed_grade_keys.append(grade_key)
                     payload = {
                         "category": category,
                         "title": f"Nilai Dirilis: {target['nama']}",
-                        "description": f"Nilai akhir mata kuliah {target['nama']} ({target['kode']}) telah dirilis di SIAKAD: Grade {target['grade']} (Total: {target.get('total')}).",
+                        "description": f"Nilai akhir mata kuliah {target['nama']} ({kode}) telah dirilis di SIAKAD: Grade {target['grade']} (Total: {target.get('total')}).",
                         "link": f"{settings.WEB_BASE_URL}/dashboard/nilai",
                     }
+                    slot_suffix = f":{kode}:{target['grade']}"
+                    break
             elif category == "jadwal-ujian":
                 from app.modules.elearning import parse_exam_types, parse_exam_schedule, pooled_elearning_client
 
@@ -615,14 +670,13 @@ async def poll_user_notifications() -> int:
     """Produce account-scoped notifications from existing authenticated data sources."""
     total = 0
     assignment_fetch_cache: dict[str, tuple[str, str]] = {}  # nim -> (raw_quiz, raw_assignments)
-    for category in (
-        "matkul-besok",
-        "quiz-tugas",
-        "tugas-baru",
-        "pengumuman-siakad",
-        "nilai-keluar",
-        "jadwal-ujian",
-    ):
+    # Kategori yang butuh SIAKAD dilewati saat SIAKAD mati: dulu keduanya hanya
+    # `continue` per NIM setelah fetch gagal, jadi UI menjanjikan kabar yang
+    # tidak akan pernah datang.
+    categories = ["matkul-besok", "quiz-tugas", "tugas-baru", "jadwal-ujian"]
+    if settings.SIAKAD_ENABLED:
+        categories += ["pengumuman-siakad", "nilai-keluar"]
+    for category in categories:
         # Satu kategori crash tidak boleh membunuh kategori berikutnya
         try:
             total += await _produce_user_category(category, assignment_fetch_cache)
@@ -764,22 +818,9 @@ async def broadcast_news_article(post: dict[str, Any]) -> dict[str, bool]:
         # SQLite down / belum ada tabel: tetap kirim ke channel admin
         pass
 
-    # PWA Web Push: kategori terikat akun, broadcast ke semua device NIM terkait
-    try:
-        from app.pwa_webpush import dispatch_pwa_to_category
-
-        tasks["pwa-push"] = dispatch_pwa_to_category(
-            "berita-kampus",
-            {
-                "title": f"Berita Kampus: {post.get('title', 'Artikel Baru')}"[:120],
-                "body": (post.get("description") or "Ada artikel baru di portal berita UBSI.")[:200],
-                "url": post.get("link") or "/dashboard/berita",
-                "tag": "berita-kampus",
-            },
-        )
-    except Exception:
-        # VAPID belum dikonfigurasi / SQLite down: broadcast berita tetap lanjut
-        pass
+    # PWA push sengaja TIDAK dikirim per artikel: portal kampus menerbitkan
+    # beberapa artikel per jam, dan push per artikel jadi spam. Ringkasannya
+    # dikirim sekali sehari lewat `_send_news_digest()`.
 
     if not tasks:
         return {}
@@ -787,6 +828,42 @@ async def broadcast_news_article(post: dict[str, Any]) -> dict[str, bool]:
     keys = list(tasks.keys())
     results = await asyncio.gather(*tasks.values(), return_exceptions=True)
     return {k: (bool(r) and not isinstance(r, Exception)) for k, r in zip(keys, results)}
+
+NEWS_DIGEST_HOUR = 19  # WIB: satu ringkasan berita per hari
+
+
+def _news_digest_due(now: Optional[datetime] = None) -> bool:
+    """True setelah jam digest, sekali per hari (dedupe di Redis oleh pemanggil)."""
+    current = now or datetime.now(ZoneInfo("Asia/Jakarta"))
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=ZoneInfo("Asia/Jakarta"))
+    return current.astimezone(ZoneInfo("Asia/Jakarta")).hour >= NEWS_DIGEST_HOUR
+
+
+async def _send_news_digest(posts: list[dict[str, Any]]) -> int:
+    """Ringkasan berita harian: maksimal tiga judul terbaru, sekali per hari."""
+    if not posts:
+        return 0
+    from app.pwa_webpush import dispatch_pwa_to_category
+
+    titles = [str(p.get("title") or "").strip() for p in posts[:3]]
+    titles = [t for t in titles if t]
+    if not titles:
+        return 0
+    body = " | ".join(titles)
+    if len(posts) > len(titles):
+        body += f" (+{len(posts) - len(titles)} artikel lain)"
+    return await dispatch_pwa_to_category(
+        "berita-kampus",
+        {
+            "title": "Ringkasan Berita Kampus Hari Ini",
+            "body": body[:200],
+            "url": f"{settings.WEB_BASE_URL}/dashboard/berita",
+            "tag": "berita-kampus-digest",
+        },
+        ttl=86400,
+    )
+
 
 async def poll_news_webhook() -> int:
     """Cek artikel berita baru dan broadcast ke seluruh channel aktif."""
@@ -852,6 +929,14 @@ async def poll_news_webhook() -> int:
                 dispatched_count += 1
             else:
                 await redis.srem(key_seen, p_id)
+
+    # Satu ringkasan push per hari, bukan satu push per artikel.
+    if _news_digest_due():
+        from app.notifier import _claim as _claim_digest
+
+        today = datetime.now(ZoneInfo("Asia/Jakarta")).date().isoformat()
+        if await _claim_digest(f"ubsi:news:digest:{today}", 2 * 86400):
+            dispatched_count += await _send_news_digest(posts)
 
     return dispatched_count
 
