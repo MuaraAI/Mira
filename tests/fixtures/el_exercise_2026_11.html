@@ -1,0 +1,1400 @@
+
+<!doctype html>
+<html lang="en">
+
+<head>
+	<!-- Required meta tags -->
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+	<!-- Meta -->
+	<meta name="description" content="Responsive Bootstrap4 Dashboard Template">
+	<meta name="author" content="ParkerThemes">
+	<meta name="csrf-token" content="dummy-csrf-token">
+	<link rel="shortcut icon" href="https://elearning.bsi.ac.id/assets/img/icon1.jfif" />
+	<!-- Title -->
+	<title>My Best</title>
+
+	<script>
+		(function() {
+			function getCookie(name) {
+				var match = document.cookie.match(new RegExp('(^|;\\s*)' + name + '=([^;]+)'));
+				return match ? decodeURIComponent(match[2]) : null;
+			}
+			var theme = 'light';
+			try {
+				theme = localStorage.getItem('theme') || getCookie('app_theme') || 'light';
+				if (!localStorage.getItem('theme') && theme) {
+					localStorage.setItem('theme', theme);
+				}
+			} catch (e) {
+				theme = getCookie('app_theme') || 'light';
+			}
+			document.documentElement.setAttribute('data-theme', theme);
+			if (theme === 'dark') document.documentElement.classList.add('dark-mode');
+		})();
+	</script>
+
+
+	<!-- *************
+			************ Common Css Files *************
+		************ -->
+	<!-- Bootstrap css -->
+	<link rel="stylesheet" href="https://elearning.bsi.ac.id/assets/css/bootstrap.min.css">
+	<link rel="stylesheet" href="https://elearning.bsi.ac.id/assets/dist/sweetalert2.min.css">
+	<link rel="stylesheet" href="https://elearning.bsi.ac.id/assets/dist/sweetalert2.css">
+
+	<!-- Icomoon Font Icons css -->
+	<link rel="stylesheet" href="https://elearning.bsi.ac.id/assets/fonts/style.css">
+
+	<!-- Main css -->
+	<link rel="stylesheet" href="https://elearning.bsi.ac.id/assets/css/main.css">
+	<link rel="stylesheet" href="https://elearning.bsi.ac.id/assets/css/dosen-shell.css">
+	<link rel="stylesheet" href="https://elearning.bsi.ac.id/assets/css/dark-theme.css?v=1793842429">
+	<!-- Data Tables -->
+	<link rel="stylesheet" href="https://elearning.bsi.ac.id/assets/vendor/datatables/dataTables.bs4.css" />
+	<link rel="stylesheet" href="https://elearning.bsi.ac.id/assets/vendor/datatables/dataTables.bs4-custom.css" />
+	<link rel="stylesheet" href="https://elearning.bsi.ac.id/assets/vendor/datatables/buttons.bs.css" />
+
+
+
+	<!-- *************
+			************ Vendor Css Files *************
+		************ -->
+	<!-- DateRange css -->
+	<link rel="stylesheet" href="https://elearning.bsi.ac.id/assets/vendor/daterange/daterange.css" />
+	<style>
+		.dijawab {
+			background: #2563eb !important;
+			color: #ffffff !important;
+			border-color: #1d4ed8 !important;
+		}
+		.dijawab .pilihan {
+			color: #ffffff !important;
+		}
+		.dijawab .option-badge {
+			background: #1d4ed8 !important;
+			color: #ffffff !important;
+		}
+
+		.pagination>li>a,
+		.pagination>li>span {
+			width: 38px;
+			text-align: center;
+			margin: 3px;
+		}
+
+		.timer {
+			border: solid thin #b9b2b2;
+			padding: 5px 15px;
+			font-size: 14pt;
+			color: #fff;
+			background: #291a71;
+		}
+
+		.soal {
+			margin: 0 0 15px 0;
+		}
+
+		.box-footer {
+			border-top: 1px solid #ebebeb !important;
+		}
+
+		.jawab {
+			cursor: pointer;
+			margin: 0 0 7px 0;
+		}
+
+		.pilihan p {
+			margin: 0;
+		}
+	</style>
+	<style>
+		/* Styling untuk ikon chat */
+		.chatx-icon {
+			position: fixed;
+			top: 50%;
+			right: 0;
+			transform: translateY(-50%);
+			cursor: pointer;
+			z-index: 1000;
+		}
+
+		/* Ukuran ikon chat */
+		.chatx-icon img {
+			width: 80px;
+			transition: transform 0.3s ease-in-out;
+			/* Efek animasi saat hover */
+		}
+
+		/* Efek animasi saat hover di ikon chat */
+		.chatx-icon img:hover {
+			transform: scale(1.1);
+			/* Membesar saat hover */
+		}
+
+		/* Styling untuk chat badge (jumlah pesan) */
+		.chatx-badge {
+			position: absolute;
+			top: -5px;
+			right: -5px;
+			background: red;
+			color: white;
+			font-size: 14px;
+			font-weight: bold;
+			width: 20px;
+			height: 20px;
+			text-align: center;
+			line-height: 20px;
+			border-radius: 50%;
+			box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.3);
+		}
+
+		/* Styling untuk chat box */
+		.chatx-box,
+		.private-chat {
+			position: fixed;
+			bottom: 80px;
+			right: 20px;
+			width: 300px;
+			background: white;
+			border-radius: 10px;
+			box-shadow: 0px 0px 10px gray;
+			display: none;
+			z-index: 1000;
+		}
+
+		.chatx-box {
+			position: fixed;
+			bottom: 80px;
+			right: 20px;
+			width: 300px;
+			height: 400px;
+			background: white;
+			border-radius: 10px;
+			box-shadow: 0px 0px 10px gray;
+			display: none;
+			z-index: 1000;
+			overflow: hidden;
+		}
+
+		.chatx-header {
+			background: #007bff;
+			color: white;
+			padding: 10px;
+			display: flex;
+			justify-content: space-between;
+			border-radius: 10px 10px 0 0;
+		}
+
+		/* HANYA bagian ini yang boleh scroll */
+		.chatx-body {
+			height: calc(100% - 50px);
+			/* sisa tinggi dari header */
+			overflow-y: auto;
+			padding: 10px;
+			box-sizing: border-box;
+		}
+
+
+		/* Styling footer chat box */
+		.chatx-footer {
+			padding: 10px;
+			display: flex;
+			align-items: center;
+		}
+
+		/* Styling input pesan */
+		.chatx-footer input {
+			flex: 1;
+			padding: 5px;
+			border-radius: 5px;
+			/* Membulatkan sudut input */
+			border: 1px solid #ccc;
+			margin-right: 10px;
+			font-size: 14px;
+		}
+
+		/* Styling tombol kirim */
+		.chatx-footer button {
+			background: #007bff;
+			color: white;
+			border: none;
+			padding: 5px 15px;
+			cursor: pointer;
+			border-radius: 5px;
+			/* Membulatkan sudut tombol */
+			transition: background 0.3s ease;
+		}
+
+		/* Efek hover pada tombol kirim */
+		.chatx-footer button:hover {
+			background: #0056b3;
+		}
+
+		/* Efek fokus pada input pesan */
+		.chatx-footer input:focus {
+			outline: none;
+			border-color: #007bff;
+		}
+
+		/* Styling untuk nama user yang bisa diklik */
+		.chatx-user-link {
+			cursor: pointer;
+			color: #007bff;
+			text-decoration: none;
+			display: inline-block;
+			padding: 5px;
+			border-radius: 8px;
+			transition: all 0.2s ease-in-out;
+		}
+
+		.chatx-user-link:hover {
+			background-color: #f0f8ff;
+		}
+
+		.chatx-user-link.selected {
+			background-color: #007bff;
+			color: white;
+			font-weight: bold;
+			box-shadow: 0 0 8px rgba(0, 123, 255, 0.6);
+		}
+
+
+		.chatx-search-input {
+			width: 100%;
+			padding: 6px 10px;
+			margin-bottom: 10px;
+			border: 1px solid #ccc;
+			border-radius: 5px;
+			font-size: 14px;
+		}
+
+		#chat-user-scroll {
+			max-height: 300px;
+			overflow-y: auto;
+		}
+
+		#private-chat-messages {
+			height: 300px;
+			overflow-y: auto;
+			padding: 10px;
+		}
+
+		#private-message:disabled::placeholder {
+			color: #888;
+			font-style: italic;
+		}
+
+		.badge-unread {
+			background-color: red;
+			color: white;
+			padding: 2px 6px;
+			border-radius: 12px;
+			font-size: 12px;
+			margin-left: 5px;
+			font-weight: bold;
+		}
+	</style>
+
+</head>
+
+<body>
+
+	<!-- Loading starts -->
+	
+	<!-- Loading ends -->
+
+
+	<!-- Page wrapper start -->
+	<div class="page-wrapper">
+
+		<!-- Sidebar wrapper start -->
+		<nav id="sidebar" class="sidebar-wrapper">
+			<div class="sidebar-head">
+				<a href="https://elearning.bsi.ac.id/user/dashboard" class="shell-brand" aria-label="Kembali ke dashboard">
+					<span class="shell-brand-mark">
+						<img src="https://elearning.bsi.ac.id/eliteadmin/minilogo_bsi.png" alt="Logo BSI">
+					</span>
+					<span class="shell-brand-copy">
+						<strong>MyBest</strong>
+						<small>Portal Mahasiswa</small>
+					</span>
+				</a>
+			</div>
+
+			<!-- Sidebar content start -->
+			<div class="sidebar-content">
+
+    <!-- sidebar menu start -->
+    <div class="sidebar-menu">
+        <ul>
+            <li class="header-menu">Menu Utama</li>
+
+            <li class="sidebar-item ">
+                <a href="https://elearning.bsi.ac.id/user/dashboard">
+                    <i class="icon-devices_other"></i>
+                    <span class="menu-text">Dashboard</span>
+                </a>
+            </li>
+
+            <li class="sidebar-item">
+                <a href="https://elearning.bsi.ac.id/student-2">
+                    <i class="icon-airplay"></i>
+                    <span class="menu-text">Student V2</span>
+                </a>
+            </li>
+
+            <li class="sidebar-item ">
+                <a href="https://elearning.bsi.ac.id/profil">
+                    <i class="icon-user1"></i>
+                    <span class="menu-text">Profil</span>
+                </a>
+            </li>
+
+            <li class="sidebar-item">
+                <a href="https://elearning.bsi.ac.id/halaman-ujian">
+                    <i class="icon-edit1"></i>
+                    <span class="menu-text">Ujian</span>
+                </a>
+            </li>
+
+            <li class="sidebar-item ">
+                <a href="https://elearning.bsi.ac.id/toefl">
+                    <i class="icon-book"></i>
+                    <span class="menu-text">TOEFL</span>
+                </a>
+            </li>
+
+            
+
+            <li class="sidebar-dropdown active">
+                <a href="#">
+                    <i class="icon-calendar"></i>
+                    <span class="menu-text">Jadwal Kuliah</span>
+                </a>
+                <div class="sidebar-submenu">
+                    <ul>
+                        <li>
+                            <a href="https://elearning.bsi.ac.id/sch">Jadwal Kuliah</a>
+                        </li>
+                        <li>
+                            <a href="https://elearning.bsi.ac.id/kuliah-pengganti">Kuliah Pengganti</a>
+                        </li>
+                        <li>
+                            <a href="https://elearning.bsi.ac.id/exercise">Kuis</a>
+                        </li>
+                    </ul>
+                </div>
+            </li>
+
+            
+            <li class="sidebar-item">
+                <form method="POST" action="https://elearning.bsi.ac.id/logout" id="sidebar-logout-form">
+                    <input type="hidden" name="_token" value="oBfwr7MyGrV1s3AjRRbEhOcLjvSuDYohRmvZrUJa" autocomplete="off">                    <a href="https://elearning.bsi.ac.id/logout" onclick="event.preventDefault(); document.getElementById('sidebar-logout-form').submit();">
+                        <i class="icon-log-out1"></i>
+                        <span class="menu-text">Keluar</span>
+                    </a>
+                </form>
+            </li>
+
+        </ul>
+    </div>
+    <!-- sidebar menu end -->
+
+</div>
+			<!-- Sidebar content end -->
+		</nav>
+		<!-- Sidebar wrapper end -->
+		<div id="overlay" class="sidebar-overlay" aria-hidden="true"></div>
+
+		<!-- Page content start  -->
+		<div class="page-content">
+
+			<!-- Header start -->
+			<header class="header">
+    <div class="header-context-wrap">
+        <a id="pin-sidebar" href="#" class="sidebar-collapse" aria-label="Ringkas menu navigasi" title="Ringkas menu">
+            <i class="icon-menu"></i>
+        </a>
+
+        <a id="toggle-sidebar" href="#" class="mobile-menu-button" aria-label="Buka menu navigasi">
+            <i class="icon-menu"></i>
+        </a>
+
+        <div class="header-context">
+            <span class="header-kicker">Portal Akademik Mahasiswa</span>
+            <div class="header-title">
+                <span class="header-status-dot" aria-hidden="true"></span>
+                Universitas Bina Sarana Informatika
+            </div>
+        </div>
+    </div>
+
+    <div class="header-items">
+        <ul class="header-actions">
+            <li class="theme-toggle-item">
+                <button type="button" class="theme-toggle-btn" aria-label="Ganti mode tampilan" title="Ganti mode tampilan">
+                    <i class="icon-moon theme-icon-moon"></i>
+                    <i class="icon-sun theme-icon-sun"></i>
+                </button>
+            </li>
+            <li class="dropdown">
+                <a href="#" id="userSettings" class="user-settings" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    <span class="user-summary">
+                        <span class="user-display-name">YUKEN VELINO</span>
+                        <span class="user-identifier">NIM 12345678</span>
+                    </span>
+                    <span class="avatar">YV</span>
+                    <i class="icon-chevron-down user-chevron" aria-hidden="true"></i>
+                </a>
+
+                <div class="dropdown-menu dropdown-menu-right user-dropdown" aria-labelledby="userSettings">
+                    <div class="dropdown-user-card">
+                        <span class="dropdown-avatar">YV</span>
+                        <span>
+                            <strong>YUKEN VELINO</strong>
+                            <small>test@example.com</small>
+                        </span>
+                    </div>
+
+                    <div class="header-profile-actions">
+                        <a href="#" class="theme-toggle-action">
+                            <i class="icon-moon theme-icon-moon"></i>
+                            <i class="icon-sun theme-icon-sun"></i>
+                            <span>Mode Tampilan</span>
+                        </a>
+
+                        <a href="https://elearning.bsi.ac.id/profil">
+                            <i class="icon-settings1"></i>
+                            <span>Pengaturan akun</span>
+                        </a>
+
+                        <form method="POST" action="https://elearning.bsi.ac.id/logout">
+                            <input type="hidden" name="_token" value="oBfwr7MyGrV1s3AjRRbEhOcLjvSuDYohRmvZrUJa" autocomplete="off">                            <button type="submit" class="header-logout-button">
+                                <i class="icon-log-out1"></i>
+                                <span>Keluar</span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </li>
+        </ul>
+    </div>
+</header>			<!-- Header end -->
+
+			<!-- Page header start -->
+			<div class="page-header">
+				<ol class="breadcrumb">
+					<li class="breadcrumb-item font-weight-bold text-primary" style="font-size: 1.1rem;">
+						Universitas Bina Sarana Informatika
+					</li>
+				</ol>
+			</div>
+			<!-- Page header end -->
+
+			<!-- Main container start -->
+			<div class="main-container">
+				<style>
+    .exercise-wrapper {
+        padding-right: 20px;
+    }
+    .table-container-card {
+        border-radius: 14px;
+        border: 1px solid #e2e8f0;
+        background: #ffffff;
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.04);
+        overflow: hidden;
+    }
+    .table-custom-exam {
+        width: 100%;
+        margin-bottom: 0;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    .table-custom-exam th {
+        background: #f8fafc;
+        color: #475569;
+        font-weight: 700;
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        padding: 16px 20px;
+        border-bottom: 2px solid #e2e8f0;
+        border-top: none;
+        vertical-align: middle;
+    }
+    .table-custom-exam td {
+        padding: 18px 20px;
+        vertical-align: middle;
+        font-size: 0.9rem;
+        border-bottom: 1px solid #f1f5f9;
+        background: #ffffff;
+    }
+    .table-custom-exam tbody tr:hover td {
+        background-color: #f8fafc;
+    }
+    .table-custom-exam tbody tr:last-child td {
+        border-bottom: none;
+    }
+    .exam-info-banner {
+        background: #f0f7ff;
+        border: 1px solid #bae0ff;
+        border-radius: 12px;
+        padding: 14px 20px;
+        margin-bottom: 22px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+    .exam-info-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        background: #1890ff;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.3rem;
+        flex-shrink: 0;
+        box-shadow: 0 4px 10px rgba(24, 144, 255, 0.25);
+    }
+    .btn-exam-action {
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 0.85rem;
+        padding: 8px 16px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        white-space: nowrap;
+        transition: all 0.2s ease;
+    }
+    .btn-exam-action:hover {
+        transform: translateY(-1px);
+    }
+</style>
+
+<div class="content-wrapper exercise-wrapper">
+
+    
+    
+    <!-- Header Section -->
+    <div class="row gutters mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center flex-wrap" style="gap: 12px;">
+                <div>
+                    <h4 class="font-weight-bold text-dark mb-1">
+                        <i class="icon-file-text text-primary mr-2"></i>Jadwal Kuis & Latihan Ujian
+                    </h4>
+                    <p class="text-muted small mb-0">
+                        Daftar jadwal paket kuis online dan latihan mandiri untuk mata kuliah kelas Anda.
+                    </p>
+                </div>
+                <div class="d-flex align-items-center flex-wrap" style="gap: 10px;">
+                    <a href="/storage/Panduan Kuis MyBest Mahasiswa.pdf" target="_blank" class="btn btn-outline-primary btn-sm font-weight-bold" style="border-radius: 8px; padding: 8px 16px;">
+                        <i class="icon-download mr-1"></i> Panduan Kuis Online
+                    </a>
+                    <span class="badge badge-light border px-3 py-2 text-dark font-weight-bold" style="border-radius: 8px; font-size: 0.85rem;">
+                        <i class="icon-clock text-primary mr-1"></i> 20 Nov 2026
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Session Alert -->
+        
+    <!-- Banner Informasi (Full-Width di atas) -->
+    <div class="row gutters">
+        <div class="col-12">
+            <div class="exam-info-banner">
+                <div class="exam-info-icon">
+                    <i class="icon-info"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <div class="font-weight-bold text-dark small mb-1">Petunjuk Pelaksanaan Kuis</div>
+                    <div class="text-muted small" style="line-height: 1.5;">
+                        Silakan lakukan ujian kuis sesuai dengan jadwal yang telah ditentukan oleh dosen pengampu matakuliah. Pastikan koneksi internet Anda stabil sebelum menekan tombol <strong>Mulai Ujian</strong>.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabel Jadwal Kuis Murni (Clean Table) -->
+    <div class="row gutters">
+        <div class="col-12">
+            <div class="table-container-card">
+                <div class="table-responsive">
+                    <table class="table table-custom-exam">
+                        <thead>
+                            <tr>
+                                <th class="text-center" style="width: 5%;">No</th>
+                                <th style="width: 32%;">Mata Kuliah & Paket</th>
+                                <th style="width: 12%;">Dosen</th>
+                                <th style="width: 12%;">Durasi</th>
+                                <th style="width: 24%;">Periode Ujian</th>
+                                <th class="text-center" style="width: 15%;">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                                                                                                                                    <tr>
+                                        <td class="text-center font-weight-bold text-muted">1</td>
+                                        <td>
+                                            <div class="d-flex align-items-center mb-1" style="gap: 6px;">
+                                                <span class="badge badge-light border text-primary font-weight-bold">153</span>
+                                                <span class="badge badge-primary font-weight-bold" style="border-radius: 4px; font-size: 0.72rem; padding: 3px 8px;">
+                                                    LATIHAN
+                                                </span>
+                                            </div>
+                                            <div class="font-weight-bold text-dark" style="font-size: 0.95rem;">
+                                                PENGANTAR TEKNOLOGI INFORMASI DAN KOMUNIKASI
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <i class="icon-user text-muted mr-2"></i>
+                                                <span class="font-weight-bold text-dark">NPR</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="font-weight-bold text-dark text-nowrap">
+                                                <i class="icon-clock text-muted mr-1"></i>30 Menit
+                                            </span>
+                                        </td>
+                                        <td>
+                                                                                            <div class="font-weight-bold text-dark">
+                                                    <i class="icon-calendar text-primary mr-1"></i>25 Sep 2026
+                                                </div>
+                                                <div class="small text-muted text-nowrap mt-1">
+                                                    <i class="icon-clock mr-1"></i>10:35 WIB &mdash; 11:05 WIB
+                                                </div>
+                                                                                    </td>
+                                        <td class="text-center">
+                                                                                            <a href="/cetak-ujian-pdf/dummy-token-1" class="btn btn-sm btn-success btn-exam-action" target="_blank" style="box-shadow: 0 4px 10px rgba(16, 185, 129, 0.25);">
+                                                    <i class="icon-printer"></i> Cetak Bukti
+                                                </a>
+                                                                                    </td>
+                                    </tr>
+                                                                                                        <tr>
+                                        <td class="text-center font-weight-bold text-muted">2</td>
+                                        <td>
+                                            <div class="d-flex align-items-center mb-1" style="gap: 6px;">
+                                                <span class="badge badge-light border text-primary font-weight-bold">153</span>
+                                                <span class="badge badge-primary font-weight-bold" style="border-radius: 4px; font-size: 0.72rem; padding: 3px 8px;">
+                                                    LATIHAN
+                                                </span>
+                                            </div>
+                                            <div class="font-weight-bold text-dark" style="font-size: 0.95rem;">
+                                                PENGANTAR TEKNOLOGI INFORMASI DAN KOMUNIKASI
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <i class="icon-user text-muted mr-2"></i>
+                                                <span class="font-weight-bold text-dark">NPR</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="font-weight-bold text-dark text-nowrap">
+                                                <i class="icon-clock text-muted mr-1"></i>60 Menit
+                                            </span>
+                                        </td>
+                                        <td>
+                                                                                            <div class="font-weight-bold text-dark">
+                                                    <i class="icon-calendar text-primary mr-1"></i>02 Oct 2026
+                                                </div>
+                                                <div class="small text-muted text-nowrap mt-1">
+                                                    <i class="icon-clock mr-1"></i>10:05 WIB &mdash; 10:35 WIB
+                                                </div>
+                                                                                    </td>
+                                        <td class="text-center">
+                                                                                            <a href="/cetak-ujian-pdf/dummy-token-2" class="btn btn-sm btn-success btn-exam-action" target="_blank" style="box-shadow: 0 4px 10px rgba(16, 185, 129, 0.25);">
+                                                    <i class="icon-printer"></i> Cetak Bukti
+                                                </a>
+                                                                                    </td>
+                                    </tr>
+                                                                                                        <tr>
+                                        <td class="text-center font-weight-bold text-muted">3</td>
+                                        <td>
+                                            <div class="d-flex align-items-center mb-1" style="gap: 6px;">
+                                                <span class="badge badge-light border text-primary font-weight-bold">153</span>
+                                                <span class="badge badge-primary font-weight-bold" style="border-radius: 4px; font-size: 0.72rem; padding: 3px 8px;">
+                                                    LATIHAN
+                                                </span>
+                                            </div>
+                                            <div class="font-weight-bold text-dark" style="font-size: 0.95rem;">
+                                                PENGANTAR TEKNOLOGI INFORMASI DAN KOMUNIKASI
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <i class="icon-user text-muted mr-2"></i>
+                                                <span class="font-weight-bold text-dark">NPR</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="font-weight-bold text-dark text-nowrap">
+                                                <i class="icon-clock text-muted mr-1"></i>30 Menit
+                                            </span>
+                                        </td>
+                                        <td>
+                                                                                            <div class="font-weight-bold text-dark">
+                                                    <i class="icon-calendar text-primary mr-1"></i>09 Oct 2026
+                                                </div>
+                                                <div class="small text-muted text-nowrap mt-1">
+                                                    <i class="icon-clock mr-1"></i>10:45 WIB &mdash; 11:15 WIB
+                                                </div>
+                                                                                    </td>
+                                        <td class="text-center">
+                                                                                            <a href="/cetak-ujian-pdf/dummy-token-3" class="btn btn-sm btn-success btn-exam-action" target="_blank" style="box-shadow: 0 4px 10px rgba(16, 185, 129, 0.25);">
+                                                    <i class="icon-printer"></i> Cetak Bukti
+                                                </a>
+                                                                                    </td>
+                                    </tr>
+                                                                                                        <tr>
+                                        <td class="text-center font-weight-bold text-muted">4</td>
+                                        <td>
+                                            <div class="d-flex align-items-center mb-1" style="gap: 6px;">
+                                                <span class="badge badge-light border text-primary font-weight-bold">153</span>
+                                                <span class="badge badge-primary font-weight-bold" style="border-radius: 4px; font-size: 0.72rem; padding: 3px 8px;">
+                                                    LATIHAN
+                                                </span>
+                                            </div>
+                                            <div class="font-weight-bold text-dark" style="font-size: 0.95rem;">
+                                                PENGANTAR TEKNOLOGI INFORMASI DAN KOMUNIKASI
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <i class="icon-user text-muted mr-2"></i>
+                                                <span class="font-weight-bold text-dark">NPR</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="font-weight-bold text-dark text-nowrap">
+                                                <i class="icon-clock text-muted mr-1"></i>30 Menit
+                                            </span>
+                                        </td>
+                                        <td>
+                                                                                            <div class="font-weight-bold text-dark">
+                                                    <i class="icon-calendar text-primary mr-1"></i>16 Oct 2026
+                                                </div>
+                                                <div class="small text-muted text-nowrap mt-1">
+                                                    <i class="icon-clock mr-1"></i>10:30 WIB &mdash; 11:00 WIB
+                                                </div>
+                                                                                    </td>
+                                        <td class="text-center">
+                                                                                            <a href="/cetak-ujian-pdf/dummy-token-4" class="btn btn-sm btn-success btn-exam-action" target="_blank" style="box-shadow: 0 4px 10px rgba(16, 185, 129, 0.25);">
+                                                    <i class="icon-printer"></i> Cetak Bukti
+                                                </a>
+                                                                                    </td>
+                                    </tr>
+                                                                                                        <tr>
+                                        <td class="text-center font-weight-bold text-muted">5</td>
+                                        <td>
+                                            <div class="d-flex align-items-center mb-1" style="gap: 6px;">
+                                                <span class="badge badge-light border text-primary font-weight-bold">153</span>
+                                                <span class="badge badge-primary font-weight-bold" style="border-radius: 4px; font-size: 0.72rem; padding: 3px 8px;">
+                                                    LATIHAN
+                                                </span>
+                                            </div>
+                                            <div class="font-weight-bold text-dark" style="font-size: 0.95rem;">
+                                                PENGANTAR TEKNOLOGI INFORMASI DAN KOMUNIKASI
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <i class="icon-user text-muted mr-2"></i>
+                                                <span class="font-weight-bold text-dark">NPR</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="font-weight-bold text-dark text-nowrap">
+                                                <i class="icon-clock text-muted mr-1"></i>30 Menit
+                                            </span>
+                                        </td>
+                                        <td>
+                                                                                            <div class="font-weight-bold text-dark">
+                                                    <i class="icon-calendar text-primary mr-1"></i>23 Oct 2026
+                                                </div>
+                                                <div class="small text-muted text-nowrap mt-1">
+                                                    <i class="icon-clock mr-1"></i>10:30 WIB &mdash; 11:00 WIB
+                                                </div>
+                                                                                    </td>
+                                        <td class="text-center">
+                                                                                            <a href="/cetak-ujian-pdf/dummy-token-5" class="btn btn-sm btn-success btn-exam-action" target="_blank" style="box-shadow: 0 4px 10px rgba(16, 185, 129, 0.25);">
+                                                    <i class="icon-printer"></i> Cetak Bukti
+                                                </a>
+                                                                                    </td>
+                                    </tr>
+                                                                                                        <tr>
+                                        <td class="text-center font-weight-bold text-muted">6</td>
+                                        <td>
+                                            <div class="d-flex align-items-center mb-1" style="gap: 6px;">
+                                                <span class="badge badge-light border text-primary font-weight-bold">153</span>
+                                                <span class="badge badge-primary font-weight-bold" style="border-radius: 4px; font-size: 0.72rem; padding: 3px 8px;">
+                                                    LATIHAN
+                                                </span>
+                                            </div>
+                                            <div class="font-weight-bold text-dark" style="font-size: 0.95rem;">
+                                                PENGANTAR TEKNOLOGI INFORMASI DAN KOMUNIKASI
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <i class="icon-user text-muted mr-2"></i>
+                                                <span class="font-weight-bold text-dark">NPR</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="font-weight-bold text-dark text-nowrap">
+                                                <i class="icon-clock text-muted mr-1"></i>30 Menit
+                                            </span>
+                                        </td>
+                                        <td>
+                                                                                            <div class="font-weight-bold text-dark">
+                                                    <i class="icon-calendar text-primary mr-1"></i>30 Oct 2026
+                                                </div>
+                                                <div class="small text-muted text-nowrap mt-1">
+                                                    <i class="icon-clock mr-1"></i>10:40 WIB &mdash; 11:10 WIB
+                                                </div>
+                                                                                    </td>
+                                        <td class="text-center">
+                                                                                            <span class="badge badge-secondary px-3 py-2 font-weight-bold text-nowrap" style="border-radius: 8px;">
+                                                    <i class="icon-x-circle mr-1"></i> Ujian Lewat
+                                                </span>
+                                                                                    </td>
+                                    </tr>
+                                                                                                        <tr>
+                                        <td class="text-center font-weight-bold text-muted">7</td>
+                                        <td>
+                                            <div class="d-flex align-items-center mb-1" style="gap: 6px;">
+                                                <span class="badge badge-light border text-primary font-weight-bold">153</span>
+                                                <span class="badge badge-primary font-weight-bold" style="border-radius: 4px; font-size: 0.72rem; padding: 3px 8px;">
+                                                    LATIHAN
+                                                </span>
+                                            </div>
+                                            <div class="font-weight-bold text-dark" style="font-size: 0.95rem;">
+                                                PENGANTAR TEKNOLOGI INFORMASI DAN KOMUNIKASI
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <i class="icon-user text-muted mr-2"></i>
+                                                <span class="font-weight-bold text-dark">NPR</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="font-weight-bold text-dark text-nowrap">
+                                                <i class="icon-clock text-muted mr-1"></i>120 Menit
+                                            </span>
+                                        </td>
+                                        <td>
+                                                                                            <div class="font-weight-bold text-dark">
+                                                    <i class="icon-calendar text-primary mr-1"></i>06 Nov 2026
+                                                </div>
+                                                <div class="small text-muted text-nowrap mt-1">
+                                                    <i class="icon-clock mr-1"></i>09:10 WIB &mdash; 11:10 WIB
+                                                </div>
+                                                                                    </td>
+                                        <td class="text-center">
+                                                                                            <span class="badge badge-secondary px-3 py-2 font-weight-bold text-nowrap" style="border-radius: 8px;">
+                                                    <i class="icon-x-circle mr-1"></i> Ujian Lewat
+                                                </span>
+                                                                                    </td>
+                                    </tr>
+                                                                                                        <tr>
+                                        <td class="text-center font-weight-bold text-muted">8</td>
+                                        <td>
+                                            <div class="d-flex align-items-center mb-1" style="gap: 6px;">
+                                                <span class="badge badge-light border text-primary font-weight-bold">153</span>
+                                                <span class="badge badge-primary font-weight-bold" style="border-radius: 4px; font-size: 0.72rem; padding: 3px 8px;">
+                                                    LATIHAN
+                                                </span>
+                                            </div>
+                                            <div class="font-weight-bold text-dark" style="font-size: 0.95rem;">
+                                                PENGANTAR TEKNOLOGI INFORMASI DAN KOMUNIKASI
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <i class="icon-user text-muted mr-2"></i>
+                                                <span class="font-weight-bold text-dark">NPR</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="font-weight-bold text-dark text-nowrap">
+                                                <i class="icon-clock text-muted mr-1"></i>60 Menit
+                                            </span>
+                                        </td>
+                                        <td>
+                                                                                            <div class="font-weight-bold text-dark">
+                                                    <i class="icon-calendar text-primary mr-1"></i>20 Nov 2026
+                                                </div>
+                                                <div class="small text-muted text-nowrap mt-1">
+                                                    <i class="icon-clock mr-1"></i>10:30 WIB &mdash; 11:30 WIB
+                                                </div>
+                                                                                    </td>
+                                        <td class="text-center">
+                                                                                            <a href="/exercise-show/dummy-token-6" class="btn btn-sm btn-primary btn-exam-action" style="box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);">
+                                                    <i class="icon-play"></i> Mulai Ujian
+                                                </a>
+                                                                                    </td>
+                                    </tr>
+                                                                                    </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+			</div>
+			<!-- Main container end -->
+
+		</div>
+		<!-- Page content end -->
+
+	</div>
+	<!-- Page wrapper end -->
+	<!-- Floating Chat Icon -->
+	<div id="chat-icon" class="chatx-icon">
+		<div class="chatx-user">
+			<img src="https://elearning.bsi.ac.id/assets/img/MyBest-chat.png" alt="Chat">
+			<span id="chat-user-count" class="chatx-badge">0</span>
+		</div>
+	</div>
+
+	<!-- Chat Box -->
+	<div id="chat-box" class="chatx-box">
+		<div class="chatx-header">
+			<h5>Users Online</h5>
+			<button id="close-chat" class="close">&times;</button>
+		</div>
+		<div class="chatx-body" id="chat-user-scroll">
+			<input type="text" id="search-user" placeholder="Cari user..." class="chatx-search-input">
+			<ul id="chat-user-list"></ul>
+		</div>
+	</div>
+
+	<!-- Private Chat Window -->
+	<div id="private-chat" class="private-chat hidden">
+		<div class="chatx-header">
+			<h5 id="private-chat-title">Chat</h5>
+			<button id="close-private-chat" class="close">&times;</button>
+		</div>
+		<div class="chatx-body" id="private-chat-messages"></div>
+		<div class="chatx-footer">
+			<input type="text" id="private-message" placeholder="Ketik pesan...">
+			<button onclick="sendPrivateMessage()">Kirim</button>
+		</div>
+	</div>
+
+
+	
+	<!-- Required jQuery first, then Bootstrap Bundle JS -->
+	<script src="https://elearning.bsi.ac.id/js/jquery-ui.min.js"></script>
+	<script src="https://elearning.bsi.ac.id/assets/js/jquery.min.js"></script>
+	<script src="https://elearning.bsi.ac.id/assets/js/bootstrap.bundle.min.js"></script>
+	<script src="https://elearning.bsi.ac.id/assets/js/moment.js"></script>
+	<script type="text/javascript" src="https://elearning.bsi.ac.id/assets/js/jquery.expander.js"></script>
+
+
+	<!-- *************
+			************ Vendor Js Files *************
+		************* -->
+	<!-- Slimscroll JS -->
+	<script src="https://elearning.bsi.ac.id/assets/vendor/slimscroll/slimscroll.min.js"></script>
+	<script src="https://elearning.bsi.ac.id/assets/vendor/slimscroll/custom-scrollbar.js"></script>
+	<!-- Daterange -->
+	<script src="https://elearning.bsi.ac.id/assets/vendor/daterange/daterange.js"></script>
+	<script src="https://elearning.bsi.ac.id/assets/vendor/daterange/custom-daterange.js"></script>
+	<!-- Custom Data tables -->
+	<script src="https://elearning.bsi.ac.id/assets/vendor/datatables/custom/custom-datatables.js"></script>
+	<script src="https://elearning.bsi.ac.id/assets/vendor/datatables/custom/fixedHeader.js"></script>
+	<!-- Data Tables -->
+	<script src="https://elearning.bsi.ac.id/assets/vendor/datatables/dataTables.min.js"></script>
+	<script src="https://elearning.bsi.ac.id/assets/vendor/datatables/dataTables.bootstrap.min.js"></script>
+	<!-- Download / CSV / Copy / Print -->
+	<script src="https://elearning.bsi.ac.id/assets/vendor/datatables/buttons.min.js"></script>
+	<script src="https://elearning.bsi.ac.id/assets/vendor/datatables/jszip.min.js"></script>
+	<script src="https://elearning.bsi.ac.id/assets/vendor/datatables/pdfmake.min.js"></script>
+	<script src="https://elearning.bsi.ac.id/assets/vendor/datatables/vfs_fonts.js"></script>
+	<script src="https://elearning.bsi.ac.id/assets/vendor/datatables/html5.min.js"></script>
+	<script src="https://elearning.bsi.ac.id/assets/vendor/datatables/buttons.print.min.js"></script>
+	<!-- Main JS -->
+	<script src="https://elearning.bsi.ac.id/assets/js/main.js"></script>
+	<script src="https://elearning.bsi.ac.id/assets/dist/sweetalert2.min.js"></script>
+	<script src="https://elearning.bsi.ac.id/assets/dist/script.js"></script>
+	<!-- Lobipanel -->
+	<script>
+			</script>
+	<script src="https://js.pusher.com/7.0/pusher.min.js"></script>
+	<script>
+		let selectedUserId = null;
+
+		document.getElementById("chat-icon").addEventListener("click", function() {
+			let chatBox = document.getElementById("chat-box");
+			chatBox.style.display = (chatBox.style.display === "block") ? "none" : "block";
+
+			if (chatBox.style.display === "block") {
+				offset = 0;
+				allLoaded = false;
+				fetchOnlineUsers(true); // reset data saat buka chat box
+			}
+		});
+
+		document.getElementById("close-chat").addEventListener("click", function() {
+			document.getElementById("chat-box").style.display = "none"; // Tutup daftar user online
+		});
+
+		document.getElementById("close-private-chat").addEventListener("click", function() {
+			document.getElementById("private-chat").style.display = "none"; // Tutup private chat
+		});
+
+		function toTitleCase(str) {
+			return str.toLowerCase().split(' ').map(word =>
+				word.charAt(0).toUpperCase() + word.slice(1)
+			).join(' ');
+		}
+		// Ambil user online dari backend
+		let offset = 0;
+		const limit = 20;
+		let isLoading = false;
+		let allLoaded = false;
+		let searchKeyword = "";
+		let isSearching = false;
+		let lastSendTime = 0;
+		const sendCooldown = 10; // dalam detik
+		let privateMessageOffset = 0;
+		const privateMessageLimit = 20;
+		let privateLoading = false;
+		let allPrivateLoaded = false;
+
+
+
+		function fetchOnlineUsers(reset = false) {
+			if (isLoading || (!isSearching && allLoaded)) return;
+
+			if (reset) {
+				offset = 0;
+				allLoaded = false;
+				document.getElementById("chat-user-list").innerHTML = "";
+			}
+
+			isLoading = true;
+
+			let url = isSearching ?
+				`/users-online?search=${encodeURIComponent(searchKeyword)}` :
+				`/users-online?limit=${limit}&offset=${offset}`;
+
+			fetch(url)
+				.then(response => response.json())
+				.then(response => {
+					const users = response.users || response; // fallback untuk non-paginated response
+					const total = response.total || users.length;
+
+					// ✅ Update badge total user online
+					document.getElementById("chat-user-count").innerText = total;
+
+					if (!isSearching && users.length < limit) {
+						allLoaded = true;
+					}
+
+					const userList = document.getElementById("chat-user-list");
+
+					users.forEach(user => {
+						let li = document.createElement("li");
+						let name = toTitleCase(user.name);
+						let kode = user.kode;
+						let unread = user.unread_count || 0;
+						li.innerHTML = `
+							<span class="chatx-user-link" data-user-id="${user.id}" data-user-name="${name}">
+								${name} (${kode}) 
+								${unread > 0 ? `<span class="badge-unread">${unread}</span>` : ''}
+							</span>
+						`;
+						userList.appendChild(li);
+					});
+
+					// Bind klik ke setiap user
+					document.querySelectorAll(".chatx-user-link").forEach(link => {
+						link.addEventListener("click", function() {
+							let userId = this.getAttribute("data-user-id");
+							let userName = this.getAttribute("data-user-name");
+							document.querySelectorAll(".chatx-user-link").forEach(item => {
+								item.classList.remove("selected");
+							});
+							this.classList.add("selected");
+							openPrivateChat(userId, userName);
+						});
+					});
+
+					if (!isSearching) {
+						offset += limit;
+					}
+
+					isLoading = false;
+				})
+				.catch(error => {
+					console.error("Error fetching users:", error);
+					isLoading = false;
+				});
+		}
+
+
+		// Membuka private chat dengan user tertentu
+		function openPrivateChat(userId, userName) {
+			selectedUserId = userId;
+			privateMessageOffset = 0;
+			allPrivateLoaded = false;
+
+			let chatBox = document.getElementById("private-chat");
+			let chatTitle = document.getElementById("private-chat-title");
+			let chatMessages = document.getElementById("private-chat-messages");
+
+			// ✅ Benar-benar hapus isi chat sebelumnya
+			if (chatMessages) {
+				chatMessages.innerHTML = '';
+			}
+
+			// Tampilkan nama user tujuan
+			if (chatTitle) {
+				chatTitle.innerText = `Chat dengan ${userName}`;
+			}
+
+			// Tampilkan chat box
+			chatBox.style.display = "block";
+
+			// Ambil pesan untuk user baru
+			fetchOldMessages(userId, true);
+		}
+
+
+		function fetchOldMessages(userId, isReset = true) {
+			if (privateLoading || allPrivateLoaded) return;
+			privateLoading = true;
+
+			if (isReset) {
+				privateMessageOffset = 0;
+				allPrivateLoaded = false;
+			}
+
+			const currentUserLock = selectedUserId;
+
+			fetch(`/get-messages/${userId}?offset=${privateMessageOffset}&limit=${privateMessageLimit}`)
+				.then(response => response.json())
+				.then(messages => {
+					// ✅ Cek: apakah masih chat dengan user yang sama?	
+					if (currentUserLock !== selectedUserId) {
+						console.warn("User berubah saat pesan datang, abaikan.");
+						privateLoading = false;
+						return;
+					}
+
+					if (messages.length < privateMessageLimit) {
+						allPrivateLoaded = true;
+					}
+
+					const chatBox = document.getElementById("private-chat-messages");
+
+					messages.forEach(message => {
+						let sender = (message.sender_id == "269441") ? "Anda" : message.sender_name;
+						const p = document.createElement("p");
+						p.innerHTML = `<strong>${sender}:</strong> ${escapeHtml(message.message)}<br><small>${message.created_at}</small><hr>`;
+						chatBox.appendChild(p); // atau prepend jika kamu pakai scroll atas
+					});
+
+					privateMessageOffset += privateMessageLimit;
+					privateLoading = false;
+
+					// Scroll ke bawah setelah pesan masuk (opsional)
+					if (isReset) {
+						chatBox.scrollTop = chatBox.scrollHeight;
+					}
+				})
+				.catch(error => {
+					console.error("Error fetching messages:", error);
+					privateLoading = false;
+				});
+		}
+
+
+		// Kirim pesan privat
+		function sendPrivateMessage() {
+			let input = document.getElementById("private-message");
+			let message = escapeHtml(input.value.trim());
+			const kirimButton = document.querySelector('#private-chat .chatx-footer button');
+
+			if (!selectedUserId) {
+				alert("Pilih user terlebih dahulu!");
+				return;
+			}
+
+			if (message === "") {
+				alert("Pesan tidak boleh kosong!");
+				return;
+			}
+
+			// Cegah spam: disable input & tombol
+			const cooldown = 10; // detik
+			let remaining = cooldown;
+
+			input.disabled = true;
+			kirimButton.disabled = true;
+			input.value = "";
+			input.placeholder = `Tunggu ${remaining} detik...`;
+
+			const countdownInterval = setInterval(() => {
+				remaining--;
+				if (remaining > 0) {
+					input.placeholder = `Tunggu ${remaining} detik...`;
+				} else {
+					clearInterval(countdownInterval);
+					input.disabled = false;
+					kirimButton.disabled = false;
+					input.placeholder = "Ketik pesan...";
+				}
+			}, 1000);
+
+			// Kirim pesan ke server
+			fetch('/send-private-message', {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						"X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content
+					},
+					body: JSON.stringify({
+						receiver_id: selectedUserId,
+						message
+					})
+				})
+				.then(response => response.json())
+				.then(data => {
+					if (data.error) {
+						alert(data.error); // Tampilkan pesan error
+					} else {
+						let chatBox = document.getElementById("private-chat-messages");
+						chatBox.innerHTML += `<p><strong>Anda:</strong> ${message}</p>`;
+						chatBox.scrollTop = chatBox.scrollHeight;
+					}
+				})
+				.catch(error => {
+					console.error("Error sending message:", error);
+				});
+		}
+
+
+		document.getElementById("search-user").addEventListener("keyup", function() {
+			searchKeyword = this.value.trim().toLowerCase();
+			isSearching = searchKeyword !== ""; // True kalau ada keyword pencarian
+
+			offset = 0;
+			allLoaded = false;
+			fetchOnlineUsers(true);
+		});
+
+		document.getElementById("chat-user-scroll").addEventListener("scroll", function() {
+			const scrollTop = this.scrollTop;
+			const scrollHeight = this.scrollHeight;
+			const offsetHeight = this.offsetHeight;
+
+			if (scrollTop + offsetHeight >= scrollHeight - 10) {
+				fetchOnlineUsers();
+			}
+		});
+
+		function escapeHtml(text) {
+			const div = document.createElement("div");
+			div.innerText = text;
+			return div.innerHTML;
+		}
+
+		// Realtime dengan Pusher untuk menerima pesan
+		Echo.channel('private-chat')
+			.listen('PrivateMessageSent', (e) => {
+				console.log("Pesan diterima:", e.message);
+
+				if (e.message.receiver_id == selectedUserId) {
+					let chatBox = document.getElementById("private-chat-messages");
+
+					// Membuat elemen baru untuk pesan
+					const p = document.createElement("p");
+					const sender = document.createElement("strong");
+					sender.textContent = `${e.message.sender.name}:`;
+
+					const messageText = document.createElement("span");
+					messageText.textContent = e.message.message;
+
+					p.appendChild(sender);
+					p.appendChild(messageText);
+					chatBox.appendChild(p);
+				}
+			});
+	<script>
+		document.addEventListener('DOMContentLoaded', function () {
+			const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
+			const menuLinks = Array.from(document.querySelectorAll('.sidebar-menu a[href]'));
+			let currentLink = null;
+
+			menuLinks.forEach(function (link) {
+				if (link.getAttribute('href') === '#' || link.target === '_blank') return;
+
+				const linkUrl = new URL(link.href, window.location.origin);
+				const linkPath = linkUrl.pathname.replace(/\/$/, '') || '/';
+				const isMatch = linkUrl.origin === window.location.origin &&
+					(currentPath === linkPath || (linkPath !== '/' && currentPath.startsWith(linkPath + '/')));
+
+				if (isMatch && (!currentLink || linkPath.length > currentLink.path.length)) {
+					currentLink = { element: link, path: linkPath };
+				}
+			});
+
+			if (currentLink) {
+				currentLink.element.classList.add('current-page');
+				const dropdown = currentLink.element.closest('.sidebar-dropdown');
+
+				if (dropdown) {
+					dropdown.classList.add('active');
+					const submenu = dropdown.querySelector('.sidebar-submenu');
+					if (submenu) submenu.style.display = 'block';
+				} else {
+					const item = currentLink.element.closest('.sidebar-item');
+					if (item) item.classList.add('active-page-link');
+				}
+			}
+
+			['toggle-sidebar', 'pin-sidebar'].forEach(function (id) {
+				const control = document.getElementById(id);
+				if (control) control.addEventListener('click', function (event) {
+					event.preventDefault();
+				});
+			});
+
+			const pinControl = document.getElementById('pin-sidebar');
+			const pageWrapper = document.querySelector('.page-wrapper');
+			if (pinControl && pageWrapper) {
+				const syncPinLabel = function () {
+					const isCompact = pageWrapper.classList.contains('pinned');
+					const label = isCompact ? 'Perluas menu navigasi' : 'Ringkas menu navigasi';
+					pinControl.setAttribute('aria-label', label);
+					pinControl.setAttribute('title', label);
+				};
+
+				pinControl.addEventListener('click', function () {
+					window.setTimeout(syncPinLabel, 0);
+				});
+				syncPinLabel();
+			}
+		});
+	</script>
+
+	<script src="https://elearning.bsi.ac.id/assets/js/theme-toggle.js?v=1793842429"></script>
+	<script src="https://elearning.bsi.ac.id/js/jquery-ujian.js?v=1794473370"></script>
+</body>
+
+</html>

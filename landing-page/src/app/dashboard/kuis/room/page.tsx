@@ -31,6 +31,7 @@ interface LiveQuizQuestionsPayload {
   csrf_token?: string | null;
   waktu_akhir?: string | null;
   sisa_waktu?: string | null;
+  finish_url?: string | null;
   total_soal: number;
   daftar_soal?: LiveQuestionItem[];
   current_soal?: {
@@ -45,7 +46,8 @@ interface StandardQuestion {
   no: number;
   pertanyaan: string;
   kategori?: string;
-  opsi: Array<{ key: string; text: string }>;
+  opsi: Array<{ key: string; text: string; data_jawab?: string }>;
+  placeholder?: boolean;
 }
 
 function QuizRoomContent() {
@@ -54,6 +56,7 @@ function QuizRoomContent() {
 
   const mode = (searchParams.get("mode") || "simulasi") as "live" | "simulasi";
   const token = searchParams.get("token") || "";
+  const quizUrl = searchParams.get("quiz_url") || "";
   const paketId = searchParams.get("paket_id") || DEFAULT_QUIZ_PACKAGE_ID;
   const simMeta = findQuizPackage(paketId);
   const paketTitle =
@@ -85,6 +88,8 @@ function QuizRoomContent() {
   const [mobileGridOpen, setMobileGridOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [finishUrl, setFinishUrl] = useState<string | null>(null);
+  const [questionLoading, setQuestionLoading] = useState(false);
   const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null);
   // Proctoring Shield Hook
   const {
@@ -131,12 +136,15 @@ function QuizRoomContent() {
         }
       } else {
         // Mode Live MyBest
-        if (!token) {
+        if (!token && !quizUrl) {
           throw new Error("Token kuis tidak ditemukan dalam URL parameter.");
         }
 
+        const params = new URLSearchParams();
+        if (quizUrl) params.set("quiz_url", quizUrl);
+        else params.set("token", token);
         const res = await apiFetch<LiveQuizQuestionsPayload>(
-          `/v1/elearning/quiz/questions?token_ujian=${encodeURIComponent(token)}`
+          `/v1/elearning/quiz/questions?${params.toString()}`
         );
 
         if (!res) {
@@ -144,6 +152,7 @@ function QuizRoomContent() {
         }
 
         setCsrfToken(res.csrf_token || null);
+        setFinishUrl(res.finish_url || null);
 
         // Hitung sisa waktu jika tersedia string 'HH : MM : SS'
         if (res.sisa_waktu) {
@@ -161,7 +170,7 @@ function QuizRoomContent() {
               id: String(res.current_soal.id_soal || "1"),
               no: 1,
               pertanyaan: res.current_soal.pertanyaan,
-              opsi: res.current_soal.opsi.map((o) => ({ key: o.key, text: o.text })),
+              opsi: res.current_soal.opsi.map((o) => ({ key: o.key, text: o.text, data_jawab: o.data_jawab })),
             },
           ];
 
@@ -179,6 +188,7 @@ function QuizRoomContent() {
                   { key: "D", text: "Pilihan D" },
                   { key: "E", text: "Pilihan E" },
                 ],
+                placeholder: true,
               });
             });
           }
@@ -236,22 +246,15 @@ function QuizRoomContent() {
     const newAnswers = { ...answers, [activeQuestion.id]: optionKey };
     setAnswers(newAnswers);
 
-    // Simpan ke storage lokal
-    try {
-      const storageKey =
-        mode === "simulasi" ? `mira_sim_answers_${paketId}` : `mira_live_answers_${token}`;
-      localStorage.setItem(storageKey, JSON.stringify(newAnswers));
-    } catch {}
-
-    // Auto-save ke MyBest jika mode live
     if (mode === "live") {
       setSyncStatus("saving");
       try {
+        const selectedOption = activeQuestion.opsi.find((o) => o.key === optionKey);
         await apiFetch("/v1/elearning/quiz/answer", {
           method: "POST",
           json: {
             id_soal: activeQuestion.id,
-            data_jawab: `${activeQuestion.id}_${optionKey}`,
+            data_jawab: selectedOption?.data_jawab || `${activeQuestion.id}_${optionKey}`,
             csrf_token: csrfToken || undefined,
           },
         });
@@ -260,6 +263,27 @@ function QuizRoomContent() {
         console.error("Auto-save answer error:", err);
         setSyncStatus("error");
       }
+    }
+  };
+
+  const goToQuestion = async (idx: number) => {
+    setCurrentIndex(idx);
+    const target = questions[idx];
+    if (!target || !target.placeholder) return;
+    setQuestionLoading(true);
+    try {
+      const res = await apiFetch<{ pertanyaan: string; opsi: Array<{ key: string; text: string; data_jawab?: string }> }>(
+        `/v1/elearning/quiz/question?id_soal=${encodeURIComponent(target.id)}&no_urut=${target.no}`
+      );
+      setQuestions((prev) => prev.map((q, i) => (
+        i === idx
+          ? { ...q, pertanyaan: res.pertanyaan, opsi: res.opsi, placeholder: false }
+          : q
+      )));
+    } catch (err) {
+      console.error("Load question error:", err);
+    } finally {
+      setQuestionLoading(false);
     }
   };
 
@@ -281,7 +305,12 @@ function QuizRoomContent() {
         setIsCompleted(true);
         setFinishModalOpen(false);
       } else {
-        // Mode live selesai
+        if (finishUrl) {
+          await apiFetch("/v1/elearning/quiz/finish", {
+            method: "POST",
+            json: { finish_url: finishUrl },
+          });
+        }
         setIsCompleted(true);
         setFinishModalOpen(false);
       }
@@ -441,7 +470,7 @@ function QuizRoomContent() {
             total={questions.length}
             currentIndex={currentIndex}
             items={gridStatusItems}
-            onSelectIndex={(idx) => setCurrentIndex(idx)}
+            onSelectIndex={(idx) => goToQuestion(idx)}
           />
         </aside>
 
@@ -455,8 +484,8 @@ function QuizRoomContent() {
               isRagu={Boolean(raguMap[activeQuestion.id])}
               onSelectOption={handleSelectOption}
               onToggleRagu={handleToggleRagu}
-              onPrev={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
-              onNext={() => setCurrentIndex((prev) => Math.min(questions.length - 1, prev + 1))}
+              onPrev={() => goToQuestion(Math.max(0, currentIndex - 1))}
+              onNext={() => goToQuestion(Math.min(questions.length - 1, currentIndex + 1))}
               onFinish={() => setFinishModalOpen(true)}
               isFirst={currentIndex === 0}
               isLast={currentIndex === questions.length - 1}
@@ -483,7 +512,7 @@ function QuizRoomContent() {
               currentIndex={currentIndex}
               items={gridStatusItems}
               onSelectIndex={(idx) => {
-                setCurrentIndex(idx);
+                goToQuestion(idx);
                 setMobileGridOpen(false);
               }}
               onClose={() => setMobileGridOpen(false)}
