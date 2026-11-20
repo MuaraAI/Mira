@@ -385,17 +385,17 @@ async def test_studentv2_without_auth_returns_503(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_login_retries_captcha_with_new_challenges(monkeypatch, tmp_path):
-    """CAPTCHA diselesaikan OCR: kode ditolak berarti ambil tantangan baru, bukan menyerah."""
+    """CAPTCHA diselesaikan server: token ditolak berarti ambil puzzle baru, bukan menyerah."""
     _wire_login(monkeypatch, tmp_path, siakad_enabled=False)
 
     sessions = iter(
         [
-            ({"cookies": {}, "token": "t1"}, ["AAA"]),
-            ({"cookies": {}, "token": "t2"}, ["BBB"]),
+            ({"cookies": {}, "token": "t1"}, "AAA"),
+            ({"cookies": {}, "token": "t2"}, "BBB"),
         ]
     )
     monkeypatch.setattr(
-        "app.captcha_autosolver.candidate_session", AsyncMock(side_effect=lambda *a, **k: next(sessions))
+        "app.elearning_captcha.fetch_captcha_token", AsyncMock(side_effect=lambda *a, **k: next(sessions))
     )
 
     attempts = []
