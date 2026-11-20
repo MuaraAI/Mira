@@ -283,8 +283,12 @@ async def test_get_quiz_questions(monkeypatch):
     mock_redis.get.return_value = None
     mock_redis.incr.return_value = 1
 
+    class FakeResp:
+        status_code = 200
+        text = mock_ujian_html
+
     with patch("redis.asyncio.from_url", return_value=mock_redis), \
-         patch("app.modules.elearning.pooled_elearning_client.fetch_page", return_value=mock_ujian_html):
+         patch("app.modules.elearning.pooled_elearning_client.fetch_page_response", return_value=FakeResp()):
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             res = await ac.get("/v1/elearning/quiz/questions?token=quiz_tok_123")
@@ -320,13 +324,16 @@ async def test_get_quiz_questions_rejects_path_traversal_and_protocol_relative()
 @pytest.mark.asyncio
 async def test_get_quiz_questions_accepts_valid_campus_path(monkeypatch):
     monkeypatch.setenv("ELEARNING_NIM", "12345678")
-    monkeypatch.setenv("ELEARNING_PASS", "secret")
-    mock_ujian_html = (FIXTURES / "el_halaman_ujian.html").read_text(encoding="utf-8")
     mock_redis = AsyncMock()
     mock_redis.get.return_value = None
     mock_redis.incr.return_value = 1
+    mock_ujian_html = (FIXTURES / "el_halaman_ujian.html").read_text(encoding="utf-8")
+    class FakeResp:
+        status_code = 200
+        text = mock_ujian_html
+
     with patch("redis.asyncio.from_url", return_value=mock_redis), \
-         patch("app.modules.elearning.pooled_elearning_client.fetch_page", return_value=mock_ujian_html) as mock_fetch:
+         patch("app.modules.elearning.pooled_elearning_client.fetch_page_response", return_value=FakeResp()) as mock_fetch:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             res = await ac.get("/v1/elearning/quiz/questions?quiz_url=%2Fhalaman-ujian%2FeyJpdi0")
     assert res.status_code == 200

@@ -614,19 +614,28 @@ Alias to download the official exam proof PDF from `ujiankampusa.bsi.ac.id/cetak
 - **Query Parameter**: `token` (required)
 ### `GET /v1/elearning/quiz/questions`
 Retrieves exam questions, countdown timer, CSRF token, and multiple-choice options (A..E) directly for the CBT exam room.
-- **Query Parameters**: `token` (optional), `quiz_url` (optional)
+- **Query Parameters**: `token` atau `token_ujian` (opsional), `quiz_url` (opsional, mis. `/exercise-show/{token}` dari `GET /v1/elearning/quiz`)
+- **Route Resolution**: dengan token saja, backend mencoba `/exercise-show/{token}` dulu (MyBest 2026), lalu fallback `/halaman-ujian/{token}` (format lama). Respons memuat `finish_url`, `daftar_soal` (id soal asli), dan `current_soal.opsi[].data_jawab` untuk payload jawaban persis MyBest.
+
+### `GET /v1/elearning/quiz/question`
+Fetches a single question via MyBest AJAX `/get-soal` untuk navigasi antar nomor soal di CBT room.
+- **Query Parameters**: `id_soal` (required), `no_urut` (required)
+
+### `POST /v1/elearning/quiz/finish`
+Marks the exam as finished di MyBest setelah konfirmasi pengguna.
+- **Payload**: `{ "finish_url": "/selesai-ujian/{token}" }` (dari `finish_url` pada `GET /quiz/questions`)
 
 ### `POST /v1/elearning/quiz/answer`
 Submits option answer for a specific quiz question in real-time (auto-save).
 - **Payload**:
   ```json
   {
-    "id_soal": "501",
-    "data_jawab": "501_B",
+    "id_soal": "104643",
+    "data_jawab": "A/104643/269441",
     "csrf_token": "optional_token"
   }
   ```
-- **CBT Integration**: Serves the `/dashboard/kuis/room` dedicated CBT environment with instant auto-save per radio option click and `localStorage` resilience buffer.
+  `data_jawab` wajib memakai nilai `data_jawab` dari opsi yang dipilih (format MyBest 2026), bukan `{id}_{key}`.
 ### `GET /v1/elearning/grades`
 Recap of assignment grades (and quiz schedules) per meeting across all active courses, or a single course when the optional `token` query parameter (from `/v1/elearning/courses`) is provided. Returns totals, graded/ungraded counts, average/max/min scores, per-course breakdown, and per-meeting rows.
 - **Query Parameter**: `token` (optional)

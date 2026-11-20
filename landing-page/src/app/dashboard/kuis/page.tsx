@@ -44,7 +44,9 @@ interface QuizItem {
   ujian_mulai: string;
   ujian_selesai: string;
   status_aksi?: string | null;
+  status?: string | null;
   action_url?: string | null;
+  quiz_url?: string | null;
   token_ujian?: string | null;
   token_bukti?: string | null;
 }
@@ -95,7 +97,7 @@ function formatQuizDate(dateStr: unknown): string {
 
 function isQuizActive(q: QuizItem | null | undefined): boolean {
   if (!q) return false;
-  const status = (q.status_aksi || "").toLowerCase();
+  const status = (q.status || q.status_aksi || "").toLowerCase();
   if (
     status.includes("selesai") ||
     status.includes("sudah") ||
@@ -106,9 +108,10 @@ function isQuizActive(q: QuizItem | null | undefined): boolean {
   ) {
     return false;
   }
-  if (status.includes("mulai") || status.includes("kerjakan") || status.includes("lanjutkan")) {
+  if (q.status === "aktif" || status.includes("mulai") || status.includes("kerjakan") || status.includes("lanjutkan")) {
     return true;
   }
+  if (q.status === "lewat" || q.status === "selesai" || q.status === "menunggu") return false;
 
   const now = Date.now();
   const start = parseSafeDate(q.ujian_mulai).getTime();
@@ -179,6 +182,7 @@ export default function KuisPage() {
   async function handleOpenQuestions(q: QuizItem) {
     const examToken =
       q.token_ujian ||
+      (typeof q.quiz_url === "string" ? q.quiz_url.replace(/\/$/, "").split("/").pop() || null : null) ||
       (q.action_url?.includes("exercise-show/")
         ? q.action_url.split("exercise-show/")[1].split("?")[0].replace(/\/$/, "")
         : null);
@@ -191,8 +195,11 @@ export default function KuisPage() {
     setQuestionsData(null);
 
     try {
+      const params = new URLSearchParams();
+      if (q.quiz_url) params.set("quiz_url", q.quiz_url);
+      else params.set("token", examToken);
       const res = await apiFetch<QuizQuestionsData>(
-        `/v1/elearning/quiz/questions?token_ujian=${encodeURIComponent(examToken)}`
+        `/v1/elearning/quiz/questions?${params.toString()}`
       );
       setQuestionsData(res);
     } catch (err: unknown) {
@@ -213,11 +220,13 @@ export default function KuisPage() {
     token?: string | null,
     title?: string,
     isPopup = true,
-    paketId?: string
+    paketId?: string,
+    quizUrl?: string | null
   ) {
     const params = new URLSearchParams();
     params.set("mode", mode);
     if (token) params.set("token", token);
+    if (quizUrl) params.set("quiz_url", quizUrl);
     if (title) params.set("paket", title);
     if (paketId) params.set("paket_id", paketId);
     const url = `/dashboard/kuis/room?${params.toString()}`;
@@ -582,7 +591,7 @@ export default function KuisPage() {
                           <>
                             <button
                               type="button"
-                              onClick={() => openCbtRoom("live", tokenUjian, q.paket || "Kuis", true)}
+                              onClick={() => openCbtRoom("live", tokenUjian, q.paket || "Kuis", true, undefined, q.quiz_url)}
                               className="px-4 py-2 rounded-md bg-[#0369A1] hover:bg-[#0284C7] text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
                             >
                               <Play className="w-3.5 h-3.5 fill-current" aria-hidden="true" />
@@ -590,7 +599,7 @@ export default function KuisPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => openCbtRoom("live", tokenUjian, q.paket || "Kuis", false)}
+                              onClick={() => openCbtRoom("live", tokenUjian, q.paket || "Kuis", false, undefined, q.quiz_url)}
                               className={`${ghostButtonClass} text-xs py-1.5 text-center flex items-center justify-center gap-1`}
                             >
                               <Maximize2 className="w-3 h-3 text-secondary" aria-hidden="true" />
@@ -787,7 +796,7 @@ export default function KuisPage() {
                     const tok = activeQuizForQuestions.token_ujian;
                     const pkt = activeQuizForQuestions.paket || "Kuis";
                     handleCloseQuestions();
-                    openCbtRoom("live", tok, pkt, true);
+                    openCbtRoom("live", tok, pkt, true, undefined, activeQuizForQuestions.quiz_url);
                   }}
                   className={`${primaryButtonClass} text-xs py-2 flex items-center gap-1.5`}
                 >

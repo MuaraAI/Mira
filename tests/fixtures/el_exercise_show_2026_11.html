@@ -1,0 +1,2261 @@
+
+<!doctype html>
+<html lang="en">
+
+<head>
+	<!-- Required meta tags -->
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+	<!-- Meta -->
+	<meta name="description" content="Responsive Bootstrap4 Dashboard Template">
+	<meta name="author" content="ParkerThemes">
+	<meta name="csrf-token" content="dummy-csrf-token">
+	<link rel="shortcut icon" href="https://elearning.bsi.ac.id/assets/img/icon1.jfif" />
+	<!-- Title -->
+	<title>My Best</title>
+
+	<script>
+		(function() {
+			function getCookie(name) {
+				var match = document.cookie.match(new RegExp('(^|;\\s*)' + name + '=([^;]+)'));
+				return match ? decodeURIComponent(match[2]) : null;
+			}
+			var theme = 'light';
+			try {
+				theme = localStorage.getItem('theme') || getCookie('app_theme') || 'light';
+				if (!localStorage.getItem('theme') && theme) {
+					localStorage.setItem('theme', theme);
+				}
+			} catch (e) {
+				theme = getCookie('app_theme') || 'light';
+			}
+			document.documentElement.setAttribute('data-theme', theme);
+			if (theme === 'dark') document.documentElement.classList.add('dark-mode');
+		})();
+	</script>
+
+
+	<!-- *************
+			************ Common Css Files *************
+		************ -->
+	<!-- Bootstrap css -->
+	<link rel="stylesheet" href="https://elearning.bsi.ac.id/assets/css/bootstrap.min.css">
+	<link rel="stylesheet" href="https://elearning.bsi.ac.id/assets/dist/sweetalert2.min.css">
+	<link rel="stylesheet" href="https://elearning.bsi.ac.id/assets/dist/sweetalert2.css">
+
+	<!-- Icomoon Font Icons css -->
+	<link rel="stylesheet" href="https://elearning.bsi.ac.id/assets/fonts/style.css">
+
+	<!-- Main css -->
+	<link rel="stylesheet" href="https://elearning.bsi.ac.id/assets/css/main.css">
+	<link rel="stylesheet" href="https://elearning.bsi.ac.id/assets/css/dosen-shell.css">
+	<link rel="stylesheet" href="https://elearning.bsi.ac.id/assets/css/dark-theme.css?v=1793842429">
+	<!-- Data Tables -->
+	<link rel="stylesheet" href="https://elearning.bsi.ac.id/assets/vendor/datatables/dataTables.bs4.css" />
+	<link rel="stylesheet" href="https://elearning.bsi.ac.id/assets/vendor/datatables/dataTables.bs4-custom.css" />
+	<link rel="stylesheet" href="https://elearning.bsi.ac.id/assets/vendor/datatables/buttons.bs.css" />
+
+
+
+	<!-- *************
+			************ Vendor Css Files *************
+		************ -->
+	<!-- DateRange css -->
+	<link rel="stylesheet" href="https://elearning.bsi.ac.id/assets/vendor/daterange/daterange.css" />
+	<style>
+		.dijawab {
+			background: #2563eb !important;
+			color: #ffffff !important;
+			border-color: #1d4ed8 !important;
+		}
+		.dijawab .pilihan {
+			color: #ffffff !important;
+		}
+		.dijawab .option-badge {
+			background: #1d4ed8 !important;
+			color: #ffffff !important;
+		}
+
+		.pagination>li>a,
+		.pagination>li>span {
+			width: 38px;
+			text-align: center;
+			margin: 3px;
+		}
+
+		.timer {
+			border: solid thin #b9b2b2;
+			padding: 5px 15px;
+			font-size: 14pt;
+			color: #fff;
+			background: #291a71;
+		}
+
+		.soal {
+			margin: 0 0 15px 0;
+		}
+
+		.box-footer {
+			border-top: 1px solid #ebebeb !important;
+		}
+
+		.jawab {
+			cursor: pointer;
+			margin: 0 0 7px 0;
+		}
+
+		.pilihan p {
+			margin: 0;
+		}
+	</style>
+	<style>
+		/* Styling untuk ikon chat */
+		.chatx-icon {
+			position: fixed;
+			top: 50%;
+			right: 0;
+			transform: translateY(-50%);
+			cursor: pointer;
+			z-index: 1000;
+		}
+
+		/* Ukuran ikon chat */
+		.chatx-icon img {
+			width: 80px;
+			transition: transform 0.3s ease-in-out;
+			/* Efek animasi saat hover */
+		}
+
+		/* Efek animasi saat hover di ikon chat */
+		.chatx-icon img:hover {
+			transform: scale(1.1);
+			/* Membesar saat hover */
+		}
+
+		/* Styling untuk chat badge (jumlah pesan) */
+		.chatx-badge {
+			position: absolute;
+			top: -5px;
+			right: -5px;
+			background: red;
+			color: white;
+			font-size: 14px;
+			font-weight: bold;
+			width: 20px;
+			height: 20px;
+			text-align: center;
+			line-height: 20px;
+			border-radius: 50%;
+			box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.3);
+		}
+
+		/* Styling untuk chat box */
+		.chatx-box,
+		.private-chat {
+			position: fixed;
+			bottom: 80px;
+			right: 20px;
+			width: 300px;
+			background: white;
+			border-radius: 10px;
+			box-shadow: 0px 0px 10px gray;
+			display: none;
+			z-index: 1000;
+		}
+
+		.chatx-box {
+			position: fixed;
+			bottom: 80px;
+			right: 20px;
+			width: 300px;
+			height: 400px;
+			background: white;
+			border-radius: 10px;
+			box-shadow: 0px 0px 10px gray;
+			display: none;
+			z-index: 1000;
+			overflow: hidden;
+		}
+
+		.chatx-header {
+			background: #007bff;
+			color: white;
+			padding: 10px;
+			display: flex;
+			justify-content: space-between;
+			border-radius: 10px 10px 0 0;
+		}
+
+		/* HANYA bagian ini yang boleh scroll */
+		.chatx-body {
+			height: calc(100% - 50px);
+			/* sisa tinggi dari header */
+			overflow-y: auto;
+			padding: 10px;
+			box-sizing: border-box;
+		}
+
+
+		/* Styling footer chat box */
+		.chatx-footer {
+			padding: 10px;
+			display: flex;
+			align-items: center;
+		}
+
+		/* Styling input pesan */
+		.chatx-footer input {
+			flex: 1;
+			padding: 5px;
+			border-radius: 5px;
+			/* Membulatkan sudut input */
+			border: 1px solid #ccc;
+			margin-right: 10px;
+			font-size: 14px;
+		}
+
+		/* Styling tombol kirim */
+		.chatx-footer button {
+			background: #007bff;
+			color: white;
+			border: none;
+			padding: 5px 15px;
+			cursor: pointer;
+			border-radius: 5px;
+			/* Membulatkan sudut tombol */
+			transition: background 0.3s ease;
+		}
+
+		/* Efek hover pada tombol kirim */
+		.chatx-footer button:hover {
+			background: #0056b3;
+		}
+
+		/* Efek fokus pada input pesan */
+		.chatx-footer input:focus {
+			outline: none;
+			border-color: #007bff;
+		}
+
+		/* Styling untuk nama user yang bisa diklik */
+		.chatx-user-link {
+			cursor: pointer;
+			color: #007bff;
+			text-decoration: none;
+			display: inline-block;
+			padding: 5px;
+			border-radius: 8px;
+			transition: all 0.2s ease-in-out;
+		}
+
+		.chatx-user-link:hover {
+			background-color: #f0f8ff;
+		}
+
+		.chatx-user-link.selected {
+			background-color: #007bff;
+			color: white;
+			font-weight: bold;
+			box-shadow: 0 0 8px rgba(0, 123, 255, 0.6);
+		}
+
+
+		.chatx-search-input {
+			width: 100%;
+			padding: 6px 10px;
+			margin-bottom: 10px;
+			border: 1px solid #ccc;
+			border-radius: 5px;
+			font-size: 14px;
+		}
+
+		#chat-user-scroll {
+			max-height: 300px;
+			overflow-y: auto;
+		}
+
+		#private-chat-messages {
+			height: 300px;
+			overflow-y: auto;
+			padding: 10px;
+		}
+
+		#private-message:disabled::placeholder {
+			color: #888;
+			font-style: italic;
+		}
+
+		.badge-unread {
+			background-color: red;
+			color: white;
+			padding: 2px 6px;
+			border-radius: 12px;
+			font-size: 12px;
+			margin-left: 5px;
+			font-weight: bold;
+		}
+	</style>
+
+</head>
+
+<body>
+
+	<!-- Loading starts -->
+	
+	<!-- Loading ends -->
+
+
+	<!-- Page wrapper start -->
+	<div class="page-wrapper">
+
+		<!-- Sidebar wrapper start -->
+		<nav id="sidebar" class="sidebar-wrapper">
+			<div class="sidebar-head">
+				<a href="https://elearning.bsi.ac.id/user/dashboard" class="shell-brand" aria-label="Kembali ke dashboard">
+					<span class="shell-brand-mark">
+						<img src="https://elearning.bsi.ac.id/eliteadmin/minilogo_bsi.png" alt="Logo BSI">
+					</span>
+					<span class="shell-brand-copy">
+						<strong>MyBest</strong>
+						<small>Portal Mahasiswa</small>
+					</span>
+				</a>
+			</div>
+
+			<!-- Sidebar content start -->
+			<div class="sidebar-content">
+
+    <!-- sidebar menu start -->
+    <div class="sidebar-menu">
+        <ul>
+            <li class="header-menu">Menu Utama</li>
+
+            <li class="sidebar-item ">
+                <a href="https://elearning.bsi.ac.id/user/dashboard">
+                    <i class="icon-devices_other"></i>
+                    <span class="menu-text">Dashboard</span>
+                </a>
+            </li>
+
+            <li class="sidebar-item">
+                <a href="https://elearning.bsi.ac.id/student-2">
+                    <i class="icon-airplay"></i>
+                    <span class="menu-text">Student V2</span>
+                </a>
+            </li>
+
+            <li class="sidebar-item ">
+                <a href="https://elearning.bsi.ac.id/profil">
+                    <i class="icon-user1"></i>
+                    <span class="menu-text">Profil</span>
+                </a>
+            </li>
+
+            <li class="sidebar-item">
+                <a href="https://elearning.bsi.ac.id/halaman-ujian">
+                    <i class="icon-edit1"></i>
+                    <span class="menu-text">Ujian</span>
+                </a>
+            </li>
+
+            <li class="sidebar-item ">
+                <a href="https://elearning.bsi.ac.id/toefl">
+                    <i class="icon-book"></i>
+                    <span class="menu-text">TOEFL</span>
+                </a>
+            </li>
+
+            
+
+            <li class="sidebar-dropdown active">
+                <a href="#">
+                    <i class="icon-calendar"></i>
+                    <span class="menu-text">Jadwal Kuliah</span>
+                </a>
+                <div class="sidebar-submenu">
+                    <ul>
+                        <li>
+                            <a href="https://elearning.bsi.ac.id/sch">Jadwal Kuliah</a>
+                        </li>
+                        <li>
+                            <a href="https://elearning.bsi.ac.id/kuliah-pengganti">Kuliah Pengganti</a>
+                        </li>
+                        <li>
+                            <a href="https://elearning.bsi.ac.id/exercise">Kuis</a>
+                        </li>
+                    </ul>
+                </div>
+            </li>
+
+            
+            <li class="sidebar-item">
+                <form method="POST" action="https://elearning.bsi.ac.id/logout" id="sidebar-logout-form">
+                    <input type="hidden" name="_token" value="gOl3ZqCSXxERWRIMaCX1mB1J10EW7mpdACxYgQmP" autocomplete="off">                    <a href="https://elearning.bsi.ac.id/logout" onclick="event.preventDefault(); document.getElementById('sidebar-logout-form').submit();">
+                        <i class="icon-log-out1"></i>
+                        <span class="menu-text">Keluar</span>
+                    </a>
+                </form>
+            </li>
+
+        </ul>
+    </div>
+    <!-- sidebar menu end -->
+
+</div>
+			<!-- Sidebar content end -->
+		</nav>
+		<!-- Sidebar wrapper end -->
+		<div id="overlay" class="sidebar-overlay" aria-hidden="true"></div>
+
+		<!-- Page content start  -->
+		<div class="page-content">
+
+			<!-- Header start -->
+			<header class="header">
+    <div class="header-context-wrap">
+        <a id="pin-sidebar" href="#" class="sidebar-collapse" aria-label="Ringkas menu navigasi" title="Ringkas menu">
+            <i class="icon-menu"></i>
+        </a>
+
+        <a id="toggle-sidebar" href="#" class="mobile-menu-button" aria-label="Buka menu navigasi">
+            <i class="icon-menu"></i>
+        </a>
+
+        <div class="header-context">
+            <span class="header-kicker">Portal Akademik Mahasiswa</span>
+            <div class="header-title">
+                <span class="header-status-dot" aria-hidden="true"></span>
+                Universitas Bina Sarana Informatika
+            </div>
+        </div>
+    </div>
+
+    <div class="header-items">
+        <ul class="header-actions">
+            <li class="theme-toggle-item">
+                <button type="button" class="theme-toggle-btn" aria-label="Ganti mode tampilan" title="Ganti mode tampilan">
+                    <i class="icon-moon theme-icon-moon"></i>
+                    <i class="icon-sun theme-icon-sun"></i>
+                </button>
+            </li>
+            <li class="dropdown">
+                <a href="#" id="userSettings" class="user-settings" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    <span class="user-summary">
+                        <span class="user-display-name">YUKEN VELINO</span>
+                        <span class="user-identifier">NIM 12345678</span>
+                    </span>
+                    <span class="avatar">YV</span>
+                    <i class="icon-chevron-down user-chevron" aria-hidden="true"></i>
+                </a>
+
+                <div class="dropdown-menu dropdown-menu-right user-dropdown" aria-labelledby="userSettings">
+                    <div class="dropdown-user-card">
+                        <span class="dropdown-avatar">YV</span>
+                        <span>
+                            <strong>YUKEN VELINO</strong>
+                            <small>test@example.com</small>
+                        </span>
+                    </div>
+
+                    <div class="header-profile-actions">
+                        <a href="#" class="theme-toggle-action">
+                            <i class="icon-moon theme-icon-moon"></i>
+                            <i class="icon-sun theme-icon-sun"></i>
+                            <span>Mode Tampilan</span>
+                        </a>
+
+                        <a href="https://elearning.bsi.ac.id/profil">
+                            <i class="icon-settings1"></i>
+                            <span>Pengaturan akun</span>
+                        </a>
+
+                        <form method="POST" action="https://elearning.bsi.ac.id/logout">
+                            <input type="hidden" name="_token" value="gOl3ZqCSXxERWRIMaCX1mB1J10EW7mpdACxYgQmP" autocomplete="off">                            <button type="submit" class="header-logout-button">
+                                <i class="icon-log-out1"></i>
+                                <span>Keluar</span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </li>
+        </ul>
+    </div>
+</header>			<!-- Header end -->
+
+			<!-- Page header start -->
+			<div class="page-header">
+				<ol class="breadcrumb">
+					<li class="breadcrumb-item font-weight-bold text-primary" style="font-size: 1.1rem;">
+						Universitas Bina Sarana Informatika
+					</li>
+				</ol>
+			</div>
+			<!-- Page header end -->
+
+			<!-- Main container start -->
+			<div class="main-container">
+				
+<style>
+/* =========================================
+   Fullscreen & Base Container Styling
+   ========================================= */
+#specialstuff {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+#myvideo,
+#myvideo:fullscreen,
+#myvideo:-webkit-full-screen,
+#myvideo:-moz-full-screen,
+#myvideo:-ms-fullscreen {
+    background-color: #f8fafc !important;
+    min-height: 100vh !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    max-height: 100vh !important;
+    max-height: 100dvh !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 24px 32px !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+::backdrop, ::-webkit-backdrop {
+    background-color: #f8fafc !important;
+}
+
+/* =========================================
+   Intro / Start Card Styling
+   ========================================= */
+.exam-start-card {
+    border-radius: 18px;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+}
+.exam-start-header {
+    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+    color: #ffffff;
+    padding: 30px;
+    text-align: center;
+}
+.exam-subject-title {
+    color: #0f172a;
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+.exam-meta-pill {
+    display: inline-flex;
+    align-items: center;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #334155;
+    margin: 4px;
+}
+.exam-meta-pill i {
+    color: #2563eb;
+    margin-right: 6px;
+}
+.exam-rules-box {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 18px 22px;
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+.exam-rules-title {
+    color: #0f172a;
+    font-size: 0.95rem;
+}
+.exam-rules-list {
+    color: #475569;
+}
+.btn-exam-start {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    border: none;
+    color: #ffffff;
+    border-radius: 50px;
+    padding: 14px 38px;
+    font-size: 1.05rem;
+    letter-spacing: 0.4px;
+    transition: all 0.3s ease;
+    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.35);
+}
+.btn-exam-start:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(37, 99, 235, 0.45);
+    color: #ffffff;
+}
+.exam-question-box {
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+}
+.exam-question-body {
+    font-size: 1.05rem;
+    line-height: 1.7;
+    color: #1e293b;
+}
+
+/* =========================================
+   Exam Topbar & Header
+   ========================================= */
+.exam-header-bar {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+    padding: 16px 24px;
+    margin-bottom: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+.exam-icon-circle {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+}
+.exam-timer-pill {
+    background: #f0fdf4;
+    border: 1.5px solid #bbf7d0;
+    border-radius: 12px;
+    padding: 8px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.timer-clock-icon {
+    font-size: 1.4rem;
+    color: #16a34a;
+    animation: timerPulse 2s infinite;
+}
+@keyframes timerPulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1); opacity: 0.85; }
+    100% { transform: scale(1); opacity: 1; }
+}
+.timer-digits {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #15803d;
+    letter-spacing: 1px;
+}
+
+/* =========================================
+   Exam Question Card & Navigation
+   ========================================= */
+.exam-question-card {
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+}
+.exam-nav-card {
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    position: sticky;
+    top: 20px;
+}
+.exam-nav-header {
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    border-radius: 16px 16px 0 0 !important;
+    padding: 16px 20px;
+}
+.exam-section-label {
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #64748b;
+    margin-bottom: 12px;
+}
+.exam-number-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* Number Tile */
+.exam-number-tile {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: #ffffff;
+    border: 1.5px solid #e2e8f0;
+    color: #334155;
+    font-weight: 700;
+    font-size: 0.92rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    user-select: none;
+    text-decoration: none;
+}
+.exam-number-tile:hover {
+    border-color: #3b82f6;
+    color: #2563eb;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.15);
+}
+.exam-number-tile a {
+    color: inherit;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
+/* Tile States: Tegas, Jelas, Tanpa Tabrakan Warna */
+/* 1. Belum Dijawab (Default): Background Putih, Border Abu-abu, Teks Hitam Jelas */
+.exam-number-tile,
+span.no_soal,
+span.no_soal_essay {
+    background-color: #ffffff !important;
+    border: 1.5px solid #cbd5e1 !important;
+    color: #1e293b !important;
+}
+.exam-number-tile a,
+span.no_soal a,
+span.no_soal_essay a {
+    color: #1e293b !important;
+    font-weight: 700 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    height: 100% !important;
+    text-decoration: none !important;
+}
+
+/* 2. Sudah Dijawab (Background HIJAU Solid, Teks Putih) - UTAMA */
+.exam-number-tile.soal_terjawab,
+span.soal_terjawab {
+    background-color: #10b981 !important;
+    border-color: #059669 !important;
+    color: #ffffff !important;
+}
+.exam-number-tile.soal_terjawab a,
+span.soal_terjawab a {
+    color: #ffffff !important;
+    font-weight: 700 !important;
+}
+
+/* 3. Sedang Dikerjakan tapi BELUM Dijawab (Background BIRU, Teks Putih) */
+.exam-number-tile.soal_terpilih:not(.soal_terjawab),
+span.soal_terpilih:not(.soal_terjawab) {
+    background-color: #2563eb !important;
+    border-color: #1d4ed8 !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.45) !important;
+    transform: scale(1.05);
+    z-index: 2;
+}
+.exam-number-tile.soal_terpilih:not(.soal_terjawab) a,
+span.soal_terpilih:not(.soal_terjawab) a {
+    color: #ffffff !important;
+    font-weight: 700 !important;
+}
+
+/* 4. Sedang Dikerjakan DAN SUDAH Dijawab (Background TETAP HIJAU Solid dengan Ring Fokus Biru) */
+.exam-number-tile.soal_terpilih.soal_terjawab,
+span.soal_terpilih.soal_terjawab {
+    background-color: #10b981 !important;
+    border-color: #1d4ed8 !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 0 3.5px #2563eb !important;
+    transform: scale(1.06);
+    z-index: 3;
+}
+.exam-number-tile.soal_terpilih.soal_terjawab a,
+span.soal_terpilih.soal_terjawab a {
+    color: #ffffff !important;
+    font-weight: 700 !important;
+}
+
+/* Options Multiple Choice */
+.jawab {
+    display: block;
+    padding: 14px 18px !important;
+    margin-bottom: 12px !important;
+    border-radius: 12px !important;
+    border: 1.5px solid #e2e8f0 !important;
+    background-color: #ffffff !important;
+    color: #1e293b !important;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.jawab .pilihan {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: #1e293b !important;
+}
+.jawab:hover:not(.dijawab) {
+    border-color: #93c5fd !important;
+    background-color: #f8fafc !important;
+    transform: translateX(3px);
+}
+.option-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: #f1f5f9;
+    color: #475569;
+    font-weight: 700;
+    font-size: 0.88rem;
+    flex-shrink: 0;
+}
+
+/* KETIKA PILIHAN DIJAWAB / TERPILIH (Aktif & Setelah Refresh / Klik Ulang) */
+.jawab.dijawab {
+    background-color: #2563eb !important;
+    border-color: #1d4ed8 !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25) !important;
+}
+.jawab.dijawab .pilihan {
+    color: #ffffff !important;
+}
+.jawab.dijawab .option-badge {
+    background-color: #1d4ed8 !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+}
+
+/* KETIKA PILIHAN BELUM / TIDAK TERPILIH */
+.jawab:not(.dijawab) {
+    background-color: #ffffff !important;
+    color: #1e293b !important;
+}
+.jawab:not(.dijawab) .pilihan {
+    color: #1e293b !important;
+}
+.jawab:not(.dijawab) .option-badge {
+    background-color: #f1f5f9 !important;
+    color: #475569 !important;
+}
+
+/* Finish Button */
+.btn-finish-exam {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    border: none !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    padding: 10px 24px !important;
+    border-radius: 10px !important;
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.28) !important;
+    transition: all 0.2s ease !important;
+    display: inline-flex;
+    align-items: center;
+}
+.btn-finish-exam:hover {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(16, 185, 129, 0.38) !important;
+    color: #ffffff !important;
+}
+
+/* Legend */
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    color: #475569;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+.legend-badge {
+    width: 16px;
+    height: 16px;
+    border-radius: 5px;
+    display: inline-block;
+}
+.legend-badge.answered { background: #10b981; }
+.legend-badge.active { background: #2563eb; }
+.legend-badge.unanswered { background: #ffffff; border: 1.5px solid #cbd5e1; }
+
+/* Anti-Cheat: Matikan seleksi teks & blokir interaksi eksternal */
+#specialstuff, #myvideo, .exam-question-card, #wrap-soal, .pg-container, .essay-container {
+    -webkit-touch-callout: none !important;
+    -webkit-user-select: none !important;
+    -khtml-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    user-select: none !important;
+}
+
+textarea#jawab_essay, textarea.form-control {
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+    user-select: text !important;
+}
+
+/* Scroll hanya isi soal dan jawaban saat viewport mengecil karena zoom. */
+@media (max-height: 1000px), (max-width: 1300px) {
+    #myvideo,
+    #myvideo:fullscreen,
+    #myvideo:-webkit-full-screen,
+    #myvideo:-moz-full-screen,
+    #myvideo:-ms-fullscreen {
+        padding: 12px 16px 20px !important;
+        overflow-y: scroll !important;
+    }
+
+    .exam-question-card {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        max-height: calc(100vh - 160px);
+        max-height: calc(100dvh - 160px);
+    }
+
+    .exam-question-card > .card-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior-y: contain;
+        padding: 16px !important;
+    }
+
+    .exam-question-card > .card-footer {
+        flex: 0 0 auto;
+    }
+
+}
+
+@keyframes popIn {
+    0% { transform: scale(0.92); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* Dark Mode Overrides */
+[data-theme="dark"] .exam-start-card {
+    background: var(--shell-card-bg, #131d36) !important;
+    border: 1px solid var(--shell-line, #1f2c4f) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4) !important;
+}
+[data-theme="dark"] .exam-subject-title {
+    color: #f8fafc !important;
+}
+[data-theme="dark"] .exam-meta-pill {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid var(--shell-line, #1f2c4f) !important;
+    color: #cbd5e1 !important;
+}
+[data-theme="dark"] .exam-meta-pill i {
+    color: #38bdf8 !important;
+}
+[data-theme="dark"] .exam-rules-box {
+    background: rgba(15, 23, 42, 0.6) !important;
+    border: 1px solid var(--shell-line, #1f2c4f) !important;
+}
+[data-theme="dark"] .exam-rules-title {
+    color: #38bdf8 !important;
+}
+[data-theme="dark"] .exam-rules-list {
+    color: #94a3b8 !important;
+}
+[data-theme="dark"] #fullscreen-exit-alert {
+    background: rgba(245, 158, 11, 0.15) !important;
+    border-color: rgba(245, 158, 11, 0.4) !important;
+    color: #fde68a !important;
+}
+[data-theme="dark"] #myvideo,
+[data-theme="dark"] #myvideo:fullscreen,
+[data-theme="dark"] #myvideo:-webkit-full-screen,
+[data-theme="dark"] #myvideo:-moz-full-screen,
+[data-theme="dark"] #myvideo:-ms-fullscreen {
+    background-color: var(--shell-canvas-bg, #0b1329) !important;
+}
+[data-theme="dark"] ::backdrop,
+[data-theme="dark"] ::-webkit-backdrop {
+    background-color: var(--shell-canvas-bg, #0b1329) !important;
+}
+[data-theme="dark"] .exam-header-bar {
+    background: var(--shell-card-bg, #131d36) !important;
+    border: 1px solid var(--shell-line, #1f2c4f) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
+}
+[data-theme="dark"] .exam-header-bar h5,
+[data-theme="dark"] .exam-header-bar .text-dark {
+    color: #f8fafc !important;
+}
+[data-theme="dark"] .exam-header-bar .text-muted {
+    color: #94a3b8 !important;
+}
+[data-theme="dark"] .exam-timer-pill {
+    background: rgba(22, 163, 74, 0.15) !important;
+    border: 1.5px solid rgba(22, 163, 74, 0.4) !important;
+}
+[data-theme="dark"] .exam-timer-pill .timer-clock-icon,
+[data-theme="dark"] .exam-timer-pill .timer-digits {
+    color: #4ade80 !important;
+}
+[data-theme="dark"] .exam-question-card {
+    background: var(--shell-card-bg, #131d36) !important;
+    border: 1px solid var(--shell-line, #1f2c4f) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+}
+[data-theme="dark"] .exam-question-card .card-footer {
+    background: var(--shell-card-bg, #131d36) !important;
+    border-top: 1px solid var(--shell-line, #1f2c4f) !important;
+}
+[data-theme="dark"] .exam-nav-card {
+    background: var(--shell-card-bg, #131d36) !important;
+    border: 1px solid var(--shell-line, #1f2c4f) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+}
+[data-theme="dark"] .exam-nav-header {
+    background: rgba(0, 0, 0, 0.2) !important;
+    border-bottom: 1px solid var(--shell-line, #1f2c4f) !important;
+}
+[data-theme="dark"] .exam-nav-header h6,
+[data-theme="dark"] .exam-nav-header .text-dark {
+    color: #f8fafc !important;
+}
+[data-theme="dark"] .exam-section-label {
+    color: #94a3b8 !important;
+}
+[data-theme="dark"] .exam-question-box,
+[data-theme="dark"] .exam-question-card .card[style*="background"],
+[data-theme="dark"] .pg-container .card[style*="background"],
+[data-theme="dark"] .essay-container .card[style*="background"] {
+    background: #0f172a !important;
+    border-color: var(--shell-line, #1f2c4f) !important;
+}
+[data-theme="dark"] .exam-question-body,
+[data-theme="dark"] .exam-question-card .card[style*="background"] .card-body,
+[data-theme="dark"] .pg-container .card[style*="background"] .card-body,
+[data-theme="dark"] .essay-container .card[style*="background"] .card-body {
+    color: #f8fafc !important;
+}
+[data-theme="dark"] #nomerurut.soal,
+[data-theme="dark"] .soal {
+    color: #f8fafc !important;
+}
+[data-theme="dark"] .jawab:not(.dijawab) {
+    background-color: #0f172a !important;
+    border: 1.5px solid var(--shell-line, #1f2c4f) !important;
+    color: #f8fafc !important;
+}
+[data-theme="dark"] .jawab:not(.dijawab) .pilihan {
+    color: #f8fafc !important;
+}
+[data-theme="dark"] .jawab:not(.dijawab) .option-badge {
+    background-color: #1e293b !important;
+    color: #94a3b8 !important;
+}
+[data-theme="dark"] .jawab:hover:not(.dijawab) {
+    background-color: rgba(37, 99, 235, 0.15) !important;
+    border-color: #3b82f6 !important;
+    color: #ffffff !important;
+}
+[data-theme="dark"] .jawab.dijawab {
+    background-color: #2563eb !important;
+    border-color: #1d4ed8 !important;
+    color: #ffffff !important;
+}
+[data-theme="dark"] .jawab.dijawab .pilihan {
+    color: #ffffff !important;
+}
+[data-theme="dark"] .jawab.dijawab .option-badge {
+    background-color: #1d4ed8 !important;
+    color: #ffffff !important;
+}
+[data-theme="dark"] .exam-number-tile,
+[data-theme="dark"] span.no_soal,
+[data-theme="dark"] span.no_soal_essay {
+    background-color: #0f172a !important;
+    border: 1.5px solid var(--shell-line, #1f2c4f) !important;
+    color: #f8fafc !important;
+}
+[data-theme="dark"] .exam-number-tile a,
+[data-theme="dark"] span.no_soal a,
+[data-theme="dark"] span.no_soal_essay a {
+    color: #f8fafc !important;
+}
+[data-theme="dark"] .exam-number-tile.soal_terjawab,
+[data-theme="dark"] span.soal_terjawab {
+    background-color: #10b981 !important;
+    border-color: #059669 !important;
+    color: #ffffff !important;
+}
+[data-theme="dark"] .exam-number-tile.soal_terjawab a,
+[data-theme="dark"] span.soal_terjawab a {
+    color: #ffffff !important;
+}
+[data-theme="dark"] .exam-number-tile.soal_terpilih:not(.soal_terjawab),
+[data-theme="dark"] span.soal_terpilih:not(.soal_terjawab) {
+    background-color: #2563eb !important;
+    border-color: #1d4ed8 !important;
+    color: #ffffff !important;
+}
+[data-theme="dark"] .exam-number-tile.soal_terpilih.soal_terjawab,
+[data-theme="dark"] span.soal_terpilih.soal_terjawab {
+    background-color: #10b981 !important;
+    border-color: #38bdf8 !important;
+    box-shadow: 0 0 0 3.5px #38bdf8 !important;
+}
+[data-theme="dark"] .legend-item {
+    color: #94a3b8 !important;
+}
+[data-theme="dark"] .legend-badge.unanswered {
+    background: #0f172a !important;
+    border: 1.5px solid var(--shell-line, #1f2c4f) !important;
+}
+[data-theme="dark"] textarea#jawab_essay,
+[data-theme="dark"] textarea.form-control {
+    background: #0b1329 !important;
+    border-color: var(--shell-line, #1f2c4f) !important;
+    color: #f8fafc !important;
+}
+[data-theme="dark"] #cheat-warning-overlay > div {
+    background: #131d36 !important;
+    border: 2px solid #ef4444 !important;
+    color: #f8fafc !important;
+}
+[data-theme="dark"] #cheat-warning-overlay h4 {
+    color: #f8fafc !important;
+}
+[data-theme="dark"] #cheat-warning-overlay p {
+    color: #cbd5e1 !important;
+}
+[data-theme="dark"] #cheat-warning-overlay div[style*="background: #fef2f2"] {
+    background: rgba(239, 68, 68, 0.12) !important;
+    border-color: rgba(239, 68, 68, 0.35) !important;
+}
+[data-theme="dark"] #cheat-warning-overlay div[style*="color: #991b1b"] {
+    color: #fca5a5 !important;
+}
+[data-theme="dark"] #cheat-warning-overlay div[style*="color: #b91c1c"] {
+    color: #f87171 !important;
+}
+</style>
+
+<!-- =========================================
+     LAYAR 1: Halaman Awal Masuk Ujian
+     ========================================= -->
+<div class="row gutters justify-content-center">
+    <div class="col-xl-8 col-lg-9 col-md-10 col-12">
+        <div class="exam-start-card">
+            <div class="exam-start-header">
+                <i class="icon-award mb-2" style="font-size: 2.8rem;"></i>
+                <h3 class="font-weight-bold mb-1">Ruang Ujian Online</h3>
+                <p class="text-white-50 mb-0">Silakan persiapkan diri Anda sebelum memasuki ruang ujian layar penuh</p>
+            </div>
+
+            <div class="p-4 p-md-5">
+                <!-- Info Meta -->
+                <div class="text-center mb-4">
+                    <h4 class="font-weight-bold exam-subject-title mb-2">Kuis / Latihan Ujian</h4>
+                    <div class="d-flex justify-content-center flex-wrap">
+                        <span class="exam-meta-pill">
+                            <i class="icon-book"></i> Kode: 153
+                        </span>
+                        <span class="exam-meta-pill">
+                            <i class="icon-layers"></i> Paket: LATIHAN
+                        </span>
+                        <span class="exam-meta-pill">
+                            <i class="icon-clock"></i> Durasi: 60 Menit
+                        </span>
+                        <span class="exam-meta-pill">
+                            <i class="icon-file-text"></i> 
+                                                            10 Soal Pilihan Ganda
+                                                    </span>
+                    </div>
+                </div>
+
+                <!-- Alert jika keluar dari Fullscreen -->
+                <div id="fullscreen-exit-alert" class="alert alert-warning p-3 mb-4" style="display: none; border-radius: 12px; border: 1.5px solid #f59e0b; background: #fffbeb;">
+                    <div class="d-flex align-items-center">
+                        <i class="icon-alert-triangle text-warning mr-3" style="font-size: 2rem;"></i>
+                        <div>
+                            <div class="font-weight-bold text-dark" style="font-size: 0.95rem;">Perhatian: Anda Keluar Dari Mode Layar Penuh!</div>
+                            <div class="text-muted small">Lembar pengerjaan disembunyikan untuk menjaga integritas ujian. Silakan klik tombol di bawah untuk masuk kembali ke mode layar penuh.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Petunjuk Ujian & Aturan Keamanan -->
+                <div class="exam-rules-box mb-4">
+                    <div class="font-weight-bold exam-rules-title mb-2 d-flex align-items-center">
+                        <i class="icon-shield mr-2 text-primary"></i> Aturan & Tata Tertib Ujian Online:
+                    </div>
+                    <ul class="mb-0 pl-4 exam-rules-list">
+                        <li>Pastikan koneksi internet stabil sebelum menekan tombol buka ujian.</li>
+                        <li>Ujian wajib dikerjakan dalam <strong>Mode Layar Penuh (Fullscreen)</strong>.</li>
+                        <li><strong class="text-danger">Dilarang membuka tab baru, aplikasi lain, atau sidebar AI (seperti Microsoft Copilot).</strong> Setiap perpindahan layar dicatat dalam log sistem pengawas ujian.</li>
+                        <li>Fitur <strong>Salin (Copy)</strong>, <strong>Tempel (Paste)</strong>, dan <strong>Klik Kanan</strong> dinonaktifkan demi integritas akademik.</li>
+                    </ul>
+                </div>
+
+                <!-- Tombol Masuk Fullscreen -->
+                <div class="text-center">
+                    <button class="btn btn-exam-start font-weight-bold" onclick="openFullscreen();" id="start-exam">
+                        <i class="icon-maximize mr-2"></i> Buka Halaman Ujian Dalam Mode Layar Penuh
+                    </button>
+                    <div class="text-muted small mt-3">
+                        <i class="icon-shield text-success mr-1"></i> Sistem ujian terlindungi & anti-curang aktif
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- =========================================
+     LAYAR 2: Antarmuka Ujian (Fullscreen Container)
+     ========================================= -->
+<div id="specialstuff" style="display: none;">
+    <div id="myvideo">
+
+        <!-- Overlay Modal Notifikasi Peringatan Pelanggaran / Pindah Tab (Hanya Peringatan / Tanpa Auto-Submit) -->
+        <div id="cheat-warning-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.88); z-index: 9999999; backdrop-filter: blur(6px); align-items: center; justify-content: center;">
+            <div style="background: #ffffff; border-radius: 20px; max-width: 520px; width: 90%; padding: 32px 28px; text-align: center; box-shadow: 0 20px 45px rgba(0,0,0,0.35); border: 2px solid #ef4444; animation: popIn 0.3s ease;">
+                <div style="width: 72px; height: 72px; background: #fee2e2; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 18px;">
+                    <i class="icon-alert-triangle" style="font-size: 2.3rem; color: #dc2626;"></i>
+                </div>
+                <h4 style="font-weight: 800; color: #1e293b; margin-bottom: 10px;">Peringatan Aktivitas Mencurigakan!</h4>
+                <p style="color: #475569; font-size: 0.95rem; line-height: 1.6; margin-bottom: 16px;">
+                    Anda terdeteksi <strong>berpindah tab, membuka sidebar AI / Copilot, atau meminimalkan layar ujian</strong>.
+                </p>
+                <div style="background: #fef2f2; border: 1.5px solid #fecaca; border-radius: 12px; padding: 12px 18px; margin-bottom: 22px;">
+                    <div style="font-size: 0.82rem; font-weight: 700; color: #991b1b; text-transform: uppercase; letter-spacing: 0.5px;">Peringatan Integritas Ujian:</div>
+                    <div style="font-size: 1.15rem; font-weight: 800; color: #dc2626; margin-top: 4px;">
+                        Terdeteksi Berpindah Layar: <span id="violation-count-text">1</span> kali
+                    </div>
+                    <div style="font-size: 0.8rem; color: #b91c1c; margin-top: 4px;">
+                        Aktivitas ini tercatat dalam sistem. Harap tetap berada di halaman ujian hingga selesai.
+                    </div>
+                </div>
+                <button type="button" id="btn-dismiss-warning" class="btn btn-danger font-weight-bold" style="padding: 12px 32px; border-radius: 50px; font-size: 1rem; width: 100%; box-shadow: 0 4px 14px rgba(220, 38, 38, 0.35);">
+                    <i class="icon-check mr-2"></i> Saya Mengerti & Lanjutkan Ujian
+                </button>
+            </div>
+        </div>
+
+        <!-- Topbar Ujian (Sticky Header & Live Timer) -->
+        <div class="exam-header-bar">
+            <div class="d-flex align-items-center">
+                <div class="exam-icon-circle mr-3">
+                    <i class="icon-edit-3"></i>
+                </div>
+                <div>
+                    <h5 class="font-weight-bold text-dark mb-1" style="font-size: 1.15rem;">
+                        Ujian Online
+                    </h5>
+                    <div class="text-muted small d-flex align-items-center flex-wrap" style="gap: 10px;">
+                        <span><i class="icon-layers mr-1"></i> Paket: <strong>LATIHAN</strong></span>
+                        <span>•</span>
+                        <span><i class="icon-user mr-1"></i> YUKEN VELINO (12345678)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Timer Live -->
+            <div class="exam-timer-pill">
+                <i class="icon-watch_later timer-clock-icon"></i>
+                <div>
+                    <div class="text-muted" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Sisa Waktu</div>
+                    <div class="timer-digits" id="demo">-- : -- : --</div>
+                </div>
+                <span style="display: none;" id="waktu-akhir">Nov 20, 2026 11:47:42</span>
+            </div>
+        </div>
+
+        <!-- Layout 2 Kolom: Soal & Navigasi -->
+        <div class="row gutters flex-grow-1">
+            
+            <!-- Kolom Kiri: Pertanyaan & Lembar Pengerjaan -->
+            <div class="col-xl-9 col-lg-8 col-md-12 col-12">
+                <div class="card exam-question-card">
+                    <div class="card-body p-4">
+                        <div id="wrap-soal">
+                            
+                            
+                                                                                                                                                                                    <span class="detail_soal_id" style="display: none;">104643</span>
+                                            
+                                            
+                                            <div class="pg-container">
+                                                <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom flex-wrap" style="gap: 10px;">
+                                                    <div class="d-flex align-items-center" style="gap: 10px;">
+                                                        <span class="badge badge-primary px-3 py-2 font-weight-bold" style="border-radius: 8px; font-size: 0.9rem;">
+                                                            <i class="icon-check-square mr-1"></i> Soal Pilihan Ganda No. 1
+                                                        </span>
+                                                        <div id="status-terjawab-wrapper">
+                                                                                                                            <span class="badge badge-light border text-muted px-3 py-2 font-weight-bold" id="status-terjawab-badge" style="border-radius: 8px; font-size: 0.82rem;">
+                                                                    <i class="icon-clock mr-1"></i> Belum Dijawab
+                                                                </span>
+                                                                                                                    </div>
+                                                    </div>
+                                                    <div class="text-muted small">
+                                                        <i class="icon-info mr-1 text-primary"></i> Klik salah satu pilihan jawaban di bawah ini
+                                                    </div>
+                                                </div>
+
+                                                <div class="card mb-4 exam-question-box">
+                                                    <div class="card-body p-4 exam-question-body">
+                                                        <div id="nomerurut" class="soal" data-id="1">1. Dalam sebuah proyek video, tim menggunakan format yang merekam seluruh suara termasuk suara penyanyi, bukan hanya instrumen musik. Format suara yang dimaksud adalah ....</div>
+                                                    </div>
+                                                </div>
+
+                                                
+                                                <div class="options-wrapper">
+                                                                                                            <div class="jawab "
+                                                            soal-id="4139" data-id="104643" data-jawab="A/104643/269441">
+                                                            <div class="d-flex align-items-start">
+                                                                <div class="option-badge mr-3">A</div>
+                                                                <div class="pilihan flex-grow-1">MIDI</div>
+                                                            </div>
+                                                        </div>
+                                                                                                                                                                <div class="jawab "
+                                                            soal-id="4139" data-id="104643" data-jawab="B/104643/269441">
+                                                            <div class="d-flex align-items-start">
+                                                                <div class="option-badge mr-3">B</div>
+                                                                <div class="pilihan flex-grow-1">MPEG</div>
+                                                            </div>
+                                                        </div>
+                                                                                                                                                                <div class="jawab "
+                                                            soal-id="4139" data-id="104643" data-jawab="C/104643/269441">
+                                                            <div class="d-flex align-items-start">
+                                                                <div class="option-badge mr-3">C</div>
+                                                                <div class="pilihan flex-grow-1">AVI</div>
+                                                            </div>
+                                                        </div>
+                                                                                                                                                                <div class="jawab "
+                                                            soal-id="4139" data-id="104643" data-jawab="D/104643/269441">
+                                                            <div class="d-flex align-items-start">
+                                                                <div class="option-badge mr-3">D</div>
+                                                                <div class="pilihan flex-grow-1">MP3</div>
+                                                            </div>
+                                                        </div>
+                                                                                                                                                                <div class="jawab "
+                                                            soal-id="4139" data-id="104643" data-jawab="E/104643/269441">
+                                                            <div class="d-flex align-items-start">
+                                                                <div class="option-badge mr-3">E</div>
+                                                                <div class="pilihan flex-grow-1">QuickTime</div>
+                                                            </div>
+                                                        </div>
+                                                                                                    </div>
+                                            </div>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                            
+                            
+                        </div>
+                    </div>
+
+                    <!-- Card Footer: Navigasi & Selesai Ujian -->
+                    <div class="card-footer bg-white border-top p-3 d-flex justify-content-between align-items-center flex-wrap" style="gap: 10px; border-radius: 0 0 16px 16px;">
+                        <div>
+                            <span class="text-muted small">
+                                <i class="icon-info mr-1"></i> Periksa kembali semua jawaban sebelum mengakhiri ujian.
+                            </span>
+                        </div>
+                        <div>
+                            <a href="/selesai-ujian/dummy-token-1" class="btn btn-finish-exam selesai" id="selesai" style="display: none; " onclick="return konfirmasiSelesaiUjian();">
+                                <i class="icon-check-circle mr-1"></i> Selesai Ujian
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kolom Kanan: Navigasi Nomor Soal -->
+            <div class="col-xl-3 col-lg-4 col-md-12 col-12">
+                <div class="card exam-nav-card">
+                    <div class="card-header exam-nav-header">
+                        <h6 class="mb-0 font-weight-bold text-dark d-flex align-items-center">
+                            <i class="icon-grid mr-2 text-primary"></i> Navigasi Soal
+                        </h6>
+                    </div>
+                    <div class="card-body p-3">
+                        
+                        
+                                                    <div class="exam-section-label">
+                                <i class="icon-check-square mr-1 text-primary"></i> Pilihan Ganda (10)
+                            </div>
+                            <div id="maxsoal" data-max="10"></div>
+                            <div class="exam-number-grid mb-4">
+                                                                    <span id="no_soal1" 
+                                          class="no_soal exam-number-tile soal_terpilih " 
+                                          data-id="104643" 
+                                          data-no="1">
+                                        <a href="javascript:void(0);" style="color: inherit !important;">
+                                            01
+                                        </a>
+                                    </span>
+                                                                    <span id="no_soal2" 
+                                          class="no_soal exam-number-tile  " 
+                                          data-id="104647" 
+                                          data-no="2">
+                                        <a href="javascript:void(0);" style="color: inherit !important;">
+                                            02
+                                        </a>
+                                    </span>
+                                                                    <span id="no_soal3" 
+                                          class="no_soal exam-number-tile  " 
+                                          data-id="104639" 
+                                          data-no="3">
+                                        <a href="javascript:void(0);" style="color: inherit !important;">
+                                            03
+                                        </a>
+                                    </span>
+                                                                    <span id="no_soal4" 
+                                          class="no_soal exam-number-tile  " 
+                                          data-id="104611" 
+                                          data-no="4">
+                                        <a href="javascript:void(0);" style="color: inherit !important;">
+                                            04
+                                        </a>
+                                    </span>
+                                                                    <span id="no_soal5" 
+                                          class="no_soal exam-number-tile  " 
+                                          data-id="104627" 
+                                          data-no="5">
+                                        <a href="javascript:void(0);" style="color: inherit !important;">
+                                            05
+                                        </a>
+                                    </span>
+                                                                    <span id="no_soal6" 
+                                          class="no_soal exam-number-tile  " 
+                                          data-id="104619" 
+                                          data-no="6">
+                                        <a href="javascript:void(0);" style="color: inherit !important;">
+                                            06
+                                        </a>
+                                    </span>
+                                                                    <span id="no_soal7" 
+                                          class="no_soal exam-number-tile  " 
+                                          data-id="104635" 
+                                          data-no="7">
+                                        <a href="javascript:void(0);" style="color: inherit !important;">
+                                            07
+                                        </a>
+                                    </span>
+                                                                    <span id="no_soal8" 
+                                          class="no_soal exam-number-tile  " 
+                                          data-id="104615" 
+                                          data-no="8">
+                                        <a href="javascript:void(0);" style="color: inherit !important;">
+                                            08
+                                        </a>
+                                    </span>
+                                                                    <span id="no_soal9" 
+                                          class="no_soal exam-number-tile  " 
+                                          data-id="104631" 
+                                          data-no="9">
+                                        <a href="javascript:void(0);" style="color: inherit !important;">
+                                            09
+                                        </a>
+                                    </span>
+                                                                    <span id="no_soal10" 
+                                          class="no_soal exam-number-tile  " 
+                                          data-id="104623" 
+                                          data-no="10">
+                                        <a href="javascript:void(0);" style="color: inherit !important;">
+                                            10
+                                        </a>
+                                    </span>
+                                                            </div>
+                        
+                        
+                        
+                        <!-- Legenda Status Soal -->
+                        <div class="pt-3 border-top">
+                            <div class="legend-item">
+                                <span class="legend-badge answered"></span>
+                                <span>Sudah Dijawab</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-badge active"></span>
+                                <span>Sedang Dikerjakan</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-badge unanswered"></span>
+                                <span>Belum Dijawab</span>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+</div>
+
+<noscript>
+    <style type="text/css">
+        #specialstuff { display: none; }
+    </style>
+    <div class="alert alert-danger text-center">
+        Fitur JavaScript dinonaktifkan pada browser Anda. Harap aktifkan JavaScript untuk melanjutkan ujian.
+    </div>
+</noscript>
+			</div>
+			<!-- Main container end -->
+
+		</div>
+		<!-- Page content end -->
+
+	</div>
+	<!-- Page wrapper end -->
+	<!-- Floating Chat Icon -->
+	<div id="chat-icon" class="chatx-icon">
+		<div class="chatx-user">
+			<img src="https://elearning.bsi.ac.id/assets/img/MyBest-chat.png" alt="Chat">
+			<span id="chat-user-count" class="chatx-badge">0</span>
+		</div>
+	</div>
+
+	<!-- Chat Box -->
+	<div id="chat-box" class="chatx-box">
+		<div class="chatx-header">
+			<h5>Users Online</h5>
+			<button id="close-chat" class="close">&times;</button>
+		</div>
+		<div class="chatx-body" id="chat-user-scroll">
+			<input type="text" id="search-user" placeholder="Cari user..." class="chatx-search-input">
+			<ul id="chat-user-list"></ul>
+		</div>
+	</div>
+
+	<!-- Private Chat Window -->
+	<div id="private-chat" class="private-chat hidden">
+		<div class="chatx-header">
+			<h5 id="private-chat-title">Chat</h5>
+			<button id="close-private-chat" class="close">&times;</button>
+		</div>
+		<div class="chatx-body" id="private-chat-messages"></div>
+		<div class="chatx-footer">
+			<input type="text" id="private-message" placeholder="Ketik pesan...">
+			<button onclick="sendPrivateMessage()">Kirim</button>
+		</div>
+	</div>
+
+
+	
+	<!-- Required jQuery first, then Bootstrap Bundle JS -->
+	<script src="https://elearning.bsi.ac.id/js/jquery-ui.min.js"></script>
+	<script src="https://elearning.bsi.ac.id/assets/js/jquery.min.js"></script>
+	<script src="https://elearning.bsi.ac.id/assets/js/bootstrap.bundle.min.js"></script>
+	<script src="https://elearning.bsi.ac.id/assets/js/moment.js"></script>
+	<script type="text/javascript" src="https://elearning.bsi.ac.id/assets/js/jquery.expander.js"></script>
+
+
+	<!-- *************
+			************ Vendor Js Files *************
+		************* -->
+	<!-- Slimscroll JS -->
+	<script src="https://elearning.bsi.ac.id/assets/vendor/slimscroll/slimscroll.min.js"></script>
+	<script src="https://elearning.bsi.ac.id/assets/vendor/slimscroll/custom-scrollbar.js"></script>
+	<!-- Daterange -->
+	<script src="https://elearning.bsi.ac.id/assets/vendor/daterange/daterange.js"></script>
+	<script src="https://elearning.bsi.ac.id/assets/vendor/daterange/custom-daterange.js"></script>
+	<!-- Custom Data tables -->
+	<script src="https://elearning.bsi.ac.id/assets/vendor/datatables/custom/custom-datatables.js"></script>
+	<script src="https://elearning.bsi.ac.id/assets/vendor/datatables/custom/fixedHeader.js"></script>
+	<!-- Data Tables -->
+	<script src="https://elearning.bsi.ac.id/assets/vendor/datatables/dataTables.min.js"></script>
+	<script src="https://elearning.bsi.ac.id/assets/vendor/datatables/dataTables.bootstrap.min.js"></script>
+	<!-- Download / CSV / Copy / Print -->
+	<script src="https://elearning.bsi.ac.id/assets/vendor/datatables/buttons.min.js"></script>
+	<script src="https://elearning.bsi.ac.id/assets/vendor/datatables/jszip.min.js"></script>
+	<script src="https://elearning.bsi.ac.id/assets/vendor/datatables/pdfmake.min.js"></script>
+	<script src="https://elearning.bsi.ac.id/assets/vendor/datatables/vfs_fonts.js"></script>
+	<script src="https://elearning.bsi.ac.id/assets/vendor/datatables/html5.min.js"></script>
+	<script src="https://elearning.bsi.ac.id/assets/vendor/datatables/buttons.print.min.js"></script>
+	<!-- Main JS -->
+	<script src="https://elearning.bsi.ac.id/assets/js/main.js"></script>
+	<script src="https://elearning.bsi.ac.id/assets/dist/sweetalert2.min.js"></script>
+	<script src="https://elearning.bsi.ac.id/assets/dist/script.js"></script>
+	<!-- Lobipanel -->
+	<script>
+			</script>
+	<script src="https://js.pusher.com/7.0/pusher.min.js"></script>
+	<script>
+		let selectedUserId = null;
+
+		document.getElementById("chat-icon").addEventListener("click", function() {
+			let chatBox = document.getElementById("chat-box");
+			chatBox.style.display = (chatBox.style.display === "block") ? "none" : "block";
+
+			if (chatBox.style.display === "block") {
+				offset = 0;
+				allLoaded = false;
+				fetchOnlineUsers(true); // reset data saat buka chat box
+			}
+		});
+
+		document.getElementById("close-chat").addEventListener("click", function() {
+			document.getElementById("chat-box").style.display = "none"; // Tutup daftar user online
+		});
+
+		document.getElementById("close-private-chat").addEventListener("click", function() {
+			document.getElementById("private-chat").style.display = "none"; // Tutup private chat
+		});
+
+		function toTitleCase(str) {
+			return str.toLowerCase().split(' ').map(word =>
+				word.charAt(0).toUpperCase() + word.slice(1)
+			).join(' ');
+		}
+		// Ambil user online dari backend
+		let offset = 0;
+		const limit = 20;
+		let isLoading = false;
+		let allLoaded = false;
+		let searchKeyword = "";
+		let isSearching = false;
+		let lastSendTime = 0;
+		const sendCooldown = 10; // dalam detik
+		let privateMessageOffset = 0;
+		const privateMessageLimit = 20;
+		let privateLoading = false;
+		let allPrivateLoaded = false;
+
+
+
+		function fetchOnlineUsers(reset = false) {
+			if (isLoading || (!isSearching && allLoaded)) return;
+
+			if (reset) {
+				offset = 0;
+				allLoaded = false;
+				document.getElementById("chat-user-list").innerHTML = "";
+			}
+
+			isLoading = true;
+
+			let url = isSearching ?
+				`/users-online?search=${encodeURIComponent(searchKeyword)}` :
+				`/users-online?limit=${limit}&offset=${offset}`;
+
+			fetch(url)
+				.then(response => response.json())
+				.then(response => {
+					const users = response.users || response; // fallback untuk non-paginated response
+					const total = response.total || users.length;
+
+					// ✅ Update badge total user online
+					document.getElementById("chat-user-count").innerText = total;
+
+					if (!isSearching && users.length < limit) {
+						allLoaded = true;
+					}
+
+					const userList = document.getElementById("chat-user-list");
+
+					users.forEach(user => {
+						let li = document.createElement("li");
+						let name = toTitleCase(user.name);
+						let kode = user.kode;
+						let unread = user.unread_count || 0;
+						li.innerHTML = `
+							<span class="chatx-user-link" data-user-id="${user.id}" data-user-name="${name}">
+								${name} (${kode}) 
+								${unread > 0 ? `<span class="badge-unread">${unread}</span>` : ''}
+							</span>
+						`;
+						userList.appendChild(li);
+					});
+
+					// Bind klik ke setiap user
+					document.querySelectorAll(".chatx-user-link").forEach(link => {
+						link.addEventListener("click", function() {
+							let userId = this.getAttribute("data-user-id");
+							let userName = this.getAttribute("data-user-name");
+							document.querySelectorAll(".chatx-user-link").forEach(item => {
+								item.classList.remove("selected");
+							});
+							this.classList.add("selected");
+							openPrivateChat(userId, userName);
+						});
+					});
+
+					if (!isSearching) {
+						offset += limit;
+					}
+
+					isLoading = false;
+				})
+				.catch(error => {
+					console.error("Error fetching users:", error);
+					isLoading = false;
+				});
+		}
+
+
+		// Membuka private chat dengan user tertentu
+		function openPrivateChat(userId, userName) {
+			selectedUserId = userId;
+			privateMessageOffset = 0;
+			allPrivateLoaded = false;
+
+			let chatBox = document.getElementById("private-chat");
+			let chatTitle = document.getElementById("private-chat-title");
+			let chatMessages = document.getElementById("private-chat-messages");
+
+			// ✅ Benar-benar hapus isi chat sebelumnya
+			if (chatMessages) {
+				chatMessages.innerHTML = '';
+			}
+
+			// Tampilkan nama user tujuan
+			if (chatTitle) {
+				chatTitle.innerText = `Chat dengan ${userName}`;
+			}
+
+			// Tampilkan chat box
+			chatBox.style.display = "block";
+
+			// Ambil pesan untuk user baru
+			fetchOldMessages(userId, true);
+		}
+
+
+		function fetchOldMessages(userId, isReset = true) {
+			if (privateLoading || allPrivateLoaded) return;
+			privateLoading = true;
+
+			if (isReset) {
+				privateMessageOffset = 0;
+				allPrivateLoaded = false;
+			}
+
+			const currentUserLock = selectedUserId;
+
+			fetch(`/get-messages/${userId}?offset=${privateMessageOffset}&limit=${privateMessageLimit}`)
+				.then(response => response.json())
+				.then(messages => {
+					// ✅ Cek: apakah masih chat dengan user yang sama?	
+					if (currentUserLock !== selectedUserId) {
+						console.warn("User berubah saat pesan datang, abaikan.");
+						privateLoading = false;
+						return;
+					}
+
+					if (messages.length < privateMessageLimit) {
+						allPrivateLoaded = true;
+					}
+
+					const chatBox = document.getElementById("private-chat-messages");
+
+					messages.forEach(message => {
+						let sender = (message.sender_id == "269441") ? "Anda" : message.sender_name;
+						const p = document.createElement("p");
+						p.innerHTML = `<strong>${sender}:</strong> ${escapeHtml(message.message)}<br><small>${message.created_at}</small><hr>`;
+						chatBox.appendChild(p); // atau prepend jika kamu pakai scroll atas
+					});
+
+					privateMessageOffset += privateMessageLimit;
+					privateLoading = false;
+
+					// Scroll ke bawah setelah pesan masuk (opsional)
+					if (isReset) {
+						chatBox.scrollTop = chatBox.scrollHeight;
+					}
+				})
+				.catch(error => {
+					console.error("Error fetching messages:", error);
+					privateLoading = false;
+				});
+		}
+
+
+		// Kirim pesan privat
+		function sendPrivateMessage() {
+			let input = document.getElementById("private-message");
+			let message = escapeHtml(input.value.trim());
+			const kirimButton = document.querySelector('#private-chat .chatx-footer button');
+
+			if (!selectedUserId) {
+				alert("Pilih user terlebih dahulu!");
+				return;
+			}
+
+			if (message === "") {
+				alert("Pesan tidak boleh kosong!");
+				return;
+			}
+
+			// Cegah spam: disable input & tombol
+			const cooldown = 10; // detik
+			let remaining = cooldown;
+
+			input.disabled = true;
+			kirimButton.disabled = true;
+			input.value = "";
+			input.placeholder = `Tunggu ${remaining} detik...`;
+
+			const countdownInterval = setInterval(() => {
+				remaining--;
+				if (remaining > 0) {
+					input.placeholder = `Tunggu ${remaining} detik...`;
+				} else {
+					clearInterval(countdownInterval);
+					input.disabled = false;
+					kirimButton.disabled = false;
+					input.placeholder = "Ketik pesan...";
+				}
+			}, 1000);
+
+			// Kirim pesan ke server
+			fetch('/send-private-message', {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						"X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content
+					},
+					body: JSON.stringify({
+						receiver_id: selectedUserId,
+						message
+					})
+				})
+				.then(response => response.json())
+				.then(data => {
+					if (data.error) {
+						alert(data.error); // Tampilkan pesan error
+					} else {
+						let chatBox = document.getElementById("private-chat-messages");
+						chatBox.innerHTML += `<p><strong>Anda:</strong> ${message}</p>`;
+						chatBox.scrollTop = chatBox.scrollHeight;
+					}
+				})
+				.catch(error => {
+					console.error("Error sending message:", error);
+				});
+		}
+
+
+		document.getElementById("search-user").addEventListener("keyup", function() {
+			searchKeyword = this.value.trim().toLowerCase();
+			isSearching = searchKeyword !== ""; // True kalau ada keyword pencarian
+
+			offset = 0;
+			allLoaded = false;
+			fetchOnlineUsers(true);
+		});
+
+		document.getElementById("chat-user-scroll").addEventListener("scroll", function() {
+			const scrollTop = this.scrollTop;
+			const scrollHeight = this.scrollHeight;
+			const offsetHeight = this.offsetHeight;
+
+			if (scrollTop + offsetHeight >= scrollHeight - 10) {
+				fetchOnlineUsers();
+			}
+		});
+
+		function escapeHtml(text) {
+			const div = document.createElement("div");
+			div.innerText = text;
+			return div.innerHTML;
+		}
+
+		// Realtime dengan Pusher untuk menerima pesan
+		Echo.channel('private-chat')
+			.listen('PrivateMessageSent', (e) => {
+				console.log("Pesan diterima:", e.message);
+
+				if (e.message.receiver_id == selectedUserId) {
+					let chatBox = document.getElementById("private-chat-messages");
+
+					// Membuat elemen baru untuk pesan
+					const p = document.createElement("p");
+					const sender = document.createElement("strong");
+					sender.textContent = `${e.message.sender.name}:`;
+
+					const messageText = document.createElement("span");
+					messageText.textContent = e.message.message;
+
+					p.appendChild(sender);
+					p.appendChild(messageText);
+					chatBox.appendChild(p);
+				}
+			});
+	<script>
+		document.addEventListener('DOMContentLoaded', function () {
+			const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
+			const menuLinks = Array.from(document.querySelectorAll('.sidebar-menu a[href]'));
+			let currentLink = null;
+
+			menuLinks.forEach(function (link) {
+				if (link.getAttribute('href') === '#' || link.target === '_blank') return;
+
+				const linkUrl = new URL(link.href, window.location.origin);
+				const linkPath = linkUrl.pathname.replace(/\/$/, '') || '/';
+				const isMatch = linkUrl.origin === window.location.origin &&
+					(currentPath === linkPath || (linkPath !== '/' && currentPath.startsWith(linkPath + '/')));
+
+				if (isMatch && (!currentLink || linkPath.length > currentLink.path.length)) {
+					currentLink = { element: link, path: linkPath };
+				}
+			});
+
+			if (currentLink) {
+				currentLink.element.classList.add('current-page');
+				const dropdown = currentLink.element.closest('.sidebar-dropdown');
+
+				if (dropdown) {
+					dropdown.classList.add('active');
+					const submenu = dropdown.querySelector('.sidebar-submenu');
+					if (submenu) submenu.style.display = 'block';
+				} else {
+					const item = currentLink.element.closest('.sidebar-item');
+					if (item) item.classList.add('active-page-link');
+				}
+			}
+
+			['toggle-sidebar', 'pin-sidebar'].forEach(function (id) {
+				const control = document.getElementById(id);
+				if (control) control.addEventListener('click', function (event) {
+					event.preventDefault();
+				});
+			});
+
+			const pinControl = document.getElementById('pin-sidebar');
+			const pageWrapper = document.querySelector('.page-wrapper');
+			if (pinControl && pageWrapper) {
+				const syncPinLabel = function () {
+					const isCompact = pageWrapper.classList.contains('pinned');
+					const label = isCompact ? 'Perluas menu navigasi' : 'Ringkas menu navigasi';
+					pinControl.setAttribute('aria-label', label);
+					pinControl.setAttribute('title', label);
+				};
+
+				pinControl.addEventListener('click', function () {
+					window.setTimeout(syncPinLabel, 0);
+				});
+				syncPinLabel();
+			}
+		});
+	</script>
+
+	<script src="https://elearning.bsi.ac.id/assets/js/theme-toggle.js?v=1793842429"></script>
+	<script src="https://elearning.bsi.ac.id/js/jquery.fullscreen-min.js"></script>
+<script src="https://elearning.bsi.ac.id/js/jquery-ujian.js?v=1794473370"></script>
+
+<script>
+// Konfirmasi tombol "Selesai Ujian": peringatkan jika masih ada essay yang belum tersimpan
+function konfirmasiSelesaiUjian() {
+    var belumTersimpan = $('.no_soal_essay').not('.soal_terjawab').length;
+    var adaDraf = (typeof window.countEssayDrafts === 'function') ? window.countEssayDrafts() : 0;
+
+    if (belumTersimpan > 0 || adaDraf > 0) {
+        var pesan = 'PERHATIAN!\n\n';
+        if (belumTersimpan > 0) {
+            pesan += belumTersimpan + ' soal essay BELUM tersimpan ke server.\n';
+        }
+        if (adaDraf > 0) {
+            pesan += 'Ada jawaban essay yang gagal disimpan (masih berupa draf di browser).\n';
+        }
+        pesan += '\nJika Anda menyelesaikan ujian sekarang, jawaban tersebut TIDAK akan dinilai dan ujian tidak dapat dibuka kembali.\n\n' +
+                 'Klik "Batal" lalu tekan "Simpan Jawaban" terlebih dahulu (muat ulang halaman jika gagal).\n' +
+                 'Klik "OK" hanya jika Anda tetap ingin mengakhiri ujian.';
+        return confirm(pesan);
+    }
+    return confirm('Apakah Anda yakin telah selesai dan ingin mengakhiri ujian ini? Pastikan seluruh jawaban Anda telah tersimpan.');
+}
+
+$(document).ready(function() {
+    // Handler Klik Nomor Soal Essay
+    $('.no_soal_essay').click(function(e) {
+        e.preventDefault();
+        var $this = $(this);
+        var id_soal_esay = $this.attr('data-id');
+        var no_urut = $this.attr('data-no');
+
+        $('.no_soal, .no_soal_essay').removeClass('soal_terpilih');
+        $this.addClass('soal_terpilih');
+
+        $('#wrap-soal').html('<div class="text-center py-5"><div class="spinner-border text-primary mb-3" role="status"></div><p class="text-muted font-weight-bold">Memuat soal essay...</p></div>');
+
+        $.ajax({
+            type: "GET",
+            dataType: "json",
+            url: "/get-soal_essay",
+            data: {
+                id_soal_esay: id_soal_esay,
+                no_urut: no_urut
+            },
+            success: function(data) {
+                $('#wrap-soal').html(data.html);
+            },
+            error: function() {
+                $('#wrap-soal').html('<div class="alert alert-danger">Gagal memuat soal essay. Silakan klik kembali nomor soal.</div>');
+            }
+        });
+    });
+
+    // ========================================================
+    // DRAF JAWABAN ESSAY DI BROWSER (agar tidak hilang saat simpan gagal)
+    // ========================================================
+    const essayDraftPrefix = 'essay_draft_12345678_';
+
+    function getEssayDraft(id) {
+        try { return localStorage.getItem(essayDraftPrefix + id); } catch (e) { return null; }
+    }
+    function setEssayDraft(id, val) {
+        try { localStorage.setItem(essayDraftPrefix + id, val); } catch (e) {}
+    }
+    function removeEssayDraft(id) {
+        try { localStorage.removeItem(essayDraftPrefix + id); } catch (e) {}
+    }
+    window.countEssayDrafts = function() {
+        let n = 0;
+        $('.no_soal_essay').each(function() {
+            if (getEssayDraft($(this).attr('data-id')) !== null) n++;
+        });
+        return n;
+    };
+
+    // Pulihkan draf yang belum tersimpan ke server (dipanggil saat soal essay tampil)
+    function restoreEssayDraft() {
+        const $btn = $('#simpan-essay');
+        const $ta = $('#jawab_essay');
+        if (!$btn.length || !$ta.length) return;
+        const draft = getEssayDraft($btn.data('id'));
+        if (draft !== null && draft !== $ta.val()) {
+            $ta.val(draft);
+            $('#notif-essay').removeClass('alert-success').addClass('alert-warning')
+                .html('<i class="icon-alert-triangle mr-1"></i> Draf jawaban yang <b>belum tersimpan</b> ke server telah dipulihkan. Silakan klik <b>Simpan Jawaban</b>.')
+                .show();
+        }
+    }
+    restoreEssayDraft();
+    $(document).ajaxComplete(function(event, xhr, settings) {
+        if (settings.url && settings.url.indexOf('get-soal_essay') !== -1) {
+            restoreEssayDraft();
+        }
+    });
+
+    $(document).on('input', '#jawab_essay', function() {
+        const id = $('#simpan-essay').data('id');
+        if (id) setEssayDraft(id, $(this).val());
+    });
+
+    // Handler Simpan Jawaban Essay
+    $(document).on('click', '#simpan-essay', function() {
+        const $btn = $(this);
+        const jawab_essay = $("#jawab_essay").val();
+        const id_soal_esay = $btn.data('id');
+        const id_soal = $btn.data('soal');
+
+        if (!jawab_essay || !jawab_essay.trim()) {
+            alert('Jawaban essay masih kosong.');
+            return;
+        }
+
+        setEssayDraft(id_soal_esay, jawab_essay);
+        $btn.prop('disabled', true).html('<i class="icon-refresh spin mr-1"></i> Menyimpan...');
+
+        $.ajaxSetup({
+            headers: {
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+            }
+        });
+
+        $.ajax({
+            type: "POST",
+            url: "https://elearning.bsi.ac.id/simpan-jawaban-essay",
+            data: {
+                _token: $('meta[name="csrf-token"]').attr('content'),
+                jawab_essay: jawab_essay,
+                id_soal_esay: id_soal_esay,
+                id_soal: id_soal
+            },
+            success: function(data) {
+                $btn.prop('disabled', false).html('<i class="icon-save mr-1"></i> Simpan Jawaban');
+                if (data == 1 || (data && data.success)) {
+                    removeEssayDraft(id_soal_esay);
+                    $(`.no_soal_essay[data-id="${id_soal_esay}"]`).addClass('soal_terjawab');
+                    $("#notif-essay").stop(true, true).removeClass('alert-warning').addClass('alert-success')
+                        .html('<i class="icon-check-circle mr-1"></i> Jawaban berhasil disimpan!').slideDown().delay(3000).slideUp();
+                } else {
+                    // Respons tidak valid (mis. diarahkan ke halaman login) = jawaban BELUM tersimpan
+                    alert('Jawaban BELUM tersimpan ke server (sesi Anda kemungkinan telah berakhir).\n\nJawaban Anda sudah disimpan sementara di browser ini. Silakan muat ulang halaman (F5), login kembali bila diminta, lalu klik "Simpan Jawaban" lagi.');
+                }
+            },
+            error: function(xhr) {
+                $btn.prop('disabled', false).html('<i class="icon-save mr-1"></i> Simpan Jawaban');
+                let msg;
+                if (xhr.status === 419 || xhr.status === 401) {
+                    msg = 'Sesi login Anda telah berakhir (kode ' + xhr.status + '). Ini biasanya terjadi jika akun dibuka di tab/perangkat lain atau setelah login ulang.\n\n' +
+                          'Jawaban Anda sudah disimpan sementara di browser ini. Silakan muat ulang halaman (F5), login kembali bila diminta, lalu klik "Simpan Jawaban" lagi.\n\n' +
+                          'JANGAN klik "Selesai Ujian" sebelum jawaban berhasil disimpan.';
+                } else if (xhr.status === 0) {
+                    msg = 'Gagal terhubung ke server. Periksa koneksi internet Anda lalu klik "Simpan Jawaban" lagi.\nJawaban Anda sudah disimpan sementara di browser ini.';
+                } else {
+                    msg = 'Server gagal menyimpan jawaban (kode ' + xhr.status + '). Silakan coba lagi beberapa saat.\nJawaban Anda sudah disimpan sementara di browser ini.';
+                }
+                alert(msg);
+            }
+        });
+    });
+
+    // ========================================================
+    // FITUR ANTI-CHEAT & ANTI-AI PROCTORING
+    // ========================================================
+    let isExamActive = false;
+    let isWarningShowing = false;
+    const examViolationKey = 'cbt_violations_' + '4139';
+
+    // 1. Deteksi Status Fullscreen
+    $(document).on('fullscreenchange webkitfullscreenchange mozfullscreenchange MSFullscreenChange', function() {
+        const isFullScreen = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+        if (isFullScreen) {
+            isExamActive = true;
+            $('#fullscreen-exit-alert').slideUp();
+        } else {
+            if (isExamActive && !isWarningShowing) {
+                $('#specialstuff').hide();
+                $('#fullscreen-exit-alert').slideDown();
+                triggerExamViolation('Keluar dari mode layar penuh (Fullscreen)');
+            }
+        }
+    });
+
+    $('#start-exam').click(function() {
+        isExamActive = true;
+        $('#fullscreen-exit-alert').slideUp();
+    });
+
+    // 2. Fungsi Pencatat & Penampil Peringatan Pelanggaran (Hanya Notifikasi / Tanpa Auto-Submit)
+    function triggerExamViolation(reason) {
+        if (!isExamActive || isWarningShowing) return;
+
+        let currentCount = parseInt(sessionStorage.getItem(examViolationKey) || '0') + 1;
+        sessionStorage.setItem(examViolationKey, currentCount);
+        isWarningShowing = true;
+
+        $('#violation-count-text').text(currentCount);
+
+        // Tampilkan notifikasi peringatan di layar
+        $('#cheat-warning-overlay').css('display', 'flex');
+    }
+
+    // 3. Deteksi Pindah Tab (Visibility Change)
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden && isExamActive) {
+            triggerExamViolation('Berpindah tab atau membuka halaman browser lain');
+        }
+    });
+
+    // 4. Deteksi Jendela Kehilangan Fokus (Window Blur - Membuka Copilot AI Edge, aplikasi lain, dll.)
+    window.addEventListener('blur', function() {
+        if (isExamActive) {
+            setTimeout(function() {
+                if (!document.hasFocus() && isExamActive && !isWarningShowing) {
+                    triggerExamViolation('Beralih ke aplikasi atau sidebar AI lain');
+                }
+            }, 350);
+        }
+    });
+
+    // 5. Tombol Tutup Peringatan Pelanggaran
+    $('#btn-dismiss-warning').click(function() {
+        $('#cheat-warning-overlay').hide();
+        isWarningShowing = false;
+        openFullscreen();
+    });
+
+    // 6. Reset status saat mahasiswa submit selesai ujian secara normal
+    $('.selesai').click(function(e) {
+        if (e.isDefaultPrevented()) return; // mahasiswa membatalkan konfirmasi
+        isExamActive = false;
+        sessionStorage.removeItem(examViolationKey);
+    });
+
+    // 7. Nonaktifkan Klik Kanan (Mencegah Context Menu AI di Microsoft Edge / Browser)
+    document.addEventListener('contextmenu', function(e) {
+        if (isExamActive) {
+            e.preventDefault();
+            return false;
+        }
+    });
+
+    // 8. Nonaktifkan Drag-and-Drop teks soal
+    document.addEventListener('dragstart', function(e) {
+        if (isExamActive) {
+            e.preventDefault();
+            return false;
+        }
+    });
+
+    // 9. Nonaktifkan Paste (Tempel) di Textarea Essay
+    $(document).on('paste', '#jawab_essay, textarea', function(e) {
+        e.preventDefault();
+        alert('Peringatan: Fitur Paste (Tempel) dinonaktifkan demi kejujuran ujian! Harap ketik jawaban Anda secara mandiri.');
+        return false;
+    });
+
+    // 10. Mencegah Shortcut Keyboard (Copy, Paste, DevTools, Inspect, Copilot Sidebar)
+    document.addEventListener('keydown', function(e) {
+        if (!isExamActive) return;
+
+        const isCtrl = e.ctrlKey || e.metaKey;
+        const code = e.keyCode || e.which;
+        const key = (e.key || '').toLowerCase();
+
+        // Tombol F12 (Developer Tools)
+        if (code === 123) {
+            e.preventDefault();
+            return false;
+        }
+
+        if (isCtrl) {
+            // c (Copy), v (Paste), x (Cut), a (Select all), u (View Source), s (Save), p (Print)
+            if (code === 67 || code === 86 || code === 88 || code === 65 || code === 85 || code === 83 || code === 80 ||
+                key === 'c' || key === 'v' || key === 'x' || key === 'a' || key === 'u' || key === 's' || key === 'p') {
+                e.preventDefault();
+                return false;
+            }
+
+            // Ctrl+Shift+I / J / C (Inspect Element) & Ctrl+Shift+. (Shortcut Copilot Edge)
+            if (e.shiftKey) {
+                e.preventDefault();
+                return false;
+            }
+        }
+    });
+});
+</script>
+</body>
+
+</html>
