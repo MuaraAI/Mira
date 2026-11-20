@@ -19,6 +19,8 @@ _ASSIGNMENT_FETCH_CONCURRENCY = 4
 _ASSIGNMENT_FETCH_ATTEMPTS = 2
 _ASSIGNMENTS_PARTIAL_TTL = 60
 _PRESENCE_REKAP_TTL = 30
+# Batas percobaan login latar saat CAPTCHA/verifikasi ditolak kampus.
+MAX_CAPTCHA_ATTEMPTS = 3
 
 from app.config import settings
 from app.deps import require_elearning_creds
@@ -53,15 +55,23 @@ def solve_captcha(question_text: str) -> Any:
 
     raise ValueError(f"Tidak dapat menemukan pola captcha di: {question_text[:100]}")
 
-_ELEARNING_IMAGE_CAPTCHA_RE = re.compile(
-    r"""name=["']captcha_answer["']|reload-captcha|data:image/(?:png|jpeg);base64""",
+# Login MyBest Nov 2026 memakai puzzle geser (`sc-box`/`sc-piece` + hidden
+# `captcha_token`); bentuk lama `captcha_answer` tetap dikenali agar snapshot
+# lama/HTML cache terbaca sebagai form CAPTCHA, bukan error kredensial.
+_ELEARNING_CAPTCHA_FORM_RE = re.compile(
+    r"""name=["']captcha_token["']|id=["']sc-(?:box|piece|handle)["']"""
+    r"""|name=["']captcha_answer["']|reload-captcha""",
     re.IGNORECASE,
 )
 
 
-def _elearning_image_captcha(html: str) -> bool:
-    """True jika halaman login MyBest memakai CAPTCHA gambar (PNG base64)."""
-    return bool(html and _ELEARNING_IMAGE_CAPTCHA_RE.search(html[:200_000]))
+def _elearning_captcha_form(html: str) -> bool:
+    """True jika halaman login MyBest memuat form verifikasi keamanan."""
+    return bool(html and _ELEARNING_CAPTCHA_FORM_RE.search(html[:200_000]))
+
+
+_TOKEN_FIELD_RE = re.compile(r"""name=["']_token["']\s+value=["']([^"']+)["']""")
+
 
 def parse_courses(html: str) -> list[dict[str, Any]]:
     if "jadwal tidak tersedia" in html.lower():
@@ -1622,19 +1632,25 @@ class ElearningClient(UpstreamSession):
         captcha: Optional[str] = None,
         session: Optional[dict[str, Any]] = None,
     ) -> bool:
-        """Login MyBest. `session` + `captcha` dipakai jalur relay CAPTCHA user."""
+        """Login MyBest.
+
+        `session` + `captcha` dipakai jalur yang sudah menyelesaikan verifikasi
+        lebih dulu; tanpa itu, puzzle geser diselesaikan sendiri
+        (`app/elearning_captcha.py`) karena MyBest Nov 2026 mengganti teks-gambar
+        dengan `captcha_token` hasil `/verify-captcha`.
+        """
         client = self.get_client()
         login_url = f"{self.BASE_URL}/login"
         self._login_failure = "unknown"
         try:
             if session:
-                # Tantangan CAPTCHA sudah dibuat pada sesi yang sama: pakai ulang
-                # cookie + token supaya kode CAPTCHA tetap valid. Cookie wajib
-                # berdomain; entri host-only membuat dua mybest_session terkirim
-                # dan kampus memakai sesi lama (login seolah gagal CAPTCHA).
+                # Tantangan sudah dibuat pada sesi yang sama: pakai ulang cookie +
+                # token supaya captcha_token tetap valid. Cookie wajib berdomain;
+                # entri host-only membuat dua mybest_session terkirim dan kampus
+                # memakai sesi lama (login seolah gagal CAPTCHA).
                 apply_session_cookies(client, session.get("cookies") or {}, self.BASE_URL)
                 token = str(session.get("token") or "")
-                if not token:
+                if not token or not captcha:
                     self._login_failure = "captcha"
                     return False
             else:
@@ -1643,27 +1659,24 @@ class ElearningClient(UpstreamSession):
                     self._login_failure = "throttled"
                     logger.warning("Elearning login throttled for %s (429)", nim)
                     return False
-                m = re.search(r'name=["\']_token["\']\s+value=["\']([^"\']+)["\']', r1.text)
-                if not m:
+                if not _TOKEN_FIELD_RE.search(r1.text):
                     return False
-                token = m.group(1)
                 if captcha is None:
-                    # Tanpa jawaban relay (login latar saat sesi kampus mati):
-                    # selesaikan CAPTCHA gambar dengan OCR. Kode sekali pakai,
-                    # jadi satu POST per tantangan dan berhenti saat kampus
-                    # menolak tanpa pesan.
-                    return self._ocr_login(nim, password)
+                    # Tanpa jawaban reagent: selesaikan puzzle geser sendiri.
+                    return self._puzzle_login(nim, password)
+                m = _TOKEN_FIELD_RE.search(r1.text)
+                token = m.group(1)
 
             payload = {
                 "_token": token,
                 "username": nim,
                 "password": password,
-                "captcha_answer": str(captcha),
+                "captcha_token": str(captcha),
             }
             r2 = client.post(login_url, data=payload)
             final_url = str(r2.url)
             # Login sukses jika TIDAK lagi di halaman login dan status 200 (Laravel redirect ke intended page)
-            is_login_page = "/login" in final_url and ("captcha_answer" in r2.text or "password" in r2.text)
+            is_login_page = "/login" in final_url and _elearning_captcha_form(r2.text)
             if not is_login_page and r2.status_code == 200:
                 self._mark_logged_in(nim)
                 return True
@@ -1675,7 +1688,7 @@ class ElearningClient(UpstreamSession):
                 self._login_errors = []
             else:
                 self._login_failure, self._login_errors = classify_login_failure(
-                    r2.text, _elearning_image_captcha(r2.text)
+                    r2.text, _elearning_captcha_form(r2.text)
                 )
             if self._login_failure == "captcha":
                 # Warning: level info dibuang default logging, pesan kampus harus terlihat di pm2 logs.
@@ -1695,26 +1708,25 @@ class ElearningClient(UpstreamSession):
             return False
 
 
-    def _ocr_login(self, nim: str, password: str) -> bool:
-        """Login latar dengan CAPTCHA OCR saat sesi kampus benar-benar mati.
+    def _puzzle_login(self, nim: str, password: str) -> bool:
+        """Login latar dengan menyelesaikan puzzle geser MyBest.
 
-        CAPTCHA kampus sekali pakai: satu kode per POST. Berhenti mencoba saat
-        kampus menolak tanpa pesan (kode hangus / soft reject) agar tidak
-        menambah hitungan gagal kampus.
+        `captcha_token` sekali pakai dan terikat cookie sesi yang membuatnya,
+        jadi setiap percobaan memakai tantangan baru dan berhenti begitu alasan
+        penolakan bukan lagi "captcha" (password salah / throttle).
         """
-        from app.captcha_autosolver import MAX_CAPTCHA_ATTEMPTS, candidate_session_sync
+        from app.elearning_captcha import fetch_captcha_token_sync
 
         login_url = f"{self.BASE_URL}/login"
-        for attempt in range(MAX_CAPTCHA_ATTEMPTS):
+        attempts = MAX_CAPTCHA_ATTEMPTS
+        for attempt in range(attempts):
             try:
-                session, candidates = candidate_session_sync("elearning", nim)
+                session, captcha_token = fetch_captcha_token_sync("elearning", nim)
             except Exception as err:
-                logger.warning("OCR CAPTCHA gagal dibuat untuk %s: %s", nim, err)
+                logger.warning("Puzzle MyBest gagal dibuat untuk %s: %s", nim, err)
                 self._login_failure = "captcha"
                 self._login_errors = []
                 return False
-            if not candidates:
-                continue
             client = self.get_client()
             apply_session_cookies(client, session.get("cookies") or {}, self.BASE_URL)
             response = client.post(
@@ -1723,7 +1735,7 @@ class ElearningClient(UpstreamSession):
                     "_token": str(session.get("token") or ""),
                     "username": nim,
                     "password": password,
-                    "captcha_answer": candidates[0],
+                    "captcha_token": captcha_token,
                 },
             )
             final_url = str(response.url)
@@ -1734,19 +1746,18 @@ class ElearningClient(UpstreamSession):
                 self._mark_logged_in(nim)
                 return True
             reason, errors = classify_login_failure(
-                response.text, _elearning_image_captcha(response.text)
+                response.text, _elearning_captcha_form(response.text)
             )
             self._login_failure, self._login_errors = reason, errors
             logger.info(
-                "OCR CAPTCHA percobaan %s/%s nim=%s kode=%s alasan=%s pesan=%s",
+                "Puzzle MyBest percobaan %s/%s nim=%s alasan=%s pesan=%s",
                 attempt + 1,
-                MAX_CAPTCHA_ATTEMPTS,
+                attempts,
                 nim,
-                candidates[0],
                 reason,
                 (errors[0][:80] if errors else "-"),
             )
-            if reason != "captcha" or not errors:
+            if reason != "captcha":
                 return False
         if not self._login_failure or self._login_failure == "unknown":
             self._login_failure = "captcha"

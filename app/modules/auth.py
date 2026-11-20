@@ -184,7 +184,10 @@ async def verify_live_credentials(
 
     Return (sv2_ok, el_ok). SIAKAD boleh kosong (opsional): pass kosong
     di-skip tanpa menembak server kampus, sv2_ok = False (terkunci).
-    `*_session`/`*_captcha` dipakai jalur relay CAPTCHA (lihat app/captcha_relay.py).
+    `*_session`/`*_captcha` dipakai jalur yang sudah menyelesaikan CAPTCHA:
+    `captcha` MyBest adalah `captcha_token` puzzle geser
+    (`app/elearning_captcha.py`), `captcha` SIAKAD adalah kode OCR
+    (`app/captcha_autosolver.py`).
     """
     loop = asyncio.get_running_loop()
 
@@ -295,6 +298,7 @@ async def login(req_body: LoginRequest, request: Request):
     siakad_attempted = bool(raw_sv_pass)
 
     from app.captcha_autosolver import MAX_CAPTCHA_ATTEMPTS, candidate_session
+    from app.elearning_captcha import fetch_captcha_token
 
     async def _siakad_challenge() -> tuple[Optional[dict], Optional[str]]:
         if not siakad_attempted:
@@ -313,21 +317,17 @@ async def login(req_body: LoginRequest, request: Request):
     el_errors: list[str] = []
     el_code = ""
 
-    # CAPTCHA MyBest diselesaikan OCR di server. Kampus membakar kode setiap
-    # POST dan menolak senyap saat terlalu sering, jadi setiap percobaan
-    # memakai tantangan baru dan berhenti begitu alasan bukan lagi "captcha"
-    # (password salah / throttle): menambah percobaan tidak akan menolong.
+    # CAPTCHA MyBest (puzzle geser) diselesaikan server: tiap POST membakar
+    # `captcha_token`, jadi setiap percobaan memakai tantangan baru dan berhenti
+    # begitu alasan bukan lagi "captcha" (password salah / throttle).
     for attempt in range(MAX_CAPTCHA_ATTEMPTS):
         try:
-            el_session, el_candidates = await candidate_session("elearning", nim)
+            el_session, el_code = await fetch_captcha_token("elearning", nim)
         except Exception as err:
-            logger.warning("Gagal ambil CAPTCHA MyBest untuk %s: %s", nim, err)
-            el_candidates = []
-        if not el_candidates:
+            logger.warning("Gagal selesaikan puzzle MyBest untuk %s: %s", nim, err)
             el_reason = "captcha"
             el_errors = []
             break
-        el_code = el_candidates[0]
         sv2_ok, el_ok = await verify_live_credentials(
             nim,
             el_pass,
@@ -342,11 +342,10 @@ async def login(req_body: LoginRequest, request: Request):
         if el_ok or el_reason != "captcha":
             break
         logger.warning(
-            "CAPTCHA MyBest ditolak OCR nim=%s percobaan=%s/%s kode=%s pesan=%s",
+            "Puzzle MyBest ditolak nim=%s percobaan=%s/%s pesan=%s",
             nim,
             attempt + 1,
             MAX_CAPTCHA_ATTEMPTS,
-            el_code,
             (el_errors[0][:120] if el_errors else "-"),
         )
 

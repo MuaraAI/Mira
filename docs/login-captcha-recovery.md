@@ -1,8 +1,10 @@
 # Perbaikan alur login dan CAPTCHA
 
-> **Status akhir (2026-11-19, v3.5.0):** form login **tidak** menampilkan CAPTCHA.
-> Server menyelesaikannya dengan OCR (ddddocr, ~20 ms) memakai tantangan baru per
-> percobaan, maksimal 3 percobaan. `POST /v1/auth/captcha`, CAPTCHA Mira, dan
+> **Status akhir (2026-11-20):** form login **tidak** menampilkan CAPTCHA.
+> SIAKAD diselesaikan OCR (ddddocr, ~20 ms); MyBest memakai puzzle geser yang
+> diselesaikan template matching OpenCV lalu diverifikasi `/verify-captcha`
+> (`app/elearning_captcha.py`). Keduanya memakai tantangan baru per percobaan,
+> maksimal 3 percobaan. `POST /v1/auth/captcha`, CAPTCHA Mira, dan
 > `app/mira_captcha.py` sudah dihapus. Bagian di bawah adalah catatan riwayat
 > insiden 2026-11-17; beberapa detail sengaja dipertahankan sebagai konteks.
 

@@ -11,7 +11,7 @@ import pytest
 from fastapi import HTTPException
 
 from app import upstream_session
-from app.modules.elearning import _elearning_image_captcha
+from app.modules.elearning import _elearning_captcha_form
 from app.modules.studentv2 import _siakad_captcha_required
 from app.upstream_session import (
     CAPTCHA_COOLDOWN_SECONDS,
@@ -156,16 +156,22 @@ def test_siakad_captcha_marker_detected():
     assert _siakad_captcha_required("") is False
 
 
-def test_elearning_image_captcha_marker_detected():
-    page = (
+def test_elearning_captcha_form_marker_detected():
+    """MyBest Nov 2026 memakai puzzle geser; bentuk lama tetap dikenali."""
+    puzzle = (
+        '<div class="sc-box" id="sc-box"><img class="sc-piece" id="sc-piece"></div>'
+        '<input type="hidden" name="captcha_token" id="captcha_token">'
+    )
+    legacy_image = (
         '<div id="captcha-svg-container">'
         '<img src="data:image/png;base64,iVBORw0KGgo="></div>'
         '<input id="captcha_answer" name="captcha_answer" maxlength="3" required>'
         '<button id="reload-captcha-btn"></button>'
     )
-    assert _elearning_image_captcha(page) is True
-    assert _elearning_image_captcha('<svg><text>4E7</text></svg>') is False
-    assert _elearning_image_captcha("") is False
+    assert _elearning_captcha_form(puzzle) is True
+    assert _elearning_captcha_form(legacy_image) is True
+    assert _elearning_captcha_form('<svg><text>4E7</text></svg>') is False
+    assert _elearning_captcha_form("") is False
 
 
 def test_unknown_login_failure_marks_cooldown_and_stops_retrying():
