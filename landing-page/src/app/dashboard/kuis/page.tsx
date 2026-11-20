@@ -95,32 +95,43 @@ function formatQuizDate(dateStr: unknown): string {
   }
 }
 
-function isQuizActive(q: QuizItem | null | undefined): boolean {
-  if (!q) return false;
-  const status = (q.status || q.status_aksi || "").toLowerCase();
+type QuizState = "aktif" | "menunggu" | "lewat" | "selesai";
+
+function getQuizState(q: QuizItem | null | undefined, now: number = Date.now()): QuizState {
+  if (!q) return "selesai";
+  const label = (q.status_aksi || "").toLowerCase();
+  const start = parseSafeDate(q.ujian_mulai).getTime();
+  const end = parseSafeDate(q.ujian_selesai).getTime();
+  const windowKnown = !Number.isNaN(start) && !Number.isNaN(end);
+
   if (
-    status.includes("selesai") ||
-    status.includes("sudah") ||
-    status.includes("lewat") ||
-    status.includes("cetak") ||
+    label.includes("cetak") ||
+    label.includes("selesai") ||
+    label.includes("sudah") ||
     Boolean(q.token_bukti) ||
     (typeof q.action_url === "string" && q.action_url.includes("cetak-ujian-pdf"))
   ) {
-    return false;
+    return "selesai";
   }
-  if (q.status === "aktif" || status.includes("mulai") || status.includes("kerjakan") || status.includes("lanjutkan")) {
-    return true;
+  if (q.status === "lewat" || label.includes("lewat")) return "lewat";
+  if (q.status === "selesai") return "selesai";
+  if (
+    q.status === "aktif" ||
+    label.includes("mulai") ||
+    label.includes("kerjakan") ||
+    label.includes("lanjutkan")
+  ) {
+    if (windowKnown && now > end) return "lewat";
+    return "aktif";
   }
-  if (q.status === "lewat" || q.status === "selesai" || q.status === "menunggu") return false;
+  if (q.status === "menunggu") return "menunggu";
+  if (windowKnown && now < start) return "menunggu";
+  if (windowKnown && now >= start && now <= end) return "aktif";
+  return "lewat";
+}
 
-  const now = Date.now();
-  const start = parseSafeDate(q.ujian_mulai).getTime();
-  const end = parseSafeDate(q.ujian_selesai).getTime();
-
-  if (!Number.isNaN(start) && !Number.isNaN(end)) {
-    return now >= start && now <= end;
-  }
-  return false;
+function isQuizActive(q: QuizItem | null | undefined): boolean {
+  return getQuizState(q) === "aktif";
 }
 
 export default function KuisPage() {
@@ -507,7 +518,26 @@ export default function KuisPage() {
           {filtered.map((q, idx) => {
             if (!q) return null;
             const active = isQuizActive(q);
-            const statusText = q.status_aksi || (active ? "Buka Kuis" : "Selesai");
+            const state = getQuizState(q);
+            const stateChip: Record<QuizState, { text: string; className: string }> = {
+              aktif: {
+                text: "Sedang Dibuka",
+                className: "bg-[#F0F7FB] text-[#0F766E] border border-[#0F766E]/20",
+              },
+              menunggu: {
+                text: "Belum Mulai",
+                className: "bg-[#FFF8E6] text-[#92400E] border border-[#92400E]/20",
+              },
+              lewat: {
+                text: "Ujian Lewat",
+                className: "bg-[#FEF2F2] text-[#B91C1C] border border-[#B91C1C]/20",
+              },
+              selesai: {
+                text: q.token_bukti ? "Selesai: Cetak Bukti" : "Selesai",
+                className: "bg-[#F7FAFC] text-secondary border border-stroke",
+              },
+            };
+            const chip = stateChip[state];
             const itemKey = q.id || `quiz-${idx}-${q.kode_mtk || ""}`;
 
             return (
@@ -526,17 +556,14 @@ export default function KuisPage() {
                         {q.kode_mtk || "KUIS"}
                       </span>
 
-                      {active ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-pill text-[11px] font-bold bg-[#F0F7FB] text-[#0F766E] border border-[#0F766E]/20">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#0F766E] animate-pulse" />
-                          Sedang Dibuka
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-pill text-[11px] font-bold bg-[#F7FAFC] text-secondary border border-stroke">
-                          <CheckCircle2 className="w-3 h-3 text-secondary" aria-hidden="true" />
-                          {statusText}
-                        </span>
-                      )}
+                      <span
+                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-pill text-[11px] font-bold ${chip.className}`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${state === "aktif" ? "bg-[#0F766E] animate-pulse" : state === "menunggu" ? "bg-[#92400E]" : state === "lewat" ? "bg-[#B91C1C]" : "bg-secondary"}`}
+                        />
+                        {chip.text}
+                      </span>
 
                       {q.waktu && (
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-pill text-[11px] font-mono text-secondary bg-white/60 border border-stroke">
@@ -652,7 +679,11 @@ export default function KuisPage() {
 
                         return (
                           <div className="text-center sm:text-right px-2 py-1 text-xs text-secondary font-medium">
-                            {statusText || "Ujian Telah Selesai"}
+                            {state === "menunggu"
+                              ? `Belum Mulai: ${formatQuizDate(q.ujian_mulai)}`
+                              : state === "lewat"
+                                ? "Ujian Lewat"
+                                : "Ujian Telah Selesai"}
                           </div>
                         );
                       })()
