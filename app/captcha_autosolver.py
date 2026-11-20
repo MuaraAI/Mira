@@ -1,4 +1,7 @@
-"""Kandidat jawaban CAPTCHA kampus dari OCR.
+"""Kandidat jawaban CAPTCHA gambar SIAKAD dari OCR.
+
+MyBest tidak lagi lewat modul ini: sejak Nov 2026 login MyBest memakai puzzle
+geser yang diselesaikan `app/elearning_captcha.py`.
 
 Kampus membakar CAPTCHA setiap POST: satu kode hanya berlaku untuk satu
 percobaan login, termasuk percobaan yang kodenya salah. Karena itu modul ini

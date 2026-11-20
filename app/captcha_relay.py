@@ -1,11 +1,14 @@
-"""Ambil tantangan CAPTCHA login kampus untuk diselesaikan OCR.
+"""Ambil tantangan CAPTCHA gambar SIAKAD untuk diselesaikan OCR.
 
-Sejak Nov 2026, `students.bsi.ac.id` dan `elearning.bsi.ac.id` mewajibkan
-CAPTCHA gambar pada form login. Mira tidak menampilkan gambar ke user: modul
-ini hanya membuka sesi login kampus (cookie + `_token`) dan mengambil gambar,
-lalu `app/captcha_autosolver` membaca kodenya untuk dipakai pada POST login
-yang sama. Kode kampus sekali pakai, jadi setiap percobaan butuh tantangan
-baru.
+`students.bsi.ac.id` mewajibkan CAPTCHA gambar pada form login. Mira tidak
+menampilkan gambar ke user: modul ini membuka sesi login kampus (cookie +
+`_token`) dan mengambil gambar, lalu `app/captcha_autosolver` membaca kodenya
+untuk POST login yang sama. Kode kampus sekali pakai, jadi setiap percobaan
+butuh tantangan baru.
+
+MyBest (`elearning.bsi.ac.id`) TIDAK lagi memakai CAPTCHA gambar sejak
+Nov 2026: form login memakai puzzle geser yang diselesaikan
+`app/elearning_captcha.py` dan mengirim field `captcha_token`.
 """
 from __future__ import annotations
 
@@ -27,13 +30,6 @@ HOSTS: dict[str, dict[str, str]] = {
         "field": "captcha",
         "module": "studentv2",
         "label": "SIAKAD",
-    },
-    "elearning": {
-        "login_url": "https://elearning.bsi.ac.id/login",
-        "image_url": "https://elearning.bsi.ac.id/reload-captcha",
-        "field": "captcha_answer",
-        "module": "elearning",
-        "label": "MyBest",
     },
 }
 
@@ -61,8 +57,6 @@ def _extract_data_uri(payload: dict[str, Any]) -> str:
 def _fetch_challenge_sync(host: str, nim: str) -> dict[str, Any]:
     spec = HOSTS[host]
     headers = {"User-Agent": _UA, "Referer": spec["login_url"]}
-    if host == "elearning":
-        headers["X-Requested-With"] = "XMLHttpRequest"
 
     with httpx.Client(
         headers={"User-Agent": _UA},

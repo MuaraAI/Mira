@@ -9,7 +9,7 @@ from app.captcha_autosolver import MAX_CANDIDATES_PER_CHALLENGE, candidate_sessi
 _PNG = base64.b64encode(b"fake-png-bytes").decode("ascii")
 
 
-def _challenge(host="elearning", nim="12345678"):
+def _challenge(host="siakad", nim="12345678"):
     return {
         "host": host,
         "nim": nim,
@@ -25,7 +25,7 @@ async def test_candidate_session_returns_top_candidates_without_probe():
         "app.captcha_autosolver.ocr_candidates",
         lambda png: ["A1B", "C2D", "E3F", "G4H", "I5J"],
     ):
-        session, candidates = await candidate_session("elearning", "12345678")
+        session, candidates = await candidate_session("siakad", "12345678")
 
     assert session == {"cookies": {"mybest_session": "xyz"}, "token": "tok"}
     assert candidates == ["A1B", "C2D", "E3F", "G4H"][:MAX_CANDIDATES_PER_CHALLENGE]
@@ -37,7 +37,7 @@ async def test_candidate_session_empty_candidates_still_returns_new_challenge():
         "app.captcha_autosolver.ocr_candidates",
         lambda png: [],
     ):
-        session, candidates = await candidate_session("elearning", "12345678")
+        session, candidates = await candidate_session("siakad", "12345678")
 
     assert session["token"] == "tok"
     assert candidates == []

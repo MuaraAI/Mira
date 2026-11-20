@@ -42,18 +42,22 @@ def reset_upstream_login_blocks():
 
 @pytest.fixture(autouse=True)
 def stub_campus_captcha(monkeypatch):
-    """Login menyelesaikan CAPTCHA kampus lewat OCR di server.
+    """Login menyelesaikan CAPTCHA kampus di server.
 
-    Tanpa stub, tiap POST /v1/auth/login menyentuh Redis nyata dan server kampus:
-    login mengambil tantangan CAPTCHA lalu memanggil endpoint kampus. Tes yang
-    butuh perilaku lain (percobaan berulang, tantangan kosong) mem-patch ulang di
-    badan tes; patch di badan tes menimpa hasil fixture ini.
+    SIAKAD masih memakai CAPTCHA gambar (OCR), MyBest sudah puzzle geser.
+    Tanpa stub, tiap POST /v1/auth/login menyentuh Redis nyata dan server kampus.
+    Tes yang butuh perilaku lain mem-patch ulang di badan tes; patch di badan tes
+    menimpa hasil fixture ini.
     """
     from unittest.mock import AsyncMock
 
     monkeypatch.setattr(
         "app.captcha_autosolver.candidate_session",
         AsyncMock(return_value=({"cookies": {"stub": "1"}, "token": "stub"}, ["STUB"])),
+    )
+    monkeypatch.setattr(
+        "app.elearning_captcha.fetch_captcha_token",
+        AsyncMock(return_value=({"cookies": {"stub": "1"}, "token": "stub"}, "STUB-PUZZLE")),
     )
 
 
