@@ -1086,6 +1086,66 @@ def get_official_guides() -> list[dict[str, str]]:
         },
     ]
 
+_MONTHS = r"(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*"
+_EXAM_DATE = rf"\d{{1,2}}\s+{_MONTHS}\s+\d{{4}}"
+_EXAM_TIME = r"\d{1,2}[:.]\d{2}(?::\d{2})?"
+
+
+def _split_exam_period(raw: str) -> tuple[str, str]:
+    """Pisahkan "20 Nov 2026 10:30 WIB — 11:30 WIB" menjadi mulai/selesai."""
+    text = " ".join((raw or "").split())
+    if not text:
+        return "", ""
+
+    iso_dates = re.findall(r"\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?", text)
+    if len(iso_dates) >= 2:
+        return iso_dates[0], iso_dates[1]
+
+    parts = re.split(r"\s*(?:—|–|\s-\s|\bs\s*/\s*d\b|\bs\.d\.\b)\s*", text, maxsplit=1)
+    if len(parts) == 2:
+        left, right = parts
+        left_match = re.search(rf"({_EXAM_DATE})\s+({_EXAM_TIME})", left, re.I)
+        if left_match:
+            start = f"{left_match.group(1)} {left_match.group(2).replace('.', ':')}"
+            right_full = re.search(rf"({_EXAM_DATE})\s+({_EXAM_TIME})", right, re.I)
+            if right_full:
+                end = f"{right_full.group(1)} {right_full.group(2).replace('.', ':')}"
+            else:
+                right_time = re.search(rf"({_EXAM_TIME})", right)
+                end = (
+                    f"{left_match.group(1)} {right_time.group(1).replace('.', ':')}"
+                    if right_time
+                    else start
+                )
+            return start, end
+        if len(iso_dates) == 1:
+            right_time = re.search(rf"({_EXAM_TIME})", right)
+            if right_time:
+                return iso_dates[0], f"{iso_dates[0].split(' ')[0]} {right_time.group(1)}"
+
+    return text, text
+
+
+def _quiz_status(label: Optional[str]) -> Optional[str]:
+    text = (label or "").strip().lower()
+    if not text:
+        return None
+    if "cetak" in text or "selesai" in text:
+        return "selesai"
+    if "lewat" in text:
+        return "lewat"
+    if "belum" in text:
+        return "menunggu"
+    if "mulai" in text or "kerjakan" in text or "lanjut" in text:
+        return "aktif"
+    return None
+
+
+def _quiz_path(action_url: Optional[str]) -> Optional[str]:
+    match = re.search(r"/(exercise-show|halaman-ujian)/[^?#]+", action_url or "")
+    return match.group(0).rstrip("/") if match else None
+
+
 def parse_quiz(html: str) -> list[dict[str, Any]]:
     """Ekstraksi jadwal kuis perkuliahan MyBest LMS (mendukung format 6 kolom 2026 dan 8 kolom lama)."""
     page = Adaptor(html)
@@ -1120,8 +1180,13 @@ def parse_quiz(html: str) -> list[dict[str, Any]]:
         if len(cols) >= 7:
             # Layout lama 7-8 kolom: No, Kode Mtk, Paket, Dosen, Waktu, Ujian Mulai, Ujian Selesai, Aksi
             paket = cols[2]
-            ujian_mulai = cols[5]
-            ujian_selesai = cols[6]
+            ujian_mulai_raw, ujian_selesai_raw = cols[5], cols[6]
+            ujian_mulai, period_end = _split_exam_period(ujian_mulai_raw)
+            _, ujian_selesai = (
+                (ujian_mulai, period_end)
+                if ujian_selesai_raw.strip() == ujian_mulai_raw.strip()
+                else _split_exam_period(ujian_selesai_raw)
+            )
             status_aksi = action_btn[0].get_all_text().strip() if action_btn else (cols[7] if len(cols) >= 8 else None)
             item_id = hashlib.sha256(f"{paket}:{ujian_mulai}".encode()).hexdigest()[:12]
             quizzes.append({
@@ -1136,6 +1201,8 @@ def parse_quiz(html: str) -> list[dict[str, Any]]:
                 "action_url": action_url,
                 "token_ujian": token_ujian,
                 "token_bukti": token_bukti,
+                "status": _quiz_status(status_aksi),
+                "quiz_url": _quiz_path(action_url),
             })
         elif len(cols) >= 5:
             # Layout baru 6 kolom (MyBest 2026): No, Mata Kuliah & Paket, Dosen, Durasi, Periode Ujian, Aksi
@@ -1150,20 +1217,9 @@ def parse_quiz(html: str) -> list[dict[str, Any]]:
             dosen = cols[2] if len(cols) > 2 and cols[2] else None
             waktu = cols[3] if len(cols) > 3 and cols[3] else None
 
-            # Periode ujian: cari 2 tanggal/waktu mulai dan selesai
+            # Periode ujian: "20 Nov 2026 10:30 WIB — 11:30 WIB" atau rentang ISO.
             raw_periode = cols[4] if len(cols) > 4 else ""
-            date_matches = re.findall(
-                r"\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2}(?::\d{2})?)?|\d{1,2}[-/]\d{1,2}[-/]\d{4}(?:\s+\d{2}[:.]\d{2})?",
-                raw_periode,
-            )
-            if len(date_matches) >= 2:
-                ujian_mulai, ujian_selesai = date_matches[0], date_matches[1]
-            elif len(date_matches) == 1:
-                ujian_mulai = ujian_selesai = date_matches[0]
-            else:
-                parts = [p.strip() for p in re.split(r"\s+s[/.]?d\s+|\s+-\s+", raw_periode) if p.strip()]
-                ujian_mulai = parts[0] if parts else raw_periode
-                ujian_selesai = parts[1] if len(parts) > 1 else ujian_mulai
+            ujian_mulai, ujian_selesai = _split_exam_period(raw_periode)
 
             status_aksi = action_btn[0].get_all_text().strip() if action_btn else (cols[5] if len(cols) > 5 else None)
             item_id = hashlib.sha256(f"{paket}:{ujian_mulai}:{kode_mtk}".encode()).hexdigest()[:12]
@@ -1179,6 +1235,8 @@ def parse_quiz(html: str) -> list[dict[str, Any]]:
                 "action_url": action_url,
                 "token_ujian": token_ujian,
                 "token_bukti": token_bukti,
+                "status": _quiz_status(status_aksi),
+                "quiz_url": _quiz_path(action_url),
             })
     return quizzes
 
@@ -1403,13 +1461,16 @@ def parse_quiz_questions(html: str) -> dict[str, Any]:
     soal_el = page.css(".soal")
     pertanyaan = soal_el[0].get_all_text().strip() if soal_el else ""
 
-    # Options
+    # Options: key dari badge, teks dari .pilihan, payload dari data-jawab
     opsi_list = []
     for j in page.css(".jawab"):
         id_s = j.attrib.get("data-id")
         data_jawab = j.attrib.get("data-jawab", "")
-        text = " ".join(j.get_all_text().split())
-        key = text[:2].strip().rstrip(".")
+        badge = j.css(".option-badge")
+        label = j.css(".pilihan")
+        full_text = " ".join(j.get_all_text().split())
+        key = (badge[0].get_all_text().strip() if badge else full_text[:1]).strip().rstrip(".")
+        text = " ".join(label[0].get_all_text().split()) if label else full_text
         opsi_list.append({
             "key": key if key in ("A", "B", "C", "D", "E") else str(len(opsi_list) + 1),
             "text": text,
@@ -1417,12 +1478,15 @@ def parse_quiz_questions(html: str) -> dict[str, Any]:
             "data_jawab": data_jawab,
         })
 
-    nomer_urut_el = page.css("#nomerurut")
+    # data-id pada .jawab adalah id_soal yang dipakai /get-soal dan /jawaban
     current_soal_id = (
-        nomer_urut_el[0].attrib.get("data-id")
-        if nomer_urut_el
+        opsi_list[0]["id_soal"]
+        if opsi_list and opsi_list[0].get("id_soal")
         else (soal_list[0]["id_soal"] if soal_list else None)
     )
+
+    finish_el = page.css("a.btn-finish-exam") or page.css("#selesai")
+    finish_url = finish_el[0].attrib.get("href") if finish_el else None
 
     return {
         "csrf_token": csrf_token,
@@ -1430,6 +1494,7 @@ def parse_quiz_questions(html: str) -> dict[str, Any]:
         "sisa_waktu": timer_str,
         "total_soal": total_soal,
         "daftar_soal": soal_list,
+        "finish_url": finish_url,
         "current_soal": {
             "id_soal": current_soal_id,
             "pertanyaan": pertanyaan,
@@ -1703,6 +1768,10 @@ class ElearningClient(UpstreamSession):
         # Sesi MyBest sliding 45 menit; login ulang hanya saat kampus balas halaman login.
         return self.authed_request("GET", path, nim, password).text
 
+    def fetch_page_response(self, path: str, nim: str, password: str) -> httpx.Response:
+        self._check_relative_path(path)
+        return self.authed_request("GET", path, nim, password)
+
     def post_page(
         self,
         path: str,
@@ -1935,6 +2004,20 @@ class PooledElearningClient:
 
         def _fetch_once() -> str:
             return client.fetch_page(path, nim, password)
+
+        try:
+            return await retry_async(_fetch_once, attempts=3, base_delay=1.0)
+        except HTTPException as exc:
+            detail = getattr(exc, "detail", None)
+            if isinstance(detail, dict) and detail.get("code") == "AUTH_EXPIRED":
+                self._pool.invalidate(nim)
+            raise
+
+    async def fetch_page_response(self, path: str, nim: str, password: str) -> httpx.Response:
+        client = self._pool.get(nim)
+
+        def _fetch_once() -> httpx.Response:
+            return client.fetch_page_response(path, nim, password)
 
         try:
             return await retry_async(_fetch_once, attempts=3, base_delay=1.0)
@@ -2699,11 +2782,99 @@ async def fetch_quiz_questions(
                     module="elearning",
                 ),
             )
-        target_path = quiz_url
+        candidates = [quiz_url]
+    elif token:
+        # MyBest 2026 memakai /exercise-show; format lama memakai /halaman-ujian.
+        candidates = [f"/exercise-show/{token}", f"/halaman-ujian/{token}"]
     else:
-        target_path = f"/halaman-ujian/{token}" if token else "/exercise"
-    html = await pooled_elearning_client.fetch_page(target_path, nim, password)
-    return parse_quiz_questions(html)
+        candidates = ["/exercise"]
+
+    for target_path in candidates:
+        resp = await pooled_elearning_client.fetch_page_response(target_path, nim, password)
+        body = resp.text or ""
+        status_code = getattr(resp, "status_code", 200)
+        if status_code == 404 or (len(body) < 20000 and "not found" in body.lower()):
+            continue
+        if "invalid token" in body.lower() or "token tidak valid" in body.lower():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_response(
+                    code="QUIZ_TOKEN_INVALID",
+                    message="Token kuis tidak valid atau sudah kedaluwarsa. Buka ulang dari daftar kuis.",
+                    module="elearning",
+                ),
+            )
+        return parse_quiz_questions(body)
+
+    raise HTTPException(
+        status_code=status.HTTP_502_BAD_GATEWAY,
+        detail=error_response(
+            code="QUIZ_PAGE_UNAVAILABLE",
+            message="Halaman kuis tidak ditemukan di MyBest. Muat ulang daftar kuis lalu coba lagi.",
+            module="elearning",
+        ),
+    )
+
+async def fetch_quiz_question(
+    nim: str, password: str, id_soal: str, no_urut: int
+) -> dict[str, Any]:
+    """Ambil satu butir soal dari AJAX /get-soal MyBest."""
+    path = f"/get-soal?id_soal={id_soal}&no_urut={int(no_urut)}"
+    resp = await pooled_elearning_client.fetch_page_response(path, nim, password)
+    if getattr(resp, "status_code", 200) != 200:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=error_response(
+                code="QUIZ_QUESTION_UNAVAILABLE",
+                message="Butir soal tidak bisa dimuat dari MyBest. Coba lagi.",
+                module="elearning",
+            ),
+        )
+    try:
+        fragment = json.loads(resp.text).get("html") or ""
+    except (ValueError, AttributeError):
+        fragment = resp.text or ""
+    current = parse_quiz_questions(fragment).get("current_soal")
+    if not current:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=error_response(
+                code="QUIZ_QUESTION_EMPTY",
+                message="MyBest tidak mengembalikan butir soal. Klik nomor soal lagi.",
+                module="elearning",
+            ),
+        )
+    return current
+
+
+async def finish_quiz(nim: str, password: str, finish_url: str) -> dict[str, Any]:
+    """Ikuti tautan Selesai Ujian MyBest setelah konfirmasi pengguna."""
+    if not re.fullmatch(r"/selesai-ujian/[A-Za-z0-9+/=_-]+", finish_url or ""):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_response(
+                code="INVALID_PATH",
+                message="finish_url tidak valid: harus tautan /selesai-ujian/ dari halaman ujian.",
+                module="elearning",
+            ),
+        )
+    resp = await pooled_elearning_client.fetch_page_response(finish_url, nim, password)
+    body = (resp.text or "").lower()
+    if getattr(resp, "status_code", 200) == 404 or "invalid token" in body:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_response(
+                code="QUIZ_FINISH_INVALID",
+                message="Sesi ujian sudah tidak valid. Periksa status kuis di MyBest.",
+                module="elearning",
+            ),
+        )
+    return {"success": True, "message": "Ujian ditandai selesai di MyBest."}
+
+
+class QuizFinishPayload(BaseModel):
+    finish_url: str = Field(..., min_length=10, max_length=4096, description="Path /selesai-ujian/ dari halaman ujian")
+
 
 class QuizAnswerPayload(BaseModel):
     id_soal: str = Field(..., pattern=r"^[0-9]+$", description="ID Soal Kuis (angka)")
@@ -2767,14 +2938,37 @@ async def post_presence(
 @router.get("/quiz/questions")
 async def get_quiz_questions(
     token: Optional[str] = Query(default=None, description="Token ujian / kuis (diawali 'eyJ...')"),
+    token_ujian: Optional[str] = Query(default=None, description="Alias token dari UI kuis"),
     quiz_url: Optional[str] = Query(default=None, description="Path relatif halaman ujian"),
     creds: tuple[str, str] = Depends(require_elearning_creds)
 ):
     """Ambil daftar pertanyaan dan opsi kuis/ujian."""
     nim, password = creds
-    clean_token = extract_clean_token(token)
+    clean_token = extract_clean_token(token_ujian or token)
     clean_quiz_url = quiz_url if isinstance(quiz_url, str) else None
     result = await fetch_quiz_questions(nim, password, token=clean_token, quiz_url=clean_quiz_url)
+    return success_response(data=result)
+
+@router.get("/quiz/question")
+async def get_quiz_question(
+    id_soal: str = Query(..., pattern=r"^[0-9]+$", description="ID soal dari daftar_soal"),
+    no_urut: int = Query(..., ge=1, le=500, description="Nomor urut soal"),
+    creds: tuple[str, str] = Depends(require_elearning_creds)
+):
+    """Ambil satu butir soal dari AJAX /get-soal MyBest."""
+    nim, password = creds
+    result = await fetch_quiz_question(nim, password, id_soal, no_urut)
+    return success_response(data=result)
+
+
+@router.post("/quiz/finish")
+async def post_quiz_finish(
+    body: QuizFinishPayload,
+    creds: tuple[str, str] = Depends(require_elearning_creds)
+):
+    """Tandai ujian selesai di MyBest setelah konfirmasi pengguna."""
+    nim, password = creds
+    result = await finish_quiz(nim, password, body.finish_url)
     return success_response(data=result)
 
 @router.post("/quiz/answer")
