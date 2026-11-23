@@ -61,7 +61,7 @@ module.exports = {
       autorestart: true,
       max_memory_restart: "200M",
       env: {
-        UBSI_API_URL: "http://127.0.0.1:8300",
+        MIRA_API_URL: "http://127.0.0.1:8300",
         PYTHONUNBUFFERED: "1",
         MALLOC_ARENA_MAX: "2",
         MALLOC_TRIM_THRESHOLD_: "65536"

@@ -8,7 +8,7 @@ Nama resmi: Mira. Alias sebelumnya: UBSI API, UBSI-API, API UBSI, API SIAKAD UBS
 
 - Dashboard mahasiswa: jadwal kuliah, tugas dan deadline, presensi kehadiran mandiri, bahan ajar dosen, kuis & ujian online, nilai dan KHS, KRS, kartu ujian, berita resmi kampus, pencarian buku perpustakaan OPAC, dan repositori skripsi.
 - REST API publik dengan Personal API Key (header Authorization: Bearer).
-- Server MCP (Model Context Protocol) 80 tools (40 primer `mira_*` + 40 legacy alias `ubsi_*`) supaya AI agent seperti Claude, ChatGPT, dan Cursor bisa mengakses data akademik mahasiswa.
+- Server MCP (Model Context Protocol) dengan 40 tools satu namespace mira_* supaya AI agent seperti Claude, ChatGPT, dan Cursor bisa mengakses data akademik mahasiswa. Alias lama ubsi_* sudah dihapus.
 - Pengingat kelas, presensi, dan tugas lewat notifikasi PWA (Android/iOS/Desktop), Discord, atau Telegram. Pengecek link tugas (Google Drive/Docs) memberi tahu bila link belum publik.
 - Login ulang otomatis ke SIAKAD dan MyBest saat sesi kampus habis.
 
@@ -22,7 +22,7 @@ Nama resmi: Mira. Alias sebelumnya: UBSI API, UBSI-API, API UBSI, API SIAKAD UBS
 
 ## Keamanan dan kebijakan
 
-- Kredensial kampus dienkripsi AES-256-GCM pada sesi server yang aktif 7 hari; pengguna bisa logout satu atau semua perangkat.
+- Kredensial kampus terenkripsi: salinan sesi (AES-256-GCM, aktif 7 hari sliding) dan tautan kanonis SIAKAD per NIM di SQLite (Fernet) dengan izin per perangkat; pengguna bisa logout satu atau semua perangkat.
 - [Kebijakan Privasi](https://mira.muaraai.com/privacy)
 - [Syarat dan Ketentuan](https://mira.muaraai.com/terms)
 - [DMCA dan HKI](https://mira.muaraai.com/dmca)

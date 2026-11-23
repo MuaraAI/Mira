@@ -69,7 +69,7 @@ Layanan kuliah UBSI tersebar di enam portal berbeda. Mira menyatukannya dalam sa
 
 **Untuk mahasiswa**
 - PWA yang bisa dipasang di Android, iOS, dan desktop.
-- Login MyBest-only, tanpa mengetik CAPTCHA: kode diselesaikan OCR di server.
+- Login MyBest-only, tanpa mengetik CAPTCHA: puzzle geser MyBest diselesaikan otomatis di server.
 - Auto-relogin: sesi kampus diperbarui sendiri saat diperlukan.
 - Notifikasi push ringkasan: kelas segera mulai, presensi dibuka, deadline tugas, digest berita harian.
 - Sesi & Keamanan: countdown sesi, tautkan/lepas SIAKAD, ganti password kampus.
@@ -81,7 +81,7 @@ Layanan kuliah UBSI tersebar di enam portal berbeda. Mira menyatukannya dalam sa
 - Personal API Key (`muara_mira_*`) untuk bot Discord, Telegram, atau skrip pribadi.
 - REST API dengan envelope JSON standar dan dokumentasi Swagger.
 - Cache Redis dua tingkat dengan fallback data terakhir saat kampus down.
-- MCP Server dengan 80 tools (40 primer `mira_*` + 40 alias `ubsi_*`) untuk AI agent.
+- MCP Server dengan 40 tool `mira_*` (satu namespace, tanpa alias lama) untuk AI agent.
 
 ## Keamanan
 

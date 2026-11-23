@@ -863,9 +863,10 @@ class ConnectCredentialsRequest(BaseModel):
 
 @router.post("/credentials")
 async def connect_credentials(body: ConnectCredentialsRequest, request: Request):
-    """Hubungkan kredensial SIAKAD belakangan setelah login lewat MyBest saja.
+    """Tautkan kredensial SIAKAD ke akun (store kanonis per NIM) setelah login MyBest.
 
-    Verifikasi live ke server kampus -> sinkronkan ke semua sesi aktif NIM & API Key.
+    Verifikasi live ke server kampus -> tulis store kanonis `account_links`,
+    lalu segarkan salinan sesi aktif. API key membaca store kanonis.
     """
     nim = _require_session_nim(request)
 

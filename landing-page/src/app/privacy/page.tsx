@@ -13,10 +13,10 @@ const SECTIONS: { title: string; body: string[] }[] = [
   {
     title: "1. Data yang Kami Proses",
     body: [
-      "NIM (ID mahasiswa): untuk mengidentifikasi sesi dan data akademik Anda. Disimpan di Redis (sesi) dan SQLite (API key).",
-      "Password kampus (SIAKAD dan MyBest): dipakai satu kali saat login untuk memverifikasi identitas, lalu disimpan terenkripsi AES-256-GCM di Redis agar sesi tetap hidup. Tidak pernah dikirim kembali ke browser dan tidak pernah ditulis sebagai teks biasa.",
+      "NIM (ID mahasiswa): untuk mengidentifikasi sesi dan data akademik Anda. Disimpan di Redis (sesi) dan SQLite (API key, tautan kanonis SIAKAD, perangkat, channel notifikasi, langganan PWA push).",
+      "Password kampus (SIAKAD dan MyBest): dipakai untuk verifikasi saat login atau saat menautkan SIAKAD, lalu disimpan terenkripsi agar server bisa login ulang ke portal kampus: salinan sesi di Redis (AES-256-GCM) dan tautan kanonis SIAKAD di SQLite (Fernet, satu baris per NIM). Tidak pernah dikirim kembali ke browser dan tidak pernah ditulis sebagai teks biasa.",
       "Data akademik (jadwal, nilai, KHS, KRS, kartu ujian, presensi, tugas, bahan ajar): ditampilkan hanya kepada Anda dan disimpan sementara di cache Redis dengan TTL berjenjang (10 menit sampai 2 jam). Tidak pernah ditulis ke disk.",
-      "Konfigurasi webhook (Discord/Telegram): Anda yang isi sendiri di dashboard, disimpan terenkripsi di SQLite untuk fitur notifikasi yang Anda aktifkan.",
+      "Konfigurasi webhook (Discord/Telegram): Anda yang isi sendiri di dashboard, disimpan di SQLite untuk fitur notifikasi yang Anda aktifkan. Nilai rahasia seperti token bot hanya ditampilkan tersamarkan di dashboard.",
       "Metadata Personal API Key: hanya hash-nya yang disimpan. Key utuh ditampilkan tepat satu kali saat dibuat.",
     ],
   },
@@ -41,7 +41,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
     title: "4. Pihak Ketiga",
     body: [
       "Tidak ada analytics, tracker, iklan, atau telemetry. Layanan ini tidak melaporkan apa pun ke pihak lain.",
-      "Satu-satunya traffic keluar adalah ke portal resmi kampus UBSI (untuk mengambil data akademik Anda sendiri) dan ke kanal notifikasi yang Anda konfigurasi sendiri (Discord/Telegram/webhook pribadi).",
+      "Traffic keluar dari server adalah ke portal resmi kampus UBSI (untuk mengambil data akademik Anda sendiri), ke kanal notifikasi yang Anda konfigurasi sendiri (Discord/Telegram/webhook pribadi), ke layanan push browser untuk notifikasi PWA, dan ke database Komunitas (Supabase) untuk fitur chat.",
     ],
   },
   {

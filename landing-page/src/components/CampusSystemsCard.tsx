@@ -240,8 +240,8 @@ export function CampusSystemsCard({ me, onChanged }: { me: MeLinks | null; onCha
 
       <p className="flex items-start gap-2 border-t border-stroke/60 pt-3 text-[11px] leading-relaxed text-secondary">
         <Link2Off className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        Kalau kamu ganti password di portal kampus, Mira akan meminta login ulang. Itu satu-satunya
-        hal yang mengakhiri sesi, karena password lama tidak bisa dipakai lagi.
+        Kalau kamu ganti password di portal kampus, Mira akan meminta login ulang karena password lama tidak bisa dipakai lagi.
+        Mencabut izin perangkat atau logout dari semua sesi juga langsung mengakhiri sesi.
       </p>
     </section>
   );
