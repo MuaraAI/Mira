@@ -1,5 +1,6 @@
 "use client";
 
+import { SiakadGateNotice, siakadGateIssue } from "@/components/SiakadGateNotice";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { BookOpen, Clock, MapPin, User, UserCheck } from "lucide-react";
@@ -185,7 +186,11 @@ export default function JadwalPage() {
 
   if (schedule.length === 0) {
     if (elearningApi.error) {
-      return <ErrorState error={elearningApi.error} onRetry={reload} />;
+      return siakadGateIssue(elearningApi.error) ? (
+        <SiakadGateNotice kind={siakadGateIssue(elearningApi.error)!} />
+      ) : (
+        <ErrorState error={elearningApi.error} onRetry={reload} />
+      );
     }
     return (
       <div>

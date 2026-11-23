@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { SiakadGateNotice, siakadGateIssue } from "@/components/SiakadGateNotice";
 import { ExternalLink, FileText, Link2, Printer } from "lucide-react";
 import { useApi } from "@/lib/api";
 import {
@@ -78,7 +79,11 @@ export default function KrsPage() {
           </div>
         </div>
       ) : krs.error ? (
-        <ErrorState error={krs.error} onRetry={krs.reload} />
+        siakadGateIssue(krs.error) ? (
+          <SiakadGateNotice kind={siakadGateIssue(krs.error)!} />
+        ) : (
+          <ErrorState error={krs.error} onRetry={krs.reload} />
+        )
       ) : !krs.data?.items?.length ? (
         <EmptyState
           mascot="/maskot/mura-nilai.png"
