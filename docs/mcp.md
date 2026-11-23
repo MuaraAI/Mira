@@ -1,4 +1,4 @@
-# Model Context Protocol (MCP) Server Reference: Mira v3.5.0 (sebelumnya UBSI API)
+# Model Context Protocol (MCP) Server Reference: Mira
 
 Universal Model Context Protocol (MCP) Server untuk ekosistem akademik Universitas Bina Sarana Informatika (UBSI). Memungkinkan AI Coding Agent (**Claude Code**, **Cursor**, **Codex CLI**, **Hermes Agent**, **OpenCode**, dan **Claude Desktop**) berinteraksi secara aman dan terenkripsi dengan 6 layanan kampus UBSI.
 
@@ -11,8 +11,6 @@ Universal Model Context Protocol (MCP) Server untuk ekosistem akademik Universit
 - **Endpoint URL Resmi**:
   ```text
   https://api.muaraai.com/v1/mira/mcp
-  # Alias kompatibilitas mundur:
-  https://api.muaraai.com/v1/ubsi-api/mcp
   ```
 - **Port Produksi Lokal (VPS)**: `127.0.0.1:8350/mcp`
 - **Total Tools Aktif**: **40 Tools** (semua akademik, satu namespace `mira_*`).
@@ -100,7 +98,7 @@ http_headers = { "Authorization" = "Bearer muara_mira_YOUR_KEY" }
 
 ---
 
-## 4. Katalog Lengkap 80 Tools Akademik (40 Fungsi Primer & 40 Alias)
+## 4. Katalog 40 Tool Akademik
 
 Setiap tool akademik terdaftar sekali dengan nama `mira_*`. Alias lama sudah dihapus; klien yang masih memakai nama lama akan mendapat error tool tidak dikenal dan perlu mengganti namanya.
 
@@ -108,71 +106,71 @@ Setiap tool akademik terdaftar sekali dengan nama `mira_*`. Alias lama sudah dih
 
 > SIAKAD bersifat opsional: tool di kategori ini butuh akun SIAKAD yang sudah ditautkan lewat dashboard (Sesi & Keamanan) atau `session_token`/`api_key` milik user. Login Mira sendiri hanya memakai MyBest.
 
-| Nama Tool Primer | Alias Legacy | Parameter | Deskripsi & Kegunaan |
-|---|---|---|---|
-| `mira_get_profile` | `mira_get_profile` | `session_token?`, `api_key?` | Biodata lengkap mahasiswa: NIM, nama, prodi, kelas, semester aktif, kampus cabang, dosen PA. |
-| `mira_get_schedule` | `mira_get_schedule` | `session_token?`, `api_key?` | Jadwal kuliah semester berjalan: hari, jam, ruang, SKS, kode dosen, kelompok praktikum. |
-| `mira_get_grades` | `mira_get_grades` | `session_token?`, `api_key?` | Transkrip Nilai Murni SIAKAD: Absen 20%, Tugas 25%, UTS 25%, UAS 30%, Total, dan Grade huruf. |
-| `mira_get_khs` | `mira_get_khs` | `session_token?`, `api_key?` | Kartu Hasil Studi per semester: IPK kumulatif, total mutu poin, total SKS lulus. |
-| `mira_get_krs` | `mira_get_krs` | `session_token?`, `api_key?` | Kartu Rencana Studi aktif: daftar mata kuliah terdaftar dan kelompok ujian. |
-| `mira_get_uts` | `mira_get_uts` | `session_token?`, `api_key?` | Jadwal ruang UTS online dan tautan Google Drive soal ujian offline UTS. |
-| `mira_get_uas` | `mira_get_uas` | `session_token?`, `api_key?` | Jadwal ruang UAS online dan tautan Google Drive soal ujian offline UAS. |
-| `mira_get_academic_calendar` | `mira_get_academic_calendar` | `session_token?`, `api_key?` | Tautan berkas resmi PDF Kalender Akademik tahun ajaran berjalan. |
-| `mira_get_prodi_contacts` | `mira_get_prodi_contacts` | `session_token?`, `api_key?` | Direktori 51 kontak email resmi Dekan Fakultas dan Ketua Program Studi (Kaprodi) seluruh kampus UBSI. |
-| `mira_get_certificates` | `mira_get_certificates` | `session_token?`, `api_key?` | Data sertifikat resmi kegiatan, pelatihan, Course, dan TOEFL mahasiswa. |
-| `mira_get_lecturers` | `mira_get_lecturers` | `search?`, `session_token?`, `api_key?` | Cari direktori 1.350+ dosen BSI berdasarkan inisial kode dosen atau nama pengampu. |
-| `mira_get_dashboard` | `mira_get_dashboard` | `session_token?`, `api_key?` | Agregasi paralel 3 modul SIAKAD (Jadwal + Nilai + Berita) dalam satu panggilan cepat. |
+| Nama Tool | Parameter | Deskripsi & Kegunaan |
+|---|---|---|
+| `mira_get_profile` | `session_token?`, `api_key?` | Biodata lengkap mahasiswa: NIM, nama, prodi, kelas, semester aktif, kampus cabang, dosen PA. |
+| `mira_get_schedule` | `session_token?`, `api_key?` | Jadwal kuliah semester berjalan: hari, jam, ruang, SKS, kode dosen, kelompok praktikum. |
+| `mira_get_grades` | `session_token?`, `api_key?` | Transkrip Nilai Murni SIAKAD: Absen 20%, Tugas 25%, UTS 25%, UAS 30%, Total, dan Grade huruf. |
+| `mira_get_khs` | `session_token?`, `api_key?` | Kartu Hasil Studi per semester: IPK kumulatif, total mutu poin, total SKS lulus. |
+| `mira_get_krs` | `session_token?`, `api_key?` | Kartu Rencana Studi aktif: daftar mata kuliah terdaftar dan kelompok ujian. |
+| `mira_get_uts` | `session_token?`, `api_key?` | Jadwal ruang UTS online dan tautan Google Drive soal ujian offline UTS. |
+| `mira_get_uas` | `session_token?`, `api_key?` | Jadwal ruang UAS online dan tautan Google Drive soal ujian offline UAS. |
+| `mira_get_academic_calendar` | `session_token?`, `api_key?` | Tautan berkas resmi PDF Kalender Akademik tahun ajaran berjalan. |
+| `mira_get_prodi_contacts` | `session_token?`, `api_key?` | Direktori 51 kontak email resmi Dekan Fakultas dan Ketua Program Studi (Kaprodi) seluruh kampus UBSI. |
+| `mira_get_certificates` | `session_token?`, `api_key?` | Data sertifikat resmi kegiatan, pelatihan, Course, dan TOEFL mahasiswa. |
+| `mira_get_lecturers` | `search?`, `session_token?`, `api_key?` | Cari direktori 1.350+ dosen BSI berdasarkan inisial kode dosen atau nama pengampu. |
+| `mira_get_dashboard` | `session_token?`, `api_key?` | Agregasi paralel 4 seksi SIAKAD (Jadwal + Nilai + Berita + Pengumuman) dalam satu panggilan cepat. |
 
 ---
 
 ### Kategori B: Elearning MyBest (elearning.bsi.ac.id) — 21 Fungsi
 
-Seluruh modul mata kuliah di MyBest diidentifikasi menggunakan **token terenkripsi Laravel** yang selalu diawali dengan `eyJ...`. Token ini didapatkan secara otomatis dari tool `mira_get_courses` / `mira_get_courses`.
+Seluruh modul mata kuliah di MyBest diidentifikasi menggunakan **token terenkripsi Laravel** yang selalu diawali dengan `eyJ...`. Token ini didapatkan secara otomatis dari tool `mira_get_courses`.
 
-| Nama Tool Primer | Alias Legacy | Parameter | Deskripsi & Kegunaan |
-|---|---|---|---|
-| `mira_get_courses` | `mira_get_courses` | `session_token?`, `api_key?` | Daftar kartu mata kuliah aktif beserta token aksi: `token_absen`, `token_learning`, `token_assignment`, dan `token_diskusi`. |
-| `mira_get_assignments` | `mira_get_assignments` | `token?`, `session_token?`, `api_key?` | Daftar tugas aktif dan riwayat submission. Parameter `token` (opsional) menggunakan `token_assignment` (`eyJ...`). |
-| `mira_submit_assignment` | `mira_submit_assignment` | `token_send`, `link_tugas`, `session_token?`, `api_key?` | **[WRITE]** Kumpulkan / perbarui link tugas (Google Drive / GitHub) ke lembar pengerjaan MyBest. `token_send` diawali `eyJ...`. |
-| `mira_upload_assignment` | `mira_upload_assignment` | `token_tugas`, `filename`, `file_base64`, `catatan?`, `session_token?`, `api_key?` | **[WRITE]** Unggah berkas tugas mandiri dalam format base64 (maks 10MB decoded). |
-| `mira_get_presence` | `mira_get_presence` | `token?`, `session_token?`, `api_key?` | Rekap kehadiran real-time dan riwayat presensi DataTables AJAX (tanggal, BAP, dosen, rangkuman materi). |
-| `mira_submit_presence` | `mira_submit_presence` | `token?`, `session_token?`, `api_key?` | **[WRITE]** Kirim presensi kehadiran (*Absen Masuk*) pada sesi kelas yang sedang membuka presensi. |
-| `mira_get_materials` | `mira_get_materials` | `token?`, `session_token?`, `api_key?` | Unduh berkas materi resmi: paket arsip ZIP Silabus, RPS, RTM, Slide, dan Modul Lab per mata kuliah. |
-| `mira_get_quiz` | `mira_get_quiz` | `session_token?`, `api_key?` | Jadwal kuis latihan dan ujian online MyBest (paket, periode mulai/selesai, status aksi). |
-| `mira_get_quiz_questions` | `mira_get_quiz_questions` | `token?`, `quiz_url?`, `session_token?`, `api_key?` | Pratinjau butir soal kuis pilihan ganda, sisa waktu hitung mundur, dan opsi jawaban (A, B, C, D). |
-| `mira_get_exams` | `mira_get_exams` | `session_token?`, `api_key?` | Daftar jenis ujian semester Ujian Online BSI (latihan, UTS, UAS, pengganti, HER). |
-| `mira_get_exam_schedule` | `mira_get_exam_schedule` | `exam_type`, `session_token?`, `api_key?` | Jadwal ujian satu jenis dari Ujian Online BSI: mata kuliah, ruang, tanggal, durasi, jumlah soal, status berlangsung. |
-| `mira_submit_quiz_answer` | `mira_submit_quiz_answer` | `id_soal`, `data_jawab`, `csrf_token?`, `session_token?`, `api_key?` | **[WRITE]** Kirim pilihan jawaban satu butir soal kuis secara aman. |
-| `mira_get_grades_recap` | `mira_get_grades_recap` | `token?`, `session_token?`, `api_key?` | Rekapitulasi nilai tugas & kuis per pertemuan dosen beserta catatan komentar feedback. |
-| `mira_get_course_grades` | `mira_get_course_grades` | `course_id`, `session_token?`, `api_key?` | Rincian nilai tugas satu mata kuliah spesifik. |
-| `mira_get_discussions` | `mira_get_discussions` | `token`, `session_token?`, `api_key?` | Daftar topik forum diskusi per mata kuliah (judul, instruksi tugas dosen, tanggal, jumlah balasan). `token` adalah `token_diskusi` (`eyJ...`). |
-| `mira_get_discussion_comments` | `mira_get_discussion_comments` | `token`, `session_token?`, `api_key?` | Baca thread seluruh komentar dan tanggapan mahasiswa/dosen. `token` adalah `token_komentar` (`eyJ...`). |
-| `mira_submit_discussion_comment` | `mira_submit_discussion_comment` | `token_komentar`, `id_chat`, `komentar`, `session_token?`, `api_key?` | **[WRITE]** Balas atau jawab diskusi forum dosen langsung dari AI Agent atas nama mahasiswa. |
-| `mira_create_discussion` | `mira_create_discussion` | `token_course`, `judul`, `chat`, `session_token?`, `api_key?` | **[WRITE]** Buat topik forum diskusi baru pada mata kuliah. |
-| `mira_get_elearning_profile` | `mira_get_elearning_profile` | `session_token?`, `api_key?` | Data profil dan kontak email akun MyBest mahasiswa. |
-| `mira_get_makeup_classes` | `mira_get_makeup_classes` | `session_token?`, `api_key?` | Jadwal kuliah pengganti (make-up classes) yang terdaftar di MyBest. |
-| `mira_get_elearning_guides` | `mira_get_elearning_guides` | `session_token?`, `api_key?` | Tautan berkas PDF buku panduan resmi MyBest, Ujian Online, dan Kuis Mahasiswa. |
+| Nama Tool | Parameter | Deskripsi & Kegunaan |
+|---|---|---|
+| `mira_get_courses` | `session_token?`, `api_key?` | Daftar kartu mata kuliah aktif beserta token aksi: `token_absen`, `token_learning`, `token_assignment`, dan `token_diskusi`. |
+| `mira_get_assignments` | `token?`, `session_token?`, `api_key?` | Daftar tugas aktif dan riwayat submission. Parameter `token` (opsional) menggunakan `token_assignment` (`eyJ...`). |
+| `mira_submit_assignment` | `token_send`, `link_tugas`, `session_token?`, `api_key?` | **[WRITE]** Kumpulkan / perbarui link tugas (Google Drive / GitHub) ke lembar pengerjaan MyBest. `token_send` diawali `eyJ...`. |
+| `mira_upload_assignment` | `token_tugas`, `filename`, `file_base64`, `catatan?`, `session_token?`, `api_key?` | **[WRITE]** Unggah berkas tugas mandiri dalam format base64 (maks 10MB decoded). |
+| `mira_get_presence` | `token?`, `session_token?`, `api_key?` | Rekap kehadiran real-time dan riwayat presensi DataTables AJAX (tanggal, BAP, dosen, rangkuman materi). |
+| `mira_submit_presence` | `token?`, `session_token?`, `api_key?` | **[WRITE]** Kirim presensi kehadiran (*Absen Masuk*) pada sesi kelas yang sedang membuka presensi. |
+| `mira_get_materials` | `token?`, `session_token?`, `api_key?` | Unduh berkas materi resmi: paket arsip ZIP Silabus, RPS, RTM, Slide, dan Modul Lab per mata kuliah. |
+| `mira_get_quiz` | `session_token?`, `api_key?` | Jadwal kuis latihan dan ujian online MyBest (paket, periode mulai/selesai, status aksi). |
+| `mira_get_quiz_questions` | `token?`, `quiz_url?`, `session_token?`, `api_key?` | Pratinjau butir soal kuis pilihan ganda, sisa waktu hitung mundur, dan opsi jawaban (A, B, C, D). |
+| `mira_get_exams` | `session_token?`, `api_key?` | Daftar jenis ujian semester Ujian Online BSI (latihan, UTS, UAS, pengganti, HER). |
+| `mira_get_exam_schedule` | `exam_type`, `session_token?`, `api_key?` | Jadwal ujian satu jenis dari Ujian Online BSI: mata kuliah, ruang, tanggal, durasi, jumlah soal, status berlangsung. |
+| `mira_submit_quiz_answer` | `id_soal`, `data_jawab`, `csrf_token?`, `session_token?`, `api_key?` | **[WRITE]** Kirim pilihan jawaban satu butir soal kuis secara aman. |
+| `mira_get_grades_recap` | `token?`, `session_token?`, `api_key?` | Rekapitulasi nilai tugas & kuis per pertemuan dosen beserta catatan komentar feedback. |
+| `mira_get_course_grades` | `course_id`, `session_token?`, `api_key?` | Rincian nilai tugas satu mata kuliah spesifik. |
+| `mira_get_discussions` | `token`, `session_token?`, `api_key?` | Daftar topik forum diskusi per mata kuliah (judul, instruksi tugas dosen, tanggal, jumlah balasan). `token` adalah `token_diskusi` (`eyJ...`). |
+| `mira_get_discussion_comments` | `token`, `session_token?`, `api_key?` | Baca thread seluruh komentar dan tanggapan mahasiswa/dosen. `token` adalah `token_komentar` (`eyJ...`). |
+| `mira_submit_discussion_comment` | `token_komentar`, `id_chat`, `komentar`, `session_token?`, `api_key?` | **[WRITE]** Balas atau jawab diskusi forum dosen langsung dari AI Agent atas nama mahasiswa. |
+| `mira_create_discussion` | `token_course`, `judul`, `chat`, `session_token?`, `api_key?` | **[WRITE]** Buat topik forum diskusi baru pada mata kuliah. |
+| `mira_get_elearning_profile` | `session_token?`, `api_key?` | Data profil dan kontak email akun MyBest mahasiswa. |
+| `mira_get_makeup_classes` | `session_token?`, `api_key?` | Jadwal kuliah pengganti (make-up classes) yang terdaftar di MyBest. |
+| `mira_get_elearning_guides` | `session_token?`, `api_key?` | Tautan berkas PDF buku panduan resmi MyBest, Ujian Online, dan Kuis Mahasiswa. |
 
 ---
 
 ### Kategori C: Publikasi, Perpustakaan, & Berita — 3 Fungsi
 
-| Nama Tool Primer | Alias Legacy | Parameter | Deskripsi & Kegunaan |
-|---|---|---|---|
-| `mira_search_library` | `mira_search_library` | `query?`, `category?`, `page?` | Cari buku di katalog OPAC perpustakaan UBSI (cek stok fisik & nomor rak cabang). |
-| `mira_get_news` | `mira_get_news` | `search?`, `page?`, `per_page?` | Berita resmi kampus real-time via WordPress JSON REST API. |
-| `mira_get_repository` | `mira_get_repository` | `query?`, `page?` | Riset, skripsi, dan publikasi ilmiah EPrints UBSI terbaru. |
+| Nama Tool | Parameter | Deskripsi & Kegunaan |
+|---|---|---|
+| `mira_search_library` | `query?`, `category?`, `page?` | Cari buku di katalog OPAC perpustakaan UBSI (cek stok fisik & nomor rak cabang). |
+| `mira_get_news` | `search?`, `page?`, `per_page?` | Berita resmi kampus real-time via WordPress JSON REST API. |
+| `mira_get_repository` | `query?`, `page?` | Riset, skripsi, dan publikasi ilmiah EPrints UBSI terbaru. |
 
 ---
 
 ### Kategori D: Notifikasi & Sistem — 4 Fungsi
 
-| Nama Tool Primer | Alias Legacy | Parameter | Deskripsi & Kegunaan |
-|---|---|---|---|
-| `mira_list_channels` | `mira_list_channels` | `session_token?`, `api_key?` | Daftar channel notifikasi webhook aktif milik mahasiswa (Discord/Telegram). |
-| `mira_trigger_reminder` | `mira_trigger_reminder` | `category`, `session_token?`, `api_key?` | Memicu pengiriman pengingat manual (`matkul-besok` atau `quiz-tugas`). |
-| `mira_whoami` | `mira_whoami` | `session_token?`, `api_key?` | Cek status identitas kredensial API Key yang sedang aktif digunakan. |
-| `mira_get_api_docs` | `mira_get_api_docs` | `category?`, `session_token?`, `api_key?` | Ambil kamus dokumentasi lengkap endpoint REST API dan MCP tools. |
+| Nama Tool | Parameter | Deskripsi & Kegunaan |
+|---|---|---|
+| `mira_list_channels` | `session_token?`, `api_key?` | Daftar channel notifikasi webhook aktif milik mahasiswa (Discord/Telegram). |
+| `mira_trigger_reminder` | `category`, `session_token?`, `api_key?` | Memicu pengiriman pengingat manual (`matkul-besok` atau `quiz-tugas`). |
+| `mira_whoami` | `session_token?`, `api_key?` | Cek status identitas kredensial API Key yang sedang aktif digunakan. |
+| `mira_get_api_docs` | `category?`, `session_token?`, `api_key?` | Ambil kamus dokumentasi lengkap endpoint REST API dan MCP tools. |
 
 ---
 
@@ -185,7 +183,7 @@ Server MCP Akademik UBSI: https://api.muaraai.com/v1/mira/mcp
 Autentikasi: Authorization: Bearer <PERSONAL_API_KEY_MIRA_ANDA>
 
 Kamu adalah asisten akademik mahasiswa UBSI yang terhubung ke server MCP di atas.
-Anda memiliki akses ke 80 tools MCP (40 "mira_*" primer dan 40 "mira_*" legacy alias) untuk membantu perkuliahan harian.
+Anda memiliki akses ke 40 tools MCP dengan namespace `mira_*` untuk membantu perkuliahan harian.
 
 Aturan Kerja & Alur Pemanggilan Tools:
 1. Jadwal & Kelas:

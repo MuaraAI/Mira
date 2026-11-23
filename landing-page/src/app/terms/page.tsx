@@ -29,7 +29,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
     title: "3. Aturan Penggunaan yang Wajib Dipatuhi",
     body: [
       "Hanya data milik sendiri: Anda wajib login memakai NIM dan password kampus milik Anda sendiri. Mengumpulkan, memakai, atau menyimpan kredensial mahasiswa lain adalah pelanggaran berat.",
-      "Larangan otomasi akademik terlarang: layanan ini read-only. Menggunakan API untuk manipulasi presensi, submit kuis/tugas otomatis, atau aktivitas yang melanggar regulasi akademik kampus dilarang keras dan berakibat pemblokiran permanen.",
+      "Larangan otomasi akademik terlarang: fitur tulis hanya boleh dipakai untuk akun Anda sendiri dan tetap mengikuti alur resmi kampus. Memakai API untuk memanipulasi presensi, mengerjakan atau mengumpulkan kuis dan tugas secara otomatis tanpa Anda yang benar-benar mengerjakannya, atau aktivitas lain yang melanggar regulasi akademik kampus dilarang keras dan berakibat pemblokiran permanen.",
       "Dilarang menyalahgunakan infrastruktur: tidak boleh melakukan scraping massal, menjual kembali akses API, mencoba menembus rate limit, menyerang endpoint, atau membebani server kampus melalui layanan ini.",
       "Dilarang menyebarkan malware, konten ilegal, atau memanfaatkan webhook untuk spam.",
     ],

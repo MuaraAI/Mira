@@ -1,8 +1,8 @@
 # Design Spec: Mira Dedicated Quiz CBT Room & Anti-Cheat Proctoring
 
 **Tanggal:** 2026-11-08  
-**Status:** Draf Perancangan  
-**Target Rilis:** Mira v3.1.0  
+**Status:** Terimplementasi (dirilis sejak v3.1.0)  
+**Target Rilis:** Mira v3.1.0 (tercapai)  
 **Penulis:** Tim Muara AI & Coding Agent  
 
 ---
@@ -29,13 +29,13 @@ Fitur ini menghadirkan **Ruang Ujian Dedicated CBT (`/dashboard/kuis/room`)** di
   - Peringatan pada tombol pintasan inspeksi/copy (`Ctrl+C`, `Ctrl+U`, `F12`).
   - Menghindari *force-kick* atau *auto-submit* paksa agar mahasiswa tidak dirugikan saat ada notifikasi sistem, telepon masuk, atau gangguan koneksi sesaat.
 - **Scope Soal**:
-  - v3.1.0 berfokus 100% pada Pilihan Ganda (PG 1..N dengan opsi A..E). Soal essay dikecualikan karena kuis mingguan MyBest murni PG.
+  - v3.1.0 berfokus pada Pilihan Ganda (PG 1..N dengan opsi A..E). Soal essay dikecualikan karena kuis mingguan MyBest murni PG.
 - **Live MyBest Sync & Finalize**:
   - Mengambil daftar soal, timer, dan CSRF token melalui `GET /v1/elearning/quiz/questions`.
   - Otomatis menyimpan jawaban ke backend kampus melalui `POST /v1/elearning/quiz/answer` tiap kali opsi radio dipilih.
   - Saat waktu habis atau mahasiswa menekan *Selesaikan Kuis*, sistem mengirim sinyal penutupan ke MyBest (`/selesai`) dan menampilkan ringkasan selesai.
 - **Offline Simulation Mode (Quiz by Mira)**:
-  - Bank soal per mata kuliah yang disusun dari modul P1-P8 (PTIK 50 butir, Logika & Algoritma 61 butir).
+  - Bank soal per paket, disusun dari modul P1-P8; jumlah butir aktual lihat `quiz-catalog.ts`.
   - Timer countdown mandiri, status nomor soal terjawab/ragu-ragu/belum.
   - Rekap skor otomatis di akhir pengerjaan (jumlah benar, salah, nilai akhir 0-100) plus pembahasan tiap butir.
 - **Aksesibilitas & Standar UI**:
@@ -102,7 +102,7 @@ Menangani event listener:
 * Counter pelanggaran tersimpan di state lokal dan `sessionStorage`.
 
 ### C. Auto-Save & State Persistence
-* Setiap pilihan jawaban disimpan ke `localStorage` (`mira_quiz_progress_{id}`) agar jawaban tidak hilang jika peramban tidak sengaja ter-reload.
+* Progres simulasi disimpan di `localStorage` (`mira_sim_answers_{paket_id}`); kuis live memakai auto-save server-side (`POST /v1/elearning/quiz/answer`).
 * Untuk kuis live, memanggil `apiFetch('/v1/elearning/quiz/answer', { method: 'POST', body: ... })` secara asinkron tanpa memblokir navigasi antar-soal.
 
 ### D. Bank Soal Mode Simulasi (Quiz by Mira)

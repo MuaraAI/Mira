@@ -23,7 +23,7 @@ export const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Password kampusku aman?",
-    a: "Password dienkripsi (AES-256-GCM) di sesi server yang aktif 7 hari. Gunanya biar server bisa login ulang sendiri ke SIAKAD dan MyBest waktu sesi kampus habis, jadi kamu nggak perlu login lagi. Kamu bisa keluar dari satu atau semua perangkat kapan aja, dan API cuma bisa dipakai dengan Personal API Key milikmu.",
+    a: "Password dienkripsi di server: salinan sesi aktif 7 hari dienkripsi AES-256-GCM, dan tautan SIAKAD tersimpan kanonis per NIM sehingga pindah perangkat tidak perlu tautkan ulang. Gunanya biar server bisa login ulang sendiri ke SIAKAD dan MyBest waktu sesi kampus habis. Perangkat pertama kamu otomatis tepercaya; perangkat baru menunggu izin di Sesi & Keamanan sebelum bisa membuka data SIAKAD, dan mencabut izin itu mematikan sesinya. API cuma bisa dipakai dengan Personal API Key milikmu.",
   },
   {
     q: "Gimana cara pakai REST API dan MCP?",

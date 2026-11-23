@@ -42,7 +42,7 @@
 ```python
 # tests/test_elearning_router.py
 def test_quiz_answer_submission_flow(client, auth_headers):
-    payload = {"id_soal": "501", "data_jawab": "501_B", "csrf_token": "mock_csrf_exam_token_456"}
+    payload = {"id_soal": "501", "data_jawab": "<nilai data_jawab opsi MyBest>", "csrf_token": "mock_csrf_exam_token_456"}  # format MyBest 2026 (bukan {id}_{key})
     res = client.post("/v1/elearning/quiz/answer", json=payload, headers=auth_headers)
     assert res.status_code == 200
     data = res.json()
@@ -80,7 +80,7 @@ git commit -m "test(elearning): verify quiz questions and answer submission endp
 
 - [ ] **Step 1: Definisikan type data dan bank soal simulasi**
 
-Buat data 25-30 butir soal pilihan ganda standar mata kuliah semester 1 UBSI (Dasar Pemrograman, PTIK, Logika & Algoritma, Jaringan Komputer, Basis Data).
+Buat data bank soal pilihan ganda standar mata kuliah semester 1 UBSI (Dasar Pemrograman, PTIK, Logika & Algoritma, Jaringan Komputer, Basis Data).
 
 ```typescript
 export interface SimulationOption {
@@ -285,7 +285,7 @@ git commit -m "feat(kuis): integrate CBT room launcher and simulation card into 
 - [ ] **Step 1: Jalankan pytest test suite offline**
 
 Run: `.venv/bin/pytest -q`
-Expected: 445+ tests PASS 100%.
+Expected: seluruh suite pytest lulus.
 
 - [ ] **Step 2: Jalankan Next.js production build**
 
