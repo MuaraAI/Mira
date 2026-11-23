@@ -100,7 +100,7 @@ async def test_api_key_lifecycle_direct():
     resolved = await resolve_api_key(plain_key)
     assert resolved is not None
     assert resolved["nim"] == "12345678"
-    assert resolved["studentv2_pass"] == "pass_sv2"
+    assert resolved["studentv2_pass"] == ""
     assert resolved["elearning_pass"] == "pass_el"
 
     # 4. Resolve Legacy Key format (muara_ubsi_)
@@ -157,7 +157,7 @@ async def test_api_key_legacy_migration():
     resolved = await resolve_api_key(legacy_plain)
     assert resolved is not None
     assert resolved["nim"] == "12345699"
-    assert resolved["studentv2_pass"] == "leg_sv2"
+    assert resolved["studentv2_pass"] == ""
     assert resolved["elearning_pass"] == "leg_el"
 
     # 3. Verify in SQLite that key_hash was migrated to BLAKE2b (128 chars)

@@ -256,9 +256,25 @@ def _sync_credentials_for_nim(nim: str) -> Optional[tuple[str, str, str]]:
         conn.close()
 
 
+async def _with_canonical_siakad(credentials: dict[str, Any]) -> dict[str, Any]:
+    from app.account_links import get_link_secret
+
+    resolved = dict(credentials)
+    nim = str(resolved.get("nim") or "")
+    resolved["studentv2_pass"] = (
+        await get_link_secret(nim, "siakad") if nim and settings.SIAKAD_ENABLED else ""
+    ) or ""
+    return resolved
+
+
 async def get_credentials_for_nim(nim: str) -> Optional[tuple[str, str, str]]:
-    """Resolve encrypted credentials for background jobs without exposing them to clients."""
-    return await run_in_threadpool(_sync_credentials_for_nim, nim)
+    """Resolve MyBest from API keys and SIAKAD from its canonical NIM store."""
+    credentials = await run_in_threadpool(_sync_credentials_for_nim, nim)
+    if credentials is None:
+        return None
+    user_nim, _, elearning_pass = credentials
+    canonical = await _with_canonical_siakad({"nim": user_nim})
+    return user_nim, canonical["studentv2_pass"], elearning_pass
 
 
 def _sync_update_password_for_nim(nim: str, field: str, new_password: str) -> list[str]:
@@ -414,14 +430,14 @@ async def resolve_api_key(plain_key: str) -> Optional[dict[str, Any]]:
     key_hash = _hash_key(plain_key)
     redis_key = f"ubsi:apikey:{key_hash}"
 
-    # 1. Cek Redis. Cache payload tetap terenkripsi agar password kampus tidak plaintext.
+    # Cache berisi snapshot; SIAKAD kanonis selalu menang.
     try:
         client = await cache.get_client()
         cached = await client.get(redis_key)
         if cached:
             blob = cached if isinstance(cached, bytes) else cached.encode("utf-8")
             raw = _get_fernet().decrypt(blob).decode("utf-8")
-            return json.loads(raw)
+            return await _with_canonical_siakad(json.loads(raw))
     except Exception:
         pass
 
@@ -429,6 +445,7 @@ async def resolve_api_key(plain_key: str) -> Optional[dict[str, Any]]:
     resolved = await run_in_threadpool(_sync_resolve_api_key, key_hash, plain_key)
     if not resolved:
         return None
+    resolved = await _with_canonical_siakad(resolved)
 
     # 3. Re-populate Redis
     try:
