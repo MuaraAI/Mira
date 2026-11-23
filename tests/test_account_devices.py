@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from app import account_devices
 from app.account_devices import (
     LastTrustedDeviceError,
     approve_device,
@@ -98,6 +99,7 @@ async def test_existing_device_keeps_status_but_updates_touch_fields(device_env)
     await ensure_device(NIM, "dev-a", label="Chrome", user_agent="UA")
     await ensure_device(NIM, "dev-b", label="Firefox", user_agent="UA2")
     await revoke_device(NIM, "dev-b")
+    _backdate_last_seen(NIM, "dev-b", 1)
 
     status = await ensure_device(NIM, "dev-b", label="Edge", user_agent="UA3")
     rows = await list_devices(NIM)
@@ -166,3 +168,107 @@ async def test_init_account_devices_db_is_idempotent(device_env):
     await ensure_device(NIM, "dev-a", label="Chrome", user_agent="UA")
 
     assert await get_device_status(NIM, "dev-a") == "trusted"
+
+
+@pytest.mark.asyncio
+async def test_stale_trusted_ensure_rewrites_to_pending(device_env):
+    await ensure_device(NIM, "dev-a", label="Chrome", user_agent="UA")
+    _backdate_last_seen(NIM, "dev-a", 31)
+
+    status = await ensure_device(NIM, "dev-a", label="Chrome", user_agent="UA")
+
+    assert status == "pending"
+    assert await get_device_status(NIM, "dev-a") == "pending"
+
+
+@pytest.mark.asyncio
+async def test_new_device_auto_trusts_when_only_trusted_is_stale(device_env):
+    await ensure_device(NIM, "dev-a", label="Chrome", user_agent="UA")
+    _backdate_last_seen(NIM, "dev-a", 31)
+
+    status = await ensure_device(NIM, "dev-b", label="Firefox", user_agent="UA2")
+
+    assert status == "trusted"
+    assert await get_device_status(NIM, "dev-a") == "revoked"
+
+
+@pytest.mark.asyncio
+async def test_approve_revives_stale_trusted_device(device_env):
+    await ensure_device(NIM, "dev-a", label="Chrome", user_agent="UA")
+    await ensure_device(NIM, "dev-b", label="Firefox", user_agent="UA2")
+    _backdate_last_seen(NIM, "dev-a", 31)
+
+    assert await approve_device(NIM, "dev-a", approved_by="dev-b") is True
+    assert await get_device_status(NIM, "dev-a") == "trusted"
+
+    conn = sqlite3.connect(settings.SQLITE_DB_PATH)
+    try:
+        row = conn.execute(
+            "SELECT status, approved_by FROM account_devices "
+            "WHERE nim = ? AND device_id = ?",
+            (NIM, "dev-a"),
+        ).fetchone()
+    finally:
+        conn.close()
+    assert row == ("trusted", "dev-b")
+
+
+@pytest.mark.asyncio
+async def test_revoke_stale_trusted_device_is_allowed(device_env):
+    await ensure_device(NIM, "dev-a", label="Chrome", user_agent="UA")
+    _backdate_last_seen(NIM, "dev-a", 31)
+
+    assert await revoke_device(NIM, "dev-a") is True
+    assert await get_device_status(NIM, "dev-a") == "revoked"
+
+
+@pytest.mark.asyncio
+async def test_approve_explicitly_revoked_device_returns_false(device_env):
+    await ensure_device(NIM, "dev-a", label="Chrome", user_agent="UA")
+    await ensure_device(NIM, "dev-b", label="Firefox", user_agent="UA2")
+    await revoke_device(NIM, "dev-b")
+
+    assert await approve_device(NIM, "dev-b", approved_by="dev-a") is False
+
+
+@pytest.mark.asyncio
+async def test_fresh_device_touch_skips_write_transaction(device_env, monkeypatch):
+    real_connect = account_devices._connect
+    statements: list[str] = []
+
+    class SpyConnection:
+        def __init__(self, conn):
+            self._conn = conn
+
+        def execute(self, sql, params=()):
+            statements.append(sql)
+            return self._conn.execute(sql, params)
+
+        def executescript(self, sql):
+            statements.append(sql)
+            return self._conn.executescript(sql)
+
+        def commit(self):
+            statements.append("COMMIT")
+            self._conn.commit()
+
+        def rollback(self):
+            statements.append("ROLLBACK")
+            self._conn.rollback()
+
+        def close(self):
+            self._conn.close()
+
+    monkeypatch.setattr(
+        account_devices, "_connect", lambda: SpyConnection(real_connect())
+    )
+
+    await ensure_device(NIM, "dev-a", label="Chrome", user_agent="UA")
+    statements.clear()
+    status = await ensure_device(NIM, "dev-a", label="Chrome", user_agent="UA")
+
+    assert status == "trusted"
+    assert not any(
+        statement.startswith(("BEGIN IMMEDIATE", "UPDATE", "INSERT"))
+        for statement in statements
+    )

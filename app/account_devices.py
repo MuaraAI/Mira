@@ -32,16 +32,14 @@ CREATE TABLE IF NOT EXISTS account_devices (
 CREATE INDEX IF NOT EXISTS idx_account_devices_nim ON account_devices(nim, status);
 """
 
+DEVICE_TOUCH_INTERVAL_SECONDS = 60
+_TOUCH_INTERVAL = timedelta(seconds=DEVICE_TOUCH_INTERVAL_SECONDS)
 _INACTIVITY_LIMIT = timedelta(days=30)
 _INITIALIZED_PATHS: set[str] = set()
 
 
 class LastTrustedDeviceError(RuntimeError):
     """Dilempar saat pencabutan akan menghilangkan satu-satunya device tepercaya."""
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
 
 def _connect() -> sqlite3.Connection:
@@ -101,46 +99,74 @@ async def _purge_cache(nim: str, device_id: Optional[str] = None) -> None:
         return
 
 
-def _is_expired(last_seen: str, now: datetime) -> bool:
+def _parse_last_seen(last_seen: str) -> Optional[datetime]:
     try:
         seen = datetime.fromisoformat(last_seen)
     except (TypeError, ValueError):
-        return True
+        return None
     if seen.tzinfo is None:
         seen = seen.replace(tzinfo=timezone.utc)
-    return now - seen > _INACTIVITY_LIMIT
+    return seen
 
 
-def _effective_status(status: str, last_seen: str, now: datetime) -> str:
-    if status != "trusted":
-        return status
-    return "revoked" if _is_expired(last_seen, now) else "trusted"
+def _effective_status(row: sqlite3.Row, now: datetime) -> str:
+    if row["status"] != "trusted":
+        return row["status"]
+    seen = _parse_last_seen(row["last_seen"])
+    if seen is None or now - seen > _INACTIVITY_LIMIT:
+        return "revoked"
+    return "trusted"
+
+
+def _is_stale_trusted(row: sqlite3.Row, now: datetime) -> bool:
+    return row["status"] == "trusted" and _effective_status(row, now) == "revoked"
+
+
+def _needs_touch(row: sqlite3.Row, now: datetime) -> bool:
+    if _is_stale_trusted(row, now):
+        return True
+    seen = _parse_last_seen(row["last_seen"])
+    return seen is None or now - seen >= _TOUCH_INTERVAL
+
+
+def _read_device(
+    conn: sqlite3.Connection, nim: str, device_id: str
+) -> Optional[sqlite3.Row]:
+    return conn.execute(
+        "SELECT status, last_seen FROM account_devices WHERE nim = ? AND device_id = ?",
+        (nim, device_id),
+    ).fetchone()
+
+
+def _count_effective_trusted(conn: sqlite3.Connection, nim: str, now: datetime) -> int:
+    rows = conn.execute(
+        "SELECT status, last_seen FROM account_devices WHERE nim = ?", (nim,)
+    ).fetchall()
+    return sum(1 for row in rows if _effective_status(row, now) == "trusted")
 
 
 def _sync_ensure_device(
-    nim: str, device_id: str, label: str, user_agent: str, timestamp: str
+    nim: str, device_id: str, label: str, user_agent: str, now: datetime
 ) -> str:
     _ensure_schema()
     conn = _connect()
+    started = False
     try:
+        row = _read_device(conn, nim, device_id)
+        if row is not None and not _needs_touch(row, now):
+            return _effective_status(row, now)
+
         conn.execute("BEGIN IMMEDIATE")
-        row = conn.execute(
-            "SELECT status FROM account_devices WHERE nim = ? AND device_id = ?",
-            (nim, device_id),
-        ).fetchone()
-        if row is not None:
-            status = row["status"]
-            conn.execute(
-                "UPDATE account_devices SET label = ?, user_agent = ?, last_seen = ? "
-                "WHERE nim = ? AND device_id = ?",
-                (label, user_agent, timestamp, nim, device_id),
-            )
-        else:
-            trusted = conn.execute(
-                "SELECT COUNT(*) AS total FROM account_devices "
-                "WHERE nim = ? AND status = 'trusted'",
-                (nim,),
-            ).fetchone()["total"]
+        started = True
+        row = _read_device(conn, nim, device_id)
+        if row is not None and not _needs_touch(row, now):
+            conn.commit()
+            started = False
+            return _effective_status(row, now)
+
+        timestamp = now.isoformat()
+        if row is None:
+            trusted = _count_effective_trusted(conn, nim, now)
             status = "trusted" if trusted == 0 else "pending"
             conn.execute(
                 "INSERT INTO account_devices "
@@ -148,10 +174,19 @@ def _sync_ensure_device(
                 "VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (device_id, nim, label, user_agent, status, timestamp, timestamp),
             )
+        else:
+            status = "pending" if _is_stale_trusted(row, now) else row["status"]
+            conn.execute(
+                "UPDATE account_devices SET status = ?, label = ?, user_agent = ?, "
+                "last_seen = ? WHERE nim = ? AND device_id = ?",
+                (status, label, user_agent, timestamp, nim, device_id),
+            )
         conn.commit()
+        started = False
         return status
     except Exception:
-        conn.rollback()
+        if started:
+            conn.rollback()
         raise
     finally:
         conn.close()
@@ -160,9 +195,9 @@ def _sync_ensure_device(
 async def ensure_device(
     nim: str, device_id: str, *, label: str, user_agent: str
 ) -> str:
-    timestamp = _now()
+    now = datetime.now(timezone.utc)
     status = await run_in_threadpool(
-        _sync_ensure_device, nim, device_id, label, user_agent, timestamp
+        _sync_ensure_device, nim, device_id, label, user_agent, now
     )
     await _purge_cache(nim, device_id)
     return status
@@ -172,16 +207,12 @@ def _sync_get_status(nim: str, device_id: str, now: datetime) -> str:
     _ensure_schema()
     conn = _connect()
     try:
-        row = conn.execute(
-            "SELECT status, last_seen FROM account_devices "
-            "WHERE nim = ? AND device_id = ?",
-            (nim, device_id),
-        ).fetchone()
+        row = _read_device(conn, nim, device_id)
     finally:
         conn.close()
     if row is None:
         return "missing"
-    return _effective_status(row["status"], row["last_seen"], now)
+    return _effective_status(row, now)
 
 
 async def get_device_status(nim: str, device_id: str) -> str:
@@ -206,7 +237,7 @@ def _sync_list_devices(nim: str, now: datetime) -> list[dict[str, Any]]:
             "device_id": row["device_id"],
             "label": row["label"],
             "user_agent": row["user_agent"],
-            "status": _effective_status(row["status"], row["last_seen"], now),
+            "status": _effective_status(row, now),
             "last_seen": row["last_seen"],
         }
         for row in rows
@@ -218,26 +249,24 @@ async def list_devices(nim: str) -> list[dict[str, Any]]:
 
 
 def _sync_approve_device(
-    nim: str, device_id: str, approved_by: str, timestamp: str
+    nim: str, device_id: str, approved_by: str, now: datetime
 ) -> bool:
     _ensure_schema()
     conn = _connect()
     try:
         conn.execute("BEGIN IMMEDIATE")
-        row = conn.execute(
-            "SELECT status FROM account_devices WHERE nim = ? AND device_id = ?",
-            (nim, device_id),
-        ).fetchone()
-        if row is None:
+        row = _read_device(conn, nim, device_id)
+        if row is None or row["status"] == "revoked":
             conn.rollback()
             return False
-        if row["status"] != "pending":
+        if row["status"] == "trusted" and not _is_stale_trusted(row, now):
             conn.rollback()
-            return row["status"] == "trusted"
+            return True
+        timestamp = now.isoformat()
         conn.execute(
             "UPDATE account_devices SET status = 'trusted', approved_at = ?, "
-            "approved_by = ? WHERE nim = ? AND device_id = ?",
-            (timestamp, approved_by, nim, device_id),
+            "approved_by = ?, last_seen = ? WHERE nim = ? AND device_id = ?",
+            (timestamp, approved_by, timestamp, nim, device_id),
         )
         conn.commit()
         return True
@@ -249,32 +278,26 @@ def _sync_approve_device(
 
 
 async def approve_device(nim: str, device_id: str, approved_by: str) -> bool:
+    now = datetime.now(timezone.utc)
     trusted = await run_in_threadpool(
-        _sync_approve_device, nim, device_id, approved_by, _now()
+        _sync_approve_device, nim, device_id, approved_by, now
     )
     if trusted:
         await _purge_cache(nim, device_id)
     return trusted
 
 
-def _sync_revoke_device(nim: str, device_id: str) -> bool:
+def _sync_revoke_device(nim: str, device_id: str, now: datetime) -> bool:
     _ensure_schema()
     conn = _connect()
     try:
         conn.execute("BEGIN IMMEDIATE")
-        row = conn.execute(
-            "SELECT status FROM account_devices WHERE nim = ? AND device_id = ?",
-            (nim, device_id),
-        ).fetchone()
+        row = _read_device(conn, nim, device_id)
         if row is None or row["status"] == "revoked":
             conn.rollback()
             return False
-        if row["status"] == "trusted":
-            trusted = conn.execute(
-                "SELECT COUNT(*) AS total FROM account_devices "
-                "WHERE nim = ? AND status = 'trusted'",
-                (nim,),
-            ).fetchone()["total"]
+        if _effective_status(row, now) == "trusted":
+            trusted = _count_effective_trusted(conn, nim, now)
             if trusted <= 1:
                 conn.rollback()
                 raise LastTrustedDeviceError(
@@ -295,7 +318,8 @@ def _sync_revoke_device(nim: str, device_id: str) -> bool:
 
 
 async def revoke_device(nim: str, device_id: str) -> bool:
-    changed = await run_in_threadpool(_sync_revoke_device, nim, device_id)
+    now = datetime.now(timezone.utc)
+    changed = await run_in_threadpool(_sync_revoke_device, nim, device_id, now)
     if changed:
         await _purge_cache(nim, device_id)
     return changed
