@@ -960,6 +960,10 @@ async def change_password(body: ChangePasswordRequest, request: Request):
     from app.api_keys_db import update_password_for_nim as update_keys
     from app.session_store import session_store
 
+    if field == "studentv2_pass":
+        # Ganti password SIAKAD yang diterima kampus ikut menulis store kanonis.
+        await set_link(nim, "siakad", kind="password", secret=body.new_password, status="linked")
+
     sessions = await session_store.update_password_for_nim(nim, field, body.new_password)
     try:
         keys = await update_keys(nim, field, body.new_password)

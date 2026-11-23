@@ -245,3 +245,79 @@ async def test_connect_pending_device_rejected_without_store_write(env, monkeypa
     assert res.json()["error"]["code"] == "SIAKAD_DEVICE_PENDING"
     # Device pending tidak boleh menyentuh store kanonis.
     assert await get_link_status(NIM, "siakad") is None
+
+
+async def test_password_change_writes_canonical_link(env, monkeypatch):
+    """Ganti password SIAKAD yang diterima kampus ikut menulis store kanonis."""
+    from app.password_change import ChangeResult
+
+    monkeypatch.setattr(
+        "app.modules.auth.change_upstream_password",
+        lambda *a: ChangeResult("changed", "Password SIAKAD berhasil diganti"),
+    )
+    await set_link(NIM, "siakad", kind="password", secret="password-lama")
+    token = await _trusted_session_token()
+    async with _client(token=token, cookies={DEVICE_COOKIE: TRUSTED_DEVICE}) as ac:
+        res = await ac.post(
+            "/v1/auth/password",
+            json={
+                "system": "siakad",
+                "current_password": "sv-pass",
+                "new_password": "Kuat2026x",
+            },
+        )
+    assert res.status_code == 200, res.text
+    assert res.json()["data"]["changed"] is True
+    assert await get_link_secret(NIM, "siakad") == "Kuat2026x"
+    assert await get_link_status(NIM, "siakad") == "linked"
+
+
+async def test_password_change_rejection_keeps_canonical_secret(env, monkeypatch):
+    """Kampus menolak ganti password: store kanonis tidak berubah."""
+    from app.password_change import ChangeResult
+
+    monkeypatch.setattr(
+        "app.modules.auth.change_upstream_password",
+        lambda *a: ChangeResult("rejected", "Password lama salah"),
+    )
+    await set_link(NIM, "siakad", kind="password", secret="password-lama")
+    token = await _trusted_session_token()
+    async with _client(token=token, cookies={DEVICE_COOKIE: TRUSTED_DEVICE}) as ac:
+        res = await ac.post(
+            "/v1/auth/password",
+            json={
+                "system": "siakad",
+                "current_password": "sv-pass",
+                "new_password": "Kuat2026x",
+            },
+        )
+    assert res.status_code == 400
+    assert res.json()["error"]["code"] == "PASSWORD_REJECTED"
+    assert await get_link_secret(NIM, "siakad") == "password-lama"
+    assert await get_link_status(NIM, "siakad") == "linked"
+
+
+async def test_password_change_mybest_keeps_siakad_link(env, monkeypatch):
+    """Ganti password MyBest tidak menyentuh tautan SIAKAD."""
+    from app.password_change import ChangeResult
+
+    monkeypatch.setattr(
+        "app.modules.auth.change_upstream_password",
+        lambda *a: ChangeResult("changed", "Password MyBest berhasil diganti"),
+    )
+    await set_link(NIM, "siakad", kind="password", secret="rahasia-siakad")
+    token = await _trusted_session_token()
+    async with _client(token=token, cookies={DEVICE_COOKIE: TRUSTED_DEVICE}) as ac:
+        res = await ac.post(
+            "/v1/auth/password",
+            json={
+                "system": "mybest",
+                "current_password": "el-pass",
+                "new_password": "Kuat2026x",
+            },
+        )
+    assert res.status_code == 200, res.text
+    assert await get_link_secret(NIM, "siakad") == "rahasia-siakad"
+    assert await get_link_status(NIM, "siakad") == "linked"
+
+
