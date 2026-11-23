@@ -183,17 +183,20 @@ async def test_legacy_session_imports_siakad_link_once(env, monkeypatch):
 
     spy = AsyncMock(wraps=import_legacy_siakad)
     monkeypatch.setattr(main_module, "import_legacy_siakad", spy)
-    token = await _session(env, siakad_pass="legacy-pass")
+    await ensure_device(NIM, "dev-trusted", label="Pertama", user_agent="ua")
+    token = await _session(env, siakad_pass="legacy-pass", device_id="dev-trusted")
 
-    async with _client(token=token) as ac:
+    async with _client(token=token, cookies={"mira_device": "dev-trusted"}) as ac:
         first = await ac.get("/v1/auth/me")
     assert first.status_code == 200
     spy.assert_awaited_once_with(NIM, "legacy-pass")
     assert await get_link_secret(NIM, "siakad") == "legacy-pass"
 
-    async with _client(token=token) as ac:
+    async with _client(token=token, cookies={"mira_device": "dev-trusted"}) as ac:
         second = await ac.get("/v1/auth/me")
     assert second.status_code == 200
+    # Penanda Redis: migrasi tidak dicoba ulang pada request berikutnya.
+    spy.assert_awaited_once_with(NIM, "legacy-pass")
     assert await get_link_secret(NIM, "siakad") == "legacy-pass"
 
 
@@ -220,9 +223,10 @@ async def test_legacy_import_failure_does_not_break_request(env, monkeypatch, ca
     monkeypatch.setattr(
         main_module, "import_legacy_siakad", AsyncMock(side_effect=RuntimeError("db mati"))
     )
-    token = await _session(env, siakad_pass="legacy-pass")
+    await ensure_device(NIM, "dev-trusted", label="Pertama", user_agent="ua")
+    token = await _session(env, siakad_pass="legacy-pass", device_id="dev-trusted")
 
-    async with _client(token=token) as ac:
+    async with _client(token=token, cookies={"mira_device": "dev-trusted"}) as ac:
         res = await ac.get("/v1/auth/me")
 
     assert res.status_code == 200

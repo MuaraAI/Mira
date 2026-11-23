@@ -842,6 +842,10 @@ async def disconnect_siakad(request: Request):
     MyBest tidak bisa dilepas: password MyBest adalah syarat sesi Mira sendiri.
     """
     nim = _require_session_nim(request)
+
+    # Gerbang device: perangkat belum tepercaya tidak boleh melepas tautan akun.
+    await require_trusted_session_device(request)
+
     link_status = await get_link_status(nim, "siakad")
     if link_status not in ("linked", "needs_relink"):
         return success_response(
@@ -898,6 +902,10 @@ _STATE_FIELD = {"siakad": "studentv2_pass", "mybest": "elearning_pass"}
 async def change_password(body: ChangePasswordRequest, request: Request):
     """Ganti password SIAKAD/MyBest di server kampus, lalu sinkronkan ke sesi & API Key Mira."""
     nim = _require_session_nim(request)
+
+    # Gerbang device: perangkat belum tepercaya tidak boleh memutar password kanonis.
+    await require_trusted_session_device(request)
+
     field = _STATE_FIELD[body.system]
     label = PASSWORD_SYSTEMS[body.system]["label"]
 

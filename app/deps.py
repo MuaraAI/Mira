@@ -17,18 +17,20 @@ def _siakad_error(status_code: int, code: str, message: str) -> HTTPException:
 
 
 async def require_trusted_session_device(request: Request) -> str:
-    """Sesi wajib membawa device `trusted` sebelum kredensial SIAKAD dilepas.
+    """Sesi wajib membawa cookie device `trusted` sebelum kredensial SIAKAD dilepas.
 
-    API key tidak melewati fungsi ini: key adalah keputusan eksplisit pemilik
-    akun. Mengembalikan device_id yang sudah diverifikasi `trusted`.
+    Hanya cookie `mira_device` yang dipercaya; device_id dari payload sesi tidak
+    pernah dipakai untuk gerbang. API key tidak melewati fungsi ini: key adalah
+    keputusan eksplisit pemilik akun. Mengembalikan device_id cookie yang sudah
+    diverifikasi `trusted`.
     """
     nim = str(getattr(request.state, "nim", "") or "")
-    device_id = str(getattr(request.state, "device_id", "") or "")
+    device_id = str(getattr(request.state, "device_cookie_id", "") or "")
     if not nim or not device_id:
         raise _siakad_error(
             status.HTTP_403_FORBIDDEN,
             "SIAKAD_DEVICE_PENDING",
-            "Sesi ini tidak punya identitas perangkat. Login ulang untuk mendaftarkan perangkat.",
+            "Sesi ini tidak punya cookie perangkat. Login ulang untuk mendaftarkan perangkat.",
         )
     device_status = await get_device_status(nim, device_id)
     if device_status == "trusted":

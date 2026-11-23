@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from app.account_devices import ensure_device, init_account_devices_db
 from app.account_links import init_account_links_db
 from app.config import settings
 from app.main import app
@@ -12,9 +13,16 @@ from app.main import app
 
 @pytest.fixture
 async def tmp_links_db(monkeypatch, tmp_path):
-    """Disconnect membaca store kanonis: paksa SQLite sementara agar tes terisolasi."""
+    """Disconnect kini tergerbang device: SQLite sementara untuk tautan dan device."""
     monkeypatch.setattr(settings, "SQLITE_DB_PATH", str(tmp_path / "accounts.sqlite3"))
     await init_account_links_db()
+    await init_account_devices_db()
+
+
+async def _trusted_cookie_device():
+    """Daftarkan device tepercaya yang dipakai cookie tes."""
+    await ensure_device("15260767", "dev-cookie", label="Chrome", user_agent="ua")
+    return {"mira_device": "dev-cookie"}
 
 
 def _session(monkeypatch, *, siakad_pass: str, elearning_pass: str = "rahasia123"):
@@ -32,6 +40,7 @@ def _session(monkeypatch, *, siakad_pass: str, elearning_pass: str = "rahasia123
 @pytest.mark.asyncio
 async def test_disconnect_clears_siakad_but_not_mybest(monkeypatch, tmp_links_db):
     _session(monkeypatch, siakad_pass="password-siakad")
+    cookies = await _trusted_cookie_device()
     updates = []
 
     async def update_for_nim(nim, field, new_password):
@@ -46,6 +55,7 @@ async def test_disconnect_clears_siakad_but_not_mybest(monkeypatch, tmp_links_db
         transport=ASGITransport(app=app),
         base_url="http://test",
         headers={"_skip_auto_auth": "1", "Authorization": "Bearer sesi-uji"},
+        cookies=cookies,
     ) as ac:
         res = await ac.delete("/v1/auth/credentials/siakad")
 
@@ -60,6 +70,7 @@ async def test_disconnect_clears_siakad_but_not_mybest(monkeypatch, tmp_links_db
 @pytest.mark.asyncio
 async def test_disconnect_when_already_unlinked_is_noop(monkeypatch, tmp_links_db):
     _session(monkeypatch, siakad_pass="")
+    cookies = await _trusted_cookie_device()
     updates = []
 
     async def update_for_nim(nim, field, new_password):
@@ -72,6 +83,7 @@ async def test_disconnect_when_already_unlinked_is_noop(monkeypatch, tmp_links_d
         transport=ASGITransport(app=app),
         base_url="http://test",
         headers={"_skip_auto_auth": "1", "Authorization": "Bearer sesi-uji"},
+        cookies=cookies,
     ) as ac:
         res = await ac.delete("/v1/auth/credentials/siakad")
 

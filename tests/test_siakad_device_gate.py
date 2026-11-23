@@ -321,3 +321,135 @@ async def test_password_change_mybest_keeps_siakad_link(env, monkeypatch):
     assert await get_link_status(NIM, "siakad") == "linked"
 
 
+async def test_session_without_cookie_rejected_even_with_trusted_session_device(env):
+    """Sesi yang lahir di device tepercaya tetap ditolak tanpa cookie mira_device."""
+    await ensure_device(NIM, TRUSTED_DEVICE, label="Pertama", user_agent="ua")
+    await set_link(NIM, "siakad", kind="password", secret="kanonis-pass")
+    token = await session_store.create(
+        NIM, "sv-pass", "el-pass", device_id=TRUSTED_DEVICE
+    )
+    async with _client(token=token) as ac:
+        res = await ac.get(SCHEDULE_PATH)
+    assert res.status_code == 403
+    assert res.json()["error"]["code"] == "SIAKAD_DEVICE_PENDING"
+    assert env.await_count == 0, "secret tidak boleh dilepas tanpa cookie"
+
+
+async def test_pending_device_does_not_import_legacy(env, monkeypatch):
+    """Device pending tidak menciptakan baris kanonis lewat migrasi legasi."""
+    import app.main as main_module
+
+    real_import = main_module.import_legacy_siakad
+    calls = []
+
+    async def spy_import(nim, password):
+        calls.append(nim)
+        return await real_import(nim, password)
+
+    monkeypatch.setattr(main_module, "import_legacy_siakad", spy_import)
+    await ensure_device(NIM, TRUSTED_DEVICE, label="Pertama", user_agent="ua")
+    await ensure_device(NIM, PENDING_DEVICE, label="Kedua", user_agent="ua")
+    token = await session_store.create(
+        NIM, "legacy-pass", "el-pass", device_id=PENDING_DEVICE
+    )
+    async with _client(token=token, cookies={DEVICE_COOKIE: PENDING_DEVICE}) as ac:
+        res = await ac.get("/v1/auth/me")
+    assert res.status_code == 200
+    assert calls == [], "device pending tidak boleh memicu migrasi legasi"
+    assert await get_link_status(NIM, "siakad") is None
+
+
+async def test_trusted_device_imports_legacy_once(env, monkeypatch):
+    """Device tepercaya memicu migrasi tepat sekali per NIM, lewat penanda Redis."""
+    import app.main as main_module
+
+    real_import = main_module.import_legacy_siakad
+    calls = []
+
+    async def spy_import(nim, password):
+        calls.append(nim)
+        return await real_import(nim, password)
+
+    monkeypatch.setattr(main_module, "import_legacy_siakad", spy_import)
+    await ensure_device(NIM, TRUSTED_DEVICE, label="Pertama", user_agent="ua")
+    token = await session_store.create(
+        NIM, "legacy-pass", "el-pass", device_id=TRUSTED_DEVICE
+    )
+    async with _client(token=token, cookies={DEVICE_COOKIE: TRUSTED_DEVICE}) as ac:
+        assert (await ac.get("/v1/auth/me")).status_code == 200
+        assert (await ac.get("/v1/auth/me")).status_code == 200
+    assert calls == [NIM], "migrasi legasi hanya boleh dijalankan sekali"
+    assert await get_link_secret(NIM, "siakad") == "legacy-pass"
+
+
+async def test_legacy_import_without_redis_still_attempts(env, monkeypatch):
+    """Redis mati: migrasi tetap dicoba (idempoten) dan request tidak gagal."""
+    import app.main as main_module
+
+    real_import = main_module.import_legacy_siakad
+    calls = []
+
+    async def spy_import(nim, password):
+        calls.append(nim)
+        return await real_import(nim, password)
+
+    monkeypatch.setattr(main_module, "import_legacy_siakad", spy_import)
+
+    def _cache_down():
+        raise ConnectionError("redis down")
+
+    monkeypatch.setattr(cache, "get_client", _cache_down)
+    await ensure_device(NIM, TRUSTED_DEVICE, label="Pertama", user_agent="ua")
+    token = await session_store.create(
+        NIM, "legacy-pass", "el-pass", device_id=TRUSTED_DEVICE
+    )
+    async with _client(token=token, cookies={DEVICE_COOKIE: TRUSTED_DEVICE}) as ac:
+        res = await ac.get("/v1/auth/me")
+    assert res.status_code == 200
+    assert calls == [NIM], "tanpa Redis, migrasi tetap dicoba"
+
+
+async def test_disconnect_pending_device_rejected(env):
+    """Device pending tidak boleh melepas tautan SIAKAD milik akun."""
+    await set_link(NIM, "siakad", kind="password", secret="rahasia-utuh")
+    await ensure_device(NIM, TRUSTED_DEVICE, label="Pertama", user_agent="ua")
+    await ensure_device(NIM, PENDING_DEVICE, label="Kedua", user_agent="ua")
+    token = await session_store.create(
+        NIM, "sv-pass", "el-pass", device_id=PENDING_DEVICE
+    )
+    async with _client(token=token, cookies={DEVICE_COOKIE: PENDING_DEVICE}) as ac:
+        res = await ac.delete("/v1/auth/credentials/siakad")
+    assert res.status_code == 403
+    assert res.json()["error"]["code"] == "SIAKAD_DEVICE_PENDING"
+    assert await get_link_secret(NIM, "siakad") == "rahasia-utuh"
+
+
+async def test_password_change_pending_device_rejected(env, monkeypatch):
+    """Device pending tidak boleh memutar password SIAKAD kanonis."""
+    from unittest.mock import MagicMock
+
+    from app.password_change import ChangeResult
+
+    # change_upstream_password dipanggil lewat run_in_executor: mock sinkron.
+    upstream = MagicMock(return_value=ChangeResult("changed", "ok"))
+    monkeypatch.setattr("app.modules.auth.change_upstream_password", upstream)
+    await set_link(NIM, "siakad", kind="password", secret="password-lama")
+    await ensure_device(NIM, TRUSTED_DEVICE, label="Pertama", user_agent="ua")
+    await ensure_device(NIM, PENDING_DEVICE, label="Kedua", user_agent="ua")
+    token = await session_store.create(
+        NIM, "sv-pass", "el-pass", device_id=PENDING_DEVICE
+    )
+    async with _client(token=token, cookies={DEVICE_COOKIE: PENDING_DEVICE}) as ac:
+        res = await ac.post(
+            "/v1/auth/password",
+            json={
+                "system": "siakad",
+                "current_password": "sv-pass",
+                "new_password": "Kuat2026x",
+            },
+        )
+    assert res.status_code == 403
+    assert res.json()["error"]["code"] == "SIAKAD_DEVICE_PENDING"
+    upstream.assert_not_called()
+    assert await get_link_secret(NIM, "siakad") == "password-lama"
+

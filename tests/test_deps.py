@@ -29,6 +29,7 @@ async def test_tier1_session_credentials(tmp_accounts_db):
     req.state.elearning_pass = "session_el_pass"
     req.state.auth_type = "session"
     req.state.device_id = "dev-a"
+    req.state.device_cookie_id = "dev-a"
 
     el_nim, el_pwd = require_elearning_creds(req)
     assert el_nim == "12345678"
