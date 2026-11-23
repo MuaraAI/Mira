@@ -45,10 +45,12 @@ async def env(monkeypatch, tmp_path):
     return fake
 
 
-def _client(*, cookies=None, token=None):
+def _client(*, cookies=None, token=None, api_key=None):
     headers = {"_skip_auto_auth": "1"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
+    if api_key:
+        headers["X-API-Key"] = api_key
     return AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
@@ -122,6 +124,7 @@ async def test_second_login_with_existing_cookie_is_pending(env):
 @pytest.mark.asyncio
 async def test_me_reports_device_status_and_link_status(env):
     await ensure_device(NIM, "dev-trusted", label="Pertama", user_agent="ua-trusted")
+    await ensure_device(NIM, "dev-pending", label="Kedua", user_agent="ua-kedua")
     await set_link(NIM, "siakad", kind="password", secret="sv-pass")
     token = await _session(env, device_id="dev-pending")
 
@@ -139,17 +142,39 @@ async def test_me_reports_device_status_and_link_status(env):
 
 
 @pytest.mark.asyncio
-async def test_me_issues_device_cookie_when_client_has_none(env):
+async def test_me_restores_session_device_cookie_without_new_row(env):
+    await ensure_device(NIM, "dev-a", label="Pertama", user_agent="ua-pertama")
+    token = await _session(env, device_id="dev-a")
+
+    for _ in range(2):
+        async with _client(token=token) as ac:
+            res = await ac.get("/v1/auth/me")
+        assert res.status_code == 200
+        assert res.cookies.get("mira_device") == "dev-a"
+        assert res.json()["data"]["device"]["status"] == "trusted"
+        assert _device_count() == 1
+
+
+@pytest.mark.asyncio
+async def test_me_without_session_device_does_not_insert_row(env):
     token = await _session(env, device_id=None)
 
-    async with _client(token=token) as ac:
-        res = await ac.get("/v1/auth/me")
+    for _ in range(2):
+        async with _client(token=token) as ac:
+            res = await ac.get("/v1/auth/me")
+        assert res.status_code == 200
+        assert res.json()["data"]["device"]["status"] == "missing"
+        assert _device_count() == 0
 
-    assert res.status_code == 200
-    device_id = res.cookies.get("mira_device")
-    assert device_id and len(device_id) == 64
-    assert _device_row(device_id)[0] == "trusted"
-    assert res.json()["data"]["device"]["status"] == "trusted"
+
+@pytest.mark.asyncio
+async def test_master_me_does_not_insert_device_row(env):
+    for _ in range(2):
+        async with _client(api_key="test-secret-key-12345") as ac:
+            res = await ac.get("/v1/auth/me")
+        assert res.status_code == 200
+        assert res.json()["data"]["identity"] == "master"
+        assert _device_count() == 0
 
 
 @pytest.mark.asyncio

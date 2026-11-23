@@ -335,7 +335,9 @@ async def api_key_auth_middleware(request: Request, call_next):
             request.state.studentv2_pass = session_data["studentv2_pass"]
             request.state.session_expires_in = session_data.get("expires_in")
             request.state.auth_type = "session"
-            request.state.device_id = read_device_id(request) or new_device_id()
+            request.state.device_id = (
+                read_device_id(request) or (session_data.get("device_id") or "") or new_device_id()
+            )
             legacy_siakad_pass = session_data.get("studentv2_pass") or ""
             if legacy_siakad_pass:
                 try:

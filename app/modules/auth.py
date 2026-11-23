@@ -32,7 +32,7 @@ from app.password_reset import (
 from app.proxy import get_proxy
 from app.upstream_session import clear_login_block
 
-from app.account_devices import ensure_device
+from app.account_devices import ensure_device, get_device_status
 from app.account_links import get_link_status
 from app.device_identity import device_label, issue_device_cookie, new_device_id, read_device_id
 
@@ -530,7 +530,12 @@ async def me(request: Request):
                 # Master memakai kredensial per-request (header), bukan sesi tertaut.
                 "links": {
                     "mybest": {"linked": True, "required": True, "linked_password": "request"},
-                    "siakad": {"linked": True, "required": False, "linked_password": "request"},
+                    "siakad": {
+                        "linked": True,
+                        "required": False,
+                        "linked_password": "request",
+                        "status": "linked",
+                    },
                 },
             }
         )
@@ -549,9 +554,12 @@ async def me(request: Request):
     device_status = "trusted"
     if auth_type == "session":
         device_id = getattr(request.state, "device_id", "") or new_device_id()
-        device_status = await ensure_device(
-            nim, device_id, label=device_label(ua), user_agent=ua
-        )
+        device_status = await get_device_status(nim, device_id)
+        if device_status != "missing":
+            # /me hanya menyentuh baris yang sudah ada; baris device hanya lahir saat login.
+            device_status = await ensure_device(
+                nim, device_id, label=device_label(ua), user_agent=ua
+            )
 
     link_status = await get_link_status(nim, "siakad")
     if link_status is None:

@@ -98,3 +98,18 @@ async def test_me_reports_siakad_unlinked(monkeypatch):
     assert data["links"]["siakad"]["linked_password"] is None
     # MyBest wajib: selalu tertaut selama sesi hidup.
     assert data["links"]["mybest"]["required"] is True
+
+
+@pytest.mark.asyncio
+async def test_master_me_reports_siakad_link_status():
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        headers={"X-API-Key": "test-secret-key-12345"},
+    ) as ac:
+        res = await ac.get("/v1/auth/me")
+
+    assert res.status_code == 200
+    data = res.json()["data"]
+    assert data["identity"] == "master"
+    assert data["links"]["siakad"]["status"] == "linked"
