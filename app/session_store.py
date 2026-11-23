@@ -23,6 +23,7 @@ from app.config import settings
 SESSION_TTL_SECONDS = 7 * 24 * 3600
 _KEY_PREFIX = "ubsi:session:"
 _INDEX_PREFIX = "ubsi:session_index:"
+_DEVICE_INDEX_PREFIX = "ubsi:session_device:"
 
 
 def _hash_token(token: str) -> str:
@@ -101,13 +102,14 @@ class SessionStore:
             self._client = None
 
     async def create(
-        self, nim: str, studentv2_pass: str, elearning_pass: str
+        self, nim, studentv2_pass, elearning_pass, device_id: Optional[str] = None
     ) -> str:
         token = secrets.token_urlsafe(32)
         payload_data = {
             "nim": nim,
             "studentv2_pass": studentv2_pass,
             "elearning_pass": elearning_pass,
+            "device_id": device_id,
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
         encrypted_blob = _encrypt_payload(payload_data, settings.API_KEY)
@@ -117,6 +119,10 @@ class SessionStore:
         index_key = _INDEX_PREFIX + nim
         await client.sadd(index_key, token_hash)
         await client.expire(index_key, SESSION_TTL_SECONDS)
+        if device_id:
+            device_index_key = _DEVICE_INDEX_PREFIX + nim + ":" + device_id
+            await client.sadd(device_index_key, token_hash)
+            await client.expire(device_index_key, SESSION_TTL_SECONDS)
         return token
 
     async def resolve(self, token: str) -> Optional[dict]:
@@ -202,6 +208,18 @@ class SessionStore:
         removed = 0
         for token_hash in token_hashes:
             removed += await client.delete(_KEY_PREFIX + token_hash)
+        await client.delete(index_key)
+        return removed
+
+    async def delete_all_for_device(self, nim: str, device_id: str) -> int:
+        """Hapus semua sesi satu device tanpa menyentuh sesi device lain."""
+        client = await self.get_client()
+        index_key = _DEVICE_INDEX_PREFIX + nim + ":" + device_id
+        token_hashes = await client.smembers(index_key)
+        removed = 0
+        for token_hash in token_hashes:
+            removed += await client.delete(_KEY_PREFIX + token_hash)
+            await client.srem(_INDEX_PREFIX + nim, token_hash)
         await client.delete(index_key)
         return removed
 
