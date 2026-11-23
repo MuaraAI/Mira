@@ -100,7 +100,7 @@ async def test_api_key_lifecycle_direct():
     resolved = await resolve_api_key(plain_key)
     assert resolved is not None
     assert resolved["nim"] == "12345678"
-    assert resolved["studentv2_pass"] == "pass_sv2"
+    assert resolved["studentv2_pass"] == ""
     assert resolved["elearning_pass"] == "pass_el"
 
     # 4. Resolve Legacy Key format (muara_ubsi_)
@@ -157,7 +157,7 @@ async def test_api_key_legacy_migration():
     resolved = await resolve_api_key(legacy_plain)
     assert resolved is not None
     assert resolved["nim"] == "12345699"
-    assert resolved["studentv2_pass"] == "leg_sv2"
+    assert resolved["studentv2_pass"] == ""
     assert resolved["elearning_pass"] == "leg_el"
 
     # 3. Verify in SQLite that key_hash was migrated to BLAKE2b (128 chars)
@@ -174,13 +174,22 @@ async def test_api_key_endpoints_async():
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as client:
-        # 1. Create session
+        # 1. Create session untuk perangkat tepercaya (pembuatan API key butuh itu)
+        from app.account_devices import ensure_device, init_account_devices_db
+
+        await init_account_devices_db()
+        device_id = "d" * 64
+        await ensure_device("12345678", device_id, label="Test", user_agent="ua")
         session_token = await session_store.create(
             nim="12345678",
             studentv2_pass="pass_sv2_real",
             elearning_pass="pass_el_real",
+            device_id=device_id,
         )
-        headers = {"Authorization": f"Bearer {session_token}"}
+        headers = {
+            "Authorization": f"Bearer {session_token}",
+            "Cookie": f"mira_device={device_id}",
+        }
 
         # 2. Get keys (initially empty)
         res = await client.get("/v1/auth/keys", headers=headers)

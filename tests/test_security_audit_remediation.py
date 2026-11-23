@@ -46,7 +46,7 @@ def test_f02_upstream_session_binds_credential_hash():
     assert len(up.login_attempts) == 2
 
 
-def test_f02_deps_blocks_header_override_for_non_master_auth():
+async def test_f02_deps_blocks_header_override_for_non_master_auth():
     """F-02: Non-master authenticated requests cannot fall back to X-Studentv2-NIM/X-Elearning-NIM headers."""
     req = Request(
         {
@@ -61,7 +61,7 @@ def test_f02_deps_blocks_header_override_for_non_master_auth():
         }
     )
     with pytest.raises(HTTPException) as exc_sv2:
-        require_studentv2_creds(req)
+        await require_studentv2_creds(req)
     assert exc_sv2.value.status_code == 401
 
     with pytest.raises(HTTPException) as exc_el:
@@ -79,7 +79,7 @@ def test_f02_deps_blocks_header_override_for_non_master_auth():
             "state": {"_auth_ran": True, "is_master": True},
         }
     )
-    assert require_studentv2_creds(req_master) == ("12345678", "master-override")
+    assert await require_studentv2_creds(req_master) == ("12345678", "master-override")
 
 
 @pytest.mark.asyncio

@@ -6,6 +6,7 @@ import { useLogout } from "@/lib/logout";
 import { useSecurityStatus } from "@/lib/security";
 import { ChangePasswordCard } from "@/components/ChangePasswordCard";
 import { CampusSystemsCard, type MeLinks } from "@/components/CampusSystemsCard";
+import { DevicesCard } from "@/components/DevicesCard";
 import {
   ErrorState,
   LoadingState,
@@ -48,6 +49,8 @@ export default function SesiPage() {
           securityApi.reload();
         }}
       />
+
+      <DevicesCard />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <LoginActivityCard security={securityApi.data} />

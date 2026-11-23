@@ -29,6 +29,16 @@ class FakeRedis:
     async def set(self, key, value, ex=None):
         self.kv[key] = value
 
+
+    async def delete(self, *keys):
+        removed = 0
+        for key in keys:
+            for store in (self.kv, self.sets):
+                if key in store:
+                    del store[key]
+                    removed += 1
+        return removed
+
     async def expire(self, key, ttl):
         return key in self.kv or key in self.sets
 

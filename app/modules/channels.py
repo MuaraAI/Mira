@@ -5,6 +5,8 @@ from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from app.account_devices import require_trusted_device
+
 from app.channel_validation import ALLOWED_CATEGORIES, validate_channel_payload
 from app.channels_db import (
     add_channel,
@@ -56,7 +58,8 @@ async def list_my_channels(request: Request):
 @router.post("")
 async def create_channel(request: Request, body: ChannelRequest):
     nim = _require_session_nim(request)
-
+    # Channel menyimpan webhook pribadi; hanya perangkat tepercaya yang boleh menulis.
+    await require_trusted_device(request)
     channel_type = body.type
     categories = body.categories
     config = body.config
@@ -97,6 +100,7 @@ async def edit_channel_categories(
     channel_id: int, request: Request, body: ChannelCategoriesRequest
 ):
     nim = _require_session_nim(request)
+    await require_trusted_device(request)
     if not body.categories:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

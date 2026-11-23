@@ -1,5 +1,6 @@
 "use client";
 
+import { SiakadGateNotice, siakadGateIssue } from "@/components/SiakadGateNotice";
 import { useEffect, useRef, useState } from "react";
 import { BookOpen, Download, Eye, EyeOff, FileSpreadsheet, Share2 } from "lucide-react";
 import { toPng } from "html-to-image";
@@ -329,7 +330,11 @@ export default function NilaiPage() {
       {gradesRaw.loading ? (
         <LoadingState label="Memuat rekapitulasi nilai tugas MyBest" />
       ) : gradesRaw.error ? (
-        <ErrorState error={gradesRaw.error} onRetry={gradesRaw.reload} />
+        siakadGateIssue(gradesRaw.error) ? (
+          <SiakadGateNotice kind={siakadGateIssue(gradesRaw.error)!} />
+        ) : (
+          <ErrorState error={gradesRaw.error} onRetry={gradesRaw.reload} />
+        )
       ) : !grades || grades.total_tugas === 0 ? (
         <EmptyState
           mascot="/maskot/mura-nilai.png"

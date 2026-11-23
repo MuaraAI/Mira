@@ -48,7 +48,7 @@ async def test_modular_creds_validation():
 
     empty_settings = Settings(_env_file=None)
     with pytest.raises(HTTPException) as exc_info:
-        require_studentv2_creds(empty_settings)
+        await require_studentv2_creds(empty_settings)
     assert exc_info.value.status_code == 401
     assert exc_info.value.detail["error"]["code"] == "UNAUTHORIZED"
     assert exc_info.value.detail["error"]["module"] == "studentv2"
