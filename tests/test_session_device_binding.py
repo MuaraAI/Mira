@@ -101,3 +101,19 @@ async def test_resolve_recreates_missing_device_index(fake_redis):
     assert fake_redis.ttls[device_index_key] == SESSION_TTL_SECONDS
     assert await session_store.delete_all_for_device(nim, "dev-a") == 1
     assert await session_store.resolve(token) is None
+
+
+@pytest.mark.asyncio
+async def test_delete_removes_token_from_device_index(fake_redis):
+    nim = "12345678"
+    first = await session_store.create(nim, "sv-pass", "el-pass", device_id="dev-a")
+    sibling = await session_store.create(nim, "sv-pass", "el-pass", device_id="dev-a")
+    device_index_key = f"{_DEVICE_INDEX_PREFIX}{nim}:dev-a"
+
+    await session_store.delete(first)
+
+    assert await fake_redis.smembers(device_index_key) == {_hash_token(sibling)}
+    assert await fake_redis.smembers(_INDEX_PREFIX + nim) == {_hash_token(sibling)}
+    assert await session_store.resolve(first) is None
+    assert (await session_store.resolve(sibling))["device_id"] == "dev-a"
+    assert await session_store.delete_all_for_device(nim, "dev-a") == 1

@@ -176,6 +176,10 @@ class SessionStore:
             nim = (data or {}).get("nim", "")
             if nim:
                 await client.srem(_INDEX_PREFIX + nim, token_hash)
+                device_id = (data or {}).get("device_id")
+                if device_id:
+                    device_index_key = _DEVICE_INDEX_PREFIX + nim + ":" + device_id
+                    await client.srem(device_index_key, token_hash)
         await client.delete(key)
 
     async def get_credentials_for_nim(self, nim: str) -> Optional[tuple[str, str, str]]:
