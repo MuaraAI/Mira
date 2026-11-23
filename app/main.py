@@ -34,6 +34,9 @@ from app.modules.lecturers import router as lecturers_router
 from app.modules.academic_events import router as academic_events_router
 from app.stats import record_request
 
+from app.account_links import import_legacy_siakad
+from app.device_identity import new_device_id, read_device_id
+
 logger = logging.getLogger(__name__)
 
 def _is_trusted_proxy(host: str, trusted: set[str]) -> bool:
@@ -332,6 +335,15 @@ async def api_key_auth_middleware(request: Request, call_next):
             request.state.studentv2_pass = session_data["studentv2_pass"]
             request.state.session_expires_in = session_data.get("expires_in")
             request.state.auth_type = "session"
+            request.state.device_id = read_device_id(request) or new_device_id()
+            legacy_siakad_pass = session_data.get("studentv2_pass") or ""
+            if legacy_siakad_pass:
+                try:
+                    await import_legacy_siakad(session_data["nim"], legacy_siakad_pass)
+                except Exception as exc:
+                    logger.warning(
+                        "Gagal migrasi tautan SIAKAD nim=%s: %s", session_data["nim"], exc
+                    )
             return await call_next(request)
         return await _reject_auth_failure(
             request,

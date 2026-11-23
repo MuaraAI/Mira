@@ -32,6 +32,17 @@ from app.password_reset import (
 from app.proxy import get_proxy
 from app.upstream_session import clear_login_block
 
+from app.account_devices import ensure_device
+from app.account_links import get_link_status
+from app.device_identity import device_label, issue_device_cookie, new_device_id, read_device_id
+
+
+def _session_cookie_options(request: Request) -> tuple[bool, Optional[str]]:
+    """Flag cookie sama untuk sesi dan identitas device."""
+    is_https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+    return is_https, settings.SESSION_COOKIE_DOMAIN or None
+
+
 logger = logging.getLogger("app.auth")
 router = APIRouter(prefix="/v1/auth", tags=["auth"])
 studentv2_client = StudentV2Client()
@@ -397,7 +408,10 @@ async def login(req_body: LoginRequest, request: Request):
 
     from app.session_store import session_store
 
-    token = await session_store.create(nim, effective_sv_pass, el_pass)
+    ua = request.headers.get("user-agent", "")
+    device_id = read_device_id(request) or new_device_id()
+    await ensure_device(nim, device_id, label=device_label(ua), user_agent=ua)
+    token = await session_store.create(nim, effective_sv_pass, el_pass, device_id=device_id)
 
     response = JSONResponse(
         status_code=status.HTTP_200_OK,
@@ -418,9 +432,9 @@ async def login(req_body: LoginRequest, request: Request):
             }
         ),
     )
-    is_https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+    is_https, cookie_domain = _session_cookie_options(request)
     cookie_samesite = "none" if is_https else "lax"
-    cookie_domain = settings.SESSION_COOKIE_DOMAIN or None
+
     response.set_cookie(
         key="ubsi_session",
         value=token,
@@ -430,6 +444,7 @@ async def login(req_body: LoginRequest, request: Request):
         samesite=cookie_samesite,
         domain=cookie_domain,
     )
+    issue_device_cookie(response, device_id, is_https=is_https, domain=cookie_domain)
     return response
 
 
@@ -509,6 +524,7 @@ async def me(request: Request):
             data={
                 "identity": "master",
                 "nim": None,
+                "device": {"status": "trusted"},
                 "session": None,
                 "systems": {"siakad": True, "mybest": True},
                 # Master memakai kredensial per-request (header), bukan sesi tertaut.
@@ -527,6 +543,20 @@ async def me(request: Request):
         )
     sv_pass = getattr(request.state, "studentv2_pass", "") or ""
     el_pass = getattr(request.state, "elearning_pass", "") or ""
+
+    ua = request.headers.get("user-agent", "")
+    device_id = ""
+    device_status = "trusted"
+    if auth_type == "session":
+        device_id = getattr(request.state, "device_id", "") or new_device_id()
+        device_status = await ensure_device(
+            nim, device_id, label=device_label(ua), user_agent=ua
+        )
+
+    link_status = await get_link_status(nim, "siakad")
+    if link_status is None:
+        # Sesi legasi belum punya baris kanonis; password di sesi menandakan tautan.
+        link_status = "linked" if sv_pass else "unlinked"
 
     # Sisa umur sesi (detik). Sesi Mira sliding 7 hari: setiap request sukses
     # memperpanjang, jadi angka ini = "kalau kamu berhenti membuka Mira".
@@ -549,28 +579,34 @@ async def me(request: Request):
     else:
         linked_password = "separate"
 
-    return success_response(
-        data={
-            "nim": nim,
-            "auth_type": auth_type,
-            "session": session_info,
-            # Kontrak lama tetap: boolean siap pakai untuk gerbang UI.
-            "systems": {"siakad": bool(sv_pass), "mybest": bool(el_pass)},
-            # Detail per sistem untuk halaman Sesi & Keamanan.
-            "links": {
-                "mybest": {
-                    "linked": bool(el_pass),
-                    "required": True,
-                    "linked_password": "mybest" if el_pass else None,
-                },
-                "siakad": {
-                    "linked": bool(sv_pass),
-                    "required": False,
-                    "linked_password": linked_password,
-                },
+    data = {
+        "nim": nim,
+        "auth_type": auth_type,
+        "device": {"status": device_status},
+        "session": session_info,
+        # Kontrak lama tetap: boolean siap pakai untuk gerbang UI.
+        "systems": {"siakad": bool(sv_pass), "mybest": bool(el_pass)},
+        # Detail per sistem untuk halaman Sesi & Keamanan.
+        "links": {
+            "mybest": {
+                "linked": bool(el_pass),
+                "required": True,
+                "linked_password": "mybest" if el_pass else None,
             },
-        }
-    )
+            "siakad": {
+                "linked": bool(sv_pass),
+                "required": False,
+                "linked_password": linked_password,
+                "status": link_status,
+            },
+        },
+    }
+    if auth_type == "session" and not read_device_id(request):
+        response = JSONResponse(content=success_response(data=data))
+        is_https, cookie_domain = _session_cookie_options(request)
+        issue_device_cookie(response, device_id, is_https=is_https, domain=cookie_domain)
+        return response
+    return success_response(data=data)
 
 
 class CreateApiKeyRequest(BaseModel):
