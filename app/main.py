@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import ipaddress
 import os
 import secrets
@@ -32,6 +33,8 @@ from app.modules.social import router as social_router
 from app.modules.lecturers import router as lecturers_router
 from app.modules.academic_events import router as academic_events_router
 from app.stats import record_request
+
+logger = logging.getLogger(__name__)
 
 def _is_trusted_proxy(host: str, trusted: set[str]) -> bool:
     """True bila `host` sama persis dengan entri, atau masuk ke salah satu CIDR tepercaya.
@@ -93,6 +96,20 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         init_teaching_db()
     except Exception:
         pass
+
+    try:
+        from app.account_links import init_account_links_db
+
+        await init_account_links_db()
+    except Exception as exc:
+        logger.error("Gagal menginisialisasi tautan akun: %s", exc, exc_info=True)
+
+    try:
+        from app.account_devices import init_account_devices_db
+
+        await init_account_devices_db()
+    except Exception as exc:
+        logger.error("Gagal menginisialisasi registry device: %s", exc, exc_info=True)
 
     async def _eviction_worker():
         from app.file_cache import file_cache
