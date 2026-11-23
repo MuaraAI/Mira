@@ -5,7 +5,7 @@ const STEPS = [
     mascot: "/maskot/mura-empty.png",
     alt: "Mura maskot Mira - Langkah 1: Masuk akun kampus UBSI",
     title: "Masuk pakai akun kampus",
-    text: "Gunakan NIM dan password SIAKAD atau MyBest kamu. Langsung terhubung tanpa perlu registrasi ulang.",
+    text: "Gunakan NIM dan password MyBest kamu. SIAKAD bisa ditautkan sekali dari Sesi & Keamanan di dashboard kalau butuh data SIAKAD.",
   },
   {
     mascot: "/maskot/mura-tugas-done.png",

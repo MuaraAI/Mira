@@ -784,8 +784,8 @@ export default function DemoPage() {
             <div>
               <h3 className="font-display font-bold text-base">Siap Beralih ke Dasbor Asli?</h3>
               <p className="text-xs text-white/85 mt-1">
-                Gunakan NIM dan password SIAKAD atau MyBest kamu untuk menikmati sinkronisasi otomatis,
-                notifikasi WhatsApp/Telegram, dan presensi sekali klik.
+                Gunakan NIM dan password MyBest kamu untuk sinkronisasi otomatis,
+                notifikasi Telegram atau Discord, dan presensi sekali klik.
               </p>
             </div>
             <Link

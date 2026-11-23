@@ -14,7 +14,7 @@ interface SiaKadLockedCardProps {
 /** Kartu untuk fitur SIAKAD yang dimatikan: penjelasan singkat + tautan ke portal kampus. */
 export function SiaKadLockedCard({
   title = "Fitur ini ada di SIAKAD",
-  description = "Mira tidak lagi mengambil data dari SIAKAD. Buka students.bsi.ac.id untuk melihat data akademikmu langsung di portal kampus.",
+  description = "Pengambilan data SIAKAD sedang dimatikan sementara. Buka students.bsi.ac.id untuk melihat data akademikmu langsung di portal kampus.",
   compact = false,
 }: SiaKadLockedCardProps) {
   const { data } = useCapabilities();

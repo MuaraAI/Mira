@@ -401,7 +401,7 @@ print(res.json())`}
             <p className="text-xs text-secondary leading-relaxed">
               Personal API Key yang sama bisa dipakai untuk menyambungkan akademik UBSI kamu ke{" "}
               <strong className="text-foreground">AI Agent</strong> (Claude Code, Cursor, Codex, Hermes) lewat{" "}
-              <strong className="text-foreground">MCP (Model Context Protocol)</strong>. Satu koneksi, 38 tools akademik:
+              <strong className="text-foreground">MCP (Model Context Protocol)</strong>. Satu koneksi, 40 tools akademik:
               jadwal, nilai &amp; KHS, KRS, kuis online, tugas &amp; link submit, presensi DataTables, bahan ajar, forum diskusi, kalender, berita, perpustakaan, dan kamus dokumentasi API
               langsung dari chat agent kamu.
             </p>
