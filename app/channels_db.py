@@ -5,12 +5,16 @@ Operasi sinkron dijalankan lewat run_in_threadpool agar tidak memblokir
 event loop FastAPI.
 """
 import json
+import logging
 import sqlite3
 from typing import Any, Optional
 
 from starlette.concurrency import run_in_threadpool
 
+from app.api_keys_db import _get_fernet
 from app.config import settings
+
+logger = logging.getLogger("app.channels_db")
 
 _ALLOWED_TYPES = ("discord", "telegram", "custom")
 _MAX_CHANNELS_PER_NIM = 5
@@ -80,6 +84,33 @@ def init_db() -> None:
     _init_db()
 
 
+_CONFIG_ENC_PREFIX = "_enc:"
+
+
+def _encode_config(config: dict[str, Any]) -> str:
+    """Simpan config channel terenkripsi (token bot / URL webhook adalah rahasia)."""
+    blob = _get_fernet().encrypt(json.dumps(config).encode("utf-8")).decode("utf-8")
+    return _CONFIG_ENC_PREFIX + blob
+
+
+def _decode_config(raw: str) -> dict[str, Any]:
+    """Baca config: baru (terenkripsi) atau lama (JSON plaintext, pra-2026-11-23).
+
+    Config rusak tidak boleh menjatuhkan list channel lain: kembalikan dict
+    kosong; dispatch nanti gagal natural di URL/token yang hilang.
+    """
+    if raw.startswith(_CONFIG_ENC_PREFIX):
+        try:
+            return json.loads(_get_fernet().decrypt(raw[len(_CONFIG_ENC_PREFIX):].encode("utf-8")))
+        except Exception:
+            logger.warning("Config channel terenkripsi tidak bisa didekripsi: dilewati")
+            return {}
+    try:
+        return json.loads(raw)
+    except (TypeError, ValueError):
+        return {}
+
+
 def _sync_add(nim: str, channel_type: str, categories: list[str], config: dict) -> int:
     conn = _connect()
     try:
@@ -90,7 +121,7 @@ def _sync_add(nim: str, channel_type: str, categories: list[str], config: dict) 
             raise ValueError("Batas maksimal 5 channel per NIM")
         cursor = conn.execute(
             "INSERT INTO webhook_channels (nim, type, categories, config) VALUES (?, ?, ?, ?)",
-            (nim, channel_type, json.dumps(categories), json.dumps(config)),
+            (nim, channel_type, json.dumps(categories), _encode_config(config)),
         )
         conn.commit()
         new_id = cursor.lastrowid
@@ -113,9 +144,9 @@ def _sync_list(nim: str, mask: bool = True) -> list[dict[str, Any]]:
                 "type": row["type"],
                 "categories": json.loads(row["categories"]),
                 "config": (
-                    mask_channel_config(row["type"], json.loads(row["config"]))
+                    mask_channel_config(row["type"], _decode_config(row["config"]))
                     if mask
-                    else json.loads(row["config"])
+                    else _decode_config(row["config"])
                 ),
                 "is_active": bool(row["is_active"]),
                 "created_at": row["created_at"],
@@ -140,7 +171,7 @@ def _sync_get(nim: str, channel_id: int) -> Optional[dict[str, Any]]:
             "id": row["id"],
             "type": row["type"],
             "categories": json.loads(row["categories"]),
-            "config": json.loads(row["config"]),
+            "config": _decode_config(row["config"]),
             "is_active": bool(row["is_active"]),
             "created_at": row["created_at"],
         }
@@ -201,7 +232,7 @@ def _sync_list_active_by_category(category: str) -> list[dict[str, Any]]:
                         "id": row["id"],
                         "nim": row["nim"],
                         "type": row["type"],
-                        "config": json.loads(row["config"]),
+                        "config": _decode_config(row["config"]),
                     }
                 )
         return matched
