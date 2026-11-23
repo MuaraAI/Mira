@@ -124,6 +124,7 @@ def _mask_key(plain_key: str) -> str:
 def _sync_create_api_key(
     nim: str, name: str, studentv2_pass: str, elearning_pass: str
 ) -> dict[str, Any]:
+    # studentv2_pass diterima untuk kompatibilitas pemanggil; SIAKAD kanonis ada di account_links.
     conn = _connect()
     try:
         # BEGIN IMMEDIATE: kunci writer sejak awal agar cek quota + insert atomik (anti race)
@@ -140,9 +141,7 @@ def _sync_create_api_key(
         key_prefix = _mask_key(plain_key)
 
         f = _get_fernet()
-        creds_payload = json.dumps(
-            {"studentv2_pass": studentv2_pass, "elearning_pass": elearning_pass}
-        ).encode("utf-8")
+        creds_payload = json.dumps({"elearning_pass": elearning_pass}).encode("utf-8")
         encrypted_creds = f.encrypt(creds_payload).decode("utf-8")
 
         now_iso = datetime.now(timezone.utc).isoformat()
@@ -163,7 +162,6 @@ def _sync_create_api_key(
             "prefix": key_prefix,
             "created_at": now_iso,
             "key_hash": key_hash,
-            "studentv2_pass": studentv2_pass,
             "elearning_pass": elearning_pass,
         }
     finally:
@@ -183,7 +181,6 @@ async def create_api_key(
         cache_data = json.dumps(
             {
                 "nim": res["nim"],
-                "studentv2_pass": res["studentv2_pass"],
                 "elearning_pass": res["elearning_pass"],
             }
         )
@@ -249,8 +246,7 @@ def _sync_credentials_for_nim(nim: str) -> Optional[tuple[str, str, str]]:
             except Exception:
                 continue
             if data.get("elearning_pass"):
-                siakad_pass = str(data.get("studentv2_pass") or "") if settings.SIAKAD_ENABLED else ""
-                return nim, siakad_pass, str(data["elearning_pass"])
+                return nim, "", str(data["elearning_pass"])
         return None
     finally:
         conn.close()
@@ -278,6 +274,9 @@ async def get_credentials_for_nim(nim: str) -> Optional[tuple[str, str, str]]:
 
 
 def _sync_update_password_for_nim(nim: str, field: str, new_password: str) -> list[str]:
+    if field == "studentv2_pass":
+        # SIAKAD ditulis di account_links, bukan lagi ke salinan API key.
+        return []
     conn = _connect()
     try:
         rows = conn.execute(
@@ -414,7 +413,7 @@ def _sync_resolve_api_key(
 
         return {
             "nim": row["nim"],
-            "studentv2_pass": data.get("studentv2_pass", ""),
+            "studentv2_pass": "",
             "elearning_pass": data.get("elearning_pass", ""),
         }
     except Exception:
@@ -450,7 +449,8 @@ async def resolve_api_key(plain_key: str) -> Optional[dict[str, Any]]:
     # 3. Re-populate Redis
     try:
         client = await cache.get_client()
-        encrypted = _get_fernet().encrypt(json.dumps(resolved).encode("utf-8")).decode("utf-8")
+        cache_payload = {k: v for k, v in resolved.items() if k != "studentv2_pass"}
+        encrypted = _get_fernet().encrypt(json.dumps(cache_payload).encode("utf-8")).decode("utf-8")
         await client.set(redis_key, encrypted, ex=_REDIS_KEY_TTL)
     except Exception:
         pass

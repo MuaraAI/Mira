@@ -1,4 +1,5 @@
 import json
+import sqlite3
 
 import pytest
 
@@ -15,9 +16,22 @@ from app.api_keys_db import (
     get_credentials_for_nim,
     init_api_keys_db,
     resolve_api_key,
+    update_password_for_nim,
 )
 from app.cache import cache
 from app.config import settings
+
+
+def _decrypt_payload(encrypted: str) -> dict:
+    return json.loads(_get_fernet().decrypt(encrypted.encode("utf-8")).decode("utf-8"))
+
+
+def _stored_credential(nim: str) -> dict:
+    with sqlite3.connect(settings.SQLITE_DB_PATH) as conn:
+        row = conn.execute(
+            "SELECT encrypted_creds FROM api_keys WHERE nim = ?", (nim,)
+        ).fetchone()
+    return _decrypt_payload(row[0])
 
 
 class FakeRedis:
@@ -146,3 +160,40 @@ async def test_siakad_disabled_never_exposes_link_secret(api_key, monkeypatch):
 
     assert (await resolve_api_key(plain_key))["studentv2_pass"] == ""
     assert (await get_credentials_for_nim("nim-1"))[1] == ""
+
+
+@pytest.mark.asyncio
+async def test_api_key_never_stores_siakad_copy(api_key):
+    redis, plain_key = api_key
+    await set_link("nim-1", "siakad", kind="password", secret="canonical-siakad")
+
+    resolved = await resolve_api_key(plain_key)
+
+    assert resolved["studentv2_pass"] == "canonical-siakad"
+    assert "studentv2_pass" not in _stored_credential("nim-1")
+    cached = _decrypt_payload(redis.values[f"ubsi:apikey:{_hash_key(plain_key)}"])
+    assert "studentv2_pass" not in cached
+
+
+@pytest.mark.asyncio
+async def test_update_password_for_siakad_does_not_touch_api_key_copy(api_key):
+    redis, plain_key = api_key
+    await set_link("nim-1", "siakad", kind="password", secret="canonical-siakad")
+
+    assert await update_password_for_nim("nim-1", "studentv2_pass", "secret-baru") == 0
+    assert "studentv2_pass" not in _stored_credential("nim-1")
+    cached = _decrypt_payload(redis.values[f"ubsi:apikey:{_hash_key(plain_key)}"])
+    assert "studentv2_pass" not in cached
+    assert (await resolve_api_key(plain_key))["studentv2_pass"] == "canonical-siakad"
+
+
+@pytest.mark.asyncio
+async def test_credentials_tuple_keeps_shape_with_canonical_siakad(api_key):
+    _, _ = api_key
+    await set_link("nim-1", "siakad", kind="password", secret="canonical-siakad")
+
+    assert await get_credentials_for_nim("nim-1") == (
+        "nim-1",
+        "canonical-siakad",
+        "mybest-password",
+    )
