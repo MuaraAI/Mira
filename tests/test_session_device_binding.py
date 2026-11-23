@@ -72,3 +72,32 @@ async def test_delete_all_for_device_handles_multiple_tokens_and_other_devices(f
     }
     assert (_KEY_PREFIX + _hash_token(first)) not in fake_redis.kv
     assert (_KEY_PREFIX + _hash_token(second)) not in fake_redis.kv
+
+
+@pytest.mark.asyncio
+async def test_resolve_refreshes_device_index_ttl(fake_redis):
+    nim = "12345678"
+    token = await session_store.create(nim, "sv-pass", "el-pass", device_id="dev-a")
+    device_index_key = f"{_DEVICE_INDEX_PREFIX}{nim}:dev-a"
+    fake_redis.ttls[device_index_key] = 1
+
+    assert (await session_store.resolve(token))["device_id"] == "dev-a"
+
+    assert fake_redis.ttls[device_index_key] == SESSION_TTL_SECONDS
+    assert await fake_redis.smembers(device_index_key) == {_hash_token(token)}
+
+
+@pytest.mark.asyncio
+async def test_resolve_recreates_missing_device_index(fake_redis):
+    nim = "12345678"
+    token = await session_store.create(nim, "sv-pass", "el-pass", device_id="dev-a")
+    device_index_key = f"{_DEVICE_INDEX_PREFIX}{nim}:dev-a"
+    fake_redis.sets.pop(device_index_key)
+    fake_redis.ttls.pop(device_index_key)
+
+    assert (await session_store.resolve(token))["device_id"] == "dev-a"
+
+    assert await fake_redis.smembers(device_index_key) == {_hash_token(token)}
+    assert fake_redis.ttls[device_index_key] == SESSION_TTL_SECONDS
+    assert await session_store.delete_all_for_device(nim, "dev-a") == 1
+    assert await session_store.resolve(token) is None

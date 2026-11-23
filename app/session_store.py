@@ -130,7 +130,8 @@ class SessionStore:
         if not token:
             return None
         client = await self.get_client()
-        key = _KEY_PREFIX + _hash_token(token)
+        token_hash = _hash_token(token)
+        key = _KEY_PREFIX + token_hash
         raw = await client.get(key)
         if not raw:
             return None
@@ -149,6 +150,12 @@ class SessionStore:
         nim = data.get("nim")
         if nim:
             await client.expire(_INDEX_PREFIX + nim, SESSION_TTL_SECONDS)
+            device_id = data.get("device_id")
+            if device_id:
+                device_index_key = _DEVICE_INDEX_PREFIX + nim + ":" + device_id
+                # sadd juga membangun kembali index yang sudah kedaluwarsa agar pencabutan tetap menemukan token.
+                await client.sadd(device_index_key, token_hash)
+                await client.expire(device_index_key, SESSION_TTL_SECONDS)
         # Sisa umur sesi ikut dikirim: dashboard menampilkan countdown dan
         # memutuskan kapan perlu mengingatkan user login ulang.
         try:
