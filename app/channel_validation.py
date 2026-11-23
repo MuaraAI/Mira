@@ -14,6 +14,7 @@ ALLOWED_CATEGORIES = (
     "kelas-mulai",
     "nilai-keluar",
     "jadwal-ujian",
+    "perangkat-baru",
 )
 
 

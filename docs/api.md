@@ -177,6 +177,22 @@ Terminates the current device session and clears the session cookie and Redis ke
 Terminates all active sessions across all devices for the authenticated student.
 - **Access**: Session Token Required.
 
+### `GET /v1/auth/devices`
+
+Daftar perangkat akun beserta status izinnya.
+
+```json
+{"success": true, "data": {"devices": [{"device_id": "…", "label": "Chrome · Linux", "status": "trusted", "last_seen": "2026-11-23T10:00:00+00:00", "is_current": true}], "total": 1}}
+```
+
+### `POST /v1/auth/devices/{device_id}/approve`
+
+Hanya device `trusted`. Mengubah device `pending` menjadi `trusted` dan mencatat device penyetuju. Balasan `404 DEVICE_NOT_FOUND` bila device tidak ada atau sudah dicabut.
+
+### `DELETE /v1/auth/devices/{device_id}`
+
+Mencabut izin device dan mengakhiri sesi yang lahir dari device itu. `409 LAST_TRUSTED_DEVICE` bila itu satu-satunya device tepercaya.
+
 ### `GET /v1/auth/me`
 Retrieves authentication state for the calling client: NIM, remaining session lifetime, and per-system link status. Master Key gets `identity: "master"` instead.
 - **Access**: Session Token or Master Key.

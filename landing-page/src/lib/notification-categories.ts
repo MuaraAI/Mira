@@ -14,6 +14,7 @@ export const NOTIFICATION_CATEGORIES = [
   { id: "pengumuman-siakad", label: "Pengumuman SIAKAD", desc: "Pemberitahuan akademik resmi dari sistem SIAKAD." },
   { id: "nilai-keluar", label: "Rilis Nilai & KHS", desc: "Saat nilai akhir atau KHS semester dipublikasikan." },
   { id: "jadwal-ujian", label: "Jadwal & Ruang Ujian", desc: "Pengingat jadwal, ruang, dan unduhan soal UTS / UAS." },
+  { id: "perangkat-baru", label: "Perangkat Baru", desc: "Saat ada perangkat lain login dan menunggu izin akses SIAKAD." },
 ] as const;
 
 export type NotificationCategoryId = (typeof NOTIFICATION_CATEGORIES)[number]["id"];

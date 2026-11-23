@@ -1,10 +1,43 @@
 from typing import Any
 import os
 from fastapi import Request, HTTPException, status
+from app.account_devices import require_trusted_device
+from app.account_links import get_link_secret, get_link_status
 from app.config import Settings, settings
 from app.envelope import error_response
 
-def require_studentv2_creds(
+_SIAKAD_PROVIDER = "siakad"
+
+
+def _siakad_error(status_code: int, code: str, message: str) -> HTTPException:
+    return HTTPException(
+        status_code=status_code,
+        detail=error_response(code=code, message=message, module="studentv2"),
+    )
+
+
+
+
+async def _require_canonical_siakad(nim: str) -> str:
+    """Baca password SIAKAD dari store kanonis; needs_relink 409, kosong 401."""
+    link_status = await get_link_status(nim, _SIAKAD_PROVIDER)
+    if link_status == "needs_relink":
+        raise _siakad_error(
+            status.HTTP_409_CONFLICT,
+            "SIAKAD_RELINK_REQUIRED",
+            "Password SIAKAD berubah di portal kampus. Tautkan ulang akun SIAKAD di dashboard Mira.",
+        )
+    secret = await get_link_secret(nim, _SIAKAD_PROVIDER)
+    if secret:
+        return secret
+    raise _siakad_error(
+        status.HTTP_401_UNAUTHORIZED,
+        "UNAUTHORIZED",
+        "Kredensial SIAKAD belum diatur (hubungkan akun SIAKAD lewat dashboard session)",
+    )
+
+
+async def require_studentv2_creds(
     request: Request = None,  # type: ignore[assignment]
     cfg: Any = None
 ) -> tuple[str, str]:
@@ -13,28 +46,28 @@ def require_studentv2_creds(
         cfg = request
         request = None
 
-    # Tier 1: Session Login BSI / Personal API Key (injected by api_key_auth_middleware into request.state)
-    if request is not None and hasattr(request, "state"):
-        nim = getattr(request.state, "nim", None)
-        pwd = getattr(request.state, "studentv2_pass", None)
-        if nim and pwd:
-            return str(nim), str(pwd)
-
-    # Tier 2: Manual Developer Header Override (hanya untuk Master Key atau direct test harness)
-    allow_header_override = (
-        request is not None
-        and hasattr(request, "headers")
-        and (
+    # Tier 1: Manual Developer Header Override (hanya untuk Master Key atau direct test harness)
+    if request is not None and hasattr(request, "headers"):
+        allow_header_override = (
             not hasattr(request, "state")
             or not getattr(request.state, "_auth_ran", False)
             or getattr(request.state, "is_master", False)
         )
-    )
-    if allow_header_override:
-        h_nim = request.headers.get("x-studentv2-nim") or request.headers.get("x-nim")
-        h_pass = request.headers.get("x-studentv2-pass") or request.headers.get("x-pass")
-        if h_nim and h_pass:
-            return h_nim.strip(), h_pass.strip()
+        if allow_header_override:
+            h_nim = request.headers.get("x-studentv2-nim") or request.headers.get("x-nim")
+            h_pass = request.headers.get("x-studentv2-pass") or request.headers.get("x-pass")
+            if h_nim and h_pass:
+                return h_nim.strip(), h_pass.strip()
+
+    # Tier 2: Session Login BSI / Personal API Key (diisi api_key_auth_middleware).
+    # Password selalu dari store kanonis; salinan di sesi tidak otoritatif.
+    if request is not None and hasattr(request, "state"):
+        nim = getattr(request.state, "nim", None)
+        auth_type = getattr(request.state, "auth_type", "session")
+        if nim and auth_type in ("session", "api_key"):
+            if auth_type == "session":
+                await require_trusted_device(request)
+            return str(nim), await _require_canonical_siakad(str(nim))
 
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

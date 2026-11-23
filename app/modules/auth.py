@@ -32,6 +32,27 @@ from app.password_reset import (
 from app.proxy import get_proxy
 from app.upstream_session import clear_login_block
 
+from app.account_devices import (
+    approve_device,
+    device_handle,
+    resolve_device_handle,
+    ensure_device,
+    get_device_status,
+    list_devices,
+    require_trusted_device,
+    revoke_device,
+    LastTrustedDeviceError,
+)
+from app.account_links import get_link_status, set_link, unlink
+from app.device_identity import device_label, issue_device_cookie, new_device_id, read_device_id
+
+
+def _session_cookie_options(request: Request) -> tuple[bool, Optional[str]]:
+    """Flag cookie sama untuk sesi dan identitas device."""
+    is_https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+    return is_https, settings.SESSION_COOKIE_DOMAIN or None
+
+
 logger = logging.getLogger("app.auth")
 router = APIRouter(prefix="/v1/auth", tags=["auth"])
 studentv2_client = StudentV2Client()
@@ -397,7 +418,10 @@ async def login(req_body: LoginRequest, request: Request):
 
     from app.session_store import session_store
 
-    token = await session_store.create(nim, effective_sv_pass, el_pass)
+    ua = request.headers.get("user-agent", "")
+    device_id = read_device_id(request) or new_device_id()
+    await ensure_device(nim, device_id, label=device_label(ua), user_agent=ua)
+    token = await session_store.create(nim, effective_sv_pass, el_pass, device_id=device_id)
 
     response = JSONResponse(
         status_code=status.HTTP_200_OK,
@@ -418,9 +442,9 @@ async def login(req_body: LoginRequest, request: Request):
             }
         ),
     )
-    is_https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+    is_https, cookie_domain = _session_cookie_options(request)
     cookie_samesite = "none" if is_https else "lax"
-    cookie_domain = settings.SESSION_COOKIE_DOMAIN or None
+
     response.set_cookie(
         key="ubsi_session",
         value=token,
@@ -430,6 +454,7 @@ async def login(req_body: LoginRequest, request: Request):
         samesite=cookie_samesite,
         domain=cookie_domain,
     )
+    issue_device_cookie(response, device_id, is_https=is_https, domain=cookie_domain)
     return response
 
 
@@ -509,12 +534,18 @@ async def me(request: Request):
             data={
                 "identity": "master",
                 "nim": None,
+                "device": {"status": "trusted"},
                 "session": None,
                 "systems": {"siakad": True, "mybest": True},
                 # Master memakai kredensial per-request (header), bukan sesi tertaut.
                 "links": {
                     "mybest": {"linked": True, "required": True, "linked_password": "request"},
-                    "siakad": {"linked": True, "required": False, "linked_password": "request"},
+                    "siakad": {
+                        "linked": True,
+                        "required": False,
+                        "linked_password": "request",
+                        "status": "linked",
+                    },
                 },
             }
         )
@@ -527,6 +558,26 @@ async def me(request: Request):
         )
     sv_pass = getattr(request.state, "studentv2_pass", "") or ""
     el_pass = getattr(request.state, "elearning_pass", "") or ""
+
+    ua = request.headers.get("user-agent", "")
+    device_id = ""
+    device_status = "trusted"
+    if auth_type == "session":
+        device_id = getattr(request.state, "device_id", "") or new_device_id()
+        device_status = await get_device_status(nim, device_id)
+        if device_status != "missing":
+            # /me hanya menyentuh baris yang sudah ada; baris device hanya lahir saat login.
+            device_status = await ensure_device(
+                nim, device_id, label=device_label(ua), user_agent=ua
+            )
+
+    link_status = await get_link_status(nim, "siakad")
+    if link_status is None:
+        # Sesi legasi belum punya baris kanonis; password di sesi menandakan tautan.
+        link_status = "linked" if sv_pass else "unlinked"
+    # Ketersediaan SIAKAD mengikuti store kanonis, bukan salinan sesi: login
+    # MyBest-only tetap melihat tautan yang benar-benar tersimpan.
+    siakad_available = link_status == "linked"
 
     # Sisa umur sesi (detik). Sesi Mira sliding 7 hari: setiap request sukses
     # memperpanjang, jadi angka ini = "kalau kamu berhenti membuka Mira".
@@ -542,34 +593,137 @@ async def me(request: Request):
     # Password SIAKAD bisa berbeda dari MyBest (kampus memakai dua sistem akun).
     # `linked_password` memberi tahu UI apakah tautan SIAKAD memakai password
     # yang sama atau password terpisah, supaya user tidak bingung saat ganti.
-    if not sv_pass:
+    if not siakad_available:
         linked_password = None
-    elif sv_pass == el_pass:
+    elif sv_pass and sv_pass == el_pass:
         linked_password = "mybest"
     else:
         linked_password = "separate"
 
-    return success_response(
-        data={
-            "nim": nim,
-            "auth_type": auth_type,
-            "session": session_info,
-            # Kontrak lama tetap: boolean siap pakai untuk gerbang UI.
-            "systems": {"siakad": bool(sv_pass), "mybest": bool(el_pass)},
-            # Detail per sistem untuk halaman Sesi & Keamanan.
-            "links": {
-                "mybest": {
-                    "linked": bool(el_pass),
-                    "required": True,
-                    "linked_password": "mybest" if el_pass else None,
-                },
-                "siakad": {
-                    "linked": bool(sv_pass),
-                    "required": False,
-                    "linked_password": linked_password,
-                },
+    data = {
+        "nim": nim,
+        "auth_type": auth_type,
+        "device": {"status": device_status},
+        "session": session_info,
+        # Kontrak lama tetap: boolean siap pakai untuk gerbang UI.
+        "systems": {"siakad": siakad_available, "mybest": bool(el_pass)},
+        # Detail per sistem untuk halaman Sesi & Keamanan.
+        "links": {
+            "mybest": {
+                "linked": bool(el_pass),
+                "required": True,
+                "linked_password": "mybest" if el_pass else None,
             },
+            "siakad": {
+                "linked": siakad_available,
+                "required": False,
+                "linked_password": linked_password,
+                "status": link_status,
+            },
+        },
+    }
+    if auth_type == "session" and not read_device_id(request):
+        response = JSONResponse(content=success_response(data=data))
+        is_https, cookie_domain = _session_cookie_options(request)
+        issue_device_cookie(response, device_id, is_https=is_https, domain=cookie_domain)
+        return response
+    return success_response(data=data)
+
+
+@router.get("/devices")
+async def list_my_devices(request: Request):
+    """Daftar perangkat akun. Hanya perangkat tepercaya yang boleh melihatnya.
+
+    `device_id` mentah tidak dikirim ke klien karena nilai itu dipakai gerbang
+    sebagai bukti perangkat. Klien hanya menerima `handle` HMAC.
+    """
+    nim = _require_session_nim(request)
+    await require_trusted_device(request)
+    devices = await list_devices(nim)
+    current_device = str(getattr(request.state, "device_cookie_id", "") or "")
+    data = [
+        {
+            "handle": device_handle(nim, device["device_id"]),
+            "label": device["label"],
+            "user_agent": device.get("user_agent"),
+            "status": device["status"],
+            "last_seen": device.get("last_seen"),
+            "is_current": bool(current_device) and device["device_id"] == current_device,
         }
+        for device in devices
+    ]
+    return success_response(data={"devices": data, "total": len(data)})
+
+
+@router.post("/devices/{handle}/approve")
+async def approve_my_device(handle: str, request: Request):
+    """Izinkan perangkat pending; hanya perangkat tepercaya yang boleh menyetujui."""
+    nim = _require_session_nim(request)
+    approved_by = await require_trusted_device(request)
+    device_id = await resolve_device_handle(nim, handle)
+    if not device_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=error_response(
+                code="DEVICE_NOT_FOUND",
+                message="Perangkat tidak ditemukan atau sudah dicabut",
+                module="auth",
+            ),
+        )
+    approved = await approve_device(nim, device_id, approved_by=approved_by)
+    if not approved:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=error_response(
+                code="DEVICE_NOT_FOUND",
+                message="Perangkat tidak ditemukan atau sudah dicabut",
+                module="auth",
+            ),
+        )
+    return success_response(data={"device_id": device_id, "status": "trusted"})
+
+
+@router.delete("/devices/{handle}")
+async def revoke_my_device(handle: str, request: Request):
+    """Cabut perangkat dan akhiri semua sesi yang lahir dari perangkat itu."""
+    nim = _require_session_nim(request)
+    await require_trusted_device(request)
+    device_id = await resolve_device_handle(nim, handle)
+    if not device_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=error_response(
+                code="DEVICE_NOT_FOUND",
+                message="Perangkat tidak ditemukan atau sudah dicabut",
+                module="auth",
+            ),
+        )
+    try:
+        changed = await revoke_device(nim, device_id)
+    except LastTrustedDeviceError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=error_response(
+                code="LAST_TRUSTED_DEVICE",
+                message="Perangkat tepercaya terakhir tidak bisa dicabut. "
+                "Izinkan perangkat lain terlebih dahulu.",
+                module="auth",
+            ),
+        )
+    if not changed:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=error_response(
+                code="DEVICE_NOT_FOUND",
+                message="Perangkat tidak ditemukan atau sudah dicabut",
+                module="auth",
+            ),
+        )
+    from app.session_store import session_store
+
+    sessions_ended = await session_store.delete_all_for_device(nim, device_id)
+    return success_response(
+        data={"device_id": device_id, "revoked": True, "sessions_ended": sessions_ended}
     )
 
 
@@ -604,9 +758,10 @@ async def create_my_api_key(request: Request, body: CreateApiKeyRequest):
             code="SESSION_REQUIRED", message="Pembuatan API Key harus melalui sesi dashboard", module="auth"
         ))
     nim = getattr(request.state, "nim", None)
+    # API key membawa kredensial kampus; hanya perangkat tepercaya yang boleh membuatnya.
+    await require_trusted_device(request)
     sv2_pass = getattr(request.state, "studentv2_pass", None) or ""
     el_pass = getattr(request.state, "elearning_pass", None) or ""
-
     # MyBest wajib; SIAKAD boleh kosong (key tetap bisa dibuat, tapi endpoint studentv2 terkunci)
     if not nim or not el_pass:
         raise HTTPException(
@@ -714,6 +869,10 @@ async def connect_credentials(body: ConnectCredentialsRequest, request: Request)
     """
     nim = _require_session_nim(request)
 
+    # Gerbang device: perangkat belum tepercaya tidak boleh menautkan SIAKAD,
+    # apalagi menyentuh store kanonis.
+    await require_trusted_device(request)
+
     if not await limiter.is_allowed(f"connect:{nim}", limit=5):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -761,19 +920,17 @@ async def connect_credentials(body: ConnectCredentialsRequest, request: Request)
     clear_login_block("studentv2", nim)
 
     from app.session_store import session_store
-    from app.api_keys_db import update_password_for_nim as update_keys
 
+    # Store kanonis jadi sumber kebenaran; sesi ikut disegarkan agar /me dan
+    # migrasi legasi tetap konsisten.
+    await set_link(nim, "siakad", kind="password", secret=pwd, status="linked")
     sessions = await session_store.update_password_for_nim(nim, "studentv2_pass", pwd)
-    try:
-        keys = await update_keys(nim, "studentv2_pass", pwd)
-    except Exception as err:
-        logger.error("Gagal sinkron password SIAKAD ke API Key untuk %s: %s", nim, err)
-        keys = 0
+    keys = 0
 
     # Mutasi in-memory request.state agar handler middleware selanjutnya di request ini sinkron
     request.state.studentv2_pass = pwd
 
-    logger.info("SIAKAD dihubungkan untuk %s (%s sesi, %s API key)", nim, sessions, keys)
+    logger.info("SIAKAD dihubungkan untuk %s (%s sesi disegarkan)", nim, sessions)
     return success_response(
         data={
             "system": body.system,
@@ -791,12 +948,20 @@ async def connect_credentials(body: ConnectCredentialsRequest, request: Request)
 
 @router.delete("/credentials/siakad")
 async def disconnect_siakad(request: Request):
-    """Lepas tautan SIAKAD dari sesi dan seluruh API key NIM ini.
+    """Lepas tautan SIAKAD: tulis tombstone kanonis dan kosongkan salinan sesi.
 
     MyBest tidak bisa dilepas: password MyBest adalah syarat sesi Mira sendiri.
     """
     nim = _require_session_nim(request)
-    if not getattr(request.state, "studentv2_pass", ""):
+
+    # Gerbang device: perangkat belum tepercaya tidak boleh melepas tautan akun.
+    await require_trusted_device(request)
+
+    link_status = await get_link_status(nim, "siakad")
+    if link_status is None and (getattr(request.state, "studentv2_pass", "") or ""):
+        # Sesi legasi belum punya baris kanonis: anggap tautan hidup seperti /me.
+        link_status = "linked"
+    if link_status not in ("linked", "needs_relink"):
         return success_response(
             data={
                 "system": "siakad",
@@ -808,14 +973,12 @@ async def disconnect_siakad(request: Request):
         )
 
     from app.session_store import session_store
-    from app.api_keys_db import update_password_for_nim as update_keys
 
+    changed = await unlink(nim, "siakad")
+    if not changed:
+        logger.info("Tombstone SIAKAD untuk %s sudah ada sebelumnya", nim)
     sessions = await session_store.update_password_for_nim(nim, "studentv2_pass", "")
-    try:
-        keys = await update_keys(nim, "studentv2_pass", "")
-    except Exception as err:
-        logger.error("Gagal melepas password SIAKAD dari API Key untuk %s: %s", nim, err)
-        keys = 0
+    keys = 0
 
     request.state.studentv2_pass = ""
     # Cookie sesi kampus tidak lagi dipakai: buang supaya request berikutnya
@@ -828,7 +991,7 @@ async def disconnect_siakad(request: Request):
         except Exception:
             logger.debug("Gagal menghapus cookie sesi %s untuk %s", module, nim)
 
-    logger.info("SIAKAD dilepas untuk %s (%s sesi, %s API key)", nim, sessions, keys)
+    logger.info("SIAKAD dilepas untuk %s (%s sesi disegarkan)", nim, sessions)
     return success_response(
         data={
             "system": "siakad",
@@ -853,6 +1016,10 @@ _STATE_FIELD = {"siakad": "studentv2_pass", "mybest": "elearning_pass"}
 async def change_password(body: ChangePasswordRequest, request: Request):
     """Ganti password SIAKAD/MyBest di server kampus, lalu sinkronkan ke sesi & API Key Mira."""
     nim = _require_session_nim(request)
+
+    # Gerbang device: perangkat belum tepercaya tidak boleh memutar password kanonis.
+    await require_trusted_device(request)
+
     field = _STATE_FIELD[body.system]
     label = PASSWORD_SYSTEMS[body.system]["label"]
 
@@ -914,6 +1081,10 @@ async def change_password(body: ChangePasswordRequest, request: Request):
 
     from app.api_keys_db import update_password_for_nim as update_keys
     from app.session_store import session_store
+
+    if field == "studentv2_pass":
+        # Ganti password SIAKAD yang diterima kampus ikut menulis store kanonis.
+        await set_link(nim, "siakad", kind="password", secret=body.new_password, status="linked")
 
     sessions = await session_store.update_password_for_nim(nim, field, body.new_password)
     try:
