@@ -1,7 +1,7 @@
 from typing import Any
 import os
 from fastapi import Request, HTTPException, status
-from app.account_devices import get_device_status
+from app.account_devices import require_trusted_device
 from app.account_links import get_link_secret, get_link_status
 from app.config import Settings, settings
 from app.envelope import error_response
@@ -16,39 +16,6 @@ def _siakad_error(status_code: int, code: str, message: str) -> HTTPException:
     )
 
 
-async def require_trusted_session_device(request: Request) -> str:
-    """Sesi wajib membawa cookie device `trusted` sebelum kredensial SIAKAD dilepas.
-
-    Hanya cookie `mira_device` yang dipercaya; device_id dari payload sesi tidak
-    pernah dipakai untuk gerbang. API key tidak melewati fungsi ini: key adalah
-    keputusan eksplisit pemilik akun. Mengembalikan device_id cookie yang sudah
-    diverifikasi `trusted`.
-    """
-    nim = str(getattr(request.state, "nim", "") or "")
-    device_id = str(getattr(request.state, "device_cookie_id", "") or "")
-    if not nim or not device_id:
-        raise _siakad_error(
-            status.HTTP_403_FORBIDDEN,
-            "SIAKAD_DEVICE_PENDING",
-            "Sesi ini tidak punya cookie perangkat. Login ulang untuk mendaftarkan perangkat.",
-        )
-    device_status = await get_device_status(nim, device_id)
-    if device_status == "trusted":
-        return device_id
-    if device_status == "pending":
-        message = (
-            "Perangkat ini belum diizinkan. Izinkan perangkat dari halaman "
-            "Sesi & Keamanan di dashboard Mira."
-        )
-    elif device_status == "revoked":
-        message = (
-            "Perangkat ini telah dicabut. Izinkan ulang dari perangkat tepercaya lain."
-        )
-    else:
-        message = (
-            "Perangkat ini belum terdaftar. Login ulang untuk mendaftarkannya."
-        )
-    raise _siakad_error(status.HTTP_403_FORBIDDEN, "SIAKAD_DEVICE_PENDING", message)
 
 
 async def _require_canonical_siakad(nim: str) -> str:
@@ -99,7 +66,7 @@ async def require_studentv2_creds(
         auth_type = getattr(request.state, "auth_type", "session")
         if nim and auth_type in ("session", "api_key"):
             if auth_type == "session":
-                await require_trusted_session_device(request)
+                await require_trusted_device(request)
             return str(nim), await _require_canonical_siakad(str(nim))
 
     raise HTTPException(

@@ -10,11 +10,14 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
+from fastapi import HTTPException, Request, status
 from redis.asyncio import RedisError
 from starlette.concurrency import run_in_threadpool
 
 from app.cache import cache
 from app.config import settings
+from app.envelope import error_response
+
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS account_devices (
@@ -323,3 +326,46 @@ async def revoke_device(nim: str, device_id: str) -> bool:
     if changed:
         await _purge_cache(nim, device_id)
     return changed
+
+
+def _device_gate_error(message: str) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=error_response(
+            code="SIAKAD_DEVICE_PENDING", message=message, module="studentv2"
+        ),
+    )
+
+
+async def require_trusted_device(request: Request) -> str:
+    """Wajibkan cookie perangkat `trusted` sebelum akses lanjut.
+
+    Hanya cookie `mira_device` yang dipercaya; device_id dari payload sesi
+    tidak pernah dipakai untuk gerbang. Selain status `trusted`, gerbang
+    melempar 403 SIAKAD_DEVICE_PENDING dengan pesan sesuai status perangkat.
+    """
+    nim = str(getattr(request.state, "nim", "") or "")
+    device_id = str(getattr(request.state, "device_cookie_id", "") or "")
+    if not nim or not device_id:
+        raise _device_gate_error(
+            "Sesi ini tidak punya cookie perangkat. Login ulang untuk mendaftarkan perangkat."
+        )
+    device_status = await get_device_status(nim, device_id)
+    if device_status == "trusted":
+        return device_id
+    if device_status == "pending":
+        message = (
+            "Perangkat ini belum diizinkan. Izinkan perangkat dari halaman "
+            "Sesi & Keamanan di dashboard Mira."
+        )
+    elif device_status == "revoked":
+        message = (
+            "Perangkat ini telah dicabut. Izinkan ulang dari perangkat tepercaya lain."
+        )
+    else:
+        message = (
+            "Perangkat ini belum terdaftar. Login ulang untuk mendaftarkannya."
+        )
+    raise _device_gate_error(message)
+
+

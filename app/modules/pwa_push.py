@@ -9,6 +9,8 @@ from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, Field, field_validator
 
 from app.config import settings
+from app.account_devices import require_trusted_device
+
 from app.envelope import error_response, success_response
 from app.modules.news import is_safe_webhook_url
 from app.pwa_push_db import (
@@ -88,7 +90,8 @@ async def get_vapid_public_key():
 @router.post("/subscribe")
 async def subscribe_device(request: Request, body: SubscribeRequest):
     nim = _require_session_nim(request)
-
+    # Langganan push persisten membawa endpoint notifikasi; hanya perangkat tepercaya.
+    await require_trusted_device(request)
     # Anti-SSRF: host wajib push service resmi (anti DNS-rebinding + anti internal host).
     # getaddrinfo blocking dijalankan di threadpool agar tidak membekukan event loop.
     if not _endpoint_allowed(body.endpoint) or not await asyncio.to_thread(

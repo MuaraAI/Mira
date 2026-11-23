@@ -13,7 +13,7 @@ from app.envelope import success_response, error_response
 from app.limiter import limiter
 from app.modules.studentv2 import StudentV2Client, studentv2_client
 from app.modules.elearning import ElearningClient, elearning_client
-from app.deps import require_siakad_enabled, require_trusted_session_device
+from app.deps import require_siakad_enabled
 from app.login_guard import LOGIN_IP_LIMIT, login_guard
 from app.password_change import (
     SYSTEMS as PASSWORD_SYSTEMS,
@@ -32,7 +32,15 @@ from app.password_reset import (
 from app.proxy import get_proxy
 from app.upstream_session import clear_login_block
 
-from app.account_devices import ensure_device, get_device_status
+from app.account_devices import (
+    approve_device,
+    ensure_device,
+    get_device_status,
+    list_devices,
+    require_trusted_device,
+    revoke_device,
+    LastTrustedDeviceError,
+)
 from app.account_links import get_link_status, set_link, unlink
 from app.device_identity import device_label, issue_device_cookie, new_device_id, read_device_id
 
@@ -617,6 +625,71 @@ async def me(request: Request):
     return success_response(data=data)
 
 
+@router.get("/devices")
+async def list_my_devices(request: Request):
+    """Daftar perangkat akun beserta tanda perangkat yang sedang dipakai."""
+    nim = _require_session_nim(request)
+    devices = await list_devices(nim)
+    current_device = str(getattr(request.state, "device_cookie_id", "") or "")
+    data = [
+        {**device, "is_current": bool(current_device) and device["device_id"] == current_device}
+        for device in devices
+    ]
+    return success_response(data={"devices": data, "total": len(data)})
+
+
+@router.post("/devices/{device_id}/approve")
+async def approve_my_device(device_id: str, request: Request):
+    """Izinkan perangkat pending; hanya perangkat tepercaya yang boleh menyetujui."""
+    nim = _require_session_nim(request)
+    approved_by = await require_trusted_device(request)
+    approved = await approve_device(nim, device_id, approved_by=approved_by)
+    if not approved:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=error_response(
+                code="DEVICE_NOT_FOUND",
+                message="Perangkat tidak ditemukan atau sudah dicabut",
+                module="auth",
+            ),
+        )
+    return success_response(data={"device_id": device_id, "status": "trusted"})
+
+
+@router.delete("/devices/{device_id}")
+async def revoke_my_device(device_id: str, request: Request):
+    """Cabut perangkat dan akhiri semua sesi yang lahir dari perangkat itu."""
+    nim = _require_session_nim(request)
+    await require_trusted_device(request)
+    try:
+        changed = await revoke_device(nim, device_id)
+    except LastTrustedDeviceError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=error_response(
+                code="LAST_TRUSTED_DEVICE",
+                message="Perangkat tepercaya terakhir tidak bisa dicabut. "
+                "Izinkan perangkat lain terlebih dahulu.",
+                module="auth",
+            ),
+        )
+    if not changed:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=error_response(
+                code="DEVICE_NOT_FOUND",
+                message="Perangkat tidak ditemukan atau sudah dicabut",
+                module="auth",
+            ),
+        )
+    from app.session_store import session_store
+
+    sessions_ended = await session_store.delete_all_for_device(nim, device_id)
+    return success_response(
+        data={"device_id": device_id, "revoked": True, "sessions_ended": sessions_ended}
+    )
+
+
 class CreateApiKeyRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=50, description="Label / nama API Key")
 
@@ -648,9 +721,10 @@ async def create_my_api_key(request: Request, body: CreateApiKeyRequest):
             code="SESSION_REQUIRED", message="Pembuatan API Key harus melalui sesi dashboard", module="auth"
         ))
     nim = getattr(request.state, "nim", None)
+    # API key membawa kredensial kampus; hanya perangkat tepercaya yang boleh membuatnya.
+    await require_trusted_device(request)
     sv2_pass = getattr(request.state, "studentv2_pass", None) or ""
     el_pass = getattr(request.state, "elearning_pass", None) or ""
-
     # MyBest wajib; SIAKAD boleh kosong (key tetap bisa dibuat, tapi endpoint studentv2 terkunci)
     if not nim or not el_pass:
         raise HTTPException(
@@ -760,7 +834,7 @@ async def connect_credentials(body: ConnectCredentialsRequest, request: Request)
 
     # Gerbang device: perangkat belum tepercaya tidak boleh menautkan SIAKAD,
     # apalagi menyentuh store kanonis.
-    await require_trusted_session_device(request)
+    await require_trusted_device(request)
 
     if not await limiter.is_allowed(f"connect:{nim}", limit=5):
         raise HTTPException(
@@ -844,7 +918,7 @@ async def disconnect_siakad(request: Request):
     nim = _require_session_nim(request)
 
     # Gerbang device: perangkat belum tepercaya tidak boleh melepas tautan akun.
-    await require_trusted_session_device(request)
+    await require_trusted_device(request)
 
     link_status = await get_link_status(nim, "siakad")
     if link_status not in ("linked", "needs_relink"):
@@ -904,7 +978,7 @@ async def change_password(body: ChangePasswordRequest, request: Request):
     nim = _require_session_nim(request)
 
     # Gerbang device: perangkat belum tepercaya tidak boleh memutar password kanonis.
-    await require_trusted_session_device(request)
+    await require_trusted_device(request)
 
     field = _STATE_FIELD[body.system]
     label = PASSWORD_SYSTEMS[body.system]["label"]
