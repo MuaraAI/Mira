@@ -5,29 +5,30 @@ from app.mcp_server import (
     server,
     _build_headers,
     _resolve_credentials,
-    ubsi_whoami,
-    ubsi_get_schedule,
-    ubsi_get_grades,
-    ubsi_get_profile,
-    ubsi_get_khs,
-    ubsi_get_krs,
-    ubsi_get_uts,
-    ubsi_get_courses,
-    ubsi_get_presence,
-    ubsi_submit_presence,
-    ubsi_get_quiz,
-    ubsi_get_quiz_questions,
-    ubsi_submit_quiz_answer,
+    mira_whoami,
+    mira_get_schedule,
+    mira_get_grades,
+    mira_get_profile,
+    mira_get_khs,
+    mira_get_krs,
+    mira_get_uts,
+    mira_get_courses,
+    mira_get_presence,
+    mira_submit_presence,
+    mira_get_quiz,
+    mira_get_quiz_questions,
+    mira_submit_quiz_answer,
 )
 
 @pytest.mark.asyncio
 async def test_mcp_tool_listing():
     tools = await server.list_tools()
     tool_names = {t.name for t in tools}
-    # Dual registration: 40 tools * 2 = 80 tools total
-    assert len(tool_names) == 80
+    # Satu namespace: 40 tool akademik tanpa alias lama
+    assert len(tool_names) == 40
+    assert not any(n.startswith("ubsi_") for n in tool_names)
 
-    # Pastikan kedua namespace (mira_* dan ubsi_*) terdaftar lengkap
+    # Pastikan kedua namespace (mira_* dan mira_*) terdaftar lengkap
     core_suffixes = [
         "whoami", "get_schedule", "get_grades", "get_profile", "get_khs", "get_krs",
         "get_uts", "get_courses", "get_presence", "submit_presence", "get_quiz",
@@ -41,7 +42,7 @@ async def test_mcp_tool_listing():
     ]
     for s in core_suffixes:
         assert f"mira_{s}" in tool_names, f"mira_{s} harus terdaftar di MCP server"
-        assert f"ubsi_{s}" in tool_names, f"ubsi_{s} harus terdaftar sebagai alias di MCP server"
+        assert f"mira_{s}" in tool_names, f"mira_{s} harus terdaftar sebagai alias di MCP server"
 
 def test_mcp_context_credentials_override_empty_tool_args():
     ctx = MagicMock()
@@ -51,7 +52,7 @@ def test_mcp_context_credentials_override_empty_tool_args():
 
 @pytest.mark.asyncio
 async def test_mcp_call_tool_propagates_headers_to_all_tools():
-    from app.mcp_server import _current_mcp_context, ubsi_whoami
+    from app.mcp_server import _current_mcp_context, mira_whoami
     ctx = MagicMock()
     ctx.headers = {"x-api-key": "muara_ubsi_propagated_test_key_12345678"}
 
@@ -60,8 +61,8 @@ async def test_mcp_call_tool_propagates_headers_to_all_tools():
     mock_resp.json = MagicMock(return_value={"success": True, "data": {"nim": "12345678"}})
 
     with patch("httpx.AsyncClient.get", return_value=mock_resp) as mock_get:
-        # Panggil ubsi_whoami melalui tool manager seperti panggilan asli MCP streamable HTTP
-        res = await server._tool_manager.call_tool("ubsi_whoami", {}, ctx)
+        # Panggil mira_whoami melalui tool manager seperti panggilan asli MCP streamable HTTP
+        res = await server._tool_manager.call_tool("mira_whoami", {}, ctx)
         data = json.loads(res)
         assert data["success"] is True
 
@@ -128,7 +129,7 @@ async def test_mcp_read_tools():
     })
 
     with patch("httpx.AsyncClient.get", return_value=mock_resp):
-        res = await ubsi_get_schedule(session_token="test_tok")
+        res = await mira_get_schedule(session_token="test_tok")
         data = json.loads(res)
         assert data["success"] is True
         assert data["data"][0]["kode"] == "101"
@@ -159,13 +160,13 @@ async def test_mcp_presence_and_quiz_write_tools():
     })
 
     with patch("httpx.AsyncClient.post", return_value=mock_resp_presence):
-        res_p = await ubsi_submit_presence(token="tok_class_123", session_token="tok_sess")
+        res_p = await mira_submit_presence(token="tok_class_123", session_token="tok_sess")
         parsed_p = json.loads(res_p)
         assert parsed_p["success"] is True
         assert parsed_p["data"]["status"] == "Hadir"
 
     with patch("httpx.AsyncClient.post", return_value=mock_resp_quiz):
-        res_q = await ubsi_submit_quiz_answer(
+        res_q = await mira_submit_quiz_answer(
             id_soal="501", data_jawab="501_B", session_token="tok_sess"
         )
         parsed_q = json.loads(res_q)
@@ -183,9 +184,9 @@ async def test_mcp_presence_and_quiz_write_tools():
             "message": "Berkas berhasil diunggah.",
         },
     })
-    from app.mcp_server import ubsi_upload_assignment, ubsi_get_course_grades
+    from app.mcp_server import mira_upload_assignment, mira_get_course_grades
     with patch("httpx.AsyncClient.post", return_value=mock_resp_upload):
-        res_up = await ubsi_upload_assignment(
+        res_up = await mira_upload_assignment(
             token_tugas="tok_tugas_123",
             filename="tugas_12345678.pdf",
             file_base64="ZHVtbXk=",
@@ -200,11 +201,11 @@ async def test_mcp_presence_and_quiz_write_tools():
     mock_resp_cgrades.status_code = 200
     mock_resp_cgrades.json = MagicMock(return_value={"success": True, "data": {"ringkasan": {}}})
     with patch("httpx.AsyncClient.get", return_value=mock_resp_cgrades):
-        res_cg = await ubsi_get_course_grades(course_id="894", session_token="tok_sess")
+        res_cg = await mira_get_course_grades(course_id="894", session_token="tok_sess")
         assert json.loads(res_cg)["success"] is True
 
         # Path traversal harus ditolak
-        res_evil = await ubsi_get_course_grades(course_id="../../auth/me", session_token="tok_sess")
+        res_evil = await mira_get_course_grades(course_id="../../auth/me", session_token="tok_sess")
         parsed_evil = json.loads(res_evil)
         assert parsed_evil["success"] is False
         assert parsed_evil["error"]["code"] == "INVALID_ARGUMENT"
@@ -217,7 +218,7 @@ async def test_mcp_presence_and_quiz_write_tools():
         },
     })
     with patch("httpx.AsyncClient.get", return_value=mock_resp_cgrades):
-        res_cg = await ubsi_get_course_grades(course_id="894", session_token="tok_sess")
+        res_cg = await mira_get_course_grades(course_id="894", session_token="tok_sess")
         parsed_cg = json.loads(res_cg)
         assert parsed_cg["success"] is True
         assert parsed_cg["data"]["rata_nilai"] == 88.5
@@ -233,9 +234,9 @@ async def test_mcp_presence_and_quiz_write_tools():
             "link_tugas": "https://drive.google.com/file/d/123",
         },
     })
-    from app.mcp_server import ubsi_submit_assignment
+    from app.mcp_server import mira_submit_assignment
     with patch("httpx.AsyncClient.post", return_value=mock_resp_submit):
-        res_sub = await ubsi_submit_assignment(
+        res_sub = await mira_submit_assignment(
             token_send="tok_send_123",
             link_tugas="https://drive.google.com/file/d/123",
             session_token="tok_sess",
@@ -261,9 +262,9 @@ async def test_mcp_presence_and_quiz_write_tools():
             ]
         },
     })
-    from app.mcp_server import ubsi_get_discussions, ubsi_get_discussion_comments, ubsi_submit_discussion_comment
+    from app.mcp_server import mira_get_discussions, mira_get_discussion_comments, mira_submit_discussion_comment
     with patch("httpx.AsyncClient.get", return_value=mock_resp_disc):
-        res_d = await ubsi_get_discussions(token="tok_disc_123", session_token="tok_sess")
+        res_d = await mira_get_discussions(token="tok_disc_123", session_token="tok_sess")
         parsed_d = json.loads(res_d)
         assert parsed_d["success"] is True
         assert parsed_d["data"]["threads"][0]["judul"] == "TASK 4"
@@ -283,7 +284,7 @@ async def test_mcp_presence_and_quiz_write_tools():
         ],
     })
     with patch("httpx.AsyncClient.get", return_value=mock_resp_comm):
-        res_c = await ubsi_get_discussion_comments(token="tok_kom_123", session_token="tok_sess")
+        res_c = await mira_get_discussion_comments(token="tok_kom_123", session_token="tok_sess")
         parsed_c = json.loads(res_c)
         assert parsed_c["success"] is True
         assert parsed_c["data"][0]["nama"] == "MAHASISWA DUMMY"
@@ -295,7 +296,7 @@ async def test_mcp_presence_and_quiz_write_tools():
         "data": {"status": "success", "message": "Komentar berhasil dikirim"},
     })
     with patch("httpx.AsyncClient.post", return_value=mock_resp_post_comm):
-        res_pc = await ubsi_submit_discussion_comment(
+        res_pc = await mira_submit_discussion_comment(
             token_komentar="tok_kom_123",
             id_chat="24776",
             komentar="Jawaban diskusi saya",
@@ -311,9 +312,9 @@ async def test_mcp_presence_and_quiz_write_tools():
         "success": True,
         "data": {"status": "success", "message": "Topik diskusi berhasil dibuat"},
     })
-    from app.mcp_server import ubsi_create_discussion
+    from app.mcp_server import mira_create_discussion
     with patch("httpx.AsyncClient.post", return_value=mock_resp_create_disc):
-        res_cd = await ubsi_create_discussion(
+        res_cd = await mira_create_discussion(
             token_course="tok_course_123",
             judul="Topik Baru",
             chat="Isi topik baru",
@@ -330,9 +331,9 @@ async def test_mcp_presence_and_quiz_write_tools():
         "success": True,
         "data": {"nama": "MAHASISWA DUMMY", "email": "mahasiswa@bsi.ac.id"},
     })
-    from app.mcp_server import ubsi_get_elearning_profile, ubsi_get_makeup_classes, ubsi_get_elearning_guides
+    from app.mcp_server import mira_get_elearning_profile, mira_get_makeup_classes, mira_get_elearning_guides
     with patch("httpx.AsyncClient.get", return_value=mock_resp_prof):
-        res_prof = await ubsi_get_elearning_profile(session_token="tok_sess")
+        res_prof = await mira_get_elearning_profile(session_token="tok_sess")
         parsed_prof = json.loads(res_prof)
         assert parsed_prof["success"] is True
         assert parsed_prof["data"]["nama"] == "MAHASISWA DUMMY"
@@ -342,7 +343,7 @@ async def test_mcp_presence_and_quiz_write_tools():
     mock_resp_mu.status_code = 200
     mock_resp_mu.json = MagicMock(return_value={"success": True, "data": []})
     with patch("httpx.AsyncClient.get", return_value=mock_resp_mu):
-        res_mu = await ubsi_get_makeup_classes(session_token="tok_sess")
+        res_mu = await mira_get_makeup_classes(session_token="tok_sess")
         parsed_mu = json.loads(res_mu)
         assert parsed_mu["success"] is True
         assert isinstance(parsed_mu["data"], list)
@@ -355,18 +356,18 @@ async def test_mcp_presence_and_quiz_write_tools():
         "data": [{"judul": "Panduan MyBest", "format": "PDF"}],
     })
     with patch("httpx.AsyncClient.get", return_value=mock_resp_gd):
-        res_gd = await ubsi_get_elearning_guides(session_token="tok_sess")
+        res_gd = await mira_get_elearning_guides(session_token="tok_sess")
         parsed_gd = json.loads(res_gd)
         assert parsed_gd["success"] is True
         assert len(parsed_gd["data"]) == 1
 
     # Test SIAKAD additions: calendar, UAS, prodi-contacts, certificates, lecturers
     from app.mcp_server import (
-        ubsi_get_uas,
-        ubsi_get_academic_calendar,
-        ubsi_get_prodi_contacts,
-        ubsi_get_certificates,
-        ubsi_get_lecturers,
+        mira_get_uas,
+        mira_get_academic_calendar,
+        mira_get_prodi_contacts,
+        mira_get_certificates,
+        mira_get_lecturers,
     )
     mock_resp_siakad = AsyncMock()
     mock_resp_siakad.status_code = 200
@@ -375,31 +376,31 @@ async def test_mcp_presence_and_quiz_write_tools():
         "data": {"title": "Kalender Akademik", "pdf_url": "https://test.pdf"},
     })
     with patch("httpx.AsyncClient.get", return_value=mock_resp_siakad):
-        res_cal = await ubsi_get_academic_calendar(session_token="tok_sess")
+        res_cal = await mira_get_academic_calendar(session_token="tok_sess")
         assert json.loads(res_cal)["success"] is True
 
-        res_uas = await ubsi_get_uas(session_token="tok_sess")
+        res_uas = await mira_get_uas(session_token="tok_sess")
         assert json.loads(res_uas)["success"] is True
 
-        res_pc = await ubsi_get_prodi_contacts(session_token="tok_sess")
+        res_pc = await mira_get_prodi_contacts(session_token="tok_sess")
         assert json.loads(res_pc)["success"] is True
 
-        res_cert = await ubsi_get_certificates(session_token="tok_sess")
+        res_cert = await mira_get_certificates(session_token="tok_sess")
         assert json.loads(res_cert)["success"] is True
 
-        res_lec = await ubsi_get_lecturers(search="AAA", session_token="tok_sess")
+        res_lec = await mira_get_lecturers(search="AAA", session_token="tok_sess")
         assert json.loads(res_lec)["success"] is True
 
-    # Test ubsi_get_api_docs tool
-    from app.mcp_server import ubsi_get_api_docs
-    res_docs = await ubsi_get_api_docs()
+    # Test mira_get_api_docs tool
+    from app.mcp_server import mira_get_api_docs
+    res_docs = await mira_get_api_docs()
     parsed_docs = json.loads(res_docs)
     assert parsed_docs["success"] is True
     assert "endpoints" in parsed_docs["data"]
     assert "mcp" in parsed_docs["data"]
-    assert parsed_docs["data"]["mcp"]["total_tools"] == 80
+    assert parsed_docs["data"]["mcp"]["total_tools"] == 40
 
-    res_docs_cat = await ubsi_get_api_docs(category="elearning")
+    res_docs_cat = await mira_get_api_docs(category="elearning")
     parsed_docs_cat = json.loads(res_docs_cat)
     assert parsed_docs_cat["success"] is True
     assert "elearning" in parsed_docs_cat["data"]["endpoints"]
@@ -407,7 +408,7 @@ async def test_mcp_presence_and_quiz_write_tools():
 
 @pytest.mark.asyncio
 async def test_mcp_dual_execution_all_80_tools():
-    """Memverifikasi bahwa seluruh 80 tools (40 mira_* dan 40 ubsi_*) dapat dieksekusi tanpa error."""
+    """Memverifikasi seluruh 40 tool `mira_*` dapat dieksekusi tanpa error."""
     dummy_args = {
         "upload_assignment": {"token_tugas": "tok", "filename": "tugas.pdf", "file_base64": "YQ=="},
         "submit_assignment": {"token_send": "tok", "link_tugas": "https://github.com/test"},
@@ -432,7 +433,7 @@ async def test_mcp_dual_execution_all_80_tools():
     with patch("httpx.AsyncClient.get", return_value=mock_resp), \
          patch("httpx.AsyncClient.post", return_value=mock_resp):
         tools = await server.list_tools()
-        assert len(tools) == 80
+        assert len(tools) == 40
         for t in tools:
             args = {}
             for k, v in dummy_args.items():
