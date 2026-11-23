@@ -1,66 +1,80 @@
+"""Kontrak langsung dependency kredensial: sesi kanonis, header override, 401."""
 import pytest
 from starlette.requests import Request
 from fastapi import HTTPException
-from app.config import Settings
+from app.account_devices import ensure_device, init_account_devices_db
+from app.account_links import init_account_links_db, set_link
+from app.config import Settings, settings
 from app.deps import require_elearning_creds, require_studentv2_creds
 
-def test_tier1_session_credentials():
-    scope = {"type": "http", "headers": [], "state": {}}
-    req = Request(scope)
+
+@pytest.fixture
+async def tmp_accounts_db(monkeypatch, tmp_path):
+    monkeypatch.setattr(settings, "SQLITE_DB_PATH", str(tmp_path / "accounts.sqlite3"))
+    await init_account_links_db()
+    await init_account_devices_db()
+
+
+def _request(headers=None) -> Request:
+    return Request({"type": "http", "headers": headers or [], "state": {}})
+
+
+async def test_tier1_session_credentials(tmp_accounts_db):
+    """Sesi trusted membaca password SIAKAD dari store kanonis, bukan salinan sesi."""
+    await ensure_device("12345678", "dev-a", label="Chrome", user_agent="UA")
+    await set_link("12345678", "siakad", kind="password", secret="kanonis-pass")
+
+    req = _request()
     req.state.nim = "12345678"
     req.state.elearning_pass = "session_el_pass"
-    req.state.studentv2_pass = "session_sv_pass"
-    
+    req.state.auth_type = "session"
+    req.state.device_id = "dev-a"
+
     el_nim, el_pwd = require_elearning_creds(req)
     assert el_nim == "12345678"
     assert el_pwd == "session_el_pass"
-    
-    sv_nim, sv_pwd = require_studentv2_creds(req)
-    assert sv_nim == "12345678"
-    assert sv_pwd == "session_sv_pass"
 
-def test_tier2_header_override():
-    scope = {
-        "type": "http",
-        "headers": [
-            (b"x-elearning-nim", b"12345679"),
-            (b"x-elearning-pass", b"header_el_pass"),
-            (b"x-studentv2-nim", b"12345699"),
-            (b"x-studentv2-pass", b"header_sv_pass"),
-        ],
-        "state": {}
-    }
-    req = Request(scope)
-    
+    sv_nim, sv_pwd = await require_studentv2_creds(req)
+    assert sv_nim == "12345678"
+    assert sv_pwd == "kanonis-pass"
+
+async def test_tier2_header_override():
+    scope_headers = [
+        (b"x-elearning-nim", b"12345679"),
+        (b"x-elearning-pass", b"header_el_pass"),
+        (b"x-studentv2-nim", b"12345699"),
+        (b"x-studentv2-pass", b"header_sv_pass"),
+    ]
+    req = _request(scope_headers)
+
     el_nim, el_pwd = require_elearning_creds(req)
     assert el_nim == "12345679"
     assert el_pwd == "header_el_pass"
-    
-    sv_nim, sv_pwd = require_studentv2_creds(req)
+
+    sv_nim, sv_pwd = await require_studentv2_creds(req)
     assert sv_nim == "12345699"
     assert sv_pwd == "header_sv_pass"
 
-def test_missing_credentials_raises_401():
-    scope = {"type": "http", "headers": [], "state": {}}
-    req = Request(scope)
+async def test_missing_credentials_raises_401():
+    req = _request()
     empty_cfg = Settings(_env_file=None)
-    
+
     with pytest.raises(HTTPException) as exc_el:
         require_elearning_creds(req, cfg=empty_cfg)
     assert exc_el.value.status_code == 401
     assert exc_el.value.detail["error"]["code"] == "UNAUTHORIZED"
 
     with pytest.raises(HTTPException) as exc_sv:
-        require_studentv2_creds(req, cfg=empty_cfg)
+        await require_studentv2_creds(req, cfg=empty_cfg)
     assert exc_sv.value.status_code == 401
     assert exc_sv.value.detail["error"]["code"] == "UNAUTHORIZED"
 
-def test_backward_compatible_signature_with_settings_as_first_arg():
+async def test_backward_compatible_signature_with_settings_as_first_arg():
     empty_cfg = Settings(_env_file=None)
     with pytest.raises(HTTPException) as exc_el:
         require_elearning_creds(empty_cfg)
     assert exc_el.value.status_code == 401
 
     with pytest.raises(HTTPException) as exc_sv:
-        require_studentv2_creds(empty_cfg)
+        await require_studentv2_creds(empty_cfg)
     assert exc_sv.value.status_code == 401

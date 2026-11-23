@@ -1,11 +1,20 @@
-"""Lepas tautan SIAKAD: sesi dan API key dibersihkan, MyBest tidak tersentuh."""
+"""Lepas tautan SIAKAD: tombstone kanonis ditulis, salinan sesi dikosongkan, MyBest aman."""
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from app.account_links import init_account_links_db
+from app.config import settings
 from app.main import app
+
+
+@pytest.fixture
+async def tmp_links_db(monkeypatch, tmp_path):
+    """Disconnect membaca store kanonis: paksa SQLite sementara agar tes terisolasi."""
+    monkeypatch.setattr(settings, "SQLITE_DB_PATH", str(tmp_path / "accounts.sqlite3"))
+    await init_account_links_db()
 
 
 def _session(monkeypatch, *, siakad_pass: str, elearning_pass: str = "rahasia123"):
@@ -21,7 +30,7 @@ def _session(monkeypatch, *, siakad_pass: str, elearning_pass: str = "rahasia123
 
 
 @pytest.mark.asyncio
-async def test_disconnect_clears_siakad_but_not_mybest(monkeypatch):
+async def test_disconnect_clears_siakad_but_not_mybest(monkeypatch, tmp_links_db):
     _session(monkeypatch, siakad_pass="password-siakad")
     updates = []
 
@@ -49,7 +58,7 @@ async def test_disconnect_clears_siakad_but_not_mybest(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_disconnect_when_already_unlinked_is_noop(monkeypatch):
+async def test_disconnect_when_already_unlinked_is_noop(monkeypatch, tmp_links_db):
     _session(monkeypatch, siakad_pass="")
     updates = []
 
@@ -72,7 +81,7 @@ async def test_disconnect_when_already_unlinked_is_noop(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_me_reports_siakad_unlinked_after_disconnect(monkeypatch):
+async def test_me_reports_siakad_unlinked_after_disconnect(monkeypatch, tmp_links_db):
     """Kontrak: setelah dilepas, `systems.siakad` false dan fitur SIAKAD tertutup."""
     _session(monkeypatch, siakad_pass="")
     monkeypatch.setattr(

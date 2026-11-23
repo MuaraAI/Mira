@@ -13,7 +13,7 @@ from app.envelope import success_response, error_response
 from app.limiter import limiter
 from app.modules.studentv2 import StudentV2Client, studentv2_client
 from app.modules.elearning import ElearningClient, elearning_client
-from app.deps import require_siakad_enabled
+from app.deps import require_siakad_enabled, require_trusted_session_device
 from app.login_guard import LOGIN_IP_LIMIT, login_guard
 from app.password_change import (
     SYSTEMS as PASSWORD_SYSTEMS,
@@ -33,7 +33,7 @@ from app.proxy import get_proxy
 from app.upstream_session import clear_login_block
 
 from app.account_devices import ensure_device, get_device_status
-from app.account_links import get_link_status
+from app.account_links import get_link_status, set_link, unlink
 from app.device_identity import device_label, issue_device_cookie, new_device_id, read_device_id
 
 
@@ -758,6 +758,10 @@ async def connect_credentials(body: ConnectCredentialsRequest, request: Request)
     """
     nim = _require_session_nim(request)
 
+    # Gerbang device: perangkat belum tepercaya tidak boleh menautkan SIAKAD,
+    # apalagi menyentuh store kanonis.
+    await require_trusted_session_device(request)
+
     if not await limiter.is_allowed(f"connect:{nim}", limit=5):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -805,19 +809,17 @@ async def connect_credentials(body: ConnectCredentialsRequest, request: Request)
     clear_login_block("studentv2", nim)
 
     from app.session_store import session_store
-    from app.api_keys_db import update_password_for_nim as update_keys
 
+    # Store kanonis jadi sumber kebenaran; sesi ikut disegarkan agar /me dan
+    # migrasi legasi tetap konsisten.
+    await set_link(nim, "siakad", kind="password", secret=pwd, status="linked")
     sessions = await session_store.update_password_for_nim(nim, "studentv2_pass", pwd)
-    try:
-        keys = await update_keys(nim, "studentv2_pass", pwd)
-    except Exception as err:
-        logger.error("Gagal sinkron password SIAKAD ke API Key untuk %s: %s", nim, err)
-        keys = 0
+    keys = 0
 
     # Mutasi in-memory request.state agar handler middleware selanjutnya di request ini sinkron
     request.state.studentv2_pass = pwd
 
-    logger.info("SIAKAD dihubungkan untuk %s (%s sesi, %s API key)", nim, sessions, keys)
+    logger.info("SIAKAD dihubungkan untuk %s (%s sesi disegarkan)", nim, sessions)
     return success_response(
         data={
             "system": body.system,
@@ -835,12 +837,13 @@ async def connect_credentials(body: ConnectCredentialsRequest, request: Request)
 
 @router.delete("/credentials/siakad")
 async def disconnect_siakad(request: Request):
-    """Lepas tautan SIAKAD dari sesi dan seluruh API key NIM ini.
+    """Lepas tautan SIAKAD: tulis tombstone kanonis dan kosongkan salinan sesi.
 
     MyBest tidak bisa dilepas: password MyBest adalah syarat sesi Mira sendiri.
     """
     nim = _require_session_nim(request)
-    if not getattr(request.state, "studentv2_pass", ""):
+    link_status = await get_link_status(nim, "siakad")
+    if link_status not in ("linked", "needs_relink"):
         return success_response(
             data={
                 "system": "siakad",
@@ -852,14 +855,12 @@ async def disconnect_siakad(request: Request):
         )
 
     from app.session_store import session_store
-    from app.api_keys_db import update_password_for_nim as update_keys
 
+    changed = await unlink(nim, "siakad")
+    if not changed:
+        logger.info("Tombstone SIAKAD untuk %s sudah ada sebelumnya", nim)
     sessions = await session_store.update_password_for_nim(nim, "studentv2_pass", "")
-    try:
-        keys = await update_keys(nim, "studentv2_pass", "")
-    except Exception as err:
-        logger.error("Gagal melepas password SIAKAD dari API Key untuk %s: %s", nim, err)
-        keys = 0
+    keys = 0
 
     request.state.studentv2_pass = ""
     # Cookie sesi kampus tidak lagi dipakai: buang supaya request berikutnya
@@ -872,7 +873,7 @@ async def disconnect_siakad(request: Request):
         except Exception:
             logger.debug("Gagal menghapus cookie sesi %s untuk %s", module, nim)
 
-    logger.info("SIAKAD dilepas untuk %s (%s sesi, %s API key)", nim, sessions, keys)
+    logger.info("SIAKAD dilepas untuk %s (%s sesi disegarkan)", nim, sessions)
     return success_response(
         data={
             "system": "siakad",

@@ -6,13 +6,13 @@ yang ikut dihapus setiap ada mutasi.
 """
 import inspect
 import json
+import logging
 import os
 import sqlite3
 from datetime import datetime, timezone
 from typing import Any, Optional
 
 from cryptography.fernet import InvalidToken
-from redis.asyncio import RedisError
 from starlette.concurrency import run_in_threadpool
 
 from app.api_keys_db import _get_fernet
@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS account_links (
 
 _ALLOWED_KINDS = ("password", "oauth")
 _ALLOWED_STATUSES = ("linked", "needs_relink", "unlinked")
+logger = logging.getLogger("app.account_links")
 _INITIALIZED_PATHS: set[str] = set()
 
 
@@ -103,8 +104,8 @@ async def _purge_cache(nim: str, provider: str) -> None:
     try:
         client = await _get_cache_client()
         await client.delete(key, f"{key}:fresh", f"{key}:lgg")
-    except (RedisError, ConnectionError, OSError):
-        return
+    except Exception as exc:
+        logger.warning("Purge cache tautan %s gagal: %s", key, exc)
 
 
 async def _cache_link(nim: str, provider: str, status: str, encrypted: str) -> None:
@@ -113,8 +114,8 @@ async def _cache_link(nim: str, provider: str, status: str, encrypted: str) -> N
     try:
         client = await _get_cache_client()
         await client.set(f"{key}:fresh", payload, ex=cache.default_ttl)
-    except (RedisError, ConnectionError, OSError):
-        return
+    except Exception as exc:
+        logger.warning("Isi cache tautan %s gagal: %s", key, exc)
 
 
 def _sync_read(nim: str, provider: str) -> Optional[dict[str, Any]]:
@@ -139,13 +140,15 @@ async def _load_link(nim: str, provider: str) -> Optional[dict[str, Any]]:
         client = await _get_cache_client()
         raw = await client.get(f"{key}:fresh")
         cached = json.loads(raw) if raw else None
-    except (RedisError, ConnectionError, OSError, ValueError):
+    except Exception as exc:
+        # Cache bukan sumber kebenaran: gagal baca jatuh ke SQLite, bukan 500.
+        logger.warning("Baca cache tautan %s gagal, jatuh ke SQLite: %s", key, exc)
         cached = None
     if isinstance(cached, dict):
-        status = cached.get("status")
+        cached_status = cached.get("status")
         encrypted = cached.get("secret_encrypted")
-        if status in _ALLOWED_STATUSES and isinstance(encrypted, str):
-            return {"status": status, "secret_encrypted": encrypted}
+        if cached_status in _ALLOWED_STATUSES and isinstance(encrypted, str):
+            return {"status": cached_status, "secret_encrypted": encrypted}
 
     stored = await run_in_threadpool(_sync_read, nim, provider)
     if stored is not None:
