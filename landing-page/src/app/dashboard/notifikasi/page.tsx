@@ -14,7 +14,9 @@ import {
   GraduationCap,
   Clock,
   Award,
-  FileText,, ShieldCheck, } from "lucide-react";
+  FileText,
+  ShieldCheck,
+} from "lucide-react";
 import { apiFetch, ApiError, useApi, clearApiCache } from "@/lib/api";
 import PwaPushDeviceSection from "@/components/PwaPushDeviceSection";
 import { availableCategories, SIAKAD_ONLY_CATEGORIES, type NotificationCategoryId } from "@/lib/notification-categories";
