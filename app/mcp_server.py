@@ -4,7 +4,7 @@ Menghubungkan layanan akademik UBSI (SIAKAD, Elearning MyBest, Perpustakaan,
 Repository, Berita) sebagai first-class tools untuk AI Agent (Hermes, Claude, Cursor).
 
 Mendukung isolasi kredensial per akun / per session via:
-- Environment variables: UBSI_API_URL, UBSI_API_KEY, UBSI_SESSION_TOKEN
+- Environment variables: MIRA_API_URL, MIRA_API_KEY, MIRA_SESSION_TOKEN
 - Parameter per-call: token / session_token / api_key pada setiap pemanggilan tool.
 """
 from __future__ import annotations
@@ -69,43 +69,8 @@ def _resolve_credentials(
 server = MCPServer(
     name="mira-mcp",
     version="3.5.0",
-    description="Universal API aggregator dan otomasi akademik untuk 6 layanan digital Universitas Bina Sarana Informatika (Mira / UBSI).",
+    description="Universal API aggregator dan otomasi akademik untuk 6 layanan digital Universitas Bina Sarana Informatika.",
 )
-
-def _register_dual_tool(
-    name: str | None = None,
-    title: str | None = None,
-    description: str | None = None,
-    **kwargs: Any,
-) -> Any:
-    """Register tool with primary name (mira_*) and backward-compatible alias (ubsi_*)."""
-    def decorator(fn: Any) -> Any:
-        tool_name = name or fn.__name__
-        if tool_name.startswith("mira_"):
-            mira_name = tool_name
-            legacy_name = "ubsi_" + tool_name[5:]
-        elif tool_name.startswith("ubsi_"):
-            mira_name = "mira_" + tool_name[5:]
-            legacy_name = tool_name
-        else:
-            mira_name = tool_name
-            legacy_name = None
-
-        server.add_tool(fn, name=mira_name, title=title, description=description, **kwargs)
-        if legacy_name:
-            alias_desc = f"[Legacy Alias: gunakan {mira_name}] {description or ''}".strip()
-            mira_tool = server._tool_manager._tools.get(mira_name)
-            if mira_tool is not None and hasattr(mira_tool, "model_copy"):
-                server._tool_manager._tools[legacy_name] = mira_tool.model_copy(
-                    update={"name": legacy_name, "description": alias_desc}
-                )
-            else:
-                server.add_tool(fn, name=legacy_name, title=title, description=alias_desc, **kwargs)
-        return fn
-
-    return decorator
-
-server.tool = _register_dual_tool
 
 _orig_call_tool = server._tool_manager.call_tool
 
@@ -127,7 +92,7 @@ server._tool_manager.call_tool = _hooked_call_tool
 
 
 def _get_base_url() -> str:
-    url = os.getenv("MIRA_API_URL") or os.getenv("UBSI_API_URL", "https://api.muaraai.com/v1/mira")
+    url = os.getenv("MIRA_API_URL", "https://api.muaraai.com/v1/mira")
     return url.rstrip("/")
 
 
@@ -144,13 +109,13 @@ def _build_headers(
     headers: dict[str, str] = {"Content-Type": "application/json"}
     allow_env_fallback = (_active_transport == "stdio" and ctx is None)
     if allow_env_fallback:
-        k = api_key or os.getenv("MIRA_API_KEY") or os.getenv("UBSI_API_KEY", "")
-        s = session_token or os.getenv("MIRA_SESSION_TOKEN") or os.getenv("UBSI_SESSION_TOKEN", "")
+        k = api_key or os.getenv("MIRA_API_KEY", "")
+        s = session_token or os.getenv("MIRA_SESSION_TOKEN", "")
     else:
         k = api_key or ""
         s = session_token or ""
 
-    # Abaikan literal template yang belum diekspansi (misal: ${MIRA_API_KEY} atau ${UBSI_API_KEY})
+    # Abaikan literal template yang belum diekspansi (misal: ${MIRA_API_KEY} atau ${MIRA_API_KEY})
     if k.startswith("${") and k.endswith("}"):
         k = ""
     if s.startswith("${") and s.endswith("}"):
@@ -244,10 +209,10 @@ async def _api_post(
 # Tools: Sistem & Autentikasi
 
 @server.tool(
-    name="ubsi_whoami",
+    name="mira_whoami",
     description="Periksa status sesi login dan identitas mahasiswa (NIM) yang aktif.",
 )
-async def ubsi_whoami(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
+async def mira_whoami(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/auth/me", session_token=session_token, api_key=api_key)
     return _json_dumps(res)
 
@@ -255,100 +220,100 @@ async def ubsi_whoami(session_token: Optional[str] = None, api_key: Optional[str
 # Tools: StudentV2 (SIAKAD)
 
 @server.tool(
-    name="ubsi_get_schedule",
+    name="mira_get_schedule",
     description="Ambil jadwal kuliah semester aktif dari SIAKAD (hari, jam, ruang, SKS, dosen).",
 )
-async def ubsi_get_schedule(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
+async def mira_get_schedule(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/studentv2/schedule", session_token=session_token, api_key=api_key)
     return _json_dumps(res)
 
 
 @server.tool(
-    name="ubsi_get_grades",
+    name="mira_get_grades",
     description="Ambil rekapitulasi nilai murni lengkap (UTS, UAS, Tugas, Absen, Total, Grade) dari SIAKAD.",
 )
-async def ubsi_get_grades(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
+async def mira_get_grades(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/studentv2/grades", session_token=session_token, api_key=api_key)
     return _json_dumps(res)
 
 
 @server.tool(
-    name="ubsi_get_profile",
+    name="mira_get_profile",
     description="Ambil biodata mahasiswa lengkap dari SIAKAD: NIM, nama, prodi, kelas, lokal, semester aktif, dll.",
 )
-async def ubsi_get_profile(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
+async def mira_get_profile(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/studentv2/profile", session_token=session_token, api_key=api_key)
     return _json_dumps(res)
 
 
 @server.tool(
-    name="ubsi_get_khs",
+    name="mira_get_khs",
     description="Ambil Kartu Hasil Studi (KHS), kumulatif IPK, dan total mutu dari SIAKAD.",
 )
-async def ubsi_get_khs(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
+async def mira_get_khs(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/studentv2/khs", session_token=session_token, api_key=api_key)
     return _json_dumps(res)
 
 
 @server.tool(
-    name="ubsi_get_krs",
+    name="mira_get_krs",
     description="Ambil Kartu Rencana Studi (KRS) aktif, daftar 6 mata kuliah, dan kelompok ujian dari SIAKAD.",
 )
-async def ubsi_get_krs(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
+async def mira_get_krs(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/studentv2/krs", session_token=session_token, api_key=api_key)
     return _json_dumps(res)
 
 
 @server.tool(
-    name="ubsi_get_uts",
+    name="mira_get_uts",
     description="Ambil jadwal ujian online dan tautan soal ruang UTS/UAS dari SIAKAD.",
 )
-async def ubsi_get_uts(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
+async def mira_get_uts(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/studentv2/uts", session_token=session_token, api_key=api_key)
     return _json_dumps(res)
 
 
 @server.tool(
-    name="ubsi_get_uas",
+    name="mira_get_uas",
     description="Ambil informasi jadwal ujian online dan tautan soal ruang UAS (Ujian Akhir Semester) dari SIAKAD.",
 )
-async def ubsi_get_uas(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
+async def mira_get_uas(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/studentv2/uas", session_token=session_token, api_key=api_key)
     return _json_dumps(res)
 
 
 @server.tool(
-    name="ubsi_get_academic_calendar",
+    name="mira_get_academic_calendar",
     description="Ambil tautan berkas PDF Kalender Akademik resmi Universitas Bina Sarana Informatika.",
 )
-async def ubsi_get_academic_calendar(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
+async def mira_get_academic_calendar(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/studentv2/calendar", session_token=session_token, api_key=api_key)
     return _json_dumps(res)
 
 
 @server.tool(
-    name="ubsi_get_prodi_contacts",
+    name="mira_get_prodi_contacts",
     description="Daftar kontak email resmi Dekanat Fakultas dan Ketua Program Studi (Kaprodi) seluruh kampus UBSI.",
 )
-async def ubsi_get_prodi_contacts(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
+async def mira_get_prodi_contacts(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/studentv2/prodi-contacts", session_token=session_token, api_key=api_key)
     return _json_dumps(res)
 
 
 @server.tool(
-    name="ubsi_get_certificates",
+    name="mira_get_certificates",
     description="Ambil daftar sertifikat kegiatan, course, dan TOEFL mahasiswa yang tercatat resmi di SIAKAD.",
 )
-async def ubsi_get_certificates(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
+async def mira_get_certificates(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/studentv2/certificates", session_token=session_token, api_key=api_key)
     return _json_dumps(res)
 
 
 @server.tool(
-    name="ubsi_get_lecturers",
+    name="mira_get_lecturers",
     description="Cari direktori dosen BSI berdasarkan inisial kode dosen atau nama dosen.",
 )
-async def ubsi_get_lecturers(
+async def mira_get_lecturers(
     search: Optional[str] = None,
     session_token: Optional[str] = None,
     api_key: Optional[str] = None,
@@ -359,10 +324,10 @@ async def ubsi_get_lecturers(
 
 
 @server.tool(
-    name="ubsi_get_dashboard",
+    name="mira_get_dashboard",
     description="Ambil seluruh ringkasan akademik paralel sekaligus: jadwal + nilai murni + berita + pengumuman.",
 )
-async def ubsi_get_dashboard(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
+async def mira_get_dashboard(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/studentv2/dashboard", session_token=session_token, api_key=api_key, timeout=45.0)
     return _json_dumps(res)
 
@@ -370,19 +335,19 @@ async def ubsi_get_dashboard(session_token: Optional[str] = None, api_key: Optio
 # Tools: Elearning (MyBest LMS) - Read & Write
 
 @server.tool(
-    name="ubsi_get_courses",
+    name="mira_get_courses",
     description="Ambil daftar mata kuliah aktif di LMS MyBest beserta token aksi presensi, tugas, dan materi.",
 )
-async def ubsi_get_courses(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
+async def mira_get_courses(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/elearning/courses", session_token=session_token, api_key=api_key)
     return _json_dumps(res)
 
 
 @server.tool(
-    name="ubsi_get_assignments",
-    description="Ambil daftar tugas aktif dan riwayat nilai submission. Parameter 'token' (opsional) adalah token_assignment (diawali 'eyJ...') dari ubsi_get_courses.",
+    name="mira_get_assignments",
+    description="Ambil daftar tugas aktif dan riwayat nilai submission. Parameter 'token' (opsional) adalah token_assignment (diawali 'eyJ...') dari mira_get_courses.",
 )
-async def ubsi_get_assignments(
+async def mira_get_assignments(
     token: Optional[str] = None, session_token: Optional[str] = None, api_key: Optional[str] = None,
     ctx: Context | None = None,
 ) -> str:
@@ -393,10 +358,10 @@ async def ubsi_get_assignments(
 
 
 @server.tool(
-    name="ubsi_upload_assignment",
+    name="mira_upload_assignment",
     description="Upload berkas submission tugas mahasiswa (file_base64 + filename) ke portal MyBest LMS. 'token_tugas' diawali 'eyJ...'.",
 )
-async def ubsi_upload_assignment(
+async def mira_upload_assignment(
     token_tugas: str,
     filename: str,
     file_base64: str,
@@ -415,10 +380,10 @@ async def ubsi_upload_assignment(
 
 
 @server.tool(
-    name="ubsi_submit_assignment",
+    name="mira_submit_assignment",
     description="Kirim link tugas mahasiswa (Google Drive/GitHub) ke MyBest LMS. 'token_send' diawali 'eyJ...' (dari task.token_send atau /assignment/send/...).",
 )
-async def ubsi_submit_assignment(
+async def mira_submit_assignment(
     token_send: str,
     link_tugas: str,
     session_token: Optional[str] = None,
@@ -435,10 +400,10 @@ async def ubsi_submit_assignment(
 
 
 @server.tool(
-    name="ubsi_get_course_grades",
+    name="mira_get_course_grades",
     description="Ambil rekap nilai tugas & kuis spesifik satu mata kuliah beserta rincian komentar dosen per pertemuan.",
 )
-async def ubsi_get_course_grades(
+async def mira_get_course_grades(
     course_id: str,
     session_token: Optional[str] = None,
     api_key: Optional[str] = None,
@@ -455,10 +420,10 @@ async def ubsi_get_course_grades(
 
 
 @server.tool(
-    name="ubsi_get_discussions",
-    description="Ambil daftar topik forum diskusi perkuliahan MyBest per mata kuliah. Parameter 'token' adalah token_diskusi (diawali 'eyJ...') dari ubsi_get_courses.",
+    name="mira_get_discussions",
+    description="Ambil daftar topik forum diskusi perkuliahan MyBest per mata kuliah. Parameter 'token' adalah token_diskusi (diawali 'eyJ...') dari mira_get_courses.",
 )
-async def ubsi_get_discussions(
+async def mira_get_discussions(
     token: str,
     session_token: Optional[str] = None,
     api_key: Optional[str] = None,
@@ -468,10 +433,10 @@ async def ubsi_get_discussions(
 
 
 @server.tool(
-    name="ubsi_get_discussion_comments",
+    name="mira_get_discussion_comments",
     description="Ambil thread komentar dan tanggapan pada topik forum diskusi MyBest. Parameter 'token' adalah token_komentar (diawali 'eyJ...') dari thread diskusi.",
 )
-async def ubsi_get_discussion_comments(
+async def mira_get_discussion_comments(
     token: str,
     session_token: Optional[str] = None,
     api_key: Optional[str] = None,
@@ -481,10 +446,10 @@ async def ubsi_get_discussion_comments(
 
 
 @server.tool(
-    name="ubsi_submit_discussion_comment",
+    name="mira_submit_discussion_comment",
     description="Kirimkan komentar atau jawaban mahasiswa pada thread forum diskusi MyBest LMS. 'token_komentar' diawali 'eyJ...'.",
 )
-async def ubsi_submit_discussion_comment(
+async def mira_submit_discussion_comment(
     token_komentar: str,
     id_chat: str,
     komentar: str,
@@ -501,10 +466,10 @@ async def ubsi_submit_discussion_comment(
 
 
 @server.tool(
-    name="ubsi_create_discussion",
+    name="mira_create_discussion",
     description="Buat topik forum diskusi baru pada mata kuliah MyBest LMS.",
 )
-async def ubsi_create_discussion(
+async def mira_create_discussion(
     token_course: str,
     judul: str,
     chat: str,
@@ -521,10 +486,10 @@ async def ubsi_create_discussion(
 
 
 @server.tool(
-    name="ubsi_get_presence",
+    name="mira_get_presence",
     description="Cek riwayat kehadiran dan status sesi presensi kelas (Sudah Selesai / Absen Masuk / Belum Mulai).",
 )
-async def ubsi_get_presence(
+async def mira_get_presence(
     token: Optional[str] = None, session_token: Optional[str] = None, api_key: Optional[str] = None,
     ctx: Context | None = None,
 ) -> str:
@@ -535,10 +500,10 @@ async def ubsi_get_presence(
 
 
 @server.tool(
-    name="ubsi_submit_presence",
+    name="mira_submit_presence",
     description="Pencet / kirim presensi kehadiran ('Absen Masuk') pada kelas perkuliahan yang sedang berlangsung.",
 )
-async def ubsi_submit_presence(
+async def mira_submit_presence(
     token: Optional[str] = None, session_token: Optional[str] = None, api_key: Optional[str] = None,
     ctx: Context | None = None,
 ) -> str:
@@ -549,10 +514,10 @@ async def ubsi_submit_presence(
 
 
 @server.tool(
-    name="ubsi_get_materials",
+    name="mira_get_materials",
     description="Ambil tautan unduh modul, slide PDF, dan silabus perkuliahan.",
 )
-async def ubsi_get_materials(
+async def mira_get_materials(
     token: Optional[str] = None, session_token: Optional[str] = None, api_key: Optional[str] = None
 ) -> str:
     params = {"token": token} if token else None
@@ -561,10 +526,10 @@ async def ubsi_get_materials(
 
 
 @server.tool(
-    name="ubsi_get_grades_recap",
+    name="mira_get_grades_recap",
     description="Ambil rekapitulasi nilai tugas & kuis seluruh mata kuliah per pertemuan (rata-rata, max, min).",
 )
-async def ubsi_get_grades_recap(
+async def mira_get_grades_recap(
     token: Optional[str] = None, session_token: Optional[str] = None, api_key: Optional[str] = None
 ) -> str:
     params = {"token": token} if token else None
@@ -573,28 +538,28 @@ async def ubsi_get_grades_recap(
 
 
 @server.tool(
-    name="ubsi_get_quiz",
+    name="mira_get_quiz",
     description="Ambil jadwal dan daftar kuis/ujian online aktif di portal MyBest.",
 )
-async def ubsi_get_quiz(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
+async def mira_get_quiz(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/elearning/quiz", session_token=session_token, api_key=api_key)
     return _json_dumps(res)
 
 
 @server.tool(
-    name="ubsi_get_exams",
+    name="mira_get_exams",
     description="Daftar jenis ujian semester yang tersedia di Ujian Online BSI: latihan, UTS, UAS, pengganti, dan HER.",
 )
-async def ubsi_get_exams(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
+async def mira_get_exams(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/elearning/exams", session_token=session_token, api_key=api_key)
     return _json_dumps(res)
 
 
 @server.tool(
-    name="ubsi_get_exam_schedule",
+    name="mira_get_exam_schedule",
     description="Jadwal ujian satu jenis dari Ujian Online BSI (pilih: latihan, uts, uas, uts-pengganti, uas-pengganti, her, her-pengganti, her-khusus). Memuat mata kuliah, ruang, tanggal, durasi, jumlah soal, dan status berlangsung.",
 )
-async def ubsi_get_exam_schedule(
+async def mira_get_exam_schedule(
     exam_type: str,
     session_token: Optional[str] = None,
     api_key: Optional[str] = None,
@@ -612,10 +577,10 @@ async def ubsi_get_exam_schedule(
 
 
 @server.tool(
-    name="ubsi_get_quiz_questions",
+    name="mira_get_quiz_questions",
     description="Ambil daftar soal kuis, hitung mundur waktu ujian, dan opsi pilihan ganda A, B, C, D.",
 )
-async def ubsi_get_quiz_questions(
+async def mira_get_quiz_questions(
     token: Optional[str] = None,
     quiz_url: Optional[str] = None,
     session_token: Optional[str] = None,
@@ -631,10 +596,10 @@ async def ubsi_get_quiz_questions(
 
 
 @server.tool(
-    name="ubsi_submit_quiz_answer",
+    name="mira_submit_quiz_answer",
     description="Kirim / simpan pilihan jawaban (opsi A/B/C/D) untuk satu nomor soal kuis di portal MyBest.",
 )
-async def ubsi_submit_quiz_answer(
+async def mira_submit_quiz_answer(
     id_soal: str,
     data_jawab: str,
     csrf_token: Optional[str] = None,
@@ -651,10 +616,10 @@ async def ubsi_submit_quiz_answer(
 # Tools: Perpustakaan, Berita, & Publikasi Ilmiah
 
 @server.tool(
-    name="ubsi_get_news",
+    name="mira_get_news",
     description="Ambil artikel berita kampus resmi dari portal berita UBSI (author, banner, excerpt, tanggal).",
 )
-async def ubsi_get_news(
+async def mira_get_news(
     search: Optional[str] = None, page: int = 1, per_page: int = 10, api_key: Optional[str] = None
 ) -> str:
     params: dict[str, Any] = {"page": page, "per_page": per_page}
@@ -665,10 +630,10 @@ async def ubsi_get_news(
 
 
 @server.tool(
-    name="ubsi_search_library",
+    name="mira_search_library",
     description="Cari buku pada katalog OPAC perpustakaan UBSI dan periksa ketersediaan stok fisik rak.",
 )
-async def ubsi_search_library(
+async def mira_search_library(
     query: str, category: str = "buku", page: int = 1, api_key: Optional[str] = None
 ) -> str:
     params = {"q": query, "opsi": category, "page": page}
@@ -677,10 +642,10 @@ async def ubsi_search_library(
 
 
 @server.tool(
-    name="ubsi_get_repository",
+    name="mira_get_repository",
     description="Ambil publikasi karya ilmiah, jurnal, dan skripsi mahasiswa terbaru dari repositori EPrints.",
 )
-async def ubsi_get_repository(query: Optional[str] = None, api_key: Optional[str] = None) -> str:
+async def mira_get_repository(query: Optional[str] = None, api_key: Optional[str] = None) -> str:
     path = "/v1/repository/search" if query else "/v1/repository/recent"
     params = {"q": query} if query else None
     res = await _api_get(path, params=params, api_key=api_key)
@@ -690,19 +655,19 @@ async def ubsi_get_repository(query: Optional[str] = None, api_key: Optional[str
 # Tools: Webhook Notifikasi & Pengingat Kuliah
 
 @server.tool(
-    name="ubsi_list_channels",
+    name="mira_list_channels",
     description="Daftar channel webhook notifikasi (Discord / Telegram) yang terpasang untuk akun mahasiswa ini.",
 )
-async def ubsi_list_channels(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
+async def mira_list_channels(session_token: Optional[str] = None, api_key: Optional[str] = None) -> str:
     res = await _api_get("/v1/channels", session_token=session_token, api_key=api_key)
     return _json_dumps(res)
 
 
 @server.tool(
-    name="ubsi_trigger_reminder",
+    name="mira_trigger_reminder",
     description="Kirim pengingat event langsung (kategori: 'matkul-besok', 'quiz-tugas', 'tugas-baru', 'pengumuman-siakad', 'absen-kuliah', 'nilai-keluar', 'jadwal-ujian') ke seluruh channel aktif mahasiswa.",
 )
-async def ubsi_trigger_reminder(
+async def mira_trigger_reminder(
     category: str = "matkul-besok",
     session_token: Optional[str] = None,
     api_key: Optional[str] = None,
@@ -717,10 +682,10 @@ async def ubsi_trigger_reminder(
 
 
 @server.tool(
-    name="ubsi_get_elearning_profile",
+    name="mira_get_elearning_profile",
     description="Ambil profil nama dan alamat email akun MyBest LMS mahasiswa.",
 )
-async def ubsi_get_elearning_profile(
+async def mira_get_elearning_profile(
     session_token: Optional[str] = None,
     api_key: Optional[str] = None,
 ) -> str:
@@ -729,10 +694,10 @@ async def ubsi_get_elearning_profile(
 
 
 @server.tool(
-    name="ubsi_get_makeup_classes",
+    name="mira_get_makeup_classes",
     description="Cek jadwal kuliah pengganti (make-up classes) yang terdaftar di MyBest.",
 )
-async def ubsi_get_makeup_classes(
+async def mira_get_makeup_classes(
     session_token: Optional[str] = None,
     api_key: Optional[str] = None,
 ) -> str:
@@ -741,10 +706,10 @@ async def ubsi_get_makeup_classes(
 
 
 @server.tool(
-    name="ubsi_get_elearning_guides",
+    name="mira_get_elearning_guides",
     description="Daftar tautan berkas PDF buku panduan resmi perkuliahan, kuis, dan ujian online MyBest.",
 )
-async def ubsi_get_elearning_guides(
+async def mira_get_elearning_guides(
     session_token: Optional[str] = None,
     api_key: Optional[str] = None,
 ) -> str:
@@ -759,21 +724,15 @@ def _cached_api_docs_json(category: Optional[str]) -> str:
 
 
 @server.tool(
-    name="ubsi_get_api_docs",
+    name="mira_get_api_docs",
     description="Ambil kamus dokumentasi lengkap seluruh endpoint REST API dan tools MCP UBSI API beserta skema parameter dan contoh pemanggilannya.",
 )
-async def ubsi_get_api_docs(
+async def mira_get_api_docs(
     category: Optional[str] = None,
     session_token: Optional[str] = None,
     api_key: Optional[str] = None,
 ) -> str:
     return _cached_api_docs_json(category)
-
-
-# Export mira_* module-level function aliases for all ubsi_* functions
-for _sym in list(globals().keys()):
-    if _sym.startswith("ubsi_") and callable(globals()[_sym]):
-        globals()["mira_" + _sym[5:]] = globals()[_sym]
 
 
 def main():
