@@ -236,6 +236,50 @@ def _sync_mark_needs_relink(nim: str, provider: str, timestamp: str) -> bool:
         conn.close()
 
 
+def _sync_mark_needs_relink_if_matches(
+    nim: str, provider: str, attempted: str, timestamp: str
+) -> bool:
+    _ensure_schema()
+    conn = _connect()
+    try:
+        row = conn.execute(
+            "SELECT secret_encrypted, status FROM account_links WHERE nim = ? AND provider = ?",
+            (nim, provider),
+        ).fetchone()
+        if row is None or row["status"] == "unlinked":
+            return False
+        stored = _decrypt_secret(row["secret_encrypted"])
+        if not stored or stored != attempted:
+            return False
+        cursor = conn.execute(
+            "UPDATE account_links SET status = 'needs_relink', updated_at = ? "
+            "WHERE nim = ? AND provider = ? AND status != 'unlinked'",
+            (timestamp, nim, provider),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()
+
+
+async def mark_needs_relink_if_matches(
+    nim: str, attempted_password: str, provider: str = "siakad"
+) -> bool:
+    """Tandai perlu-taut-ulang hanya bila yang ditolak kampus adalah secret tersimpan.
+
+    Login memverifikasi password yang baru saja diketik user, jadi penolakan bisa
+    berasal dari salah ketik, bukan dari password tersimpan. Tanpa pembandingan
+    ini, satu salah ketik mengunci SIAKAD untuk seluruh akun.
+    """
+    timestamp = _now()
+    changed = await run_in_threadpool(
+        _sync_mark_needs_relink_if_matches, nim, provider, attempted_password, timestamp
+    )
+    if changed:
+        await _purge_cache(nim, provider)
+    return changed
+
+
 async def mark_needs_relink(nim: str, provider: str = "siakad") -> None:
     timestamp = _now()
     changed = await run_in_threadpool(_sync_mark_needs_relink, nim, provider, timestamp)

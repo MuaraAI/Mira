@@ -14,6 +14,7 @@ from httpx import ASGITransport, AsyncClient
 
 from app.account_devices import (
     approve_device,
+    device_handle,
     ensure_device,
     get_device_status,
     init_account_devices_db,
@@ -26,8 +27,8 @@ from app.session_store import session_store
 from tests.test_login_guard import FakeRedis
 
 NIM = "12345678"
-TRUSTED = "dev-a"
-PENDING = "dev-b"
+TRUSTED = "a" * 64
+PENDING = "b" * 64
 
 _DISCORD_CONFIG = {
     "url": "https://discord.com/api/webhooks/1234567890123/abcdefghijklmnopqrstuvwxyz123456"
@@ -101,10 +102,13 @@ async def test_devices_list_marks_is_current(env):
 
     assert res.status_code == 200
     devices = res.json()["data"]["devices"]
-    by_id = {d["device_id"]: d for d in devices}
-    assert by_id[TRUSTED]["is_current"] is True
-    assert by_id[PENDING]["is_current"] is False
-    assert by_id[TRUSTED]["status"] == "trusted"
+    by_id = {d["handle"]: d for d in devices}
+    trusted_handle = device_handle(NIM, TRUSTED)
+    pending_handle = device_handle(NIM, PENDING)
+    assert by_id[trusted_handle]["is_current"] is True
+    assert by_id[pending_handle]["is_current"] is False
+    assert by_id[trusted_handle]["status"] == "trusted"
+    assert all("device_id" not in d for d in devices)
 
 
 @pytest.mark.asyncio
@@ -128,7 +132,7 @@ async def test_trusted_device_can_approve_pending(env):
     token = await _session(device_id=TRUSTED)
 
     async with _client(token=token, cookies={"mira_device": TRUSTED}) as ac:
-        res = await ac.post(f"/v1/auth/devices/{PENDING}/approve")
+        res = await ac.post(f"/v1/auth/devices/{device_handle(NIM, PENDING)}/approve")
 
     assert res.status_code == 200
     assert await get_device_status(NIM, PENDING) == "trusted"
@@ -140,7 +144,7 @@ async def test_revoke_last_trusted_returns_409(env):
     token = await _session(device_id=TRUSTED)
 
     async with _client(token=token, cookies={"mira_device": TRUSTED}) as ac:
-        res = await ac.delete(f"/v1/auth/devices/{TRUSTED}")
+        res = await ac.delete(f"/v1/auth/devices/{device_handle(NIM, TRUSTED)}")
 
     assert res.status_code == 409
     assert _code(res.json()) == "LAST_TRUSTED_DEVICE"
@@ -150,8 +154,8 @@ async def test_revoke_last_trusted_returns_409(env):
 @pytest.mark.asyncio
 async def test_revoke_removes_sessions_of_that_device_only(env):
     await ensure_device(NIM, TRUSTED, label="Pertama", user_agent="ua-a")
-    await ensure_device(NIM, "dev-c", label="Ketiga", user_agent="ua-c")
-    await ensure_device(NIM, "dev-b", label="Keempat", user_agent="ua-d")
+    await ensure_device(NIM, "c" * 64, label="Ketiga", user_agent="ua-c")
+    await ensure_device(NIM, "b" * 64, label="Keempat", user_agent="ua-d")
     await approve_device(NIM, "dev-b", approved_by=TRUSTED)
     token_survivor = await session_store.create(
         NIM, "sv-pass", "el-pass", device_id=TRUSTED
@@ -159,10 +163,10 @@ async def test_revoke_removes_sessions_of_that_device_only(env):
     token = await _session(device_id=TRUSTED)
 
     async with _client(token=token, cookies={"mira_device": TRUSTED}) as ac:
-        res = await ac.delete("/v1/auth/devices/dev-b")
+        res = await ac.delete(f"/v1/auth/devices/{device_handle(NIM, "b" * 64)}")
 
     assert res.status_code == 200
-    assert _device_row("dev-b")[0] == "revoked"
+    assert _device_row("b" * 64)[0] == "revoked"
     assert await session_store.resolve(token_survivor) is not None
 
 

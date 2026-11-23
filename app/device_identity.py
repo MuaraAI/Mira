@@ -1,4 +1,5 @@
 """Identitas perangkat: cookie mira_device dan label dari User-Agent."""
+import re
 import secrets
 from typing import Optional
 
@@ -28,9 +29,17 @@ def new_device_id() -> str:
     return secrets.token_hex(32)
 
 
+_DEVICE_ID_RE = re.compile(r"[0-9a-f]{64}")
+
+
 def read_device_id(request: Request) -> str:
-    """Ambil id perangkat dari cookie, atau string kosong bila belum ada."""
-    return request.cookies.get(DEVICE_COOKIE) or ""
+    """Ambil id perangkat dari cookie, atau string kosong bila tidak valid.
+
+    Cookie adalah satu-satunya bukti perangkat, jadi nilainya wajib berbentuk
+    64 karakter heksadesimal. Nilai lain dianggap tidak ada.
+    """
+    value = request.cookies.get(DEVICE_COOKIE) or ""
+    return value if _DEVICE_ID_RE.fullmatch(value) else ""
 
 
 def issue_device_cookie(

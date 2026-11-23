@@ -178,7 +178,7 @@ async def test_api_key_endpoints_async():
         from app.account_devices import ensure_device, init_account_devices_db
 
         await init_account_devices_db()
-        device_id = "dev-test-api-keys"
+        device_id = "d" * 64
         await ensure_device("12345678", device_id, label="Test", user_agent="ua")
         session_token = await session_store.create(
             nim="12345678",

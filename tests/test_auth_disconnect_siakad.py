@@ -21,8 +21,8 @@ async def tmp_links_db(monkeypatch, tmp_path):
 
 async def _trusted_cookie_device():
     """Daftarkan device tepercaya yang dipakai cookie tes."""
-    await ensure_device("15260767", "dev-cookie", label="Chrome", user_agent="ua")
-    return {"mira_device": "dev-cookie"}
+    await ensure_device("15260767", "c" * 64, label="Chrome", user_agent="ua")
+    return {"mira_device": "c" * 64}
 
 
 def _session(monkeypatch, *, siakad_pass: str, elearning_pass: str = "rahasia123"):

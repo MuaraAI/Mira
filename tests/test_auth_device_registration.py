@@ -115,20 +115,20 @@ async def test_second_login_with_existing_cookie_is_pending(env):
     assert _device_count() == 1
     assert _payload(env)["device_id"] == first_id
 
-    fresh = await _login(cookies={"mira_device": "dev-b"})
-    assert fresh.cookies.get("mira_device") == "dev-b"
-    assert _device_row("dev-b")[0] == "pending"
+    fresh = await _login(cookies={"mira_device": "b" * 64})
+    assert fresh.cookies.get("mira_device") == "b" * 64
+    assert _device_row("b" * 64)[0] == "pending"
     assert _device_count() == 2
 
 
 @pytest.mark.asyncio
 async def test_me_reports_device_status_and_link_status(env):
-    await ensure_device(NIM, "dev-trusted", label="Pertama", user_agent="ua-trusted")
-    await ensure_device(NIM, "dev-pending", label="Kedua", user_agent="ua-kedua")
+    await ensure_device(NIM, "a" * 64, label="Pertama", user_agent="ua-trusted")
+    await ensure_device(NIM, "b" * 64, label="Kedua", user_agent="ua-kedua")
     await set_link(NIM, "siakad", kind="password", secret="sv-pass")
-    token = await _session(env, device_id="dev-pending")
+    token = await _session(env, device_id="b" * 64)
 
-    async with _client(cookies={"mira_device": "dev-pending"}, token=token) as ac:
+    async with _client(cookies={"mira_device": "b" * 64}, token=token) as ac:
         res = await ac.get("/v1/auth/me")
 
     assert res.status_code == 200
@@ -143,14 +143,14 @@ async def test_me_reports_device_status_and_link_status(env):
 
 @pytest.mark.asyncio
 async def test_me_restores_session_device_cookie_without_new_row(env):
-    await ensure_device(NIM, "dev-a", label="Pertama", user_agent="ua-pertama")
-    token = await _session(env, device_id="dev-a")
+    await ensure_device(NIM, "a" * 64, label="Pertama", user_agent="ua-pertama")
+    token = await _session(env, device_id="a" * 64)
 
     for _ in range(2):
         async with _client(token=token) as ac:
             res = await ac.get("/v1/auth/me")
         assert res.status_code == 200
-        assert res.cookies.get("mira_device") == "dev-a"
+        assert res.cookies.get("mira_device") == "a" * 64
         assert res.json()["data"]["device"]["status"] == "trusted"
         assert _device_count() == 1
 
@@ -183,16 +183,16 @@ async def test_legacy_session_imports_siakad_link_once(env, monkeypatch):
 
     spy = AsyncMock(wraps=import_legacy_siakad)
     monkeypatch.setattr(main_module, "import_legacy_siakad", spy)
-    await ensure_device(NIM, "dev-trusted", label="Pertama", user_agent="ua")
-    token = await _session(env, siakad_pass="legacy-pass", device_id="dev-trusted")
+    await ensure_device(NIM, "a" * 64, label="Pertama", user_agent="ua")
+    token = await _session(env, siakad_pass="legacy-pass", device_id="a" * 64)
 
-    async with _client(token=token, cookies={"mira_device": "dev-trusted"}) as ac:
+    async with _client(token=token, cookies={"mira_device": "a" * 64}) as ac:
         first = await ac.get("/v1/auth/me")
     assert first.status_code == 200
     spy.assert_awaited_once_with(NIM, "legacy-pass")
     assert await get_link_secret(NIM, "siakad") == "legacy-pass"
 
-    async with _client(token=token, cookies={"mira_device": "dev-trusted"}) as ac:
+    async with _client(token=token, cookies={"mira_device": "a" * 64}) as ac:
         second = await ac.get("/v1/auth/me")
     assert second.status_code == 200
     # Penanda Redis: migrasi tidak dicoba ulang pada request berikutnya.
@@ -223,10 +223,10 @@ async def test_legacy_import_failure_does_not_break_request(env, monkeypatch, ca
     monkeypatch.setattr(
         main_module, "import_legacy_siakad", AsyncMock(side_effect=RuntimeError("db mati"))
     )
-    await ensure_device(NIM, "dev-trusted", label="Pertama", user_agent="ua")
-    token = await _session(env, siakad_pass="legacy-pass", device_id="dev-trusted")
+    await ensure_device(NIM, "a" * 64, label="Pertama", user_agent="ua")
+    token = await _session(env, siakad_pass="legacy-pass", device_id="a" * 64)
 
-    async with _client(token=token, cookies={"mira_device": "dev-trusted"}) as ac:
+    async with _client(token=token, cookies={"mira_device": "a" * 64}) as ac:
         res = await ac.get("/v1/auth/me")
 
     assert res.status_code == 200

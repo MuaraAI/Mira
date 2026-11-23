@@ -34,6 +34,8 @@ from app.upstream_session import clear_login_block
 
 from app.account_devices import (
     approve_device,
+    device_handle,
+    resolve_device_handle,
     ensure_device,
     get_device_status,
     list_devices,
@@ -573,6 +575,9 @@ async def me(request: Request):
     if link_status is None:
         # Sesi legasi belum punya baris kanonis; password di sesi menandakan tautan.
         link_status = "linked" if sv_pass else "unlinked"
+    # Ketersediaan SIAKAD mengikuti store kanonis, bukan salinan sesi: login
+    # MyBest-only tetap melihat tautan yang benar-benar tersimpan.
+    siakad_available = link_status == "linked"
 
     # Sisa umur sesi (detik). Sesi Mira sliding 7 hari: setiap request sukses
     # memperpanjang, jadi angka ini = "kalau kamu berhenti membuka Mira".
@@ -588,9 +593,9 @@ async def me(request: Request):
     # Password SIAKAD bisa berbeda dari MyBest (kampus memakai dua sistem akun).
     # `linked_password` memberi tahu UI apakah tautan SIAKAD memakai password
     # yang sama atau password terpisah, supaya user tidak bingung saat ganti.
-    if not sv_pass:
+    if not siakad_available:
         linked_password = None
-    elif sv_pass == el_pass:
+    elif sv_pass and sv_pass == el_pass:
         linked_password = "mybest"
     else:
         linked_password = "separate"
@@ -601,7 +606,7 @@ async def me(request: Request):
         "device": {"status": device_status},
         "session": session_info,
         # Kontrak lama tetap: boolean siap pakai untuk gerbang UI.
-        "systems": {"siakad": bool(sv_pass), "mybest": bool(el_pass)},
+        "systems": {"siakad": siakad_available, "mybest": bool(el_pass)},
         # Detail per sistem untuk halaman Sesi & Keamanan.
         "links": {
             "mybest": {
@@ -610,7 +615,7 @@ async def me(request: Request):
                 "linked_password": "mybest" if el_pass else None,
             },
             "siakad": {
-                "linked": bool(sv_pass),
+                "linked": siakad_available,
                 "required": False,
                 "linked_password": linked_password,
                 "status": link_status,
@@ -627,22 +632,44 @@ async def me(request: Request):
 
 @router.get("/devices")
 async def list_my_devices(request: Request):
-    """Daftar perangkat akun beserta tanda perangkat yang sedang dipakai."""
+    """Daftar perangkat akun. Hanya perangkat tepercaya yang boleh melihatnya.
+
+    `device_id` mentah tidak dikirim ke klien karena nilai itu dipakai gerbang
+    sebagai bukti perangkat. Klien hanya menerima `handle` HMAC.
+    """
     nim = _require_session_nim(request)
+    await require_trusted_device(request)
     devices = await list_devices(nim)
     current_device = str(getattr(request.state, "device_cookie_id", "") or "")
     data = [
-        {**device, "is_current": bool(current_device) and device["device_id"] == current_device}
+        {
+            "handle": device_handle(nim, device["device_id"]),
+            "label": device["label"],
+            "user_agent": device.get("user_agent"),
+            "status": device["status"],
+            "last_seen": device.get("last_seen"),
+            "is_current": bool(current_device) and device["device_id"] == current_device,
+        }
         for device in devices
     ]
     return success_response(data={"devices": data, "total": len(data)})
 
 
-@router.post("/devices/{device_id}/approve")
-async def approve_my_device(device_id: str, request: Request):
+@router.post("/devices/{handle}/approve")
+async def approve_my_device(handle: str, request: Request):
     """Izinkan perangkat pending; hanya perangkat tepercaya yang boleh menyetujui."""
     nim = _require_session_nim(request)
     approved_by = await require_trusted_device(request)
+    device_id = await resolve_device_handle(nim, handle)
+    if not device_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=error_response(
+                code="DEVICE_NOT_FOUND",
+                message="Perangkat tidak ditemukan atau sudah dicabut",
+                module="auth",
+            ),
+        )
     approved = await approve_device(nim, device_id, approved_by=approved_by)
     if not approved:
         raise HTTPException(
@@ -656,11 +683,21 @@ async def approve_my_device(device_id: str, request: Request):
     return success_response(data={"device_id": device_id, "status": "trusted"})
 
 
-@router.delete("/devices/{device_id}")
-async def revoke_my_device(device_id: str, request: Request):
+@router.delete("/devices/{handle}")
+async def revoke_my_device(handle: str, request: Request):
     """Cabut perangkat dan akhiri semua sesi yang lahir dari perangkat itu."""
     nim = _require_session_nim(request)
     await require_trusted_device(request)
+    device_id = await resolve_device_handle(nim, handle)
+    if not device_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=error_response(
+                code="DEVICE_NOT_FOUND",
+                message="Perangkat tidak ditemukan atau sudah dicabut",
+                module="auth",
+            ),
+        )
     try:
         changed = await revoke_device(nim, device_id)
     except LastTrustedDeviceError:
@@ -921,6 +958,9 @@ async def disconnect_siakad(request: Request):
     await require_trusted_device(request)
 
     link_status = await get_link_status(nim, "siakad")
+    if link_status is None and (getattr(request.state, "studentv2_pass", "") or ""):
+        # Sesi legasi belum punya baris kanonis: anggap tautan hidup seperti /me.
+        link_status = "linked"
     if link_status not in ("linked", "needs_relink"):
         return success_response(
             data={

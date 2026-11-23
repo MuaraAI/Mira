@@ -30,8 +30,8 @@ from app.session_store import session_store
 from tests.test_login_guard import FakeRedis
 
 NIM = "12345678"
-TRUSTED_DEVICE = "dev-trusted"
-PENDING_DEVICE = "dev-pending"
+TRUSTED_DEVICE = "a" * 64
+PENDING_DEVICE = "b" * 64
 SCHEDULE_PATH = "/v1/studentv2/schedule"
 
 
@@ -99,7 +99,7 @@ async def test_missing_device_cookie_on_session_is_rejected(env):
     """Cookie device tak dikenal (rusak/hapus DB) berarti missing, bukan trusted."""
     await ensure_device(NIM, TRUSTED_DEVICE, label="Pertama", user_agent="ua")
     token = await session_store.create(NIM, "sv-pass", "el-pass", device_id=None)
-    async with _client(token=token, cookies={DEVICE_COOKIE: "dev-tidak-ada"}) as ac:
+    async with _client(token=token, cookies={DEVICE_COOKIE: "f" * 64}) as ac:
         res = await ac.get(SCHEDULE_PATH)
     assert res.status_code == 403
     assert res.json()["error"]["code"] == "SIAKAD_DEVICE_PENDING"

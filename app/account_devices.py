@@ -370,6 +370,28 @@ def _device_gate_error(message: str) -> HTTPException:
     )
 
 
+def device_handle(nim: str, device_id: str) -> str:
+    """Handle publik untuk satu perangkat, tidak bisa dipakai sebagai cookie.
+
+    Nilai ini HMAC dari `API_KEY` sehingga klien bisa menunjuk perangkat pada
+    endpoint approve/revoke tanpa pernah menerima `device_id` yang dipercaya
+    gerbang sebagai bukti perangkat.
+    """
+    import hashlib
+    import hmac
+
+    key = (settings.API_KEY or "").encode("utf-8")
+    return hmac.new(key, f"{nim}:{device_id}".encode("utf-8"), hashlib.sha256).hexdigest()[:24]
+
+
+async def resolve_device_handle(nim: str, handle: str) -> Optional[str]:
+    """Kembalikan `device_id` milik handle, atau None bila tidak cocok."""
+    for device in await list_devices(nim):
+        if device_handle(nim, device["device_id"]) == handle:
+            return str(device["device_id"])
+    return None
+
+
 async def require_trusted_device(request: Request) -> str:
     """Wajibkan cookie perangkat `trusted` sebelum akses lanjut.
 

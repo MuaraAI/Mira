@@ -74,12 +74,24 @@ async def link_env(monkeypatch, tmp_path):
 
 @pytest.mark.asyncio
 async def test_credentials_rejection_marks_link_needs_relink(link_env):
+    """Yang ditolak adalah secret tersimpan: status jadi needs_relink."""
     client = _FakeUpstreamClient(_CREDENTIALS_REJECTED)
 
-    ok = await asyncio.to_thread(client.login, NIM, "wrong-pass")
+    ok = await asyncio.to_thread(client.login, NIM, "old-pass")
 
     assert ok is False
     assert await get_link_status(NIM, "siakad") == "needs_relink"
+
+
+@pytest.mark.asyncio
+async def test_wrong_typed_password_does_not_break_stored_link(link_env):
+    """Salah ketik di form login tidak boleh mengunci tautan tersimpan."""
+    client = _FakeUpstreamClient(_CREDENTIALS_REJECTED)
+
+    ok = await asyncio.to_thread(client.login, NIM, "typo-password")
+
+    assert ok is False
+    assert await get_link_status(NIM, "siakad") == "linked"
 
 
 @pytest.mark.asyncio

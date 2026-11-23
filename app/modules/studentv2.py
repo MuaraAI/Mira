@@ -12,7 +12,7 @@ from scrapling.parser import Adaptor
 logger = logging.getLogger("app.studentv2")
 
 from app.config import settings
-from app.account_links import mark_needs_relink
+from app.account_links import mark_needs_relink_if_matches
 
 from app.deps import require_studentv2_creds
 from app.envelope import success_response, error_response
@@ -44,7 +44,7 @@ def branch_display(code: Optional[str]) -> Optional[str]:
 _SIAKAD_CAPTCHA_RE = re.compile(r"""name=["']captcha["']|Kode CAPTCHA|data-login-captcha""", re.IGNORECASE)
 
 
-def _mark_siakad_link_needs_relink(nim: str) -> None:
+def _mark_siakad_link_needs_relink(nim: str, attempted_password: str = "") -> None:
     """Tandai tautan kanonis SIAKAD perlu tautan ulang setelah password ditolak.
 
     `login` berjalan sinkron di worker thread tanpa event loop, jadi koroutin
@@ -52,7 +52,7 @@ def _mark_siakad_link_needs_relink(nim: str) -> None:
     hanya dicatat: hasil login tidak boleh berubah karenanya.
     """
     try:
-        asyncio.run(mark_needs_relink(nim))
+        asyncio.run(mark_needs_relink_if_matches(nim, attempted_password))
     except Exception as exc:
         logger.warning("Gagal menandai needs_relink untuk %s: %s", nim, exc)
 
@@ -571,7 +571,7 @@ class StudentV2Client(UpstreamSession):
                 )
                 if self._login_failure == "credentials":
                     # Password ditolak kampus: tautan kanonis SIAKAD tidak berlaku lagi.
-                    _mark_siakad_link_needs_relink(nim)
+                    _mark_siakad_link_needs_relink(nim, password)
             return False
         except Exception as err:
             logger.error("SIAKAD login exception for %s: %s", nim, err)

@@ -5,10 +5,23 @@ dan perlu tahu apakah SIAKAD memakai password MyBest atau password terpisah.
 """
 from unittest.mock import AsyncMock
 
+import asyncio
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from app.config import settings
 from app.main import app
+
+
+@pytest.fixture(autouse=True)
+def _isolated_accounts_db(tmp_path, monkeypatch):
+    """Tautan kanonis di SQLite terpisah per tes supaya status tidak bocor."""
+    monkeypatch.setattr(settings, "SQLITE_DB_PATH", str(tmp_path / "accounts.sqlite3"))
+
+    from app.account_links import init_account_links_db
+
+    asyncio.run(init_account_links_db())
 
 
 def _fake_session(redis, *, siakad_pass: str, elearning_pass: str = "rahasia123"):

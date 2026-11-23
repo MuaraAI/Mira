@@ -30,10 +30,11 @@ def test_new_device_id_is_64_hex_chars_without_colon():
     assert first != second
 
 
-def test_read_device_id_returns_cookie_value():
-    request = _request_with_cookie(f"{DEVICE_COOKIE}=abc123; ubsi_session=tok")
-
-    assert read_device_id(request) == "abc123"
+def test_read_device_id_accepts_only_64_hex_characters():
+    valid = "a1" * 32
+    assert read_device_id(_request_with_cookie(f"{DEVICE_COOKIE}={valid}")) == valid
+    # Cookie adalah bukti perangkat: bentuk lain dianggap tidak ada.
+    assert read_device_id(_request_with_cookie(f"{DEVICE_COOKIE}=abc123")) == ""
 
 
 def test_read_device_id_returns_empty_string_when_cookie_missing():

@@ -7,7 +7,7 @@ import { ghostButtonClass } from "@/components/dashboard-ui";
 
 /** Bentuk data `GET /v1/auth/devices`. */
 export interface DeviceEntry {
-  device_id: string;
+  handle: string;
   label: string;
   user_agent?: string | null;
   status: "trusted" | "pending" | "revoked";
@@ -40,15 +40,15 @@ export function DevicesCard() {
   const [notice, setNotice] = useState<string | null>(null);
 
   async function mutate(device: DeviceEntry, action: "approve" | "revoke") {
-    setBusy(device.device_id);
+    setBusy(device.handle);
     setNotice(null);
     try {
       if (action === "approve") {
-        await apiFetch(`/v1/auth/devices/${device.device_id}/approve`, { method: "POST" });
+        await apiFetch(`/v1/auth/devices/${device.handle}/approve`, { method: "POST" });
         setNotice(`Perangkat ${device.label} diizinkan.`);
       } else {
         const result = await apiFetch<{ sessions_ended?: number }>(
-          `/v1/auth/devices/${device.device_id}`,
+          `/v1/auth/devices/${device.handle}`,
           { method: "DELETE" }
         );
         setNotice(
@@ -89,7 +89,7 @@ export function DevicesCard() {
             const chip = STATUS_COPY[device.status];
             return (
               <li
-                key={device.device_id}
+                key={device.handle}
                 className="flex flex-col gap-3 rounded-xl border border-stroke bg-white/70 p-4 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="flex items-start gap-3">
@@ -126,7 +126,7 @@ export function DevicesCard() {
                     <button
                       type="button"
                       className={ghostButtonClass}
-                      disabled={busy === device.device_id}
+                      disabled={busy === device.handle}
                       onClick={() => mutate(device, "approve")}
                     >
                       Izinkan
@@ -136,7 +136,7 @@ export function DevicesCard() {
                     <button
                       type="button"
                       className={ghostButtonClass}
-                      disabled={busy === device.device_id}
+                      disabled={busy === device.handle}
                       onClick={() => mutate(device, "revoke")}
                     >
                       Cabut
