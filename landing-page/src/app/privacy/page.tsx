@@ -16,7 +16,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
       "NIM (ID mahasiswa): untuk mengidentifikasi sesi dan data akademik Anda. Disimpan di Redis (sesi) dan SQLite (API key, tautan kanonis SIAKAD, perangkat, channel notifikasi, langganan PWA push).",
       "Password kampus (SIAKAD dan MyBest): dipakai untuk verifikasi saat login atau saat menautkan SIAKAD, lalu disimpan terenkripsi agar server bisa login ulang ke portal kampus: salinan sesi di Redis (AES-256-GCM) dan tautan kanonis SIAKAD di SQLite (Fernet, satu baris per NIM). Tidak pernah dikirim kembali ke browser dan tidak pernah ditulis sebagai teks biasa.",
       "Data akademik (jadwal, nilai, KHS, KRS, kartu ujian, presensi, tugas, bahan ajar): ditampilkan hanya kepada Anda dan disimpan sementara di cache Redis dengan TTL berjenjang (10 menit sampai 2 jam). Tidak pernah ditulis ke disk.",
-      "Konfigurasi webhook (Discord/Telegram): Anda yang isi sendiri di dashboard, disimpan di SQLite untuk fitur notifikasi yang Anda aktifkan. Nilai rahasia seperti token bot hanya ditampilkan tersamarkan di dashboard.",
+      "Konfigurasi webhook (Discord/Telegram): Anda yang isi sendiri di dashboard, disimpan terenkripsi (Fernet) di SQLite untuk fitur notifikasi yang Anda aktifkan. Nilai rahasia seperti token bot hanya ditampilkan tersamarkan di dashboard.",
       "Metadata Personal API Key: hanya hash-nya yang disimpan. Key utuh ditampilkan tepat satu kali saat dibuat.",
     ],
   },
