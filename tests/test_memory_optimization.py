@@ -107,13 +107,11 @@ async def test_mcp_shared_http_client_and_deduplicated_tool_schemas():
     assert c1 is c2
 
     tools = mcp_server.server._tool_manager._tools
-    mira_tool = tools["mira_get_schedule"]
-    ubsi_tool = tools["ubsi_get_schedule"]
-    assert mira_tool is not ubsi_tool
-    assert mira_tool.fn_metadata is ubsi_tool.fn_metadata
-    assert mira_tool.parameters is ubsi_tool.parameters
+    assert "mira_get_schedule" in tools
+    # Alias lama sudah dihapus: hanya satu namespace yang terdaftar.
+    assert not any(name.startswith("ubsi_") for name in tools)
 
-    docs_1 = await mcp_server.ubsi_get_api_docs(category="studentv2")
-    docs_2 = await mcp_server.ubsi_get_api_docs(category="studentv2")
+    docs_1 = await mcp_server.mira_get_api_docs(category="studentv2")
+    docs_2 = await mcp_server.mira_get_api_docs(category="studentv2")
     assert docs_1 is docs_2
     assert "\n  " not in docs_1
