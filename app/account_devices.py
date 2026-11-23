@@ -6,6 +6,7 @@ Redis hanya dipakai sebagai cache turunan yang dihapus pada setiap mutasi.
 """
 import inspect
 import os
+import logging
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
@@ -18,6 +19,8 @@ from app.cache import cache
 from app.config import settings
 from app.envelope import error_response
 
+
+logger = logging.getLogger("app.account_devices")
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS account_devices (
@@ -199,11 +202,41 @@ async def ensure_device(
     nim: str, device_id: str, *, label: str, user_agent: str
 ) -> str:
     now = datetime.now(timezone.utc)
+    previous = await get_device_status(nim, device_id)
     status = await run_in_threadpool(
         _sync_ensure_device, nim, device_id, label, user_agent, now
     )
     await _purge_cache(nim, device_id)
+    if previous == "missing" and status == "pending":
+        # Perangkat baru menunggu izin: beri tahu pemilik akun, sekali per device.
+        await _notify_pending_device(nim, device_id, label)
     return status
+
+
+async def _notify_pending_device(nim: str, device_id: str, label: str) -> None:
+    """Kabari pemilik akun lewat kanal yang sudah ada; kegagalan tidak menghalangi login."""
+    from app.notifier import deliver
+
+    marker = f"ubsi:devnotif:{nim}:{device_id}"
+    try:
+        client = await _get_cache_client()
+        if not await client.set(marker, "1", nx=True, ex=7 * 24 * 3600):
+            return
+    except (RedisError, ConnectionError, OSError):
+        pass
+    except Exception:
+        logger.debug("Penanda notifikasi perangkat tidak bisa ditulis", exc_info=True)
+    try:
+        await deliver(
+            nim,
+            "perangkat-baru",
+            "Perangkat baru minta akses SIAKAD",
+            f"{label} baru saja login dan menunggu izin. Buka Sesi & Keamanan untuk mengizinkan.",
+            "/dashboard/sesi",
+            tag="perangkat-baru",
+        )
+    except Exception:
+        logger.warning("Notifikasi perangkat baru gagal untuk %s", nim, exc_info=True)
 
 
 def _sync_get_status(nim: str, device_id: str, now: datetime) -> str:
