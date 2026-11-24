@@ -156,7 +156,7 @@ def parse_share_link(raw_url: str) -> Optional[dict[str, Any]]:
                     "normalized_url": normalized, "probe_url": normalized}
         return {**base, "provider": "github", "label": "GitHub"}
 
-    if host in ("youtube.com", "m.youtube.com", "youtu.be", "music.youtube.com"):
+    if host in ("youtube.com", "m.youtube.com", "youtu.be", "music.youtube.com", "youtube-nocookie.com"):
         vid = None
         if host == "youtu.be":
             vid = path.strip("/").split("/")[0]

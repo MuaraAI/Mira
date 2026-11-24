@@ -43,7 +43,7 @@ export function Hero() {
   return (
     <>
       <ParallaxHero
-        className="relative flex min-h-[min(86dvh,700px)] flex-col justify-end overflow-hidden pb-12 pt-24 sm:pb-16 sm:pt-28"
+        className="relative flex min-h-0 flex-col justify-start overflow-hidden pb-14 pt-[86px] sm:min-h-[min(86dvh,700px)] sm:justify-end sm:pb-16 sm:pt-28"
         ariaLabelledBy="hero-title"
       >
         <div

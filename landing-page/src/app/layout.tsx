@@ -132,19 +132,24 @@ const aestetico = localFont({
   declarations: [{ prop: "unicode-range", value: "U+0020, U+002C, U+002E, U+0041-005A, U+0061-007A" }],
 });
 
-const minevia = localFont({
+const grosen = localFont({
   src: [
     {
-      path: "../../public/fonts/Minevia-Regular.otf",
-      weight: "400",
+      path: "../../public/fonts/Grosen-Medium.otf",
+      weight: "500",
       style: "normal",
     },
   ],
-  variable: "--font-minevia",
+  variable: "--font-grosen",
   display: "swap",
   adjustFontFallback: false,
-  // Versi Trial Minevia menggambar kotak .notdef pada angka & sebagian tanda baca; batasi ke huruf Latin.
-  declarations: [{ prop: "unicode-range", value: "U+0020, U+0041-005A, U+0061-007A" }],
+  // Fontspring DEMO Grosen mengganti angka 4 dan sebagian simbol dengan glif DEMO; batasi ke huruf Latin + tanda baca bersih.
+  declarations: [
+    {
+      prop: "unicode-range",
+      value: "U+0020, U+002C, U+002E, U+003A-003B, U+003F, U+0041-005A, U+0061-007A",
+    },
+  ],
 });
 
 export const viewport: Viewport = {
@@ -173,6 +178,7 @@ const SEARCH_TITLE_KEYWORDS = [
 
 export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
+  referrer: "strict-origin-when-cross-origin",
   applicationName: SITE_NAME,
   appleWebApp: {
     capable: true,
@@ -309,7 +315,7 @@ export default function RootLayout({
   return (
     <html
       lang="id"
-      className={`${spaceGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable} ${pixelify.variable} ${aestetico.variable} ${minevia.variable}`}
+      className={`${spaceGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable} ${pixelify.variable} ${aestetico.variable} ${grosen.variable}`}
     >
       <head>
         <script

@@ -199,6 +199,8 @@ def test_published_google_docs_use_embed_urls_and_youtube_has_embed():
     assert yt is not None
     assert yt["provider"] == "youtube" and yt["preview_url"] == "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"
     assert yt["probe_url"] == "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    yt_embed = parse_share_link("https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ")
+    assert yt_embed is not None and yt_embed["provider"] == "youtube" and yt_embed["id"] == "dQw4w9WgXcQ"
 
 
 @pytest.mark.asyncio
