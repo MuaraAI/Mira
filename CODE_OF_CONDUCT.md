@@ -2,7 +2,7 @@
 
 ## Our Pledge
 
-We as members, contributors, and maintainers of **Muara AI** and the **UBSI API** project pledge to make participation in our community and project a harassment-free, collaborative, and enriching experience for everyone, regardless of age, body size, visible or invisible disability, ethnicity, sex characteristics, gender identity and expression, level of technical experience, education, socio-economic status, nationality, personal appearance, race, caste, color, religion, or sexual identity and orientation.
+We as members, contributors, and maintainers of **Muara AI** and the **Mira** (`MuaraAI/Mira`, formerly UBSI API) project pledge to make participation in our community and project a harassment-free, collaborative, and enriching experience for everyone, regardless of age, body size, visible or invisible disability, ethnicity, sex characteristics, gender identity and expression, level of technical experience, education, socio-economic status, nationality, personal appearance, race, caste, color, religion, or sexual identity and orientation.
 
 We pledge to act and interact in ways that contribute to an open, welcoming, diverse, inclusive, and healthy academic community.
 
@@ -46,7 +46,9 @@ Maintainers have the right and responsibility to remove, edit, or reject comment
 
 ## 4. Scope
 
-This Code of Conduct applies within all community spaces (GitHub repositories, organization discussions, community Discord/WhatsApp groups), and also applies when an individual is officially representing the project in public spaces.
+This Code of Conduct applies within all community spaces (GitHub repositories, organization discussions, community Discord/WhatsApp groups, and Mira Komunitas), and also applies when an individual is officially representing the project in public spaces.
+
+Repository contributions are restricted exclusively to **Muara AI members** who are **active students of Universitas Bina Sarana Informatika (UBSI)**, following the mandatory new-branch + Pull Request workflow in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 

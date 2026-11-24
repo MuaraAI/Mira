@@ -1,62 +1,101 @@
-# Contributing
+# Panduan Kontribusi (Contributing)
 
-Thanks for taking a look. This is a private, single-tenant personal automation API (one student account on your own localhost / VPS), so most contributions are campus parser fixes, new endpoint additions, or test coverage.
+Terima kasih atas minat Anda terhadap **Mira** (`MuaraAI/Mira`), platform akademik (Dashboard PWA, REST API, dan MCP Server) untuk layanan kampus Universitas Bina Sarana Informatika (UBSI).
 
-Local setup, configuration, and architectural design live in [README.md](README.md) and [docs/superpowers/specs/2026-09-25-ubsi-api-design.md](docs/superpowers/specs/2026-09-25-ubsi-api-design.md) — one place, so they cannot drift apart.
+## 1. Syarat Kontributor (WAJIB)
 
-## Development setup
+Kontribusi kode, dokumentasi, maupun pull request ke repositori ini **bersifat eksklusif** dan **hanya dibuka bagi**:
+
+1. **Anggota resmi organisasi [Muara AI](https://github.com/MuaraAI)**, **DAN**
+2. **Mahasiswa aktif Universitas Bina Sarana Informatika (UBSI)**.
+
+Kontributor yang bukan merupakan anggota Muara AI atau tidak berstatus mahasiswa aktif UBSI tidak memenuhi syarat untuk mengajukan Pull Request.
+
+---
+
+## 2. Alur Git & Wajib Branch Baru
+
+**Dilarang keras melakukan direct commit atau direct push ke branch `main`**, termasuk untuk perubahan kecil atau pembaruan dokumentasi. Setiap kontribusi **wajib menggunakan branch baru** dan melalui Pull Request:
+
+1. **Sinkronkan branch `main` terbaru:**
+   ```bash
+   git checkout main
+   git pull origin main
+   ```
+2. **Buat branch baru** sesuai jenis perubahan:
+   ```bash
+   git checkout -b <type>/<deskripsi-singkat>
+   # Contoh:
+   # feat/elearning-toefl
+   # fix/elearning-puzzle-captcha
+   # docs/sync-api-reference
+   ```
+3. **Kerjakan perubahan & uji secara lokal** (pastikan seluruh test lulus).
+4. **Commit dengan format Conventional Commits:**
+   ```bash
+   git add <file-terkait>
+   git commit -m "<type>(<scope>): <pesan jelas dan ringkas>"
+   # Contoh: fix(elearning): selesaikan puzzle captcha MyBest 2026
+   ```
+5. **Push branch baru ke remote:**
+   ```bash
+   git push -u origin <nama-branch>
+   ```
+6. **Buka Pull Request (PR) ke `main`** lewat GitHub atau `gh pr create`. Sertakan ringkasan perubahan, bukti pengujian, dan tunggu review/persetujuan maintainer sebelum merge.
+
+---
+
+## 3. Setup Lingkungan Pengembangan
+
+Arsitektur proyek dan panduan lengkap tersedia di [README.md](README.md), [AGENT.md](AGENT.md), dan [docs/architecture.md](docs/architecture.md).
 
 ```bash
-# Clone and setup environment (Python 3.12+)
+# Clone repositori
 git clone https://github.com/MuaraAI/Mira.git
-cd UBSI-API
+cd Mira
 
+# Backend (FastAPI, Python 3.12+)
 uv venv .venv --python 3.12
 source .venv/bin/activate
 uv pip install -r requirements.txt
-
-# Configure environment
 cp .env.example .env
+uvicorn app.main:app --port 8300 --reload
+
+# Frontend (Next.js 15, di terminal terpisah)
+cd landing-page
+npm install
+npm run dev
 ```
 
-## Pull requests
+---
 
-- One logical change per PR, conventional-commit title (`fix(elearning): …`, `feat(studentv2): …`).
-- Say what you changed and why in the body; include the failing fixture or upstream HTML change you fixed when there is one.
-- **TDD Mandatory**: Parser unit tests must test against offline snapshot fixtures in `tests/fixtures/`. Never make live network requests to campus servers inside pytest. All 46+ tests must pass (`.venv/bin/pytest -v`).
-- **Zero Secrets Rule**: Never stage or commit `.env`, session cookies, credentials, or personal tokens. Always verify `git status` and `git diff` before pushing.
-- Upstream changes: mention which campus service was tested (`studentv2`, `elearning`, `elibrary`, `news`, `repository`, `ejournal`) and provide anonymized snapshot proof if layout changed.
-- **Student Contributor Attribution**: If you are a UBSI student, you are encouraged to mention your student metadata (Full Name, NIM, Faculty, Study Program, Class, Semester) in the PR body so your contribution is recognized in the `README.md` Contributors table.
+## 4. Aturan Kualitas & Pengujian (WAJIB)
 
-## Tests structure
+Sebelum membuka Pull Request, pastikan semua aturan berikut terpenuhi:
 
-```text
-tests/
-├── fixtures/                 # Offline snapshot HTML fixtures (sv2_*.html, el_*.html)
-├── test_config.py            # Settings, env loading, and tiered TTLs
-├── test_envelope.py          # Response envelope standardization (clean JSON)
-├── test_cache.py             # Two-tier Redis cache (fresh + LGG) and mutex
-├── test_limiter.py           # Sliding-window rate limiter (60 req/min)
-├── test_main.py              # Base FastAPI app, /health, and middleware
-├── test_studentv2_parser.py  # Pure parsers for schedule, grades, news, announcements
-├── test_studentv2_router.py  # StudentV2 endpoint integration tests
-├── test_elearning_parser.py  # Pure parsers for MyBest courses, captcha, presence, tasks
-├── test_elearning_router.py  # Elearning endpoint integration tests
-├── test_elibrary_parser.py   # Elibrary OPAC search & book detail parsers
-├── test_elibrary_router.py   # Elibrary endpoint integration & retry tests
-├── test_public_modules.py    # News (WP REST API), Repository, and EJournal parsers
-├── test_public_routers.py    # Public endpoints integration tests
-└── test_integration.py       # End-to-end full pipeline integration test
-```
+- **Satu perubahan logis per PR**: gunakan judul Conventional Commits (`feat(...)`, `fix(...)`, `docs(...)`, `refactor(...)`).
+- **Strict Offline TDD**: seluruh unit dan integration test di `tests/` **wajib 100% offline** (dilarang mengirim request HTTP langsung ke `*.bsi.ac.id` atau menyentuh Redis/Supabase produksi). Gunakan snapshot HTML anonim di `tests/fixtures/`.
+- **Data Dummy Saja**: dilarang memakai NIM, password, email, atau token asli di dalam test, fixture, komentar, atau body PR. Gunakan nilai dummy (`12345678`, `password-dummy`, `test@example.com`).
+- **Zero Secrets Rule**: jangan pernah men-stage atau meng-commit `.env`, API key, cookie sesi, atau kredensial apa pun. Periksa `git status` dan `git diff --cached` sebelum push.
+- **Skema Ganda Social (SQLite + Supabase Postgres)**: setiap perubahan tabel/kolom fitur komunitas (`app/social/db.py`) wajib memperbarui jalur SQLite, jalur Postgres (`_PG_EXTRA_TABLES` / `_ADDED_COLUMNS`), dan menambahkan migration baru di `supabase/migrations/` (lihat [supabase/README.md](supabase/README.md)).
+- **Dokumentasi Ikut Kode**: perubahan endpoint, perilaku auth, atau skema wajib memperbarui dokumen terkait (`README.md`, `AGENT.md`, `docs/*.md`) di PR yang sama.
+- **Verification Gate**:
+  ```bash
+  # Backend (677+ offline tests harus lulus 100%)
+  .venv/bin/pytest -q
 
-## Security
+  # Frontend (jika mengubah folder landing-page/)
+  cd landing-page && npm run build
+  ```
 
-Please do not open a public issue for vulnerabilities or credential leaks — see [SECURITY.md](SECURITY.md).
+---
 
-## Intellectual property & DMCA
+## 5. Keamanan & Hak Cipta
 
-All university trademarks, materials, and portal assets belong to Universitas Bina Sarana Informatika — see [DMCA.md](DMCA.md).
+- **Kerentanan Keamanan**: jangan buka public issue untuk celah keamanan atau kebocoran kredensial. Laporkan secara privat sesuai [SECURITY.md](SECURITY.md).
+- **Kode Etik**: seluruh anggota wajib mematuhi [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+- **Hak Cipta & DMCA**: seluruh merek, materi, dan aset portal kampus adalah milik Universitas Bina Sarana Informatika. Lihat [DMCA.md](DMCA.md).
 
-## License
+## Lisensi
 
-By contributing you agree that your work is licensed under the [MIT License](LICENSE).
+Dengan berkontribusi, Anda menyetujui bahwa kontribusi Anda dilisensikan di bawah [MIT License](LICENSE).

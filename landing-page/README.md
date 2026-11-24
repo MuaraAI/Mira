@@ -7,7 +7,7 @@ Official frontend client for Mira (`mira.muaraai.com`), built with Next.js 15, R
 A standalone Progressive Web App (PWA) and dashboard in the `/landing-page` subdirectory of the monorepo `MuaraAI/Mira`. It provides students with unified access to 6 campus services (SIAKAD, MyBest LMS, Ujian Online, Perpustakaan OPAC, Berita Resmi, and Repository Riset), personal API key management, and native Web Push notifications.
 
 - **Design System**: Muara AI Semi Pixel-Art Light design tokens (canvas `#F7FAFC`, surface `#FFFFFF`, border `#CFE2EE`, text `#072033`, accent `#0369A1` WCAG AAA).
-- **Typography**: Self-hosted Space Grotesk, Inter, and JetBrains Mono (`.woff2`) loaded via `next/font/local`. Zero external font CDN requests.
+- **Typography**: Self-hosted Space Grotesk, Inter, JetBrains Mono, and Pixelify Sans (`.woff2`) loaded via `next/font/local`. Zero external font CDN requests.
 - **PWA Features**: Service Worker (`public/sw.js`) with RFC 8291 Web Push notifications (VAPID), offline fallback, and install prompts.
 - **Performance**: SWR client-side RAM caching (0ms tab transitions), automatic background revalidation (60s), and silent re-authentication.
 
@@ -57,6 +57,7 @@ This application is configured for continuous deployment on Vercel:
 ## Related Links
 
 - [Root Repository](https://github.com/MuaraAI/Mira)
+- [Contributing Guide](../CONTRIBUTING.md) (Khusus Anggota Muara AI & mahasiswa aktif UBSI; wajib branch baru + PR)
 - [Design Specification](DESIGN.md)
 - [API Documentation](https://api.muaraai.com/v1/mira/v1/docs)
 - [License (MIT)](../LICENSE)
