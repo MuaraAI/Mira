@@ -526,6 +526,41 @@ async def mira_get_materials(
 
 
 @server.tool(
+    name="mira_get_learning_media",
+    description="Ambil daftar video pembelajaran dan dokumen slide dari halaman /learning MyBest.",
+)
+async def mira_get_learning_media(
+    token: Optional[str] = None, session_token: Optional[str] = None, api_key: Optional[str] = None,
+    ctx: Context | None = None,
+) -> str:
+    api_key, session_token = _resolve_credentials(ctx, api_key, session_token)
+    params = {"token": token} if token else None
+    res = await _api_get("/v1/elearning/learning-media", params=params, session_token=session_token, api_key=api_key)
+    return _json_dumps(res)
+
+
+@server.tool(
+    name="mira_submit_teaching_feedback",
+    description="**[WRITE]** Kirim komentar pengajaran dosen (Sesuai / Tidak Sesuai) pada sesi absen MyBest.",
+)
+async def mira_submit_teaching_feedback(
+    token: str,
+    komentar: str,
+    nilai: bool = True,
+    absen_path: str = "absen-mhs",
+    session_token: Optional[str] = None,
+    api_key: Optional[str] = None,
+    ctx: Context | None = None,
+) -> str:
+    api_key, session_token = _resolve_credentials(ctx, api_key, session_token)
+    body = {"token": token, "komentar": komentar, "nilai": nilai, "absen_path": absen_path}
+    res = await _api_post(
+        "/v1/elearning/presence/feedback", json_data=body, session_token=session_token, api_key=api_key
+    )
+    return _json_dumps(res)
+
+
+@server.tool(
     name="mira_get_grades_recap",
     description="Ambil rekapitulasi nilai tugas & kuis seluruh mata kuliah per pertemuan (rata-rata, max, min).",
 )

@@ -732,6 +732,106 @@ def parse_materials(html: str) -> list[dict[str, Any]]:
 
     return materials
 
+_VIDEO_URL_RE = re.compile(
+    r"youtube|youtu\.be|vimeo|dailymotion|facebook\.com/.+/videos|\.mp4|\.m3u8",
+    re.IGNORECASE,
+)
+
+
+def parse_feedback_form(html: str) -> dict[str, Any]:
+    """Ambil field form `/komentar-mhs` (komentar pengajaran dosen).
+
+    Form ini muncul di halaman /absen-mhs saat dosen membuka sesi. Field hidden
+    `_token`, `pertemuan`, dan `id` wajib diikutsertakan supaya pengiriman
+    komentar sekaligus mencatat kehadiran, seperti tombol "Kirim" di kampus.
+    """
+    page = Adaptor(html)
+    forms = page.css("form[action*='komentar-mhs']")
+    if not forms:
+        return {"available": False, "action": "/komentar-mhs", "inputs": {}}
+    form = forms[0]
+    action = form.attrib.get("action", "/komentar-mhs")
+    if action.startswith("https://"):
+        from urllib.parse import urlparse
+
+        action = urlparse(action).path or "/komentar-mhs"
+    elif not action.startswith("/"):
+        action = f"/{action}"
+    inputs: dict[str, str] = {}
+    for inp in form.css("input"):
+        name = inp.attrib.get("name")
+        kind = (inp.attrib.get("type") or "text").lower()
+        if not name or kind in {"radio", "checkbox", "submit", "button"}:
+            continue
+        inputs[name] = inp.attrib.get("value", "")
+    return {"available": True, "action": action, "inputs": inputs}
+
+
+def parse_learning_media(html: str) -> dict[str, list[dict[str, Any]]]:
+    """Ambil video (#profile) dan dokumen slide (#contact) dari halaman /learning."""
+    page = Adaptor(html)
+    videos: list[dict[str, Any]] = []
+    slides: list[dict[str, Any]] = []
+
+    profile = page.css("#profile")
+    seen: set[str] = set()
+    if profile:
+        for node in profile[0].css("iframe[src], video[src], source[src], a[href]"):
+            url = (node.attrib.get("src") or node.attrib.get("href") or "").strip()
+            if not url or url in seen or not _VIDEO_URL_RE.search(url):
+                continue
+            seen.add(url)
+            label = " ".join(node.get_all_text().split())
+            title = label or node.attrib.get("title") or node.attrib.get("aria-label") or "Video Pembelajaran"
+            thumb = None
+            match = re.search(r"(?:v=|youtu\.be/|embed/)([A-Za-z0-9_-]{11})", url)
+            if match and "youtu" in url.lower():
+                thumb = f"https://img.youtube.com/vi/{match.group(1)}/hqdefault.jpg"
+            videos.append(
+                {
+                    "id": hashlib.sha256(url.encode()).hexdigest()[:12],
+                    "judul": title,
+                    "url": url,
+                    "thumb": thumb,
+                    "kategori": "video_pembelajaran",
+                }
+            )
+
+    contact = page.css("#contact")
+    if contact:
+        for card in contact[0].css(".doc-block"):
+            titles = card.css(".doc-title")
+            descs = card.css(".doc-desc")
+            icons = card.css(".doc-icon img")
+            links = card.css("a[href]")
+            title = " ".join(titles[0].get_all_text().split()) if titles else "Dokumen"
+            desc = " ".join(descs[0].get_all_text().split()) if descs else ""
+            href = links[0].attrib.get("href", "") if links else ""
+            icon = icons[0].attrib.get("src", "") if icons else None
+            key = title.lower()
+            category = "slide"
+            if "silabus" in key:
+                category = "silabus"
+            elif "rps" in key:
+                category = "rps"
+            elif "modul" in key:
+                category = "modul"
+            elif "rtm" in key:
+                category = "rtm"
+            slides.append(
+                {
+                    "id": hashlib.sha256(f"{title}:{href}".encode()).hexdigest()[:12],
+                    "judul": title,
+                    "deskripsi": desc,
+                    "url": href,
+                    "icon": icon,
+                    "kategori": category,
+                }
+            )
+
+    return {"video": videos, "slide": slides}
+
+
 def parse_discussions(html: str) -> dict[str, Any]:
     """Ekstraksi daftar topik forum diskusi perkuliahan MyBest."""
     page = Adaptor(html)
@@ -2778,6 +2878,61 @@ async def submit_presence(
             "message": "Gagal mengirim presensi ke upstream. Silakan coba beberapa saat lagi.",
         }
 
+async def submit_teaching_feedback(
+    nim: str,
+    password: str,
+    token: str,
+    nilai: bool,
+    komentar: str,
+    absen_path: str = "absen-mhs",
+) -> dict[str, Any]:
+    """Kirim komentar pengajaran dosen lewat form `/komentar-mhs` MyBest.
+
+    Form yang sama dipakai saat absen, jadi field hidden aslinya tetap
+    dikirim agar kehadiran tercatat bersama komentar.
+    """
+    clean_token = extract_clean_token(token) or token.strip("/")
+    html = await pooled_elearning_client.fetch_page(f"/{absen_path}/{clean_token}", nim, password)
+    form = parse_feedback_form(html)
+    if not form["available"]:
+        return {
+            "success": False,
+            "status": "FORM_NOT_FOUND",
+            "message": "Form komentar pengajaran tidak tersedia untuk sesi ini.",
+        }
+
+    payload = dict(form["inputs"])
+    payload["nilai"] = "1" if nilai else "0"
+    payload["komentar"] = komentar.strip()
+    try:
+        resp = await pooled_elearning_client.post_page(form["action"], nim, password, data=payload)
+        status_code = getattr(resp, "status_code", 200)
+        headers = getattr(resp, "headers", {}) or {}
+        loc = str(headers.get("location", "") if hasattr(headers, "get") else "")
+        if status_code not in (200, 302) or is_logged_out_response(resp) or "/login" in loc:
+            return {
+                "success": False,
+                "status": "ERROR",
+                "message": "Gagal mengirim komentar: sesi MyBest kedaluwarsa atau upstream menolak.",
+            }
+        await invalidate_elearning_user_cache(nim, clean_token, absen_path)
+        return {
+            "success": True,
+            "status": "Terkirim",
+            "nilai": "Sesuai" if nilai else "Tidak Sesuai",
+            "message": "Komentar pengajaran berhasil dikirim.",
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning("Error saat submit komentar pengajaran: %s", exc)
+        return {
+            "success": False,
+            "status": "ERROR",
+            "message": "Gagal mengirim komentar ke upstream. Silakan coba beberapa saat lagi.",
+        }
+
+
 async def fetch_quiz_questions(
     nim: str, password: str, token: Optional[str] = None, quiz_url: Optional[str] = None
 ) -> dict[str, Any]:
@@ -2945,6 +3100,64 @@ async def post_presence(
     clean_token = extract_clean_token(token)
     result = await submit_presence(nim, password, clean_token, path.lower())
     return success_response(data=result)
+
+
+class FeedbackSubmitRequest(BaseModel):
+    token: str = Field(..., min_length=1, description="Token sesi absen MyBest (/absen-mhs/...)")
+    nilai: bool = Field(True, description="True = Pengajaran Sesuai, False = Tidak Sesuai")
+    komentar: str = Field(..., min_length=1, max_length=1000, description="Isi komentar untuk dosen pengampu")
+    absen_path: str = Field(
+        "absen-mhs",
+        pattern=_ABSEN_PATH_PATTERN,
+        description="Halaman absen MyBest: 'absen-mhs' atau path absen kuliah pengganti.",
+    )
+
+
+@router.post("/presence/feedback")
+async def post_presence_feedback(
+    body: FeedbackSubmitRequest,
+    creds: tuple[str, str] = Depends(require_elearning_creds),
+):
+    """Kirim komentar pengajaran dosen (Sesuai / Tidak Sesuai) dari halaman absen."""
+    nim, password = creds
+    result = await submit_teaching_feedback(
+        nim, password, body.token, body.nilai, body.komentar, body.absen_path.lower()
+    )
+    if not result.get("success"):
+        return error_response(
+            code=result.get("status", "FEEDBACK_FAILED"),
+            message=result.get("message", "Gagal mengirim komentar."),
+            module="elearning",
+        )
+    return success_response(data=result)
+
+
+@router.get("/learning-media")
+async def get_learning_media(
+    token: Optional[str] = Query(default=None, description="Token terenkripsi bahan ajar dari /courses (diawali 'eyJ...')"),
+    creds: tuple[str, str] = Depends(require_elearning_creds),
+):
+    """Video pembelajaran dan dokumen slide dari halaman /learning MyBest."""
+    nim, password = creds
+    clean_token = extract_clean_token(token)
+    if not clean_token:
+        courses_res = await get_courses(creds)
+        for course in courses_res["data"]:
+            candidate = extract_clean_token(course.get("token_learning"))
+            if candidate:
+                clean_token = candidate
+                break
+        if not clean_token:
+            return success_response(data={"video": [], "slide": []}, cached=False)
+
+    return await cached_endpoint(
+        module="elearning",
+        name="learning_media",
+        fetch=lambda: pooled_elearning_client.fetch_page(f"/learning/{clean_token}", nim, password),
+        parse=parse_learning_media,
+        ttl=settings.TTL_ASSIGNMENTS,
+        cache_params={"token": clean_token, "nim": nim},
+    )
 
 @router.get("/quiz/questions")
 async def get_quiz_questions(

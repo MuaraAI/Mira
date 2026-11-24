@@ -583,10 +583,36 @@ Submits student lecture attendance check-in ("pencet absen") for the active clas
   }
   ```
 
+### `POST /v1/elearning/presence/feedback`
+Sends lecturer teaching feedback (Sesuai / Tidak Sesuai plus a comment) through MyBest `/komentar-mhs`. The upstream form is the same one used for attendance, so the hidden fields are preserved and the check-in is recorded together with the comment.
+- **JSON Body**:
+  - `token` (required): encrypted attendance session token from `/courses` or `/makeups`
+  - `nilai` (boolean, default `true`): `true` = Sesuai, `false` = Tidak Sesuai
+  - `komentar` (required, 1-1000 chars): comment for the lecturer
+  - `absen_path` (default `absen-mhs`): attendance page path; use the path from `/makeups` for a replacement class
+- **Response Sample**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "success": true,
+      "status": "Terkirim",
+      "nilai": "Sesuai",
+      "message": "Komentar pengajaran berhasil dikirim."
+    }
+  }
+  ```
+
 ### `GET /v1/elearning/materials`
 Retrieves direct download links for lecture syllabus and weekly module packages (ZIP/PDF), plus lecturer uploaded materials.
 - **Query Parameter**: `token` (optional, the `token_learning` from `/courses`)
 - **Cache TTL**: 10 minutes (600 seconds)
+
+### `GET /v1/elearning/learning-media`
+Retrieves the Video Pembelajaran pane (`#profile`) and Slide Pembelajaran document cards (`#contact`) from the MyBest `/learning` page.
+- **Query Parameter**: `token` (optional, the `token_learning` from `/courses`)
+- **Cache TTL**: 10 minutes (600 seconds)
+- **Response Shape**: `{"video": [{id, judul, url, thumb, kategori}], "slide": [{id, judul, deskripsi, url, icon, kategori}]}`
 
 ### `GET /v1/elearning/materials/download`
 Securely downloads lecturer uploaded lecture module or slides from MyBest storage.

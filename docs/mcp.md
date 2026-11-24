@@ -136,6 +136,8 @@ Seluruh modul mata kuliah di MyBest diidentifikasi menggunakan **token terenkrip
 | `mira_get_presence` | `token?`, `session_token?`, `api_key?` | Rekap kehadiran real-time dan riwayat presensi DataTables AJAX (tanggal, BAP, dosen, rangkuman materi). |
 | `mira_submit_presence` | `token?`, `session_token?`, `api_key?` | **[WRITE]** Kirim presensi kehadiran (*Absen Masuk*) pada sesi kelas yang sedang membuka presensi. |
 | `mira_get_materials` | `token?`, `session_token?`, `api_key?` | Unduh berkas materi resmi: paket arsip ZIP Silabus, RPS, RTM, Slide, dan Modul Lab per mata kuliah. |
+| `mira_get_learning_media` | `token?`, `session_token?`, `api_key?` | Ambil video pembelajaran dan dokumen slide dari halaman `/learning` MyBest. |
+| `mira_submit_teaching_feedback` | `token`, `komentar`, `nilai?`, `absen_path?`, `session_token?`, `api_key?` | **[WRITE]** Kirim komentar pengajaran dosen (Sesuai / Tidak Sesuai) pada sesi absen. |
 | `mira_get_quiz` | `session_token?`, `api_key?` | Jadwal kuis latihan dan ujian online MyBest (paket, periode mulai/selesai, status aksi). |
 | `mira_get_quiz_questions` | `token?`, `quiz_url?`, `session_token?`, `api_key?` | Pratinjau butir soal kuis pilihan ganda, sisa waktu hitung mundur, dan opsi jawaban (A, B, C, D). |
 | `mira_get_exams` | `session_token?`, `api_key?` | Daftar jenis ujian semester Ujian Online BSI (latihan, UTS, UAS, pengganti, HER). |

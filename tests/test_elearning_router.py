@@ -849,3 +849,73 @@ async def test_presence_rekap_is_cached_between_polls(monkeypatch):
                 res = await ac.get("/v1/elearning/presence?token=custom_token")
                 assert res.status_code == 200
     assert rekap_calls["n"] == 1
+
+
+_FEEDBACK_ROUTER_HTML = """
+<form action="/komentar-mhs" method="post">
+  <input type="hidden" name="_token" value="dummy-token">
+  <textarea name="komentar"></textarea>
+  <input type="radio" name="nilai" value="1" checked>
+  <input type="radio" name="nilai" value="0">
+  <input type="hidden" name="pertemuan" value="dummy-pertemuan">
+  <input type="hidden" name="id" value="dummy-id">
+</form>
+"""
+
+
+@pytest.mark.asyncio
+async def test_get_learning_media_router(monkeypatch):
+    monkeypatch.setenv("ELEARNING_NIM", "12345678")
+    monkeypatch.setenv("ELEARNING_PASS", "secret")
+    mock_learning_html = (FIXTURES / "el_learning_1.html").read_text(encoding="utf-8")
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = None
+    mock_redis.incr.return_value = 1
+
+    with patch("redis.asyncio.from_url", return_value=mock_redis), \
+         patch("app.modules.elearning.pooled_elearning_client.fetch_page", return_value=mock_learning_html):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res = await ac.get("/v1/elearning/learning-media?token=test_tok")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["success"] is True
+    assert set(body["data"]) == {"video", "slide"}
+    assert any(item["kategori"] == "slide" for item in body["data"]["slide"])
+
+
+@pytest.mark.asyncio
+async def test_post_presence_feedback_router(monkeypatch):
+    monkeypatch.setenv("ELEARNING_NIM", "12345678")
+    monkeypatch.setenv("ELEARNING_PASS", "secret")
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = None
+    mock_redis.incr.return_value = 1
+    mock_post_resp = AsyncMock()
+    mock_post_resp.status_code = 200
+    mock_post_resp.headers = {}
+    sent = {}
+
+    async def fake_post(path, nim, password, data=None, json_body=None, headers=None):
+        sent["path"] = path
+        sent["data"] = data
+        return mock_post_resp
+
+    with patch("redis.asyncio.from_url", return_value=mock_redis), \
+         patch("app.modules.elearning.pooled_elearning_client.fetch_page", return_value=_FEEDBACK_ROUTER_HTML), \
+         patch("app.modules.elearning.pooled_elearning_client.post_page", side_effect=fake_post), \
+         patch("app.modules.elearning.invalidate_elearning_user_cache", new_callable=AsyncMock):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res = await ac.post("/v1/elearning/presence/feedback", json={
+                "token": "test_tok",
+                "nilai": False,
+                "komentar": "Materi sudah jelas",
+            })
+    assert res.status_code == 200
+    assert res.json()["success"] is True
+    assert sent["path"] == "/komentar-mhs"
+    assert sent["data"]["nilai"] == "0"
+    assert sent["data"]["komentar"] == "Materi sudah jelas"
+    assert sent["data"]["_token"] == "dummy-token"
+    assert sent["data"]["pertemuan"] == "dummy-pertemuan"
+    assert "radio" not in sent["data"]
+
