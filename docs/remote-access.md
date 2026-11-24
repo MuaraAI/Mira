@@ -45,9 +45,11 @@ TRUSTED_PROXIES=127.0.0.1
      ```
 
 3. **`TRUSTED_PROXIES` (Pencegahan Spoofing Real Client IP)**:
-   - Mengatur alamat IP dari reverse proxy lokal yang dipercaya untuk membaca header forwarding (`CF-Connecting-IP` dari Cloudflare atau `X-Forwarded-For` dari Caddy/Nginx).
+   - Mengatur alamat IP atau subnet **CIDR** dari reverse proxy yang dipercaya (mendukung IP tunggal maupun blok CIDR Cloudflare, mis. `127.0.0.1,173.245.48.0/20,...`) untuk membaca header forwarding (`CF-Connecting-IP` dari Cloudflare atau `X-Forwarded-For` dari Caddy/Nginx).
    - Nilai `127.0.0.1` (default): Sangat ideal untuk Caddy, Nginx, atau daemon `cloudflared` yang berjalan di satu server fisik/VPS yang sama dengan Uvicorn.
-   - Memastikan kuota rate limiter (60 request/menit) dihitung berdasarkan IP asli pengunjung luar secara adil, serta mencegah pihak luar memalsukan header IP palsu.
+   - Memastikan kuota rate limiter (60 request/menit) dan `login_guard` (10 login/menit/IP) dihitung berdasarkan IP asli pengunjung luar secara adil, serta mencegah pihak luar memalsukan header IP palsu.
+
+> **Catatan MCP Server**: Jika juga mengekspos MCP Server (`127.0.0.1:8350/mcp`), teruskan sub-path `/v1/mira/mcp` (atau `/mcp`) ke port `8350` di konfigurasi reverse proxy Anda. Klien dapat mengautentikasi menggunakan **Master Key** (`X-API-Key`), **Personal API Key** (`Authorization: Bearer muara_mira_...`), atau **Session Token** dashboard (`ubsi_session`).
 
 ---
 

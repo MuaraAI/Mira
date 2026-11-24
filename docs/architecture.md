@@ -93,10 +93,15 @@ This isolates cache namespaces across modules and query parameters.
 To prevent concurrent requests from different student credentials from overwriting each other's session cookies:
 - The scraper client wraps instances inside `SessionPool`.
 - Each unique NIM maintains its own independent authenticated HTTP client.
-- Idle sessions are automatically evicted after 15 minutes (`ttl_seconds=900`) to conserve VPS RAM.
+- Idle sessions are automatically evicted after 10 minutes (`ttl_seconds=600`, LRU cap `max_sessions=150`) to conserve VPS RAM.
 - Expired sessions trigger immediate invalidation so subsequent calls trigger a clean re-login.
+- Active campus cookies are persisted in Redis (`app/campus_session_store.py`) and restored reactively on expiry via `app/upstream_session.py` (with login cooldowns on CAPTCHA/HTTP 429).
 
-### B. Parallel Dashboard Endpoint (`/v1/studentv2/dashboard`)
+### B. Canonical Account Links & Per-Device Authorization
+- **Canonical SIAKAD Links (`app/account_links.py`)**: Per-NIM SIAKAD credentials are stored in SQLite (`account_links`, encrypted with Fernet) so students do not have to re-link across devices; Personal API Keys read from this canonical store.
+- **Per-Device Approval (`app/account_devices.py` + `app/device_identity.py`)**: Browsers receive an `HttpOnly` `mira_device` cookie (180 days). The first device for a NIM is automatically `trusted`; subsequent devices start as `pending` until approved by a trusted device (idle approvals auto-revoke after 30 days). `pending` devices can use MyBest, while SIAKAD endpoints and persistent writes (API keys, PWA push, webhooks) return `403 SIAKAD_DEVICE_PENDING`.
+
+### C. Parallel Dashboard Endpoint (`/v1/studentv2/dashboard` & `/v1/elearning/dashboard`)
 Retrieves 4 critical academic sections (`schedule`, `grades`, `news`, `announcements`) concurrently using `asyncio.gather(..., return_exceptions=True)`:
 - Total response latency equals the single slowest upstream section rather than the sum of all 4.
 - Sections with valid cached payloads are served immediately without hitting upstream servers.
@@ -120,50 +125,78 @@ Mira includes an automated background watcher for new campus publications:
 ## 7. Repository Layout
 
 ```text
-UBSI-API/
+UBSI-API/ (Repo: MuaraAI/Mira)
 ├── app/
 │   ├── modules/
-│   │   ├── studentv2.py       # SIAKAD: Jadwal, Nilai, Berita, Pengumuman, Dashboard
-│   │   ├── elearning.py       # MyBest: Courses, Absensi, Tugas, Materi, Kuis, Rekap Nilai
+│   │   ├── auth.py            # Auth: Login MyBest-only, session, devices, keys, credentials, password, forgot-password
+│   │   ├── capabilities.py    # Public feature flags (`GET /v1/capabilities`)
+│   │   ├── studentv2.py       # SIAKAD: Profil akademik, Jadwal, Nilai, KHS/KHS-semester, KRS+cetak, UTS/UAS, Dashboard
+│   │   ├── elearning.py       # MyBest: Courses, Schedule, Absensi, Tugas, Materi, Kuis CBT, TOEFL, Ujian, Rekap Nilai
 │   │   ├── elibrary.py        # Perpus: OPAC search, Book detail, 60s retry
-│   │   ├── news.py            # Portal: Native WP REST API & Multi-channel Webhook
+│   │   ├── news.py            # Portal: Native WP REST API & Multi-channel Webhook Broadcaster
 │   │   ├── repository.py      # EPrints: Recent publications & search
 │   │   ├── ejournal.py        # OJS: 23 Journal catalog with real titles
-│   │   ├── auth.py            # Auth: Login BSI, session, verify, logout, me
+│   │   ├── academic_events.py # Kalender kegiatan akademik publik (`staffv2.bsi.ac.id`)
+│   │   ├── lecturers.py       # Jadwal mengajar dosen per kode inisial
 │   │   ├── channels.py        # Channels: Webhook notification CRUD & testing
-│   │   └── social.py          # Komunitas: router HTTP tipis + SSE stream (/v1/social)
+│   │   ├── pwa_push.py        # PWA Web Push: VAPID key, subscribe/unsubscribe, devices, categories
+│   │   ├── social.py          # Komunitas: router HTTP tipis + SSE stream (/v1/social)
+│   │   ├── links.py           # Pemeriksa keamanan tautan tugas/materi
+│   │   └── stats.py           # Analitik penggunaan anonim (/v1/stats)
 │   ├── social/                # Komunitas: chat ala Discord (ruang + channel) + Telegram (DM)
-│   │   ├── db.py              # Skema SQLite social_* (FK cascade)
+│   │   ├── db.py              # Dual-driver schema: Supabase Postgres (prod) + SQLite fallback (dev/test)
 │   │   ├── service.py         # Aturan akses, validasi, query; kembalikan Outcome + Event
-│   │   └── events.py          # Fan-out realtime Redis pub/sub per pengguna (fail-open)
+│   │   ├── events.py          # Fan-out realtime Redis pub/sub per pengguna (fail-open)
+│   │   └── media.py           # Upload & serving avatar/banner komunitas (`data/social_media/`)
+│   ├── account_links.py       # Store kanonis tautan kredensial SIAKAD per NIM (SQLite, Fernet)
+│   ├── account_devices.py     # Manajemen izin perangkat (trusted/pending/revoked, 30d idle revoke)
+│   ├── device_identity.py     # Cookie perangkat HttpOnly `mira_device` (180 hari)
+│   ├── api_keys_db.py         # Personal API Keys (`muara_mira_*` / legacy `muara_ubsi_*`), BLAKE2b + Fernet
 │   ├── cache.py               # Redis 2-tier cache (fresh + LGG) & single-flight mutex
-│   ├── channels_db.py         # SQLite WAL persistence for student notification channels
+│   ├── campus_session_store.py# Persistensi cookie sesi kampus di Redis
+│   ├── captcha_autosolver.py  # OCR CAPTCHA gambar SIAKAD (ddddocr utama, tesseract fallback)
+│   ├── captcha_relay.py       # Helper tantangan sesi CAPTCHA per percobaan
+│   ├── elearning_captcha.py   # Solver puzzle geser MyBest 2026 (OpenCV template matching + /verify-captcha)
+│   ├── channels_db.py         # SQLite WAL persistence for webhook channels (Fernet encrypted at rest)
 │   ├── channel_validation.py  # Anti-SSRF and payload validation for webhooks
-│   ├── config.py              # Pydantic Settings & tiered TTLs
-│   ├── deps.py                # Session credential injection & header overrides
+│   ├── config.py              # Pydantic Settings, tiered TTLs, feature & maintenance flags
+│   ├── deps.py                # Session/API key/account_links credential injection & header overrides
 │   ├── envelope.py            # Clean Minimalist JSON envelope
 │   ├── limiter.py             # Sliding window rate limiter (60 req/min)
+│   ├── login_guard.py         # Login & forgot-password guard (10/min/IP, escalating blacklist, daily logs)
+│   ├── maintenance.py         # Maintenance mode gate (503 MAINTENANCE + NIM whitelist)
+│   ├── mcp_server.py          # MCP Server (40 tools `mira_*`, Streamable HTTP port 8350)
+│   ├── notifier.py            # Scheduled academic notification & reminder worker
+│   ├── password_change.py     # Ganti password kampus + deteksi password default
+│   ├── password_reset.py      # Reset password kampus via email + validasi NIM-email (HMAC)
+│   ├── pwa_push_db.py         # SQLite store for PWA Web Push subscriptions & preferences
+│   ├── pwa_webpush.py         # RFC 8291 VAPID Web Push dispatcher & maintenance broadcast
 │   ├── retry.py               # Exponential backoff retry with jitter
 │   ├── router_helper.py       # Helper generik cache, lock, & SWR
-│   ├── session_pool.py        # Pool sesi per-NIM dengan idle TTL (15m)
-│   ├── session_store.py       # Redis session storage (sliding 7 days TTL)
-│   └── main.py                # Base FastAPI app & global middleware
-├── landing-page/              # Next.js 15 App Router Frontend & Student Dashboard
-│   ├── public/fonts/          # Self-hosted woff2/otf fonts (Gordita, Inter, JetBrains Mono, Anton)
+│   ├── session_pool.py        # Pool sesi per-NIM dengan idle TTL (10m) & LRU (150)
+│   ├── session_store.py       # Redis session storage (AES-256-GCM, sliding 7 days TTL)
+│   ├── stats.py               # Privacy-preserving usage metrics (HMAC-SHA256 NIM)
+│   ├── upstream_session.py    # Cooldown CAPTCHA/429 & reactive campus session recovery
+│   └── main.py                # Base FastAPI app, CIDR proxy trust, & global middleware
+├── landing-page/              # Next.js 15 App Router Frontend & Student PWA Dashboard
+│   ├── public/fonts/          # Self-hosted woff2 fonts (Space Grotesk, Inter, JetBrains Mono, Pixelify Sans)
 │   ├── src/app/               # Landing, /login, /dashboard/*, /recap, robots, sitemap
-│   ├── src/components/        # Deep Water UI components & dashboard layouts
+│   ├── src/components/        # Semi Pixel-Art Light UI components, CBT Room, Social, & dashboard layouts
 │   └── src/lib/               # Client apiFetch wrapper, hooks, and session guards
+├── supabase/                  # Cermin resmi SQL migrations Supabase Postgres (`Mira Social`)
 ├── tests/
-│   ├── fixtures/              # Snapshot HTML offline (sv2_*.html, el_*.html)
+│   ├── fixtures/              # Snapshot HTML offline anonim (sv2_*.html, el_*.html)
 │   ├── conftest.py            # Fixture autouse & test auth client
-│   └── test_*.py              # 118 Automated unit & integration tests
+│   └── test_*.py              # 677+ Automated offline unit & integration tests
 ├── templates/
 │   ├── Caddyfile.example      # Caddy reverse proxy template (HTTPS auto)
 │   ├── nginx.example.conf     # Nginx reverse proxy configuration template
 │   └── cloudflared.example.yml# Cloudflare Tunnel ingress template
 ├── scripts/
-│   ├── deploy.sh              # 1-klik deploy ke VPS Tencent via rsync & PM2
-│   └── smoke.py               # Live verification CLI tool (8 checks, auth-aware)
+│   ├── backup_db.sh           # Daily SQLite backup (VPS + offsite Google Drive)
+│   ├── deploy.sh              # 1-klik deploy ke VPS via rsync & PM2
+│   ├── generate_vapid_keys.py # Generator VAPID keypair untuk PWA Web Push
+│   └── smoke.py               # Live verification CLI tool (auth-aware)
 ├── skills/
 │   └── SKILL.md               # Agent skill definition for AI assistants
 ├── docs/
@@ -171,11 +204,15 @@ UBSI-API/
 │   ├── architecture.md        # Request lifecycle, session pool, and cache flow
 │   ├── anti-ban.md            # Account security & safety protocols
 │   ├── deploy.md              # VPS PM2 production operations
+│   ├── login-captcha-recovery.md # Riwayat perbaikan login & CAPTCHA
+│   ├── mcp.md                 # MCP Server reference & 40 tool catalog
 │   └── remote-access.md       # Caddy, Nginx, & Cloudflare Tunnel guide
-├── ecosystem.config.cjs       # PM2 production config untuk VPS
-├── CONTRIBUTING.md            # Panduan kontribusi & layout tests
-├── SECURITY.md                # Kebijakan etika & privasi akademik
+├── ecosystem.config.cjs       # PM2 production config (`ubsi-api` + `ubsi-mcp`)
+├── AGENT.md                   # Panduan operasional AI Agent & arsitektur sesi/database
+├── CONTRIBUTING.md            # Syarat kontributor (Anggota Muara AI & mahasiswa aktif UBSI), wajib branch baru
+├── SECURITY.md                # Kebijakan keamanan & enkripsi
+├── PRIVACY.md                 # Kebijakan privasi & retensi data
 ├── DMCA.md                    # Kebijakan hak cipta & takedown notice
-├── LICENSE                    # MIT License (c) 2026 Yuken Velino
+├── LICENSE                    # MIT License (c) 2026 Muara AI
 └── requirements.txt           # Project dependencies
 ```

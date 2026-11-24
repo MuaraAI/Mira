@@ -87,14 +87,15 @@ Layanan kuliah UBSI tersebar di enam portal berbeda. Mira menyatukannya dalam sa
 
 | Lapisan | Perlindungan |
 |---|---|
-| Kredensial | Password kampus dienkripsi AES-256-GCM, tidak pernah disimpan sebagai teks biasa |
+| Kredensial & Sesi | Sesi Redis dienkripsi **AES-256-GCM**; tautan SIAKAD (`account_links`), kredensial Personal API Key, dan konfigurasi webhook (`webhook_channels`) dienkripsi **Fernet** (keyed BLAKE2b KDF) di SQLite |
+| Perangkat Tepercaya | Cookie perangkat `mira_device` (HttpOnly, 180 hari): perangkat pertama otomatis `trusted`, perangkat baru `pending` (akses SIAKAD & jalur tulis persisten diblokir `403 SIAKAD_DEVICE_PENDING` sampai disetujui perangkat tepercaya) |
 | Login | Maks 10 percobaan per menit per IP. Spam = IP diblokir otomatis 15 menit, naik ke 1 jam lalu 24 jam bila diulang |
 | Brute force per akun | Maks 5 percobaan per menit per NIM |
 | Password default | Akun yang masih memakai password bawaan kampus diingatkan di setiap halaman dan bisa langsung ganti password dari Mira |
 | Aktivitas | Jumlah login sukses dan gagal hari ini tampil di navbar desktop dan mobile |
 | Lupa password | Reset lewat NIM + email terdaftar. NIM dan email yang tidak cocok ditolak sebelum diteruskan ke kampus |
-| Isolasi | Sesi dan cookie kampus terpisah per NIM |
-| Webhook | Proteksi SSRF: blokir IP privat dan validasi DNS |
+| Isolasi | Sesi dan cookie kampus terpisah per NIM (`SessionPool`, idle eviction + LRU) |
+| Webhook | Enkripsi config at-rest (masked di dashboard) + proteksi SSRF (blokir IP privat & validasi DNS) |
 
 Temukan celah keamanan? Laporkan sesuai [SECURITY.md](SECURITY.md).
 
@@ -146,9 +147,11 @@ Konfigurasi Cursor, Codex, dan Hermes ada di [docs/mcp.md](docs/mcp.md).
 | [docs/mcp.md](docs/mcp.md) | Daftar tools MCP dan integrasi agent |
 | [docs/anti-ban.md](docs/anti-ban.md) | Batas laju aman ke server kampus |
 | [docs/deploy.md](docs/deploy.md) | Deploy ke VPS dengan PM2 |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Alur branch, commit, dan pull request |
+| [docs/remote-access.md](docs/remote-access.md) | Setup reverse proxy (Caddy/Nginx) & Cloudflare Tunnel |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Syarat kontributor, wajib branch baru, commit, dan pull request |
+| [AGENT.md](AGENT.md) | Panduan operasional AI agent, peta database, dan arsitektur sesi |
 | [promo-video/README.md](promo-video/README.md) | Video tutorial Mira 2:16 (Remotion), narasi & SFX ElevenLabs, paket posting YouTube dan Instagram |
-| [PRIVACY.md](PRIVACY.md) · [DMCA.md](DMCA.md) · [Syarat Layanan](https://mira.muaraai.com/terms) | Legal |
+| [SECURITY.md](SECURITY.md) · [PRIVACY.md](PRIVACY.md) · [DMCA.md](DMCA.md) · [Syarat Layanan](https://mira.muaraai.com/terms) | Keamanan & Legal |
 
 ## Tim
 
@@ -160,7 +163,9 @@ Dikembangkan oleh [Muara AI](https://github.com/MuaraAI), mahasiswa Informatika 
 | <img src="https://github.com/MyKineID.png" width="40" /> | **Verzio Yamanansyah** · [@MyKineID](https://github.com/MyKineID) | Co-Founder, Frontend |
 | <img src="https://github.com/Seeyaa77.png" width="40" /> | **M Raffli Aldiansyah** · [@Seeyaa77](https://github.com/Seeyaa77) | Co-Founder, Hacker |
 
-Ingin ikut kontribusi? Baca [CONTRIBUTING.md](CONTRIBUTING.md).
+### Kontribusi
+
+Kontribusi ke repositori ini **hanya dibuka untuk Anggota Muara AI yang berstatus mahasiswa aktif UBSI**, dan **wajib menggunakan branch baru + Pull Request** ke `main` (dilarang direct push ke `main`). Baca aturan lengkap di [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Disclaimer
 
