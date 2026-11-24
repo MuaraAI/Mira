@@ -90,7 +90,7 @@ export function MessageMenu({
   };
 
   const reactionBar = !pending && !target.pickerOnly && (
-    <div className="flex items-center gap-1 px-2 py-2">
+    <div className="flex items-center gap-1 px-2.5 py-2">
       {QUICK_REACTIONS.map((key, i) => (
         <button
           key={key}
@@ -99,12 +99,12 @@ export function MessageMenu({
           aria-label={REACTION_LABEL[key]}
           aria-pressed={mineReacted.has(key)}
           title={REACTION_LABEL[key]}
-          style={{ animationDelay: `${i * 25}ms` }}
-          className={`react-pop flex h-11 w-11 shrink-0 items-center justify-center transition-transform duration-150 hover:-translate-y-1 hover:scale-110 md:h-10 md:w-10 ${
-            mineReacted.has(key) ? "bg-[#DCEBF5] shadow-[0_0_0_2px_#0369A1]" : "hover:bg-[#F0F7FB]"
+          style={{ animationDelay: `${i * 22}ms` }}
+          className={`react-pop flex h-10 w-10 shrink-0 items-center justify-center rounded-[9999px] transition-transform duration-150 hover:-translate-y-0.5 hover:scale-125 active:scale-95 ${
+            mineReacted.has(key) ? "bg-[#E1F1FC] ring-1 ring-[#0369A1]" : "hover:bg-[#F2F7FB]"
           }`}
         >
-          <Emoji name={key} size={30} />
+          <Emoji name={key} size={24} />
         </button>
       ))}
       <button
@@ -112,15 +112,15 @@ export function MessageMenu({
         onClick={() => setExpanded((v) => !v)}
         aria-label={expanded ? "Tutup semua reaksi" : "Semua reaksi"}
         aria-expanded={expanded}
-        className="ml-auto flex h-11 w-11 shrink-0 items-center justify-center text-[#3B5A70] hover:bg-[#F0F7FB] hover:text-[#072033] md:h-10 md:w-10"
+        className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-[9999px] bg-[#F2F7FB] text-[#3B5A70] transition-colors hover:bg-[#E1F1FC] hover:text-[#072033]"
       >
-        {expanded ? <X className="h-5 w-5" aria-hidden="true" /> : <Plus className="h-5 w-5" aria-hidden="true" />}
+        {expanded ? <X className="h-4 w-4" aria-hidden="true" /> : <Plus className="h-4 w-4" aria-hidden="true" />}
       </button>
     </div>
   );
 
   const grid = expanded && !pending && (
-    <div className={`grid grid-cols-6 gap-1 p-2 ${target.pickerOnly ? "" : "border-t-2 border-[#EAF3F9]"}`} role="group" aria-label="Semua reaksi">
+    <div className={`grid grid-cols-6 gap-1 p-2.5 ${target.pickerOnly ? "" : "border-t-[1px] border-[#EAF3F9]"}`} role="group" aria-label="Semua reaksi">
       {REACTIONS.map(({ key, label }, i) => (
         <button
           key={key}
@@ -129,29 +129,29 @@ export function MessageMenu({
           aria-label={label}
           aria-pressed={mineReacted.has(key)}
           title={label}
-          style={{ animationDelay: `${i * 12}ms` }}
-          className={`react-pop flex aspect-square items-center justify-center transition-transform duration-150 hover:scale-110 ${
-            mineReacted.has(key) ? "bg-[#DCEBF5] shadow-[0_0_0_2px_#0369A1]" : "hover:bg-[#F0F7FB]"
+          style={{ animationDelay: `${i * 10}ms` }}
+          className={`react-pop flex aspect-square items-center justify-center rounded-[10px] transition-transform duration-150 hover:scale-125 active:scale-95 ${
+            mineReacted.has(key) ? "bg-[#E1F1FC] ring-1 ring-[#0369A1]" : "hover:bg-[#F2F7FB]"
           }`}
         >
-          <Emoji name={key} size={30} />
+          <Emoji name={key} size={24} />
         </button>
       ))}
     </div>
   );
 
   const list = !target.pickerOnly && (
-    <ul className="border-t-2 border-[#EAF3F9] py-1">
+    <ul className="border-t-[1px] border-[#EAF3F9] py-1">
       {actions.map(({ label, icon: Icon, run, danger }) => (
         <li key={label}>
           <button
             type="button"
             onClick={pick(run)}
-            className={`flex min-h-12 w-full items-center gap-3 px-4 text-left text-[15px] font-medium transition-colors lg:min-h-10 lg:text-sm ${
-              danger ? "text-[#BE123C] hover:bg-[#FFF1F2]" : "text-[#072033] hover:bg-[#F0F7FB]"
+            className={`flex min-h-11 w-full items-center gap-3 px-4 text-left text-[14.5px] font-medium transition-colors lg:min-h-10 lg:text-[13.5px] ${
+              danger ? "text-[#BE123C] hover:bg-[#FFF1F2]" : "text-[#072033] hover:bg-[#F5F9FC]"
             }`}
           >
-            <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
+            <Icon className="h-[17px] w-[17px] shrink-0" aria-hidden="true" />
             {label}
           </button>
         </li>
@@ -176,25 +176,25 @@ export function MessageMenu({
         labelledBy="message-menu-title"
         className={
           sheet
-            ? "sheet-up absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-2px_0_0_#163A55,0_-6px_0_0_#0369A1]"
+            ? "sheet-up absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-[20px] border-t-[1px] border-[#DFECF4] bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-12px_36px_-10px_rgba(7,32,51,0.22)]"
             : ""
         }
       >
         <div
           ref={panel}
           style={sheet ? undefined : { top: pos?.top ?? -9999, left: pos?.left ?? -9999, width: MENU_WIDTH, position: "fixed" }}
-          className={sheet ? "" : "menu-pop origin-top bg-white shadow-[0_0_0_2px_#163A55,6px_6px_0_0_#9CC6E0]"}
+          className={sheet ? "" : "menu-pop origin-top overflow-hidden rounded-[16px] border-[1px] border-[#DFECF4] bg-white/95 backdrop-blur-md shadow-[0_14px_36px_-10px_rgba(7,32,51,0.22)]"}
         >
           <p id="message-menu-title" className="sr-only">
             Aksi pesan dari {message.author.display_name}
           </p>
           {sheet && (
-            <div className="flex justify-center pt-2" aria-hidden="true">
-              <span className="h-1 w-10 bg-[#CFE2EE]" />
+            <div className="flex justify-center pt-2.5" aria-hidden="true">
+              <span className="h-1 w-10 rounded-[9999px] bg-[#CFE2EE]" />
             </div>
           )}
           {sheet && message.body && (
-            <p className="mx-4 mt-2 line-clamp-2 border-l-[3px] border-[#0369A1] bg-[#F0F7FB] px-3 py-1.5 text-sm text-[#3B5A70]">
+            <p className="mx-4 mt-2.5 line-clamp-2 rounded-[8px] border-l-[3px] border-[#0369A1] bg-[#F5F9FC] px-3 py-1.5 text-[13px] text-[#3B5A70]">
               {message.body}
             </p>
           )}

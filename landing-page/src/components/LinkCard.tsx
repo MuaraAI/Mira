@@ -84,16 +84,16 @@ export function LinkCard({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="min-w-0 space-y-2">
       <div
-        className={`flex items-center gap-3 bg-white p-3 shadow-[0_-2px_0_0_var(--c),0_2px_0_0_var(--c),-2px_0_0_0_var(--c),2px_0_0_0_var(--c)] ${compact ? "" : "sm:p-4"}`}
-        style={{ ["--c" as string]: danger ? "#FDA4AF" : check?.access === "unlisted" ? "#9CC6E0" : check?.access === "public" ? "#99D5CC" : "#D9E5ED" }}
+        className={`flex min-w-0 items-center gap-3 overflow-hidden rounded-[8px] border-[1px] bg-white p-3 ${compact ? "" : "sm:p-4"}`}
+        style={{ borderColor: danger ? "#FDA4AF" : check?.access === "unlisted" ? "#9CC6E0" : check?.access === "public" ? "#99D5CC" : "#D9E5ED" }}
       >
-        <span className={`px-icon h-10 w-10 shrink-0 ${danger ? "!bg-[#FFF1F2] !text-[#BE123C]" : ""}`}>
+        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] border-[1px] border-stroke bg-[#F0F7FB] text-[#0369A1] ${danger ? "!border-[#FDA4AF] !bg-[#FFF1F2] !text-[#BE123C]" : ""}`}>
           <ProviderIcon provider={provider} label={label} />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             <p className="min-w-0 truncate text-sm font-bold text-foreground">{title}</p>
             <StatusPill access={check?.access ?? null} checking={checking} />
           </div>
@@ -106,12 +106,12 @@ export function LinkCard({
 
       <LinkAccessWarning check={check} provider={provider} />
       {(check?.access === "public" || check?.access === "unlisted") && (
-        <p className={`flex items-center gap-1.5 text-xs ${check.access === "unlisted" ? "text-[#0369A1]" : "text-[#0F766E]"}`}>
-          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          {check.message}
+        <p className={`flex items-start gap-1.5 break-words text-xs ${check.access === "unlisted" ? "text-[#0369A1]" : "text-[#0F766E]"}`}>
+          <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span className="min-w-0 flex-1">{check.message}</span>
         </p>
       )}
-      {check?.access === "unknown" && <p className="text-xs text-secondary">{check.message}</p>}
+      {check?.access === "unknown" && <p className="break-words text-xs text-secondary">{check.message}</p>}
 
       <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1">
         {canPreview && (

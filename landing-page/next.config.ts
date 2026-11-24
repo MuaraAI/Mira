@@ -32,6 +32,18 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async rewrites() {
+    if (process.env.NODE_ENV === "production") return [];
+    const upstream = (
+      process.env.MIRA_DEV_PROXY_TARGET || "https://api.muaraai.com/v1/mira"
+    ).replace(/\/+$/, "");
+    return [
+      {
+        source: "/_mira_api/:path*",
+        destination: `${upstream}/:path*`,
+      },
+    ];
+  },
   async redirects() {
     return [
       {

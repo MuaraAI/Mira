@@ -1,94 +1,184 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Github, Mail, MessageCircle, Instagram, Twitter } from "lucide-react";
-import { API_DOCS_URL, GITHUB_URL, MCP_URL } from "@/lib/public-links";
+import { Github, Mail } from "lucide-react";
+import { ParallaxLayer } from "./HomeParallax";
+import { SOCIAL_PROFILES } from "./SocialIcons";
+import { API_DOCS_URL, DONATE_URL, GITHUB_URL, MCP_URL } from "@/lib/public-links";
 
 const LINK_CLASS =
-  "group inline-flex min-h-11 items-center gap-1.5 text-secondary transition-colors duration-200 hover:text-[#0369A1]";
-
-function Marker() {
-  return <span className="h-1.5 w-0 bg-[#0369A1] transition-all duration-200 ease-out group-hover:w-1.5" aria-hidden="true" />;
-}
+  "inline-flex min-h-[44px] items-center gap-2 text-secondary transition-colors duration-200 hover:text-[#0369A1]";
 
 function ColumnTitle({ children }: { children: React.ReactNode }) {
   return (
-    <p className="mb-3 flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-foreground">
-      <span className="h-1.5 w-1.5 bg-[#0369A1]" aria-hidden="true" />
+    <p className="mb-3 font-mono text-xs uppercase tracking-[0.14em] text-foreground">
       {children}
     </p>
   );
 }
 
-/** Thin stepped-wave strip that tops the footer (same shore as muaraai.com). */
-function PixelShore() {
+function OceanWaveDivider() {
   return (
-    <svg className="block h-3 w-full" preserveAspectRatio="none" shapeRendering="crispEdges" aria-hidden="true">
-      <defs>
-        <pattern id="footer-shore" width="16" height="12" patternUnits="userSpaceOnUse">
-          <rect width="16" height="12" fill="#EEF6FB" />
-          <rect y="4" width="4" height="8" fill="#9CC6E0" />
-          <rect x="4" y="2" width="4" height="10" fill="#9CC6E0" />
-          <rect x="8" y="4" width="4" height="8" fill="#9CC6E0" />
-          <rect x="12" y="6" width="4" height="6" fill="#9CC6E0" />
-          <rect y="8" width="16" height="4" fill="#5FA3CC" />
-          <rect y="10" width="16" height="2" fill="#0369A1" />
-        </pattern>
-      </defs>
-      <rect width="100%" height="100%" fill="url(#footer-shore)" />
-    </svg>
+    <div className="relative h-14 w-full overflow-hidden bg-background sm:h-20" aria-hidden="true">
+      <ParallaxLayer speed={12} className="absolute inset-0">
+        <svg
+          className="block h-full w-full"
+          viewBox="0 0 1440 80"
+          preserveAspectRatio="none"
+        >
+          <path
+            d="M0,44 C260,12 520,68 780,38 C1040,8 1260,54 1440,28 L1440,80 L0,80 Z"
+            fill="#DCEBF5"
+          />
+        </svg>
+      </ParallaxLayer>
+      <svg
+        className="relative z-10 block h-full w-full"
+        viewBox="0 0 1440 80"
+        preserveAspectRatio="none"
+      >
+        <path
+          d="M0,58 C300,32 580,74 900,48 C1140,28 1310,60 1440,44 L1440,80 L0,80 Z"
+          fill="#FFFFFF"
+        />
+      </svg>
+    </div>
   );
 }
 
 export function Footer() {
   return (
     <footer className="bg-white">
-      <PixelShore />
-      <div className="px-4 pb-6 pt-12 sm:px-6 lg:px-8">
-        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-[1.4fr_0.8fr_0.8fr]">
+      <OceanWaveDivider />
+      <div className="px-5 pb-8 pt-8 sm:px-6 sm:pt-10 lg:px-8">
+        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-x-6 gap-y-8 md:grid-cols-[1.4fr_0.8fr_0.8fr] md:gap-y-10">
           <div className="col-span-2 md:col-span-1">
             <div className="flex items-center gap-3">
-              <span className="px-frame flex h-11 w-11 items-center justify-center overflow-hidden bg-white [--px-line:#CFE2EE]">
-                <Image src="/logo/logo.png" alt="Logo Mira" width={40} height={40} className="h-9 w-9" />
-              </span>
+              <Image
+                src="/logo/logo.png"
+                alt="Logo Mira"
+                width={38}
+                height={38}
+                className="h-9 w-9 object-contain"
+              />
               <div>
-                <p className="font-display text-base font-bold text-foreground">Mira</p>
+                <p className="text-lg tracking-[-0.01em] text-foreground">Mira</p>
                 <p className="font-mono text-xs text-secondary">by Muara AI</p>
               </div>
             </div>
-            <p className="mt-4 max-w-sm text-sm leading-6 text-secondary">
-              Dikembangkan oleh mahasiswa Informatika UBSI Kampus Pontianak di bawah bendera riset open-source komunitas Muara AI. Bukan aplikasi resmi UBSI.
+            <p className="mt-4 max-w-sm text-[13px] leading-[1.7] tracking-[0.012em] text-secondary">
+              Dikembangkan oleh mahasiswa Informatika UBSI Kampus Pontianak di bawah bendera riset
+              open-source komunitas Muara AI. Bukan aplikasi resmi UBSI.
             </p>
           </div>
 
-          <nav aria-label="Produk Mira" className="text-sm">
+          <nav aria-label="Produk Mira" className="text-[13px] tracking-[0.012em]">
             <ColumnTitle>Produk</ColumnTitle>
-            <ul className="space-y-1">
-              <li><Link href="/login" className={LINK_CLASS}><Marker />Dashboard mahasiswa</Link></li>
-              <li><Link href="/demo" className={LINK_CLASS}><Marker />Demo interaktif</Link></li>
-              <li><a href={API_DOCS_URL} target="_blank" rel="noopener noreferrer" className={LINK_CLASS}><Marker />API Docs</a></li>
-              <li><a href={MCP_URL} target="_blank" rel="noopener noreferrer" className={LINK_CLASS}><Marker />MCP Server</a></li>
-              <li><a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className={LINK_CLASS}><Marker /><Github className="h-3.5 w-3.5" aria-hidden="true" /> GitHub</a></li>
+            <ul className="space-y-0.5">
+              <li>
+                <Link href="/login" className={LINK_CLASS}>
+                  Dashboard mahasiswa
+                </Link>
+              </li>
+              <li>
+                <Link href="/demo" className={LINK_CLASS}>
+                  Demo interaktif
+                </Link>
+              </li>
+              <li>
+                <a
+                  href={API_DOCS_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={LINK_CLASS}
+                >
+                  API Docs
+                </a>
+              </li>
+              <li>
+                <a
+                  href={MCP_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={LINK_CLASS}
+                >
+                  MCP Server
+                </a>
+              </li>
+              <li>
+                <a
+                  href={GITHUB_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={LINK_CLASS}
+                >
+                  <Github className="h-3.5 w-3.5" aria-hidden="true" />
+                  GitHub
+                </a>
+              </li>
+              <li>
+                <a
+                  href={DONATE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={LINK_CLASS}
+                >
+                  Dukung Mira (SociaBuzz)
+                </a>
+              </li>
             </ul>
           </nav>
 
-          <div className="text-sm">
+          <div className="text-[13px] tracking-[0.012em]">
             <ColumnTitle>Legal dan kontak</ColumnTitle>
-            <ul className="space-y-1">
-              <li><Link href="/privacy" className={LINK_CLASS}><Marker />Kebijakan Privasi</Link></li>
-              <li><Link href="/terms" className={LINK_CLASS}><Marker />Syarat dan Ketentuan</Link></li>
-              <li><Link href="/dmca" className={LINK_CLASS}><Marker />DMCA dan HKI</Link></li>
-              <li><a href="mailto:admin@muaraai.com" className={`${LINK_CLASS} break-all`}><Marker /><Mail className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> admin@muaraai.com</a></li>
-              <li><a href="https://www.threads.net/@muara.ai" target="_blank" rel="noopener noreferrer" className={LINK_CLASS}><Marker /><MessageCircle className="h-3.5 w-3.5" aria-hidden="true" /> Threads</a></li>
-              <li><a href="https://www.instagram.com/muara.ai/" target="_blank" rel="noopener noreferrer" className={LINK_CLASS}><Marker /><Instagram className="h-3.5 w-3.5" aria-hidden="true" /> Instagram</a></li>
-              <li><a href="https://x.com/MuaraAI" target="_blank" rel="noopener noreferrer" className={LINK_CLASS}><Marker /><Twitter className="h-3.5 w-3.5" aria-hidden="true" /> X</a></li>
+            <ul className="space-y-0.5">
+              <li>
+                <Link href="/privacy" className={LINK_CLASS}>
+                  Kebijakan Privasi
+                </Link>
+              </li>
+              <li>
+                <Link href="/terms" className={LINK_CLASS}>
+                  Syarat dan Ketentuan
+                </Link>
+              </li>
+              <li>
+                <Link href="/dmca" className={LINK_CLASS}>
+                  DMCA dan HKI
+                </Link>
+              </li>
+              <li>
+                <a href="mailto:admin@muaraai.com" className={`${LINK_CLASS} break-all`}>
+                  <Mail className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  admin@muaraai.com
+                </a>
+              </li>
+              {SOCIAL_PROFILES.map(({ id, name, handle, href, icon: Icon }) => (
+                <li key={id}>
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={LINK_CLASS}
+                  >
+                    <Icon className="h-3.5 w-3.5 shrink-0" />
+                    <span>
+                      {name} <span className="font-mono text-[11px] text-secondary/75">{handle}</span>
+                    </span>
+                  </a>
+                </li>
+              ))}
             </ul>
           </div>
         </div>
 
-        <div className="mx-auto mt-10 flex max-w-7xl flex-col gap-3 border-t-2 border-dashed border-px-soft pt-5 font-mono text-[11px] text-secondary sm:flex-row sm:items-center sm:justify-between">
+        <div className="mx-auto mt-8 flex max-w-7xl flex-col gap-3 border-t-[1px] border-stroke pt-6 font-mono text-xs text-secondary sm:mt-10 sm:flex-row sm:items-center sm:justify-between">
           <p>MIT License | Muara AI 2026</p>
-          <a href="https://github.com/MuaraAI/Mira/releases" target="_blank" rel="noopener noreferrer" className="group inline-flex items-center gap-1.5 font-semibold text-foreground transition-colors hover:text-[#0369A1]">
-            <Marker />
+          <a
+            href="https://github.com/MuaraAI/Mira/releases"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex min-h-[44px] items-center text-foreground transition-colors hover:text-[#0369A1]"
+          >
             Lihat rilis di GitHub
           </a>
         </div>

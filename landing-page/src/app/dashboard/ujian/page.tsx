@@ -134,8 +134,12 @@ export default function UjianPage() {
       <ExamRoomLinks />
 
       {/* Tab Switcher Jenis Ujian */}
-      <div className="w-full">
-        <div className="px-seg flex overflow-x-auto no-scrollbar gap-1">
+      <div className="min-w-0 w-full">
+        <div
+          role="tablist"
+          aria-label="Jenis ujian"
+          className="scroll-slim flex gap-1.5 overflow-x-auto rounded-[10px] border-[1px] border-stroke bg-[#F0F7FB] p-1.5"
+        >
           {examTypes.map((t) => {
             const active = selectedType === t.key;
             const label = t.label.replace(/^Jadwal\s+/i, "").trim();
@@ -143,9 +147,13 @@ export default function UjianPage() {
               <button
                 key={t.key}
                 type="button"
+                role="tab"
+                aria-selected={active}
                 onClick={() => setSelectedType(t.key)}
-                className={`px-seg-btn whitespace-nowrap text-xs font-semibold ${
-                  active ? "px-seg-on" : ""
+                className={`inline-flex min-h-[38px] shrink-0 items-center whitespace-nowrap rounded-[6px] px-3.5 text-xs font-medium transition-colors ${
+                  active
+                    ? "bg-[#072033] text-white"
+                    : "text-secondary hover:bg-white hover:text-foreground"
                 }`}
               >
                 {label}

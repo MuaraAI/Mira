@@ -179,12 +179,12 @@ export function ChatPane({
 
   const edits = state?.edits ?? [];
   const editors = [...new Set(edits.map((e) => e.author.display_name))];
-  const headerButton = "flex h-10 w-10 shrink-0 items-center justify-center text-[#3B5A70] transition-colors hover:bg-[#EAF3F9] hover:text-[#072033]";
+  const headerButton = "flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] text-[#3B5A70] transition-colors hover:bg-[#EAF3F9] hover:text-[#072033]";
 
   return (
     <div className="chat-ui flex h-full min-w-0 flex-1" style={{ "--chat-fs": `${prefs.fontPx}px` } as React.CSSProperties}>
       <section className="flex min-w-0 flex-1 flex-col bg-white" aria-label={`Percakapan ${title}`}>
-        <header className="flex h-[3.75rem] shrink-0 items-center gap-1 border-b-2 border-[#CFE2EE] bg-white px-1.5 sm:px-3">
+        <header className="flex h-[3.75rem] shrink-0 items-center gap-1 border-b-[1px] border-[#DFECF4] bg-white px-2 sm:px-3.5">
           <button type="button" onClick={onBack} aria-label="Kembali ke daftar chat" className={`${headerButton} md:hidden`}>
             <ArrowLeft className="h-5 w-5" aria-hidden="true" />
           </button>
@@ -192,13 +192,13 @@ export function ChatPane({
           <button
             type="button"
             onClick={() => setSheet(dm ? (dm.is_saved ? null : "profile") : "members")}
-            className="flex min-w-0 flex-1 items-center gap-2.5 py-1 pl-1 pr-2 text-left transition-colors hover:bg-[#F0F7FB]"
+            className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[10px] py-1 pl-1 pr-2 text-left transition-colors hover:bg-[#F5F9FC]"
             aria-label={dm ? `Profil ${title}` : `Anggota ${title}`}
           >
             {dm ? (
               <Avatar name={title} seed={dm.peer.username} src={dm.peer.avatar} size="md" online={dm.is_saved ? undefined : dm.peer.online} saved={dm.is_saved} />
             ) : (
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-[#EAF3F9] text-[#0369A1]">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-[#EAF3F9] text-[#0369A1]">
                 {active.kind === "channel" && active.channel.admin_only ? (
                   <Megaphone className="h-5 w-5" aria-hidden="true" />
                 ) : (
@@ -207,13 +207,13 @@ export function ChatPane({
               </span>
             )}
             <span className="min-w-0">
-              <h2 className="truncate text-base font-bold leading-tight text-[#072033]">{title}</h2>
+              <h2 className="truncate text-[15px] font-semibold leading-tight text-[#072033]">{title}</h2>
               <span
-                className={`flex items-center gap-1.5 truncate text-[13px] leading-tight ${
-                  typingName ? "font-semibold text-[#0369A1]" : online ? "font-medium text-[#15803D]" : "text-[#3B5A70]"
+                className={`flex items-center gap-1.5 truncate text-[12px] leading-tight ${
+                  typingName ? "font-semibold text-[#0369A1]" : online ? "font-medium text-[#15803D]" : "text-[#648296]"
                 }`}
               >
-                {online && !typingName && <span className="h-2 w-2 shrink-0 bg-[#16A34A]" aria-hidden="true" />}
+                {online && !typingName && <span className="h-1.5 w-1.5 shrink-0 rounded-[9999px] bg-[#16A34A]" aria-hidden="true" />}
                 <span className="truncate">{subtitle}</span>
               </span>
             </span>

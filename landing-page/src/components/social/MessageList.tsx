@@ -195,12 +195,14 @@ export function MessageList({
           )
         )}
 
-        {/* Satu section per hari: chip tanggal menempel di atas selama hari itu di-scroll,
-            lalu terdorong rapi oleh hari berikutnya (sticky hanya berlaku di dalam section-nya). */}
+        {/* Satu section per hari: chip tanggal in-flow agar tidak pernah menimpa bubble pesan dan ringan di ponsel. */}
         {days.map((day) => (
-          <section key={day.key} aria-label={day.label}>
-            <div className="pointer-events-none sticky top-2 z-10 mb-1 mt-5 flex justify-center">
-              <span className="pointer-events-auto bg-white/95 px-3 py-1 text-[12px] font-semibold text-[#3B5A70] shadow-[0_0_0_2px_#CFE2EE,2px_2px_0_0_#E4EEF4] backdrop-blur">
+          <section key={day.key} aria-label={day.label} className="pt-2">
+            <div className="my-2.5 flex justify-center">
+              <span
+                className="rounded-[9999px] px-3 py-1 text-[11px] font-medium tracking-[0.02em] text-white"
+                style={{ backgroundColor: "rgba(7, 32, 51, 0.72)" }}
+              >
                 {day.label}
               </span>
             </div>
@@ -262,11 +264,11 @@ export function MessageList({
         {typingName && (
           <div className="chat-in-other flex items-end gap-2 pt-2" aria-live="polite">
             {kind === "channel" && <span className="w-8 shrink-0" />}
-            <div className="flex items-center gap-2 bg-white px-3 py-2.5 shadow-[0_0_0_2px_#CFE2EE]">
+            <div className="flex items-center gap-2 rounded-[16px] rounded-tl-[4px] border-[1px] border-[#DFECF4] bg-white px-3.5 py-2 shadow-[0_1px_2px_rgba(7,32,51,0.05)]">
               <span className="flex items-center gap-1" aria-hidden="true">
-                <span className="typing-dot h-1.5 w-1.5 bg-[#0369A1]" />
-                <span className="typing-dot h-1.5 w-1.5 bg-[#0369A1]" />
-                <span className="typing-dot h-1.5 w-1.5 bg-[#0369A1]" />
+                <span className="typing-dot h-1.5 w-1.5 rounded-[9999px] bg-[#0369A1]" />
+                <span className="typing-dot h-1.5 w-1.5 rounded-[9999px] bg-[#0369A1]" />
+                <span className="typing-dot h-1.5 w-1.5 rounded-[9999px] bg-[#0369A1]" />
               </span>
               <span className="text-xs text-[#3B5A70]">{kind === "channel" ? `${typingName} mengetik` : "mengetik"}</span>
             </div>
@@ -279,9 +281,9 @@ export function MessageList({
         <button
           type="button"
           onClick={jumpToBottom}
-          className="menu-pop absolute bottom-3 right-3 inline-flex h-11 items-center gap-1.5 bg-[#072033] px-3.5 text-sm font-bold text-white shadow-[3px_3px_0_0_#0369A1] sm:right-5"
+          className="menu-pop absolute bottom-3 right-3 inline-flex h-10 items-center gap-1.5 rounded-[9999px] bg-[#072033] px-4 text-xs font-semibold text-white shadow-[0_8px_20px_-6px_rgba(7,32,51,0.4)] transition-transform active:scale-95 sm:right-5"
         >
-          <ArrowDown className="h-4 w-4" aria-hidden="true" />
+          <ArrowDown className="h-3.5 w-3.5" aria-hidden="true" />
           {unseen} pesan baru
         </button>
       )}
@@ -494,20 +496,28 @@ function MessageItem({
               openMenu();
             }
           }}
-          className={`relative max-w-full select-text text-left outline-none [-webkit-touch-callout:none] focus-visible:shadow-[0_0_0_3px_#0369A1] [@media(pointer:coarse)]:select-none ${
+          className={`relative max-w-full select-text text-left outline-none [-webkit-touch-callout:none] focus-visible:ring-2 focus-visible:ring-[#0369A1] [@media(pointer:coarse)]:select-none ${
             jumbo
               ? "px-1 py-0.5"
-              : `px-3.5 pb-2 pt-[9px] ${
+              : `px-3.5 pb-2 pt-2 ${
+                  mine
+                    ? grouped
+                      ? "rounded-[16px]"
+                      : "rounded-[16px] rounded-tr-[4px]"
+                    : grouped
+                      ? "rounded-[16px]"
+                      : "rounded-[16px] rounded-tl-[4px]"
+                } ${
                   mentionsMe
-                    ? "bg-[#FFFBEB] text-[#072033] shadow-[inset_3px_0_0_#F59E0B,0_0_0_2px_#FCD34D]"
+                    ? "border-[1px] border-[#FCD34D] border-l-[3px] border-l-[#F59E0B] bg-[#FFFBEB] text-[#072033] shadow-[0_1px_2px_rgba(7,32,51,0.05)]"
                     : mine
-                      ? "bg-[#D7E9F5] text-[#072033] shadow-[0_0_0_2px_#9CC6E0]"
-                      : "bg-white text-[#072033] shadow-[0_0_0_2px_#D9E5ED]"
+                      ? "border-[1px] border-[#C5E0F3] bg-[#E1F1FC] text-[#072033] shadow-[0_1px_2px_rgba(7,32,51,0.04)]"
+                      : "border-[1px] border-[#DFECF4] bg-white text-[#072033] shadow-[0_1px_2px_rgba(7,32,51,0.05)]"
                 }`
           } ${message.local === "failed" ? "cursor-pointer opacity-80" : ""} ${message.local === "sending" ? "opacity-90" : ""}`}
         >
           {message.pinned && (
-            <span className="mb-1 flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.1em] text-[#0369A1]">
+            <span className="mb-1 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#0369A1]">
               <Pin className="h-3 w-3" aria-hidden="true" /> Disematkan
             </span>
           )}
@@ -519,23 +529,57 @@ function MessageItem({
                 e.stopPropagation();
                 if (message.reply_to) onJump(message.reply_to.id);
               }}
-              className="mb-1.5 block w-full min-w-[8rem] max-w-full border-l-[3px] px-2.5 py-1 text-left transition-colors"
-              style={{ borderColor: replyTone, background: `${replyTone}12` }}
+              className="mb-1.5 block w-full min-w-[8rem] max-w-full rounded-[8px] border-l-[3px] px-2.5 py-1.5 text-left transition-colors"
+              style={{ borderColor: replyTone, background: `${replyTone}14` }}
               aria-label={`Lihat pesan yang dibalas dari ${message.reply_to.author.display_name}`}
             >
-              <span className="block truncate text-[13px] font-semibold" style={{ color: replyTone }}>
+              <span className="block truncate text-[12px] font-semibold" style={{ color: replyTone }}>
                 {message.reply_to.author.username === me ? "Kamu" : message.reply_to.author.display_name || "Pengguna"}
               </span>
-              <span className="line-clamp-2 block text-[13px] leading-snug text-[#3B5A70]">{stripFormatting(message.reply_to.preview)}</span>
+              <span className="line-clamp-2 block text-[12.5px] leading-snug text-[#3B5A70]">{stripFormatting(message.reply_to.preview)}</span>
             </button>
           )}
           <span className="flex flex-wrap items-end gap-y-1">
-            <span className={`min-w-0 break-words [overflow-wrap:anywhere] ${jumbo ? "text-[42px] leading-tight" : "text-[length:var(--chat-fs,15px)] leading-[1.5]"}`}>
+            <span className={`min-w-0 break-words [overflow-wrap:anywhere] ${jumbo ? "text-[42px] leading-tight" : "text-[length:var(--chat-fs,14.5px)] leading-[1.48]"}`}>
               {onlyInvite ? <span className="text-[13px] font-semibold text-[#3B5A70]">Undangan grup</span> : <MessageBody text={message.body} me={me} />}
             </span>
-            {meta}
+            {message.reactions.length === 0 && meta}
           </span>
           {invite && <InviteCard code={invite} />}
+          {message.reactions.length > 0 && (
+            <div className="mt-1.5 flex flex-wrap items-center justify-between gap-1.5">
+              <div className="flex flex-wrap items-center gap-1">
+                {message.reactions.map((reaction) => {
+                  const reacted = reaction.users.includes(me);
+                  return (
+                    <button
+                      key={`${reaction.key}-${reaction.count}`}
+                      type="button"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        quickReact(reaction.key);
+                      }}
+                      title={`${REACTION_LABEL[reaction.key] ?? reaction.key}: ${reaction.users.map((u) => "@" + u).join(", ")}`}
+                      aria-pressed={reacted}
+                      aria-label={`${REACTION_LABEL[reaction.key] ?? reaction.key} ${reaction.count}`}
+                      className={`react-pop inline-flex h-[22px] items-center gap-1 rounded-[9999px] px-1.5 text-[11px] font-semibold transition-transform duration-150 active:scale-95 ${
+                        reacted
+                          ? "bg-[#0369A1] text-white"
+                          : mine
+                            ? "bg-white/75 text-[#072033] hover:bg-white"
+                            : "bg-[#F0F6FA] text-[#072033] hover:bg-[#E1F1FC]"
+                      }`}
+                    >
+                      <Emoji name={reaction.key} size={14} />
+                      <span className="chat-time">{reaction.count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {meta}
+            </div>
+          )}
           {message.local === "failed" && <span className="mt-1 block text-[12px] font-semibold text-[#BE123C]">Gagal terkirim. Ketuk untuk kirim ulang.</span>}
 
           {burst > 0 && (
@@ -545,40 +589,16 @@ function MessageItem({
           )}
         </div>
 
-        {message.reactions.length > 0 && (
-          <div className={`relative z-[1] mt-1 flex flex-wrap gap-1 px-0.5 ${mine ? "justify-end" : ""}`}>
-            {message.reactions.map((reaction) => {
-              const reacted = reaction.users.includes(me);
-              return (
-                <button
-                  key={`${reaction.key}-${reaction.count}`}
-                  type="button"
-                  onClick={() => quickReact(reaction.key)}
-                  title={`${REACTION_LABEL[reaction.key] ?? reaction.key}: ${reaction.users.map((u) => "@" + u).join(", ")}`}
-                  aria-pressed={reacted}
-                  aria-label={`${REACTION_LABEL[reaction.key] ?? reaction.key} ${reaction.count}`}
-                  className={`react-pop inline-flex h-7 items-center gap-1 pl-1 pr-2 text-xs font-bold transition-[transform,background-color] duration-150 hover:-translate-y-0.5 ${
-                    reacted ? "bg-[#DCEBF5] text-[#0369A1] shadow-[0_0_0_2px_#0369A1]" : "bg-white text-[#072033] shadow-[0_0_0_2px_#CFE2EE]"
-                  }`}
-                >
-                  <Emoji name={reaction.key} size={18} />
-                  <span className="chat-time">{reaction.count}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Desktop: toolbar cepat menempel di samping bubble saat hover (seperti Discord). */}
+        {/* Desktop: toolbar cepat mengambang di atas bubble tanpa menimpa teks pesan. */}
         {interactive && !pending && (
           <div
-            className={`pointer-events-none absolute z-[2] hidden items-center gap-0.5 bg-white p-0.5 opacity-0 shadow-[0_0_0_2px_#CFE2EE,3px_3px_0_0_#E4EEF4] transition-opacity duration-150 group-hover/msg:pointer-events-auto group-hover/msg:opacity-100 group-focus-within/msg:pointer-events-auto group-focus-within/msg:opacity-100 [@media(hover:hover)_and_(pointer:fine)]:flex ${
-              mine ? "left-1" : "right-1"
-            } ${showAuthor ? "-top-2" : "-top-4"}`}
+            className={`pointer-events-none absolute bottom-[calc(100%+4px)] z-[4] hidden items-center gap-0.5 rounded-[9999px] border-[1px] border-[#D9E5ED] bg-white/95 px-1 py-0.5 opacity-0 shadow-[0_6px_18px_-6px_rgba(7,32,51,0.18)] transition-opacity duration-150 group-hover/msg:pointer-events-auto group-hover/msg:opacity-100 group-focus-within/msg:pointer-events-auto group-focus-within/msg:opacity-100 [@media(hover:hover)_and_(pointer:fine)]:flex ${
+              mine ? "right-0" : "left-0"
+            }`}
           >
             {QUICK_REACTIONS.slice(0, 3).map((key) => (
               <ToolbarButton key={key} label={REACTION_LABEL[key]} onClick={() => quickReact(key)}>
-                <Emoji name={key} size={20} />
+                <Emoji name={key} size={18} />
               </ToolbarButton>
             ))}
             <ToolbarButton label="Tambah reaksi" onClick={() => openMenu(true)}>
@@ -607,7 +627,7 @@ function ToolbarButton({ label, onClick, children }: { label: string; onClick: (
         e.stopPropagation();
         onClick();
       }}
-      className="flex h-8 w-8 items-center justify-center text-[#3B5A70] transition-[transform,background-color,color] duration-150 hover:scale-110 hover:bg-[#EAF3F9] hover:text-[#072033]"
+      className="flex h-7 w-7 items-center justify-center rounded-[9999px] text-[#3B5A70] transition-[transform,background-color,color] duration-150 hover:scale-105 hover:bg-[#EAF3F9] hover:text-[#072033]"
     >
       {children}
     </button>

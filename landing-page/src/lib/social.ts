@@ -154,13 +154,69 @@ export type SocialEvent =
 /* ------------------------------------------------------------------ api */
 
 const BASE = "/v1/social";
+const SOCIAL_PROFILE_EVENT = "mira:social-profile";
+const SOCIAL_PROFILE_CACHE_KEY = "mira_social_profile_v1";
+
+function publishSocialProfile(profile: SocialProfile | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (profile) sessionStorage.setItem(SOCIAL_PROFILE_CACHE_KEY, JSON.stringify(profile));
+    else sessionStorage.removeItem(SOCIAL_PROFILE_CACHE_KEY);
+  } catch {
+    /* abaikan jika storage diblokir */
+  }
+  window.dispatchEvent(new CustomEvent<SocialProfile | null>(SOCIAL_PROFILE_EVENT, { detail: profile }));
+}
+
+export function useMySocialProfile(enabled: boolean): SocialProfile | null {
+  const [profile, setProfile] = useState<SocialProfile | null>(null);
+
+  useEffect(() => {
+    if (!enabled) return;
+    let alive = true;
+    try {
+      const cached = sessionStorage.getItem(SOCIAL_PROFILE_CACHE_KEY);
+      if (cached) setProfile(JSON.parse(cached) as SocialProfile);
+    } catch {
+      /* abaikan cache korup */
+    }
+
+    apiFetch<{ profile: SocialProfile | null }>(`${BASE}/me`)
+      .then((res) => {
+        if (!alive) return;
+        setProfile(res.profile ?? null);
+        try {
+          if (res.profile) sessionStorage.setItem(SOCIAL_PROFILE_CACHE_KEY, JSON.stringify(res.profile));
+        } catch {}
+      })
+      .catch(() => undefined);
+
+    const onUpdated = (event: Event) => {
+      const next = (event as CustomEvent<SocialProfile | null>).detail ?? null;
+      if (alive) setProfile(next);
+    };
+    window.addEventListener(SOCIAL_PROFILE_EVENT, onUpdated);
+    return () => {
+      alive = false;
+      window.removeEventListener(SOCIAL_PROFILE_EVENT, onUpdated);
+    };
+  }, [enabled]);
+
+  return profile;
+}
 
 export const socialApi = {
   me: () => apiFetch<{ profile: SocialProfile | null; needs_onboarding: boolean }>(`${BASE}/me`),
-  saveProfile: (body: { username: string; display_name: string; bio: string }) =>
-    apiFetch<{ profile: SocialProfile }>(`${BASE}/me`, { method: "PATCH", json: body }),
-  setMyMedia: (body: { avatar?: string | null; banner?: string | null }) =>
-    apiFetch<{ profile: SocialProfile }>(`${BASE}/me/media`, { method: "PATCH", json: body }),
+  saveProfile: async (body: { username: string; display_name: string; bio: string }) => {
+    const res = await apiFetch<{ profile: SocialProfile }>(`${BASE}/me`, { method: "PATCH", json: body });
+    publishSocialProfile(res.profile);
+    return res;
+  },
+  setMyMedia: async (body: { avatar?: string | null; banner?: string | null }) => {
+    const res = await apiFetch<{ profile: SocialProfile }>(`${BASE}/me/media`, { method: "PATCH", json: body });
+    publishSocialProfile(res.profile);
+    return res;
+  },
   setSpaceMedia: (id: number, body: { avatar?: string | null; banner?: string | null }) =>
     apiFetch<{ space: SpaceItem }>(`${BASE}/spaces/${id}/media`, { method: "PATCH", json: body }),
   uploadMedia: async (blob: Blob, kind: "avatar" | "banner") => {

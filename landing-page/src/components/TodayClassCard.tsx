@@ -30,13 +30,13 @@ interface PresenceState {
 
 type Status = "present" | "open" | "waiting" | "live" | "missed" | "unknown";
 
-const STATUS_COPY: Record<Status, { chip: string; tone: string }> = {
-  present: { chip: "Sudah absen", tone: "bg-[#0F766E] text-white" },
-  open: { chip: "Absen dibuka", tone: "bg-[#0369A1] text-white" },
-  waiting: { chip: "Belum dimulai", tone: "bg-[#F0F7FB] text-secondary" },
-  live: { chip: "Menunggu dosen", tone: "bg-[#9A3412]/10 text-[#9A3412]" },
-  missed: { chip: "Tidak absen", tone: "bg-[#BE123C]/10 text-[#BE123C]" },
-  unknown: { chip: "Status belum ada", tone: "bg-[#F0F7FB] text-secondary" },
+const STATUS_COPY: Record<Status, { chip: string; tone: string; dot: string }> = {
+  present: { chip: "Sudah absen", tone: "text-[#0F766E]", dot: "bg-[#0F766E]" },
+  open: { chip: "Absen dibuka", tone: "text-[#0369A1]", dot: "bg-[#0369A1]" },
+  waiting: { chip: "Belum dimulai", tone: "text-secondary", dot: "bg-secondary/50" },
+  live: { chip: "Menunggu dosen", tone: "text-[#9A3412]", dot: "bg-[#9A3412]" },
+  missed: { chip: "Tidak absen", tone: "text-[#BE123C]", dot: "bg-[#BE123C]" },
+  unknown: { chip: "Status belum ada", tone: "text-secondary", dot: "bg-secondary/50" },
 };
 
 /**
@@ -55,13 +55,19 @@ export function TodayClassCard({
   const { notify } = useDialog();
   const watching = item.timing?.state === "soon" || item.timing?.state === "live";
   const path = item.token ? `/v1/elearning/presence?token=${item.token}` : "";
-  const presence = useApi<PresenceState>(path, { ttlMs: 10_000, persistMs: 10 * 60_000, refreshMs: watching ? 20_000 : null });
+  const presence = useApi<PresenceState>(path, {
+    ttlMs: 10_000,
+    persistMs: 10 * 60_000,
+    refreshMs: watching ? 20_000 : null,
+  });
   const [submitting, setSubmitting] = useState(false);
   const [justPresent, setJustPresent] = useState(false);
 
   const data = presence.data;
   const present = justPresent || Boolean(data?.present_today);
-  const open = !present && (Boolean(data?.can_submit) || Boolean(data?.status_sesi?.toLowerCase().includes("absen masuk")));
+  const open =
+    !present &&
+    (Boolean(data?.can_submit) || Boolean(data?.status_sesi?.toLowerCase().includes("absen masuk")));
   const state = item.timing?.state;
   const status: Status = !item.token
     ? "unknown"
@@ -86,7 +92,10 @@ export function TodayClassCard({
     if (!item.token || submitting) return;
     setSubmitting(true);
     try {
-      const res = await apiFetch<{ success: boolean; message?: string }>(`/v1/elearning/presence?token=${item.token}`, { method: "POST" });
+      const res = await apiFetch<{ success: boolean; message?: string }>(
+        `/v1/elearning/presence?token=${item.token}`,
+        { method: "POST" }
+      );
       if (!res.success) throw new Error(res.message || "Presensi tidak berhasil dikirim.");
       setJustPresent(true);
       onStatus?.(item.key, true);
@@ -107,32 +116,37 @@ export function TodayClassCard({
 
   return (
     <article
-      className={`relative flex flex-col bg-white p-4 sm:p-5 ${
+      className={`relative flex flex-col rounded-[10px] border-[1px] bg-white p-4 sm:p-5 ${
         live
-          ? "shadow-[0_0_0_2px_#9A3412,5px_5px_0_0_#FED7AA]"
+          ? "border-[#9A3412]/45"
           : present
-            ? "shadow-[0_0_0_2px_#0F766E,5px_5px_0_0_#CCEBE5]"
-            : "shadow-[0_0_0_2px_#CFE2EE,5px_5px_0_0_#EAF3F9]"
+            ? "border-[#0F766E]/40"
+            : "border-stroke"
       }`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="bg-[#0369A1]/10 px-2 py-0.5 font-mono text-[11px] font-bold text-[#0369A1]">{item.kode}</span>
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 font-mono text-[11px] tracking-[0.04em]">
+            <span className="text-[#0369A1]">
+              {item.kode}
+              {item.sks ? ` · ${item.sks} SKS` : ""}
+            </span>
+            <span className="text-secondary/50" aria-hidden="true">
+              ·
+            </span>
             {presence.loading && item.token ? (
-              <Skeleton className="h-5 w-24" />
+              <Skeleton className="h-4 w-20" />
             ) : (
-              <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold ${copy.tone}`}>
+              <span className={`inline-flex items-center gap-1.5 font-sans text-xs ${copy.tone}`}>
+                <span className={`h-1.5 w-1.5 rounded-[2px] ${copy.dot}`} aria-hidden="true" />
                 {status === "present" && <CheckCircle2 className="h-3 w-3" aria-hidden="true" />}
                 {status === "missed" && <XCircle className="h-3 w-3" aria-hidden="true" />}
-                {(status === "open" || status === "live") && <span className="px-cursor h-1.5 w-1.5 bg-current" aria-hidden="true" />}
                 {copy.chip}
               </span>
             )}
           </div>
-          <h3 className="mt-2 text-base font-bold leading-snug text-foreground">{item.nama}</h3>
+          <h3 className="mt-2 text-[15.5px] leading-snug text-foreground">{item.nama}</h3>
         </div>
-        {item.sks ? <span className="shrink-0 bg-[#F0F7FB] px-2 py-1 font-mono text-[11px] font-semibold text-secondary">{item.sks} SKS</span> : null}
       </div>
 
       <dl className="mt-3 space-y-1.5 text-[13px]">
@@ -140,8 +154,12 @@ export function TodayClassCard({
           <Clock className="h-4 w-4 shrink-0 text-[#0369A1]" aria-hidden="true" />
           <dt className="sr-only">Waktu</dt>
           <dd className="flex flex-wrap items-baseline gap-x-2">
-            <span className="font-mono font-semibold text-foreground">{item.jam || "-"}</span>
-            {item.timing && <span className={`text-xs ${live ? "font-semibold text-[#9A3412]" : "text-secondary"}`}>{item.timing.label}</span>}
+            <span className="font-mono text-foreground">{item.jam || "-"}</span>
+            {item.timing && (
+              <span className={`text-xs ${live ? "text-[#9A3412]" : "text-secondary"}`}>
+                {item.timing.label}
+              </span>
+            )}
           </dd>
         </div>
         <div className="flex items-center gap-2">
@@ -163,7 +181,7 @@ export function TodayClassCard({
 
       <div className="mt-4 grid gap-2">
         {status === "present" ? (
-          <p className="inline-flex min-h-11 items-center justify-center gap-2 bg-[#0F766E]/10 text-sm font-bold text-[#0F766E]">
+          <p className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[6px] border-[1px] border-[#0F766E]/25 bg-[#0F766E]/5 text-[13px] text-[#0F766E]">
             <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> Kamu sudah absen
           </p>
         ) : status === "open" ? (
@@ -171,13 +189,17 @@ export function TodayClassCard({
             type="button"
             onClick={absen}
             disabled={submitting}
-            className="px-btn-success inline-flex min-h-12 items-center justify-center gap-2 px-4 text-sm font-bold text-white"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[6px] bg-[#0F766E] px-4 text-[13px] text-white transition-colors hover:bg-[#0D625B] disabled:opacity-60"
           >
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <UserCheck className="h-4 w-4" aria-hidden="true" />}
+            {submitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <UserCheck className="h-4 w-4" aria-hidden="true" />
+            )}
             {submitting ? "Mengirim presensi..." : "Absen sekarang"}
           </button>
         ) : (
-          <p className="inline-flex min-h-11 items-center justify-center gap-2 bg-px-tint px-3 text-center text-xs font-semibold text-secondary">
+          <p className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[6px] bg-surface-alt px-3 text-center text-xs text-secondary">
             {status === "missed"
               ? "Sesi absen sudah ditutup"
               : status === "live"
@@ -191,7 +213,7 @@ export function TodayClassCard({
         )}
         <Link
           href={`/dashboard/presensi?${new URLSearchParams({ kode: item.kode, mk: item.nama }).toString()}`}
-          className="text-center text-xs font-semibold text-[#0369A1] hover:underline"
+          className="py-1 text-center text-xs text-[#0369A1] hover:underline"
         >
           Riwayat & rangkuman pertemuan
         </Link>

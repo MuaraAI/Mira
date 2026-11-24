@@ -1,7 +1,11 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import { ParallaxLayer, RevealOnScroll } from "./HomeParallax";
 import { useApi } from "@/lib/api";
+import type { RepositoryStats } from "@/lib/github";
+import { GITHUB_URL } from "@/lib/public-links";
 
 interface PublicStats {
   users?: { total_all_time?: number; online_now?: number; active_24h?: number };
@@ -14,11 +18,6 @@ function formatId(n: number): string {
 
 const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
 
-/**
- * Angka yang meluncur dari nilai sebelumnya ke nilai baru (bukan mulai ulang dari 0).
- * Hitung naik pertama baru jalan saat kartu terlihat; saat tab tersembunyi atau
- * prefers-reduced-motion aktif, angka langsung diganti tanpa animasi.
- */
 function LiveNumber({ value }: { value: number }) {
   const ref = useRef<HTMLSpanElement>(null);
   const shown = useRef(0);
@@ -63,15 +62,29 @@ function LiveNumber({ value }: { value: number }) {
   );
 }
 
-function StatCard({ label, value, live = false }: { label: string; value: number | undefined; live?: boolean }) {
+function StatItem({
+  label,
+  value,
+}: {
+  label: string;
+  value: number | string | undefined;
+}) {
   return (
-    <div className="px-card bg-white p-5 sm:p-6">
-      <dt className="flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-[0.18em] text-secondary">
-        {live && <span className="stats-live-dot" aria-hidden="true" />}
+    <div
+      className="px-4 py-3.5 sm:px-5 sm:py-4"
+      style={{ backgroundColor: "rgba(7, 32, 51, 0.72)" }}
+    >
+      <dt className="font-mono text-[11px] uppercase tracking-[0.13em] text-[#CBE0EE]">
         {label}
       </dt>
-      <dd className="mt-3 font-display text-4xl font-bold text-foreground sm:text-5xl">
-        {typeof value === "number" ? <LiveNumber value={value} /> : "-"}
+      <dd className="font-display mt-1.5 text-2xl font-semibold leading-none tracking-[-0.01em] text-white tabular-nums sm:mt-2 sm:text-[30px]">
+        {typeof value === "number" ? (
+          <LiveNumber value={value} />
+        ) : typeof value === "string" ? (
+          <span className="tabular-nums">{value}</span>
+        ) : (
+          "-"
+        )}
       </dd>
     </div>
   );
@@ -79,11 +92,6 @@ function StatCard({ label, value, live = false }: { label: string; value: number
 
 const PEAK_KEY = "mira_stats_peak";
 
-/**
- * Total all-time hanya boleh naik. Kalau server sempat mengirim angka lebih kecil
- * (mis. backend lama yang menghitung dari data 30 hari), tampilkan angka tertinggi
- * yang pernah terlihat di perangkat ini.
- */
 function useMonotonic(name: string, value: number | undefined): number | undefined {
   const [peak, setPeak] = useState<number | undefined>(undefined);
 
@@ -113,30 +121,101 @@ function useMonotonic(name: string, value: number | undefined): number | undefin
   return typeof value === "number" ? Math.max(peak ?? 0, value) : peak;
 }
 
-/** Section "Statistik": statistik realtime dari /v1/stats (refresh 15 detik saat tab terlihat). */
-export function StatsSection() {
-  const { data } = useApi<PublicStats>("/v1/stats", { refreshMs: 15_000, ttlMs: 15_000 });
+/** Section "Statistik": statistik GitHub MuaraAI/Mira dan statistik server /v1/stats bila aktif. */
+export function StatsSection({ githubStats }: { githubStats?: RepositoryStats | null }) {
+  const { data } = useApi<PublicStats>("/v1/stats", {
+    refreshMs: 15_000,
+    ttlMs: 15_000,
+  });
   const totalUsers = useMonotonic("users", data?.users?.total_all_time);
   const totalRequests = useMonotonic("requests", data?.requests?.total_all_time);
 
   return (
-    <section id="stats" className="border-b-2 border-px-soft bg-surface-alt/60 scroll-mt-28" aria-labelledby="stats-title">
-      <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
-        <h2 id="stats-title" className="font-display text-3xl font-bold leading-tight tracking-[-0.03em] text-foreground sm:text-4xl">
-          Statistik
-        </h2>
-        <p className="mt-4 max-w-lg text-base leading-7 text-secondary">
-          Statistik realtime langsung dari server, diperbarui otomatis. Nggak ada angka karangan.
-        </p>
+    <section
+      id="stats"
+      className="relative overflow-hidden bg-[#072033] py-10 text-white sm:py-14 scroll-mt-24"
+      aria-labelledby="stats-title"
+    >
+      <ParallaxLayer
+        speed={18}
+        className="pointer-events-none absolute inset-x-0 -top-10 -bottom-10"
+      >
+        <Image
+          src="/images/hero-ocean-muara.webp"
+          alt=""
+          fill
+          sizes="100vw"
+          className="select-none object-cover object-center"
+          aria-hidden="true"
+        />
+      </ParallaxLayer>
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          backgroundImage:
+            "linear-gradient(125deg, rgba(7, 32, 51, 0.90) 0%, rgba(7, 32, 51, 0.78) 50%, rgba(7, 32, 51, 0.92) 100%)",
+        }}
+        aria-hidden="true"
+      />
 
-        {data && (
-          <dl className="mt-10 grid grid-cols-1 gap-6 min-[480px]:grid-cols-2 lg:grid-cols-4">
-            <StatCard label="Total pengguna" value={totalUsers} />
-            <StatCard label="Sedang online" value={data.users?.online_now} live />
-            <StatCard label="Total request" value={totalRequests} />
-            <StatCard label="Request 24 jam" value={data.requests?.total_24h} />
-          </dl>
-        )}
+      <div className="relative z-10 mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
+        <RevealOnScroll>
+          <div className="max-w-xl">
+            <h2
+              id="stats-title"
+              className="text-[clamp(1.45rem,2.8vw,1.95rem)] leading-[1.18] tracking-[-0.005em] text-white"
+            >
+              Statistik
+            </h2>
+            <p className="mt-1.5 text-[13px] leading-[1.6] tracking-[0.012em] text-[#CBE0EE] sm:text-[14px]">
+              Angka langsung dari{" "}
+              <a
+                href={GITHUB_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-white underline underline-offset-4 hover:text-[#7DD3FC]"
+              >
+                github.com/MuaraAI/Mira
+              </a>{" "}
+              dan server Mira.
+            </p>
+          </div>
+        </RevealOnScroll>
+
+        <RevealOnScroll delayMs={80}>
+          {githubStats || data ? (
+            <dl
+              className={`mt-6 grid grid-cols-2 gap-[1px] overflow-hidden rounded-[10px] border-[1px] border-white/15 ${
+                githubStats && !data ? "md:grid-cols-3" : "md:grid-cols-4"
+              }`}
+              style={{ backgroundColor: "rgba(255, 255, 255, 0.14)" }}
+            >
+              {githubStats ? (
+                <>
+                  <StatItem label="Bintang GitHub" value={githubStats.stars} />
+                  <StatItem label="Fork" value={githubStats.forks} />
+                  <StatItem label="Kontributor" value={githubStats.contributors ?? undefined} />
+                </>
+              ) : null}
+              {data ? (
+                <>
+                  <StatItem label="Total pengguna" value={totalUsers} />
+                  <StatItem label="Aktif 24 jam" value={data.users?.active_24h} />
+                  <StatItem label="Sedang online" value={data.users?.online_now} />
+                  <StatItem label="Total request" value={totalRequests} />
+                  <StatItem label="Request 24 jam" value={data.requests?.total_24h} />
+                </>
+              ) : null}
+            </dl>
+          ) : (
+            <div
+              className="mt-6 rounded-[10px] border-[1px] border-white/20 p-4 text-[13.5px] leading-[1.65] tracking-[0.012em] text-[#CBE0EE]"
+              style={{ backgroundColor: "rgba(7, 32, 51, 0.78)" }}
+            >
+              Statistik sedang dimuat ulang. Coba muat ulang halaman beberapa saat lagi.
+            </div>
+          )}
+        </RevealOnScroll>
       </div>
     </section>
   );

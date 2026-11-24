@@ -75,18 +75,43 @@ export function getNotificationPermission(): NotificationPermission | "unsupport
 
 export async function getExistingSubscription(): Promise<PushSubscription | null> {
   if (!isPushSupported()) return null;
-  const reg = await waitForServiceWorker();
-  return reg.pushManager.getSubscription();
+  // Cek registrasi aktif dulu tanpa memblokir: di mode dev / sebelum SW terpasang,
+  // navigator.serviceWorker.ready tidak akan pernah selesai dan memicu timeout 5 detik.
+  const reg = await navigator.serviceWorker.getRegistration().catch(() => undefined);
+  if (!reg) return null;
+  const activeReg = reg.active ? reg : await waitForServiceWorker().catch(() => null);
+  if (!activeReg?.pushManager) return null;
+  return activeReg.pushManager.getSubscription();
 }
 
 /** serviceWorker.ready tanpa guard bisa menggantung selamanya bila instalasi SW gagal. */
 async function waitForServiceWorker(): Promise<ServiceWorkerRegistration> {
-  return Promise.race([
-    navigator.serviceWorker.ready,
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Service worker belum siap. Muat ulang halaman.")), 5000),
-    ),
-  ]);
+  let reg = await navigator.serviceWorker.getRegistration().catch(() => undefined);
+  if (!reg) {
+    if (process.env.NODE_ENV !== "production") {
+      throw new Error("Notifikasi push tidak aktif di mode pengembangan lokal.");
+    }
+    reg = await navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+    if (!reg) {
+      throw new Error("Service worker belum siap. Muat ulang halaman.");
+    }
+  }
+  if (reg.active) return reg;
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error("Service worker belum siap. Muat ulang halaman.")),
+          5000,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
 }
 
 export interface SubscribeResult {

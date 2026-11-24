@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Monogram } from "./Monogram";
+import { SOCIAL_PROFILES } from "./SocialIcons";
 import { API_DOCS_URL, GITHUB_URL } from "@/lib/public-links";
 import { lockScroll } from "@/lib/scroll-lock";
 
@@ -10,6 +11,7 @@ const NAV_LINKS = [
   { href: "#fitur", label: "Fitur" },
   { href: "#cara-pakai", label: "Cara Pakai" },
   { href: "#stats", label: "Statistik" },
+  { href: "#donasi", label: "Donasi" },
   { href: "#faq", label: "FAQ" },
 ];
 
@@ -17,12 +19,11 @@ const MOBILE_LINKS = [
   { href: "#fitur", label: "Fitur", external: false },
   { href: "#cara-pakai", label: "Cara Pakai", external: false },
   { href: "#stats", label: "Statistik", external: false },
+  { href: "#donasi", label: "Donasi", external: false },
   { href: "#faq", label: "FAQ", external: false },
   { href: API_DOCS_URL, label: "API Docs", external: true },
   { href: GITHUB_URL, label: "GitHub", external: true },
 ];
-
-const TILE = 44;
 
 function GithubIcon() {
   return (
@@ -32,131 +33,25 @@ function GithubIcon() {
   );
 }
 
-/** Hamburger built from three 2px bars that fold into an X. */
-function PixelBurger({ open }: { open: boolean }) {
+function MenuLines({ open }: { open: boolean }) {
   return (
-    <span className="px-burger relative block h-3 w-4" data-open={open} aria-hidden="true">
-      <span className="absolute left-0 top-0 block h-[2px] w-4 bg-current" />
-      <span className="absolute left-0 top-[5px] block h-[2px] w-4 bg-current" />
-      <span className="absolute left-0 top-[10px] block h-[2px] w-4 bg-current" />
+    <span className="relative flex h-3 w-4 flex-col justify-between" aria-hidden="true">
+      <span
+        className={`block h-[1.5px] w-4 rounded-[9999px] bg-current transition-transform duration-200 ${
+          open ? "translate-y-[5.25px] rotate-45" : ""
+        }`}
+      />
+      <span
+        className={`block h-[1.5px] w-3 rounded-[9999px] bg-current transition-opacity duration-150 ${
+          open ? "opacity-0" : "opacity-100"
+        }`}
+      />
+      <span
+        className={`block h-[1.5px] w-4 rounded-[9999px] bg-current transition-transform duration-200 ${
+          open ? "-translate-y-[5.25px] -rotate-45" : ""
+        }`}
+      />
     </span>
-  );
-}
-
-// Deterministic sprinkle of lighter tiles so the takeover reads as pixel art, not a flat fill.
-function tileColor(c: number, r: number) {
-  const h = (c * 73 + r * 151) % 29;
-  if (h === 0) return "#0369A1";
-  if (h === 7 || h === 19) return "#0B2D46";
-  return "#072033";
-}
-
-/** Mobile menu: tiles sweep in diagonally, then the links reveal line by line (CSS only). */
-function PixelTakeover({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [grid, setGrid] = useState({ cols: 0, rows: 0 });
-  const [shown, setShown] = useState(false);
-  const [cursor, setCursor] = useState(MOBILE_LINKS[0].href);
-
-  useEffect(() => {
-    setGrid({ cols: Math.ceil(window.innerWidth / TILE), rows: Math.ceil(window.innerHeight / TILE) });
-  }, []);
-
-  // Flip after two frames so the hidden state is painted first, then transitioned.
-  useEffect(() => {
-    let second = 0;
-    const first = window.requestAnimationFrame(() => {
-      second = window.requestAnimationFrame(() => setShown(open));
-    });
-    return () => {
-      window.cancelAnimationFrame(first);
-      window.cancelAnimationFrame(second);
-    };
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const unlock = lockScroll();
-    const onKey = (event: KeyboardEvent) => event.key === "Escape" && onClose();
-    const onResize = () => window.innerWidth >= 768 && onClose();
-    window.addEventListener("keydown", onKey);
-    window.addEventListener("resize", onResize);
-    return () => {
-      unlock();
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("resize", onResize);
-    };
-  }, [open, onClose]);
-
-  const span = grid.cols + grid.rows;
-
-  return (
-    <div className={`px-takeover fixed inset-0 -z-10 md:hidden ${open ? "" : "pointer-events-none"}`} data-open={shown} aria-hidden={!open}>
-      <div
-        className="absolute inset-0 grid overflow-hidden"
-        style={{ gridTemplateColumns: `repeat(${grid.cols}, ${TILE}px)`, gridAutoRows: `${TILE}px` }}
-        aria-hidden="true"
-      >
-        {Array.from({ length: grid.cols * grid.rows }, (_, i) => {
-          const c = i % grid.cols;
-          const r = Math.floor(i / grid.cols);
-          const color = tileColor(c, r);
-          return (
-            <span
-              key={i}
-              className="px-tile"
-              data-accent={color === "#0369A1" ? "" : undefined}
-              style={{
-                backgroundColor: color,
-                ["--d-in" as string]: `${(c + r) * 22}ms`,
-                ["--d-out" as string]: `${(span - (c + r)) * 14}ms`,
-              }}
-            />
-          );
-        })}
-      </div>
-
-      <nav id="mobile-menu" aria-label="Navigasi mobile" className="px-takeover-content relative flex h-full flex-col overflow-y-auto px-6 pb-8 pt-28">
-        <ul className="flex flex-col gap-1">
-          {MOBILE_LINKS.map((link, i) => {
-            const lit = cursor === link.href;
-            return (
-              <li key={link.href} className="px-line" style={{ ["--i" as string]: i }}>
-                <a
-                  href={link.href}
-                  onClick={onClose}
-                  onMouseEnter={() => setCursor(link.href)}
-                  onFocus={() => setCursor(link.href)}
-                  tabIndex={open ? 0 : -1}
-                  {...(link.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                  className="flex min-h-11 items-baseline gap-4 py-2"
-                >
-                  <span className={`font-mono text-xs font-bold transition-colors duration-200 ${lit ? "text-px-sun" : "text-px-water-mid"}`}>
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                  <span className={`font-display text-3xl font-bold tracking-tight transition-colors duration-200 min-[400px]:text-4xl ${lit ? "text-white" : "text-white/55"}`}>
-                    {link.label}
-                  </span>
-                  {lit && <span className="px-cursor h-6 w-2.5 self-center bg-px-sun" aria-hidden="true" />}
-                </a>
-              </li>
-            );
-          })}
-        </ul>
-
-        <div className="px-line mt-auto pt-8" style={{ ["--i" as string]: MOBILE_LINKS.length }}>
-          <div className="pb-1 pr-1">
-            <Link
-              href="/login"
-              onClick={onClose}
-              tabIndex={open ? 0 : -1}
-              className="px-btn-ocean flex min-h-12 items-center justify-center gap-2 text-sm font-bold"
-            >
-              Masuk ke Dashboard
-            </Link>
-          </div>
-        </div>
-      </nav>
-    </div>
   );
 }
 
@@ -165,67 +60,230 @@ export function Navbar({ starsCount }: { starsCount: number | null }) {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20);
+    const handleScroll = () => setScrolled(window.scrollY > 24);
     handleScroll();
     window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+    window.addEventListener("hashchange", handleScroll);
+    window.addEventListener("resize", handleScroll);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("hashchange", handleScroll);
+      window.removeEventListener("resize", handleScroll);
+    };
   }, []);
 
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const unlock = lockScroll();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileMenuOpen(false);
+    };
+    const onResize = () => {
+      if (window.innerWidth >= 768) setMobileMenuOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("resize", onResize);
+    return () => {
+      unlock();
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [mobileMenuOpen]);
+
+  const overDark = !scrolled || mobileMenuOpen;
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
   return (
-    <header className="sticky top-0 z-50 w-full px-4 py-3 sm:px-6">
-      <div
-        className="px-nav mx-auto flex h-14 max-w-7xl items-center justify-between px-3 sm:px-4"
-        data-scrolled={scrolled}
-        data-menu-open={mobileMenuOpen}
+    <>
+      <header
+        className="home-header fixed inset-x-0 top-0 z-50 w-full"
+        data-scrolled={scrolled && !mobileMenuOpen}
       >
-        <Link href="/" className="group flex items-center gap-3">
-          <span className="px-frame flex h-9 w-9 items-center justify-center overflow-hidden bg-white [--px-line:#CFE2EE]">
-            <Monogram className="h-7 w-7 transition-transform duration-300 group-hover:scale-110" />
-          </span>
-          <span className="flex flex-col">
-            <span className="nav-brand-text font-display text-base font-bold tracking-tight text-foreground">Mira</span>
-            <span className="-mt-0.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[#0369A1]">Muara AI</span>
-          </span>
-        </Link>
-
-        <nav aria-label="Navigasi utama" className="hidden items-center gap-1 text-sm font-medium text-secondary md:flex">
-          {NAV_LINKS.map((link) => (
-            <a key={link.href} href={link.href} className="nav-link px-3 py-1.5 hover:text-foreground">
-              {link.label}
-            </a>
-          ))}
-        </nav>
-
-        <div className="flex items-center gap-3">
-          <a
-            href={GITHUB_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-btn-ghost hidden min-h-9 items-center gap-2 px-3 py-1.5 font-mono text-xs font-semibold [--px-off:3px] sm:inline-flex"
-            aria-label="Buka repository Mira di GitHub"
-          >
-            <GithubIcon />
-            GitHub{starsCount !== null ? ` · ${starsCount} stars` : ""}
-          </a>
-          <Link href="/login" className="px-btn hidden min-h-9 items-center justify-center px-4 py-1.5 text-xs font-bold [--px-off:3px] sm:inline-flex">
-            Masuk
+        <div className="mx-auto flex h-[58px] max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 md:h-[68px] lg:px-8">
+          <Link href="/" className="group flex items-center gap-2.5 py-1">
+            <Monogram className="h-8 w-8 shrink-0 transition-transform duration-300 group-hover:scale-105" />
+            <span className="flex flex-col leading-none">
+              <span
+                className={`font-home-display text-[17px] tracking-[0.03em] transition-colors duration-200 sm:text-[18px] ${
+                  overDark ? "text-white" : "text-foreground"
+                }`}
+              >
+                Mira
+              </span>
+              <span
+                className={`mt-0.5 font-mono text-[9.5px] tracking-[0.18em] uppercase transition-colors duration-200 ${
+                  overDark ? "text-[#9AD8F8]" : "text-[#0369A1]"
+                }`}
+              >
+                Muara AI
+              </span>
+            </span>
           </Link>
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen((open) => !open)}
-            aria-expanded={mobileMenuOpen}
-            aria-controls="mobile-menu"
-            aria-label={mobileMenuOpen ? "Tutup menu navigasi" : "Buka menu navigasi"}
-            className="nav-menu-button px-frame flex h-11 w-11 items-center justify-center bg-white text-foreground [--px-line:#CFE2EE] hover:text-[#0369A1] md:hidden"
-          >
-            <PixelBurger open={mobileMenuOpen} />
-          </button>
-        </div>
-      </div>
 
-      <PixelTakeover open={mobileMenuOpen} onClose={closeMobileMenu} />
-    </header>
+          <nav
+            aria-label="Navigasi utama"
+            className={`hidden items-center gap-1 text-[13px] font-normal tracking-[0.015em] md:flex ${
+              overDark ? "text-white/85" : "text-secondary"
+            }`}
+          >
+            {NAV_LINKS.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                className={`home-nav-link inline-flex min-h-[44px] items-center px-3.5 ${
+                  overDark ? "hover:text-white" : "hover:text-foreground"
+                }`}
+              >
+                {link.label}
+              </a>
+            ))}
+          </nav>
+
+          <div className="flex items-center gap-2.5">
+            <div className="hidden items-center gap-0.5 lg:flex" aria-label="Media sosial Mira">
+              {SOCIAL_PROFILES.map(({ id, name, handle, href, icon: Icon }) => (
+                <a
+                  key={id}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`Follow ${name} ${handle}`}
+                  title={`${name} (${handle})`}
+                  className={`inline-flex h-8 w-8 items-center justify-center rounded-[6px] transition-colors duration-200 ${
+                    overDark
+                      ? "text-white/80 hover:bg-white/15 hover:text-white"
+                      : "text-secondary hover:bg-[#EAF3F9] hover:text-[#072033]"
+                  }`}
+                >
+                  <Icon className="h-[15px] w-[15px]" />
+                </a>
+              ))}
+            </div>
+
+            <span
+              className={`hidden h-4 w-[1px] lg:block ${
+                overDark ? "bg-white/20" : "bg-stroke"
+              }`}
+              aria-hidden="true"
+            />
+
+            <a
+              href={GITHUB_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`hidden min-h-[38px] items-center gap-2 px-2 py-1.5 text-[12.5px] font-normal tracking-[0.015em] transition-colors duration-200 sm:inline-flex ${
+                overDark
+                  ? "text-white/85 hover:text-white"
+                  : "text-secondary hover:text-foreground"
+              }`}
+              aria-label="Buka repository Mira di GitHub"
+            >
+              <GithubIcon />
+              <span>GitHub</span>
+              {starsCount !== null && (
+                <span
+                  className={`font-mono text-[11px] tabular-nums ${
+                    overDark ? "text-[#9AD8F8]" : "text-[#0369A1]"
+                  }`}
+                >
+                  {starsCount}
+                </span>
+              )}
+            </a>
+
+            <Link
+              href="/login"
+              className={`inline-flex h-9 items-center justify-center rounded-[6px] border-[1px] px-3.5 text-xs font-medium tracking-[0.015em] transition-colors duration-200 sm:min-h-[38px] sm:px-4 sm:text-[12.5px] ${
+                overDark
+                  ? "border-white bg-white text-[#072033] hover:bg-transparent hover:text-white"
+                  : "border-[#072033] bg-[#072033] text-white hover:bg-transparent hover:text-[#072033]"
+              }`}
+            >
+              Masuk
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((open) => !open)}
+              aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-menu"
+              aria-label={mobileMenuOpen ? "Tutup menu navigasi" : "Buka menu navigasi"}
+              className={`inline-flex h-9 w-9 items-center justify-center rounded-[8px] transition-colors duration-200 md:hidden ${
+                overDark
+                  ? "bg-white/10 text-white hover:bg-white/20"
+                  : "bg-[#F0F7FB] text-[#072033] hover:bg-[#DCEAF4]"
+              }`}
+            >
+              <MenuLines open={mobileMenuOpen} />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div
+        id="mobile-menu"
+        aria-hidden={!mobileMenuOpen}
+        className={`fixed inset-0 z-40 flex flex-col bg-[#072033] transition-opacity duration-200 md:hidden ${
+          mobileMenuOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+        }`}
+      >
+        <nav
+          aria-label="Navigasi mobile"
+          className="flex h-full flex-col overflow-y-auto px-6 pb-8 pt-24"
+        >
+          <ul className="flex flex-col divide-y-[1px] divide-white/10">
+            {MOBILE_LINKS.map((link, index) => (
+              <li key={link.href}>
+                <a
+                  href={link.href}
+                  onClick={closeMobileMenu}
+                  tabIndex={mobileMenuOpen ? 0 : -1}
+                  {...(link.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                  className="flex min-h-[54px] items-center justify-between py-3 text-white/90 transition-colors hover:text-white"
+                >
+                  <span className="text-xl font-normal tracking-[0.01em]">{link.label}</span>
+                  <span className="font-mono text-xs text-[#7DD3FC]">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+
+          <div className="mt-auto space-y-4 border-t-[1px] border-white/10 pt-5">
+            <div>
+              <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.16em] text-[#9AD8F8]">
+                Follow Update Mira
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                {SOCIAL_PROFILES.map(({ id, name, handle, href, icon: Icon }) => (
+                  <a
+                    key={id}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    tabIndex={mobileMenuOpen ? 0 : -1}
+                    aria-label={`Follow ${name} ${handle}`}
+                    className="flex min-h-[42px] items-center justify-center gap-1.5 rounded-[6px] border-[1px] border-white/20 bg-white/5 px-2.5 text-xs text-white transition-colors hover:border-white hover:bg-white hover:text-[#072033]"
+                  >
+                    <Icon className="h-3.5 w-3.5 shrink-0" />
+                    <span>{name}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+
+            <Link
+              href="/login"
+              onClick={closeMobileMenu}
+              tabIndex={mobileMenuOpen ? 0 : -1}
+              className="flex min-h-[46px] w-full items-center justify-center rounded-[6px] border-[1px] border-white bg-white px-5 py-3 text-sm font-medium text-[#072033] transition-colors duration-200 hover:bg-transparent hover:text-white"
+            >
+              Masuk ke Dashboard
+            </Link>
+          </div>
+        </nav>
+      </div>
+    </>
   );
 }
