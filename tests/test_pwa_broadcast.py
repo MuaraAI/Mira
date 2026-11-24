@@ -25,7 +25,8 @@ async def test_broadcast_requires_master_key():
 @pytest.mark.asyncio
 async def test_broadcast_master_sends_to_all_nims(monkeypatch):
     monkeypatch.setattr("app.config.settings.API_KEY", "master_secret")
-    monkeypatch.setattr("app.pwa_webpush.is_vapid_configured", lambda: True)
+    monkeypatch.setattr("app.config.settings.VAPID_PUBLIC_KEY", "dummy-vapid-public")
+    monkeypatch.setattr("app.config.settings.VAPID_PRIVATE_KEY", "dummy-vapid-private")
     monkeypatch.setattr(
         "app.pwa_push_db.list_all_active_nims", AsyncMock(return_value=["12345678", "87654321"])
     )
