@@ -1,4 +1,4 @@
-# Security Policy (Mira v3.5.0)
+# Security Policy
 
 ## 1. Scope & Architecture
 

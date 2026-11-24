@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Effective date:** October 18, 2026 (Updated: November 24, 2026 - v3.5.0)
+**Effective date:** October 18, 2026 (Updated: November 24, 2026)
 **Applies to:** Mira (`MuaraAI/Mira`, sebelumnya UBSI API), its hosted dashboard at `mira.muaraai.com` (redirect from `ubsi-api.muaraai.com`), and its API gateway at `api.muaraai.com`.
 
 This project is an unofficial, community-built student tool. This policy explains, in plain terms, what data the service touches, where it lives, how it is protected, and how you can delete it.
