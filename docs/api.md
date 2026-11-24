@@ -1001,7 +1001,7 @@ Tipe event: `message.created` (dengan flag `mentioned`), `message.updated` (fiel
 
 ## 10. Model Context Protocol (MCP) Server
 
-Mira menyediakan Model Context Protocol (MCP) Server resmi dengan **40 tool AI Agent** dalam satu namespace `mira_*` melalui Streamable HTTP:
+Mira menyediakan Model Context Protocol (MCP) Server resmi dengan **42 tool AI Agent** dalam satu namespace `mira_*` melalui Streamable HTTP:
 - Endpoint: `https://api.muaraai.com/v1/mira/mcp`
 - Authentication: `Authorization: Bearer muara_mira_<key>` (prefix lama `muara_ubsi_<key>` masih diterima agar key yang sudah beredar tetap berlaku)
 - Full reference, schema specifications, and agent prompt templates: See [docs/mcp.md](mcp.md).

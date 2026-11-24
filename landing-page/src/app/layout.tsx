@@ -286,7 +286,7 @@ export default function RootLayout({
         description: SITE_DESCRIPTION,
         applicationCategory: "EducationalApplication",
         operatingSystem: "Web, Android, iOS (PWA)",
-        softwareVersion: "3.5.0",
+        softwareVersion: "4.0.0",
         screenshot: `${SITE_URL}/opengraph-image`,
         inLanguage: "id-ID",
         isAccessibleForFree: true,

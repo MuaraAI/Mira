@@ -165,7 +165,7 @@ UBSI-API/ (Repo: MuaraAI/Mira)
 │   ├── limiter.py             # Sliding window rate limiter (60 req/min)
 │   ├── login_guard.py         # Login & forgot-password guard (10/min/IP, escalating blacklist, daily logs)
 │   ├── maintenance.py         # Maintenance mode gate (503 MAINTENANCE + NIM whitelist)
-│   ├── mcp_server.py          # MCP Server (40 tools `mira_*`, Streamable HTTP port 8350)
+│   ├── mcp_server.py          # MCP Server (42 tools `mira_*`, Streamable HTTP port 8350)
 │   ├── notifier.py            # Scheduled academic notification & reminder worker
 │   ├── password_change.py     # Ganti password kampus + deteksi password default
 │   ├── password_reset.py      # Reset password kampus via email + validasi NIM-email (HMAC)
@@ -204,7 +204,7 @@ UBSI-API/ (Repo: MuaraAI/Mira)
 │   ├── architecture.md        # Request lifecycle, session pool, and cache flow
 │   ├── anti-ban.md            # Account security & safety protocols
 │   ├── deploy.md              # VPS PM2 production operations
-│   ├── mcp.md                 # MCP Server reference & 40 tool catalog
+│   ├── mcp.md                 # MCP Server reference & 42 tool catalog
 │   └── remote-access.md       # Caddy, Nginx, & Cloudflare Tunnel guide
 ├── ecosystem.config.cjs       # PM2 production config (`ubsi-api` + `ubsi-mcp`)
 ├── AGENT.md                   # Panduan operasional AI Agent & arsitektur sesi/database
