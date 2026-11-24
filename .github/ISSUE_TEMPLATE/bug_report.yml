@@ -1,0 +1,72 @@
+name: Laporan Bug
+description: Laporkan error, crash, atau perilaku tidak sesuai pada Dashboard PWA, REST API, atau MCP Server.
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Terima kasih sudah melapor! **PERINGATAN KEAMANAN**: jangan pernah menempelkan NIM asli, password kampus, cookie `ubsi_session`, API key (`muara_mira_*`), atau token pribadi di issue ini.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Bagian yang bermasalah
+      options:
+        - Dashboard Web / PWA (mira.muaraai.com)
+        - Backend REST API (/v1/*)
+        - Autentikasi / Sesi / Perangkat Tepercaya
+        - MCP Server (mira_*)
+        - Notifikasi (PWA Push / Webhook Discord & Telegram)
+        - Mira Komunitas (Social Chat)
+        - Lainnya
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Deskripsi masalah
+      description: Jelaskan apa yang terjadi dan apa yang seharusnya terjadi.
+      placeholder: "Contoh: Saat membuka halaman KHS semester, muncul error 500..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Langkah reproduksi
+      description: Urutan langkah agar masalah bisa direproduksi.
+      placeholder: |
+        1. Login di mira.muaraai.com
+        2. Buka menu ...
+        3. Klik tombol ...
+        4. Muncul error ...
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Perangkat & Browser / Klien
+      description: "Contoh: Android Chrome 130 (PWA), Desktop Firefox, Claude Code MCP, dll."
+      placeholder: Android · Chrome 130 (PWA)
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Screenshot atau respons error (anonim)
+      description: Pastikan semua NIM, email, dan token sudah disensor sebelum ditempel.
+      render: text
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: privacy_check
+    attributes:
+      label: Konfirmasi Privasi
+      options:
+        - label: Saya memastikan tidak ada password, API key, cookie sesi, atau data pribadi sensitif pada laporan ini.
+          required: true
