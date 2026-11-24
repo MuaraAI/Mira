@@ -1,5 +1,4 @@
 from pathlib import Path
-import pytest
 from app.modules.elearning import (
     solve_captcha,
     parse_courses,
