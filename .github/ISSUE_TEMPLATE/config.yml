@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Laporkan Celah Keamanan (Privat)
+    url: https://github.com/MuaraAI/Mira/blob/main/SECURITY.md
+    about: Jangan buka public issue untuk kebocoran kredensial atau kerentanan keamanan. Baca SECURITY.md.
+  - name: Dokumentasi API & MCP
+    url: https://github.com/MuaraAI/Mira/blob/main/docs/api.md
+    about: Periksa referensi endpoint REST API dan MCP Server sebelum melaporkan kendala.
+  - name: Aturan Kontribusi (Khusus Anggota Muara AI & Mahasiswa Aktif UBSI)
+    url: https://github.com/MuaraAI/Mira/blob/main/CONTRIBUTING.md
+    about: Baca syarat kontributor dan alur wajib branch baru + Pull Request.

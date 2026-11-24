@@ -1,0 +1,42 @@
+name: Usulan Fitur
+description: Usulkan fitur baru atau peningkatan untuk Dashboard Mira, REST API, atau MCP Server.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area fitur
+      options:
+        - Dashboard Web / PWA
+        - Backend REST API
+        - MCP Server (AI Agent Tools)
+        - Notifikasi (PWA Push / Webhook)
+        - Mira Komunitas
+        - Dokumentasi / DevEx
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Masalah yang ingin diselesaikan
+      description: Jelaskan kendala mahasiswa atau developer yang ingin dipecahkan oleh fitur ini.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solusi yang diusulkan
+      description: Gambarkan alur fitur, tampilan UI, atau bentuk endpoint/tool yang diinginkan.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Catatan tambahan / referensi
+      description: Opsional. Sertakan konteks tambahan bila ada.
+    validations:
+      required: false

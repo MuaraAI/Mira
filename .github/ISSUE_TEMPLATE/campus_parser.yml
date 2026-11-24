@@ -1,0 +1,59 @@
+name: Perubahan Layout Portal Kampus (Parser Rusak)
+description: Laporkan jika portal kampus UBSI berubah tampilan/CAPTCHA/struktur HTML sehingga data di Mira kosong atau gagal dimuat.
+title: "[Parser]: "
+labels: ["bug", "upstream-campus"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gunakan template ini bila layanan kampus (`students.bsi.ac.id`, `elearning.bsi.ac.id`, `ujiankampusa.bsi.ac.id`, dll.) mengubah struktur halaman, endpoint, atau mekanisme CAPTCHA.
+        **Jangan sertakan kredensial atau data pribadi mahasiswa asli.**
+
+  - type: dropdown
+    id: service
+    attributes:
+      label: Layanan kampus terdampak
+      options:
+        - MyBest (elearning.bsi.ac.id)
+        - SIAKAD (students.bsi.ac.id)
+        - Ujian Online (ujiankampusa.bsi.ac.id)
+        - Perpustakaan OPAC (elibrary.bsi.ac.id)
+        - Berita Resmi (news.bsi.ac.id)
+        - Repository EPrints (repository.bsi.ac.id)
+        - E-Journal (ejournal.bsi.ac.id)
+        - Kegiatan Akademik (staffv2.bsi.ac.id)
+    validations:
+      required: true
+
+  - type: input
+    id: endpoint
+    attributes:
+      label: Fitur / Endpoint Mira yang terdampak
+      placeholder: "Contoh: GET /v1/elearning/quiz atau halaman Presensi di dashboard"
+    validations:
+      required: true
+
+  - type: textarea
+    id: details
+    attributes:
+      label: Detail perubahan upstream
+      description: Jelaskan apa yang berubah di portal kampus (misal field form baru, error code, perubahan tabel, atau CAPTCHA baru).
+    validations:
+      required: true
+
+  - type: textarea
+    id: sample
+    attributes:
+      label: Cuplikan HTML / respons error (sudah dianonimkan)
+      description: Opsional. Ganti nama, NIM, email, dan token dengan data dummy sebelum ditempel.
+      render: html
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: privacy_check
+    attributes:
+      label: Konfirmasi Privasi
+      options:
+        - label: Semua data pribadi mahasiswa dan kredensial sudah dihapus/disensor.
+          required: true
