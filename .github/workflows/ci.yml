@@ -1,0 +1,121 @@
+name: CI (Policy, Security, Review & Tests)
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  policy-and-security-guard:
+    name: Policy, Secrets & Anti-Slop Guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run AGENT.md policy, secrets, dummy-data & anti-slop checks
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: python scripts/ci_policy_check.py
+
+  static-code-and-security-review:
+    name: Static Code Review & Security Scan (Diff)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup uv & Python 3.12
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Find changed Python files
+        id: changed
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ -n "$BASE_SHA" ]; then
+            FILES=$(git diff --name-only --diff-filter=ACMR "${BASE_SHA}...HEAD" -- 'app/**/*.py' 'scripts/*.py' 'tests/*.py' | tr '\n' ' ')
+            APP_FILES=$(git diff --name-only --diff-filter=ACMR "${BASE_SHA}...HEAD" -- 'app/**/*.py' 'scripts/*.py' | tr '\n' ' ')
+          else
+            FILES=$(git diff --name-only --diff-filter=ACMR HEAD~1..HEAD -- 'app/**/*.py' 'scripts/*.py' 'tests/*.py' | tr '\n' ' ')
+            APP_FILES=$(git diff --name-only --diff-filter=ACMR HEAD~1..HEAD -- 'app/**/*.py' 'scripts/*.py' | tr '\n' ' ')
+          fi
+          echo "py_files=$FILES" >> "$GITHUB_OUTPUT"
+          echo "app_files=$APP_FILES" >> "$GITHUB_OUTPUT"
+
+      - name: Ruff lint & bug/security review on changed Python files
+        if: steps.changed.outputs.py_files != ''
+        run: uvx ruff check --select E9,F,B,S --ignore S101,S105,S106,S110,S311 ${{ steps.changed.outputs.py_files }}
+
+      - name: Bandit security scan (medium/high) on changed backend files
+        if: steps.changed.outputs.app_files != ''
+        run: uvx bandit -q -ll -ii ${{ steps.changed.outputs.app_files }}
+
+  backend-tests:
+    name: Backend Offline Tests (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup uv & Python 3.12
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install Python dependencies
+        run: |
+          uv venv .venv --python 3.12
+          uv pip install --python .venv/bin/python -r requirements.txt
+
+      - name: Run 100% offline pytest suite
+        env:
+          API_KEY: ci-dummy-api-key-for-offline-tests
+          SUPABASE_DB_URL: ""
+        run: .venv/bin/pytest -q
+
+  frontend-build:
+    name: Frontend Build & Typecheck (Next.js)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: landing-page/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: landing-page
+        run: npm ci
+
+      - name: Build & typecheck landing page
+        working-directory: landing-page
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:8300
+        run: npm run build
