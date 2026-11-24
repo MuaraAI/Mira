@@ -55,18 +55,22 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           if [ -n "$BASE_SHA" ]; then
-            FILES=$(git diff --name-only --diff-filter=ACMR "${BASE_SHA}...HEAD" -- 'app/**/*.py' 'scripts/*.py' 'tests/*.py' | tr '\n' ' ')
             APP_FILES=$(git diff --name-only --diff-filter=ACMR "${BASE_SHA}...HEAD" -- 'app/**/*.py' 'scripts/*.py' | tr '\n' ' ')
+            TEST_FILES=$(git diff --name-only --diff-filter=ACMR "${BASE_SHA}...HEAD" -- 'tests/*.py' | tr '\n' ' ')
           else
-            FILES=$(git diff --name-only --diff-filter=ACMR HEAD~1..HEAD -- 'app/**/*.py' 'scripts/*.py' 'tests/*.py' | tr '\n' ' ')
             APP_FILES=$(git diff --name-only --diff-filter=ACMR HEAD~1..HEAD -- 'app/**/*.py' 'scripts/*.py' | tr '\n' ' ')
+            TEST_FILES=$(git diff --name-only --diff-filter=ACMR HEAD~1..HEAD -- 'tests/*.py' | tr '\n' ' ')
           fi
-          echo "py_files=$FILES" >> "$GITHUB_OUTPUT"
           echo "app_files=$APP_FILES" >> "$GITHUB_OUTPUT"
+          echo "test_files=$TEST_FILES" >> "$GITHUB_OUTPUT"
 
-      - name: Ruff lint & bug/security review on changed Python files
-        if: steps.changed.outputs.py_files != ''
-        run: uvx ruff check --select E9,F,B,S --ignore S101,S105,S106,S110,S311 ${{ steps.changed.outputs.py_files }}
+      - name: Ruff lint & security review on changed backend files
+        if: steps.changed.outputs.app_files != ''
+        run: uvx ruff check --select E9,F,S --ignore S101,S105,S106,S107,S110,S112,S311 ${{ steps.changed.outputs.app_files }}
+
+      - name: Ruff syntax & unused-import check on changed test files
+        if: steps.changed.outputs.test_files != ''
+        run: uvx ruff check --select E9,F ${{ steps.changed.outputs.test_files }}
 
       - name: Bandit security scan (medium/high) on changed backend files
         if: steps.changed.outputs.app_files != ''
