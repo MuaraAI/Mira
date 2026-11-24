@@ -1,22 +1,15 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  CalendarDays,
   GraduationCap,
-  CheckSquare,
-  UserCheck,
   Clock,
-  ArrowRight,
-  CheckCircle2,
-  Radio,
   BookOpen,
   Award,
   Library,
-  AlertTriangle,
   HelpCircle,
-  MessagesSquare,
 } from "lucide-react";
 import { useApi, AuthMeResponse } from "@/lib/api";
 import { findSubmission, formatShortDate, parseDeadline } from "@/lib/assignments";
@@ -28,10 +21,7 @@ import {
   LoadingState,
   Skeleton,
 } from "@/components/dashboard-ui";
-import { DAY_NAMES, dayIndex, describeRoom, sessionTiming, shortDate } from "@/lib/schedule";
-
-
-
+import { DAY_NAMES, dayIndex, sessionTiming, shortDate } from "@/lib/schedule";
 
 interface KhsData {
   items: unknown[];
@@ -60,11 +50,6 @@ interface AssignmentsData {
   submissions?: { id?: string; judul: string; kode?: string; mata_kuliah?: string }[];
 }
 
-interface PresenceData {
-  status_sesi?: string | null;
-  matakuliah?: string;
-  ruang?: string;
-}
 interface AcademicEventSummary {
   id: string;
   nama: string;
@@ -101,23 +86,29 @@ function greeting(hour: number) {
 
 const norm = (v?: string | null) => (v ?? "").trim().toLowerCase();
 
+function parseShortDateTile(raw: string): { day: string; month: string } {
+  const m = raw.trim().match(/^(\d{1,2})\s+([A-Za-z]+)/);
+  if (m) return { day: m[1].padStart(2, "0"), month: m[2].slice(0, 3).toUpperCase() };
+  return { day: "--", month: "TGL" };
+}
+
 export default function DashboardOverviewPage() {
   const me = useApi<AuthMeResponse>("/v1/auth/me");
-  // `/v1/elearning/schedule` dan `/v1/elearning/courses` memakai parser dan cache
-  // yang sama (keduanya halaman /sch). Dulu dashboard memanggil keduanya, jadi
-  // dua request identik per muat. Satu panggilan cukup.
-
-  const assignments = useApi<AssignmentsData>("/v1/elearning/assignments", { persistMs: 6 * 60 * 60 * 1000, refreshMs: 5 * 60_000 });
-  // Token presensi per mapel berasal dari daftar mapel MyBest (dicocokkan dengan jadwal SIAKAD lewat kode/nama).
+  const assignments = useApi<AssignmentsData>("/v1/elearning/assignments", {
+    persistMs: 6 * 60 * 60 * 1000,
+    refreshMs: 5 * 60_000,
+  });
   const courses = useApi<ElearningCourse[]>("/v1/elearning/courses", { persistMs: PERSIST_12H });
-  const elearningProfile = useApi<{ nama?: string; email?: string }>("/v1/elearning/profile", { persistMs: PERSIST_12H });
-  const academicEvents = useApi<AcademicEventSummary[]>("/v1/academic/events", { persistMs: PERSIST_12H });
-  // KHS hanya tersedia setelah SIAKAD ditautkan; 401 = belum tertaut, bukan error.
+  const elearningProfile = useApi<{ nama?: string; email?: string }>("/v1/elearning/profile", {
+    persistMs: PERSIST_12H,
+  });
+  const academicEvents = useApi<AcademicEventSummary[]>("/v1/academic/events", {
+    persistMs: PERSIST_12H,
+  });
   const khs = useApi<KhsData>("/v1/studentv2/khs", { persistMs: PERSIST_12H });
-  const utsExams = useApi<{ exams: { mata_kuliah: string; no_ruang?: string | null; tanggal_ujian?: string | null; waktu?: string | null }[] }>(
-    "/v1/elearning/exams/uts",
-    { persistMs: PERSIST_12H }
-  );
+  const utsExams = useApi<{
+    exams: { mata_kuliah: string; no_ruang?: string | null; tanggal_ujian?: string | null; waktu?: string | null }[];
+  }>("/v1/elearning/exams/uts", { persistMs: PERSIST_12H });
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -126,13 +117,12 @@ export default function DashboardOverviewPage() {
   }, []);
   const [presentMap, setPresentMap] = useState<Record<string, boolean>>({});
   const reportStatus = useCallback(
-    (key: string, present: boolean) => setPresentMap((prev) => (prev[key] === present ? prev : { ...prev, [key]: present })),
+    (key: string, present: boolean) =>
+      setPresentMap((prev) => (prev[key] === present ? prev : { ...prev, [key]: present })),
     []
   );
 
   const todayIdx = now.getDay();
-  // Satu sumber: jadwal MyBest. Tidak ada fallback silang ke SIAKAD di sini,
-  // karena jadwal kuliah memang datang dari MyBest (/sch).
   const activeSchedule = useMemo(() => {
     return (courses.data ?? []).map((c) => ({
       id: c.id || `${c.kode}-${c.jam}`,
@@ -169,7 +159,6 @@ export default function DashboardOverviewPage() {
         };
       })
       .sort((a, b) => (a.timing?.range?.[0] ?? 0) - (b.timing?.range?.[0] ?? 0));
-    // Dihitung ulang per menit cukup.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSchedule, courses.data, todayIdx, Math.floor(now.getTime() / 60_000)]);
 
@@ -183,7 +172,6 @@ export default function DashboardOverviewPage() {
   }
   if (me.error) return <ErrorState error={me.error} onRetry={me.reload} />;
 
-  // Selama request belum selesai tampilkan skeleton, bukan fallback, supaya teks tidak berganti di tengah jalan.
   const isPending = (q: { loading: boolean; data: unknown }) => q.loading && !q.data;
   const profilePending = isPending(elearningProfile);
   const schedulePending = isPending(courses);
@@ -192,8 +180,9 @@ export default function DashboardOverviewPage() {
   const nim = me.data?.nim ?? "-";
   const rawName = (elearningProfile.data?.nama || "").trim();
   const firstName = rawName.split(/\s+/)[0] ?? "";
-  // Tampilkan rapi ("Verzio").
-  const displayName = firstName ? firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase() : `Mahasiswa`;
+  const displayName = firstName
+    ? firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase()
+    : `Mahasiswa`;
   const prodi = courses.data && courses.data.length > 0 ? "Mahasiswa Aktif" : "Data belum tersedia";
   const kelas = courses.data?.[0]?.kelas || "";
 
@@ -201,7 +190,6 @@ export default function DashboardOverviewPage() {
   const submissionsList = assignments.data?.submissions ?? [];
   const pendingTasks = tasksList.filter((t) => !findSubmission(t, submissionsList));
 
-  // Pengingat: tugas belum dikumpul dengan batas waktu terdekat yang belum lewat.
   const nowMs = now.getTime();
   const nextTask =
     pendingTasks
@@ -209,194 +197,199 @@ export default function DashboardOverviewPage() {
       .filter(({ at }) => at >= nowMs)
       .sort((a, b) => a.at - b.at)[0]?.t ?? null;
   const nextDeadline = nextTask ? parseDeadline(nextTask.selesai) : null;
-  const hoursLeft = nextDeadline ? Math.max(0, Math.round((nextDeadline.getTime() - nowMs) / 3_600_000)) : null;
+  const hoursLeft = nextDeadline
+    ? Math.max(0, Math.round((nextDeadline.getTime() - nowMs) / 3_600_000))
+    : null;
 
-  // 401 dari endpoint SIAKAD = user belum menautkan akun, bukan kegagalan.
   const khsSiaKadMissing = khs.error?.status === 401;
 
   const liveClass = todayClasses.find((c) => c.timing?.state === "live") ?? null;
-  const nextClass = todayClasses.find((c) => c.timing?.state === "soon" || c.timing?.state === "upcoming") ?? null;
+  const nextClass =
+    todayClasses.find((c) => c.timing?.state === "soon" || c.timing?.state === "upcoming") ?? null;
   const spotlight = liveClass ?? nextClass;
   const doneCount = todayClasses.filter((c) => c.timing?.state === "done").length;
   const presentCount = todayClasses.filter((c) => presentMap[c.key]).length;
-  const absenRelevant = todayClasses.filter((c) => c.timing?.state === "done" || c.timing?.state === "live").length;
+  const absenRelevant = todayClasses.filter(
+    (c) => c.timing?.state === "done" || c.timing?.state === "live"
+  ).length;
 
   const taughtBy = (kode?: string) =>
-    activeSchedule.filter((s) => kode && s.kode_dosen === kode).map((s) => ({ nama: s.nama, hari: s.hari, jam: s.jam }));
+    activeSchedule
+      .filter((s) => kode && s.kode_dosen === kode)
+      .map((s) => ({ nama: s.nama, hari: s.hari, jam: s.jam }));
 
   return (
-    <div className="space-y-7">
-      {/* 1. Hero: pita aksen dengan sapaan + identitas, lalu sorotan kelas dan pintasan */}
-      <section className="overflow-hidden bg-white shadow-[0_0_0_2px_#163A55,6px_6px_0_0_#9CC6E0]" aria-label="Ringkasan hari ini">
-        <div
-          className="relative px-4 pb-5 pt-4 text-white sm:px-6 sm:pb-6 sm:pt-5"
-          style={{
-            backgroundColor: "#0369A1",
-            backgroundImage:
-              "radial-gradient(rgba(255,255,255,.14) 1.5px, transparent 1.5px), linear-gradient(135deg, #0369A1 0%, #075985 60%, #0B2D46 100%)",
-            backgroundSize: "14px 14px, 100% 100%",
-          }}
-        >
-          <p className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-white/80">{shortDate(now)}</p>
-          <h1 className="mt-1.5 break-words text-[1.6rem] font-display font-bold leading-tight tracking-tight sm:text-3xl">
-            {greeting(now.getHours())},{" "}
-            {profilePending ? <Skeleton className="h-7 w-32 max-w-full align-middle opacity-40" /> : displayName}
-          </h1>
-          {profilePending ? (
-            <Skeleton className="mt-2 h-4 w-56 max-w-full opacity-40" />
-          ) : (
-            <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[13px] text-white/85">
-              <span className="font-mono font-semibold text-white">{nim}</span>
-              <span aria-hidden="true">·</span>
-              <span>
-                {prodi}
-                {kelas ? ` ${kelas}` : ""}
-              </span>
-            </p>
-          )}
+    <div className="min-w-0 space-y-5">
+      {/* 1. Clean Editorial Workspace Header + Detached Metric Bar */}
+      <section className="space-y-3" aria-label="Ringkasan hari ini">
+        <div className="relative overflow-hidden rounded-[12px] border-[1px] border-[#0E2F4A] bg-[#051828] px-5 py-5 text-white sm:px-7 sm:py-6">
+          <Image
+            src="/images/dashboard-banner-muara.webp"
+            alt=""
+            fill
+            priority
+            sizes="(max-width: 1024px) 100vw, 960px"
+            className="select-none object-cover object-center"
+            aria-hidden="true"
+          />
+
+          <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="min-w-0">
+              <p className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-[#9AD8F8]">
+                {shortDate(now)}
+              </p>
+              <h1 className="font-home-display mt-1.5 break-words text-[clamp(1.5rem,3vw,2.05rem)] leading-[1.12] tracking-[-0.01em] text-white">
+                {greeting(now.getHours())},{" "}
+                {profilePending ? (
+                  <Skeleton className="h-7 w-32 max-w-full align-middle opacity-40" />
+                ) : (
+                  displayName
+                )}
+              </h1>
+              {profilePending ? (
+                <Skeleton className="mt-2 h-4 w-56 max-w-full opacity-40" />
+              ) : (
+                <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12.5px] text-[#CBE0EE]">
+                  <span className="font-mono text-white">{nim}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>
+                    {prodi}
+                    {kelas ? ` ${kelas}` : ""}
+                  </span>
+                </p>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-3 lg:items-end">
+              {!schedulePending && (
+                <a
+                  href="#heading-kelas-hari-ini"
+                  className="text-left text-xs text-[#DCEBF5] transition-colors hover:text-white lg:text-right"
+                >
+                  {spotlight ? (
+                    <>
+                      <span className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-[#7DD3FC]">
+                        {liveClass ? "Sedang berlangsung" : "Berikutnya"}
+                      </span>
+                      <span className="mt-0.5 block truncate font-medium text-white">
+                        {spotlight.nama} · {spotlight.timing?.label}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="font-mono text-[11px] text-[#CBE0EE]">
+                      {todayClasses.length
+                        ? `${presentCount} dari ${todayClasses.length} kelas hari ini sudah absen`
+                        : `Tidak ada kelas hari ${DAY_NAMES[todayIdx]}`}
+                    </span>
+                  )}
+                </a>
+              )}
+
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/dashboard/presensi"
+                  className="inline-flex min-h-[38px] items-center justify-center rounded-[6px] border-[1px] border-white bg-white px-4 text-xs font-medium text-[#072033] transition-colors duration-200 hover:bg-transparent hover:text-white"
+                >
+                  Presensi
+                </Link>
+                <Link
+                  href="/dashboard/komunitas"
+                  className="inline-flex min-h-[38px] items-center justify-center rounded-[6px] border-[1px] border-white/30 bg-transparent px-3.5 text-xs text-white transition-colors hover:border-white hover:bg-white hover:text-[#072033]"
+                >
+                  Komunitas
+                </Link>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Sorotan: kelas sekarang / berikutnya / status hari ini */}
-        <a
-          href="#heading-kelas-hari-ini"
-          className="flex items-center gap-3 border-b-2 border-[#EAF3F9] px-4 py-3.5 transition-colors hover:bg-[#F7FAFC] sm:px-6"
-        >
-          <span
-            className={`flex h-11 w-11 shrink-0 items-center justify-center ${
-              liveClass ? "bg-[#9A3412] text-white" : spotlight ? "bg-[#0369A1]/10 text-[#0369A1]" : "bg-[#0F766E]/10 text-[#0F766E]"
-            }`}
-            aria-hidden="true"
-          >
-            {liveClass ? <Radio className="h-5 w-5" /> : spotlight ? <Clock className="h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />}
-          </span>
-          <span className="min-w-0 flex-1">
-            {schedulePending ? (
-              <>
-                <Skeleton className="h-3.5 w-24" />
-                <Skeleton className="mt-1.5 h-5 w-3/4" />
-              </>
-            ) : spotlight ? (
-              <>
-                <span className={`block text-[11px] font-bold uppercase tracking-[0.12em] ${liveClass ? "text-[#9A3412]" : "text-[#0369A1]"}`}>
-                  {liveClass ? "Sedang berlangsung" : "Kelas berikutnya"}
-                </span>
-                <span className="block truncate text-[15px] font-bold text-foreground">{spotlight.nama}</span>
-                <span className="block truncate text-xs text-secondary">
-                  {spotlight.timing?.label} · {describeRoom(spotlight.ruang).label}
-                </span>
-              </>
-            ) : (
-              <>
-                <span className="block text-[11px] font-bold uppercase tracking-[0.12em] text-[#0F766E]">
-                  {todayClasses.length ? "Kuliah hari ini selesai" : "Hari bebas kuliah"}
-                </span>
-                <span className="block text-[15px] font-bold text-foreground">
-                  {todayClasses.length
-                    ? `${presentCount} dari ${todayClasses.length} kelas sudah absen`
-                    : `Tidak ada kelas hari ${DAY_NAMES[todayIdx]}`}
-                </span>
-                <span className="block text-xs text-secondary">
-                  {pendingTasks.length ? `${pendingTasks.length} tugas menunggu dicicil` : "Tidak ada tugas yang menunggu"}
-                </span>
-              </>
-            )}
-          </span>
-          <ArrowRight className="h-4 w-4 shrink-0 text-secondary" aria-hidden="true" />
-        </a>
-
-        {/* Pintasan ala aplikasi */}
-        <nav aria-label="Pintasan" className="grid grid-cols-4 gap-1 px-2 py-2.5 sm:px-4">
+        {/* Grounded 4-Column Metric Strip on Light Surface */}
+        <div className="grid grid-cols-2 divide-x-[1px] divide-y-[1px] divide-stroke overflow-hidden rounded-[10px] border-[1px] border-stroke bg-white sm:grid-cols-4 sm:divide-y-0">
           {[
-            { href: "/dashboard/jadwal", label: "Jadwal", icon: CalendarDays },
-            { href: "/dashboard/presensi", label: "Presensi", icon: UserCheck },
-            { href: "/dashboard/tugas", label: "Tugas", icon: CheckSquare },
-            { href: "/dashboard/komunitas", label: "Komunitas", icon: MessagesSquare },
-          ].map(({ href, label, icon: Icon }) => (
-            <Link key={href} href={href} className="group flex flex-col items-center gap-1.5 py-1.5 text-center">
-              <span className="flex h-11 w-11 items-center justify-center bg-[#EAF3F9] text-[#0369A1] shadow-[0_0_0_2px_#CFE2EE] transition-[background-color,color,transform] duration-200 group-hover:-translate-y-0.5 group-hover:bg-[#0369A1] group-hover:text-white">
-                <Icon className="h-5 w-5" aria-hidden="true" />
+            {
+              href: khsSiaKadMissing ? "/dashboard/sesi" : "/dashboard/nilai",
+              label: "IPK",
+              pending: khs.loading && !khs.data && !khsSiaKadMissing,
+              value: khs.data?.ipk ? khs.data.ipk.toFixed(2) : khsSiaKadMissing ? "Tautkan" : "-",
+              sub: khsSiaKadMissing
+                ? "Tautkan SIAKAD"
+                : khs.data?.total_sks
+                  ? `${khs.data.total_sks} SKS lulus`
+                  : "Belum dirilis",
+            },
+            {
+              href: "#heading-kelas-hari-ini",
+              label: "Presensi",
+              pending: schedulePending,
+              value: todayClasses.length ? `${presentCount}/${todayClasses.length}` : "-",
+              sub: !todayClasses.length
+                ? "Hari bebas"
+                : presentCount === todayClasses.length
+                  ? "Semua hadir"
+                  : absenRelevant > presentCount
+                    ? `${absenRelevant - presentCount} belum absen`
+                    : "Menunggu kelas",
+            },
+            {
+              href: "/dashboard/tugas",
+              label: "Tugas",
+              pending: assignmentsPending,
+              value: String(pendingTasks.length),
+              sub:
+                hoursLeft !== null
+                  ? hoursLeft < 24
+                    ? `${hoursLeft} jam lagi`
+                    : `${Math.round(hoursLeft / 24)} hari lagi`
+                  : pendingTasks.length
+                    ? "Cek deadline"
+                    : "Semua beres",
+            },
+            {
+              href: "/dashboard/jadwal",
+              label: "Kelas",
+              pending: schedulePending,
+              value: String(todayClasses.length),
+              sub: todayClasses.length
+                ? todayClasses.length - doneCount
+                  ? `${todayClasses.length - doneCount} lagi hari ini`
+                  : "Semua selesai"
+                : "Hari bebas",
+            },
+          ].map((cell) => (
+            <Link
+              key={cell.label}
+              href={cell.href}
+              className="group flex flex-col justify-between px-4 py-3.5 text-left transition-colors hover:bg-[#FAFDFE]"
+            >
+              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-secondary">
+                {cell.label}
               </span>
-              <span className="text-[12px] font-semibold text-foreground">{label}</span>
+              <span className="font-display mt-1.5 text-[22px] font-semibold leading-none tracking-[-0.01em] text-foreground tabular-nums sm:text-2xl">
+                {cell.pending ? <Skeleton className="h-6 w-12" /> : cell.value}
+              </span>
+              <span className="mt-1 truncate text-[11.5px] text-secondary group-hover:text-foreground">
+                {cell.sub}
+              </span>
             </Link>
           ))}
-        </nav>
+        </div>
       </section>
 
-      {/* Batas SIAKAD: satu baris ringkas, bukan kartu besar yang menutupi data MyBest */}
       <SiaKadLockedCard compact />
 
-      {/* 2. Metrik ringkas */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <MetricCard
-          href={khsSiaKadMissing ? "/dashboard/sesi" : "/dashboard/nilai"}
-          label="IPK"
-          icon={GraduationCap}
-          pending={khs.loading && !khs.data && !khsSiaKadMissing}
-          value={khs.data?.ipk ? khs.data.ipk.toFixed(2) : khsSiaKadMissing ? "Tautkan" : "-"}
-          small
-          note={
-            khsSiaKadMissing
-              ? "Tautkan SIAKAD untuk lihat IPK"
-              : khs.data?.total_sks
-                ? `${khs.data.total_sks} SKS terkumpul`
-                : "Belum ada nilai dirilis"
-          }
-          tone={khsSiaKadMissing ? "warn" : "ok"}
-        />
-        <MetricCard
-          href="#heading-kelas-hari-ini"
-          label="Absen"
-          icon={UserCheck}
-          pending={schedulePending}
-          value={todayClasses.length ? `${presentCount}/${todayClasses.length}` : "-"}
-          note={
-            !todayClasses.length
-              ? "Tidak ada kelas"
-              : presentCount === todayClasses.length
-                ? "Semua sudah absen"
-                : absenRelevant > presentCount
-                  ? `${absenRelevant - presentCount} belum absen`
-                  : "Menunggu jam kuliah"
-          }
-          tone={todayClasses.length && absenRelevant > presentCount ? "warn" : "ok"}
-        />
-        <MetricCard
-          href="/dashboard/tugas"
-          label="Tugas"
-          icon={CheckSquare}
-          pending={assignmentsPending}
-          value={String(pendingTasks.length)}
-          note={
-            hoursLeft !== null
-              ? hoursLeft < 24
-                ? `Deadline ${hoursLeft} jam lagi`
-                : `Deadline ${Math.round(hoursLeft / 24)} hari lagi`
-              : pendingTasks.length
-                ? "Belum ada deadline"
-                : "Semua beres"
-          }
-          tone={hoursLeft !== null && hoursLeft < 24 ? "warn" : "ok"}
-        />
-        <MetricCard
-          href="/dashboard/jadwal"
-          label="Kelas"
-          icon={CalendarDays}
-          pending={schedulePending}
-          value={String(todayClasses.length)}
-          note={todayClasses.length ? (todayClasses.length - doneCount ? `${todayClasses.length - doneCount} lagi hari ini` : "Semua selesai") : "Hari bebas"}
-        />
-      </div>
-
-      {/* 3. Kelas hari ini: status absen langsung + absen sekali ketuk */}
+      {/* 3. Kelas hari ini */}
       <section aria-labelledby="heading-kelas-hari-ini" className="scroll-mt-24">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <div className="flex min-w-0 items-center gap-2">
             <Clock className="h-5 w-5 shrink-0 text-[#0369A1]" aria-hidden="true" />
-            <h2 id="heading-kelas-hari-ini" className="text-lg font-display font-bold tracking-tight text-foreground">
+            <h2
+              id="heading-kelas-hari-ini"
+              className="text-lg tracking-[-0.01em] text-foreground"
+            >
               Kelas Hari {DAY_NAMES[todayIdx]}
             </h2>
           </div>
-          <Link href="/dashboard/jadwal" className="text-xs font-semibold text-[#0369A1] hover:underline">
+          <Link href="/dashboard/jadwal" className="text-xs text-[#0369A1] hover:underline">
             Lihat semua jadwal
           </Link>
         </div>
@@ -413,242 +406,165 @@ export default function DashboardOverviewPage() {
             ))}
           </div>
         ) : todayClasses.length === 0 ? (
-          <EmptyState title={`Tidak ada jadwal kuliah hari ${DAY_NAMES[todayIdx]}.`} description="Santai dulu, atau cicil tugas di MyBest." />
+          <EmptyState
+            title={`Tidak ada jadwal kuliah hari ${DAY_NAMES[todayIdx]}.`}
+            description="Santai dulu, atau cicil tugas di MyBest."
+          />
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {todayClasses.map((c) => (
-              <TodayClassCard key={c.key} item={c} taughtBy={taughtBy(c.kode_dosen)} onStatus={reportStatus} />
+              <TodayClassCard
+                key={c.key}
+                item={c}
+                taughtBy={taughtBy(c.kode_dosen)}
+                onStatus={reportStatus}
+              />
             ))}
           </div>
         )}
       </section>
 
-      {/* 4. Banner Tugas Terdekat jika ada */}
+      {/* 4. Pengingat Tugas Terdekat */}
       {nextTask && (
         <section aria-labelledby="heading-tugas-mendesak">
-          <div className="p-5 sm:p-6 rounded-md bg-[#FFF7ED] border border-[#FDBA74] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-start gap-3.5">
-              <div className="p-2 rounded-sm bg-[#9A3412]/10 text-[#9A3412] shrink-0 mt-0.5">
-                <AlertTriangle className="w-5 h-5" aria-hidden="true" />
-              </div>
-              <div>
-                <span className="text-[11px] font-mono font-bold text-[#9A3412] uppercase tracking-wider">
-                  Pengingat Tugas Perkuliahan
-                </span>
-                <h3 className="font-bold text-foreground text-base mt-0.5">
-                  {nextTask.judul}
-                </h3>
-                <p className="text-xs text-secondary mt-1">
-                  Mata Kuliah: {nextTask.mata_kuliah || nextTask.kode || "-"}
-                  {nextTask.selesai ? ` | Batas Waktu: ${formatShortDate(parseDeadline(nextTask.selesai), nextTask.selesai)}` : ""}
-                </p>
-              </div>
+          <div className="flex flex-col gap-3 rounded-[10px] border-[1px] border-stroke border-l-[3px] border-l-[#9A3412] bg-white p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div className="min-w-0">
+              <p className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-[#9A3412]">
+                Tugas Terdekat
+              </p>
+              <h3 id="heading-tugas-mendesak" className="mt-1 break-words text-[15px] font-medium text-foreground">
+                {nextTask.judul}
+              </h3>
+              <p className="mt-0.5 text-xs text-secondary">
+                {nextTask.mata_kuliah || nextTask.kode || "-"}
+                {nextTask.selesai
+                  ? ` · Batas ${formatShortDate(parseDeadline(nextTask.selesai), nextTask.selesai)}`
+                  : ""}
+              </p>
             </div>
 
             <Link
               href="/dashboard/tugas"
-              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-pill bg-[#9A3412] hover:bg-[#7C2D12] text-white text-xs font-bold transition-all shrink-0"
+              className="inline-flex min-h-[38px] shrink-0 items-center justify-center rounded-[6px] border-[1px] border-[#072033] bg-[#072033] px-4 text-xs font-medium text-white transition-colors hover:bg-white hover:text-[#072033]"
             >
-              <span>Buka Tugas</span>
-              <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+              Buka Tugas
             </Link>
           </div>
         </section>
       )}
-      {/* Banner Jadwal Ujian UTS / UAS Aktif */}
+
+      {/* 5. Jadwal Ujian UTS / UAS Aktif */}
       {utsExams.data?.exams && utsExams.data.exams.length > 0 && (
         <section aria-labelledby="heading-ujian-terdekat">
-          <div className="p-5 sm:p-6 rounded-md bg-[#F0F7FB] border border-[#CFE2EE] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-start gap-3.5">
-              <div className="p-2 rounded-sm bg-[#0369A1]/10 text-[#0369A1] shrink-0 mt-0.5">
-                <Award className="w-5 h-5" aria-hidden="true" />
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-mono font-bold text-[#0369A1] uppercase tracking-wider bg-white px-2 py-0.5 border border-[#CFE2EE]">
-                    Jadwal Ujian Online (UTS)
-                  </span>
-                  <span className="text-xs font-mono font-bold text-[#0369A1]">
-                    {utsExams.data.exams.length} Mata Kuliah
-                  </span>
-                </div>
-                <h3 id="heading-ujian-terdekat" className="font-bold text-foreground text-base mt-1">
-                  Ujian Tengah Semester Terjadwal
-                </h3>
-                <p className="text-xs text-secondary mt-0.5">
-                  Ujian terdekat dimulai {utsExams.data.exams[0]?.tanggal_ujian?.split(" - ")[0] || "segera"}:{" "}
-                  <span className="font-semibold text-foreground">{utsExams.data.exams[0]?.mata_kuliah}</span>
-                  {utsExams.data.exams[0]?.no_ruang ? ` (Ruang ${utsExams.data.exams[0]?.no_ruang})` : ""}.
-                </p>
-              </div>
+          <div className="flex flex-col gap-3 rounded-[10px] border-[1px] border-stroke bg-white p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div className="min-w-0">
+              <p className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-[#0369A1]">
+                Ujian Online (UTS) · {utsExams.data.exams.length} Mata Kuliah
+              </p>
+              <h3 id="heading-ujian-terdekat" className="mt-1 text-[15px] font-medium text-foreground">
+                Ujian Tengah Semester Terjadwal
+              </h3>
+              <p className="mt-0.5 text-xs text-secondary">
+                Terdekat mulai {utsExams.data.exams[0]?.tanggal_ujian?.split(" - ")[0] || "segera"}:{" "}
+                <span className="text-foreground">{utsExams.data.exams[0]?.mata_kuliah}</span>
+                {utsExams.data.exams[0]?.no_ruang ? ` (${utsExams.data.exams[0]?.no_ruang})` : ""}
+              </p>
             </div>
 
             <Link
               href="/dashboard/ujian"
-              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-pill bg-[#0369A1] hover:bg-[#075985] text-white text-xs font-bold transition-all shrink-0"
+              className="inline-flex min-h-[38px] shrink-0 items-center justify-center rounded-[6px] border-[1px] border-stroke bg-white px-4 text-xs font-medium text-foreground transition-colors hover:border-[#072033]"
             >
-              <span>Buka Jadwal Ujian</span>
-              <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+              Lihat Jadwal Ujian
             </Link>
           </div>
         </section>
       )}
 
-
-      {/* Banner Agenda Akademik Terdekat */}
-      {nearestAgenda && (
-        <section aria-labelledby="heading-agenda-terdekat">
-          <div className="p-5 sm:p-6 rounded-md bg-[#F0F7FB] border border-[#CFE2EE] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-start gap-3.5">
-              <div className="p-2 rounded-sm bg-[#0369A1]/10 text-[#0369A1] shrink-0 mt-0.5">
-                <CalendarDays className="w-5 h-5" aria-hidden="true" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-mono font-bold text-[#0369A1] uppercase tracking-wider bg-white px-2 py-0.5 border border-[#CFE2EE]">
-                    Agenda Kampus UBSI
+      {/* 6. Info Kampus Terdekat (Clean Monochrome Editorial Strip) */}
+      {nearestAgenda && (() => {
+        const tile = parseShortDateTile(nearestAgenda.tanggal_mulai_raw);
+        return (
+          <section aria-labelledby="heading-agenda-terdekat">
+            <div className="flex flex-col gap-3.5 rounded-[10px] border-[1px] border-stroke bg-white p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+              <div className="flex min-w-0 items-start gap-3.5">
+                <div
+                  className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-[8px] border-[1px] border-stroke bg-[#F7FAFC] text-center"
+                  aria-hidden="true"
+                >
+                  <span className="font-mono text-[9px] uppercase tracking-[0.1em] text-secondary">
+                    {tile.month}
                   </span>
-                  {nearestAgenda.countdown && (
-                    <span className="text-xs font-mono font-bold text-[#9A3412]">
-                      {nearestAgenda.countdown}
-                    </span>
-                  )}
+                  <span className="font-display text-base font-bold leading-none text-foreground tabular-nums">
+                    {tile.day}
+                  </span>
                 </div>
-                <h3 className="font-bold text-foreground text-base mt-1">
-                  {nearestAgenda.nama}
-                </h3>
-                <p className="text-xs text-secondary mt-0.5">
-                  Pelaksanaan: {nearestAgenda.tanggal_mulai_raw}
-                  {nearestAgenda.tanggal_selesai_raw !== nearestAgenda.tanggal_mulai_raw
-                    ? ` s.d. ${nearestAgenda.tanggal_selesai_raw}`
-                    : ""}
-                </p>
+                <div className="min-w-0">
+                  <p className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-secondary">
+                    Info Kampus
+                    {nearestAgenda.countdown ? (
+                      <span className="text-[#0369A1]"> · {nearestAgenda.countdown}</span>
+                    ) : null}
+                  </p>
+                  <h3
+                    id="heading-agenda-terdekat"
+                    className="mt-1 break-words text-[14.5px] font-medium leading-snug text-foreground sm:text-[15px]"
+                  >
+                    {nearestAgenda.nama}
+                  </h3>
+                  <p className="mt-0.5 font-mono text-[11px] text-secondary">
+                    {nearestAgenda.tanggal_mulai_raw}
+                    {nearestAgenda.tanggal_selesai_raw !== nearestAgenda.tanggal_mulai_raw
+                      ? ` s.d. ${nearestAgenda.tanggal_selesai_raw}`
+                      : ""}
+                  </p>
+                </div>
               </div>
-            </div>
 
-            <Link
-              href="/dashboard/agenda"
-              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-pill bg-[#0369A1] hover:bg-[#075985] text-white text-xs font-bold transition-all shrink-0"
-            >
-              <span>Lihat Kalender</span>
-              <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
-            </Link>
-          </div>
-        </section>
-      )}
+              <Link
+                href="/dashboard/agenda"
+                className="inline-flex min-h-[38px] shrink-0 items-center justify-center rounded-[6px] border-[1px] border-stroke bg-white px-4 text-xs font-medium text-foreground transition-colors hover:border-[#072033]"
+              >
+                Buka Info Kampus
+              </Link>
+            </div>
+          </section>
+        );
+      })()}
+
+      {/* 7. Akses Cepat Layanan Kampus */}
       <section aria-labelledby="heading-layanan-cepat">
-        <h2 id="heading-layanan-cepat" className="text-lg font-display font-bold tracking-tight text-foreground mb-4">
-          Akses Cepat Layanan Kampus
+        <h2 id="heading-layanan-cepat" className="mb-3 text-base font-medium tracking-[-0.01em] text-foreground sm:text-lg">
+          Layanan Kampus
         </h2>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          <Link
-            href="/dashboard/materi"
-            className="glass-card p-4 text-center hover:border-[#0369A1]/40 transition-all hover:bg-[#F0F7FB] flex flex-col items-center justify-center gap-2 group"
-          >
-            <div className="p-2.5 rounded-pill bg-[#0369A1]/10 text-[#0369A1] group-hover:scale-110 transition-transform">
-              <BookOpen className="w-5 h-5" aria-hidden="true" />
-            </div>
-            <span className="text-xs font-bold text-foreground">Bahan Ajar</span>
-            <span className="text-[10px] text-secondary">Slide & Modul Lab</span>
-          </Link>
-
-          <Link
-            href="/dashboard/kuis"
-            className="glass-card p-4 text-center hover:border-[#0369A1]/40 transition-all hover:bg-[#F0F7FB] flex flex-col items-center justify-center gap-2 group"
-          >
-            <div className="p-2.5 rounded-pill bg-[#0369A1]/10 text-[#0369A1] group-hover:scale-110 transition-transform">
-              <HelpCircle className="w-5 h-5" aria-hidden="true" />
-            </div>
-            <span className="text-xs font-bold text-foreground">Kuis Online</span>
-            <span className="text-[10px] text-secondary">Jadwal & Latihan</span>
-          </Link>
-
-          <Link
-            href="/dashboard/nilai"
-            className="glass-card p-4 text-center hover:border-[#0369A1]/40 transition-all hover:bg-[#F0F7FB] flex flex-col items-center justify-center gap-2 group"
-          >
-            <div className="p-2.5 rounded-pill bg-[#0369A1]/10 text-[#0369A1] group-hover:scale-110 transition-transform">
-              <GraduationCap className="w-5 h-5" aria-hidden="true" />
-            </div>
-            <span className="text-xs font-bold text-foreground">Nilai & KHS</span>
-            <span className="text-[10px] text-secondary">Transkrip Kumulatif</span>
-          </Link>
-
-          <Link
-            href="/dashboard/ujian"
-            className="glass-card p-4 text-center hover:border-[#0369A1]/40 transition-all hover:bg-[#F0F7FB] flex flex-col items-center justify-center gap-2 group"
-          >
-            <div className="p-2.5 rounded-pill bg-[#0369A1]/10 text-[#0369A1] group-hover:scale-110 transition-transform">
-              <Award className="w-5 h-5" aria-hidden="true" />
-            </div>
-            <span className="text-xs font-bold text-foreground">Kartu Ujian</span>
-            <span className="text-[10px] text-secondary">Jadwal UTS & UAS</span>
-          </Link>
-
-          <Link
-            href="/dashboard/perpustakaan"
-            className="glass-card p-4 text-center hover:border-[#0369A1]/40 transition-all hover:bg-[#F0F7FB] flex flex-col items-center justify-center gap-2 group col-span-2 sm:col-span-1"
-          >
-            <div className="p-2.5 rounded-pill bg-[#0369A1]/10 text-[#0369A1] group-hover:scale-110 transition-transform">
-              <Library className="w-5 h-5" aria-hidden="true" />
-            </div>
-            <span className="text-xs font-bold text-foreground">Perpustakaan</span>
-            <span className="text-[10px] text-secondary">Katalog Buku OPAC</span>
-          </Link>
+        <div className="grid grid-cols-2 divide-x-[1px] divide-y-[1px] divide-stroke overflow-hidden rounded-[10px] border-[1px] border-stroke bg-white sm:grid-cols-3 lg:grid-cols-5 lg:divide-y-0">
+          {[
+            { href: "/dashboard/materi", title: "Bahan Ajar", desc: "Slide & Modul", icon: BookOpen },
+            { href: "/dashboard/kuis", title: "Kuis Online", desc: "Jadwal & Latihan", icon: HelpCircle },
+            { href: "/dashboard/nilai", title: "Nilai & KHS", desc: "Transkrip Nilai", icon: GraduationCap },
+            { href: "/dashboard/ujian", title: "Kartu Ujian", desc: "Jadwal UTS & UAS", icon: Award },
+            { href: "/dashboard/perpustakaan", title: "Perpustakaan", desc: "Katalog OPAC", icon: Library, span: true },
+          ].map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`group flex flex-col justify-between gap-2 p-4 text-left transition-colors hover:bg-[#FAFDFE] ${
+                item.span ? "col-span-2 sm:col-span-1" : ""
+              }`}
+            >
+              <item.icon
+                className="h-4 w-4 text-secondary transition-colors group-hover:text-[#0369A1]"
+                aria-hidden="true"
+              />
+              <div>
+                <span className="block text-[13.5px] font-medium text-foreground">{item.title}</span>
+                <span className="mt-0.5 block text-[11.5px] text-secondary">{item.desc}</span>
+              </div>
+            </Link>
+          ))}
         </div>
       </section>
     </div>
-  );
-}
-
-function MetricCard({
-  href,
-  label,
-  icon: Icon,
-  pending,
-  value,
-  suffix,
-  note,
-  small = false,
-  tone = "ok",
-}: {
-  href: string;
-  label: string;
-  icon: typeof GraduationCap;
-  pending: boolean;
-  value: string;
-  suffix?: string;
-  note: string;
-  small?: boolean;
-  tone?: "ok" | "warn";
-}) {
-  return (
-    <Link
-      href={href}
-      className="group min-w-0 bg-white p-3.5 shadow-[0_0_0_2px_#CFE2EE,4px_4px_0_0_#EAF3F9] transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[0_0_0_2px_#5FA3CC,4px_4px_0_0_#DCEBF5] sm:p-4"
-    >
-      <div className="flex items-center gap-2">
-        <span
-          className={`flex h-7 w-7 shrink-0 items-center justify-center ${
-            tone === "warn" ? "bg-[#9A3412]/10 text-[#9A3412]" : "bg-[#0369A1]/10 text-[#0369A1]"
-          }`}
-        >
-          <Icon className="h-4 w-4" aria-hidden="true" />
-        </span>
-        <span className="truncate text-[13px] font-semibold text-secondary">{label}</span>
-      </div>
-      <div className="mt-2.5 flex items-baseline gap-1">
-        {pending ? (
-          <Skeleton className="h-7 w-14" />
-        ) : (
-          <>
-            <span className={`font-display font-bold leading-none text-foreground ${small ? "text-lg" : "text-[1.7rem]"}`}>{value}</span>
-            {suffix && <span className="font-mono text-[11px] text-secondary">{suffix}</span>}
-          </>
-        )}
-      </div>
-      <p className={`mt-1.5 truncate text-xs ${tone === "warn" ? "font-semibold text-[#9A3412]" : "text-secondary"}`}>{pending ? "\u00a0" : note}</p>
-    </Link>
   );
 }

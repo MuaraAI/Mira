@@ -78,7 +78,7 @@ export function DosenInfo({
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
         title="Lihat info dosen"
-        className={`max-w-full text-left font-semibold text-foreground underline decoration-px-water decoration-2 underline-offset-4 transition-colors hover:text-[#0369A1] hover:decoration-[#0369A1] ${className}`}
+        className={`max-w-full text-left font-medium text-foreground underline decoration-[#9CC6E0] decoration-[1.5px] underline-offset-4 transition-colors hover:text-[#0369A1] hover:decoration-[#0369A1] ${className}`}
       >
         <span className="break-words">{label}</span>
       </button>

@@ -56,7 +56,7 @@ interface ElearningGradesData {
   rata_nilai: number | null;
   nilai_max: number | null;
   nilai_min: number | null;
-  per_matkul: Record<string, { total_tugas: number; rata_nilai: number }>;
+  per_matkul: Record<string, { total_tugas: number; rata_nilai: number; nama?: string }>;
   per_pertemuan: ElearningPertemuanGrade[];
 }
 
@@ -88,8 +88,12 @@ function normalizeElearningGrades(data: ElearningGradesData | null): ElearningGr
     const value = gradeValue(item.nilai);
     if (value === null) continue;
     const key = item.kode || "-";
-    const current = perMatkul[key] ?? { total_tugas: 0, rata_nilai: 0 };
-    perMatkul[key] = { total_tugas: current.total_tugas + 1, rata_nilai: current.rata_nilai + value };
+    const current = perMatkul[key] ?? { total_tugas: 0, rata_nilai: 0, nama: item.mata_kuliah || undefined };
+    perMatkul[key] = {
+      total_tugas: current.total_tugas + 1,
+      rata_nilai: current.rata_nilai + value,
+      nama: current.nama || item.mata_kuliah || undefined,
+    };
   }
   for (const key of Object.keys(perMatkul)) perMatkul[key].rata_nilai /= perMatkul[key].total_tugas;
   return {
@@ -106,8 +110,14 @@ function normalizeElearningGrades(data: ElearningGradesData | null): ElearningGr
 
 export default function NilaiPage() {
   const gradesRaw = useApi<ElearningGradesData>("/v1/elearning/grades");
+  const coursesApi = useApi<{ kode?: string; kode_mtk?: string; nama: string }[]>("/v1/elearning/courses");
   const profileApi = useApi<StudentProfile>("/v1/elearning/profile");
   const grades = normalizeElearningGrades(gradesRaw.data);
+  const courseNameByCode = new Map<string, string>();
+  for (const c of coursesApi.data ?? []) {
+    if (c.kode && c.nama) courseNameByCode.set(String(c.kode).trim(), c.nama);
+    if (c.kode_mtk && c.nama) courseNameByCode.set(String(c.kode_mtk).trim(), c.nama);
+  }
 
   const [flexingOpen, setFlexingOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>("night");
@@ -364,22 +374,32 @@ export default function NilaiPage() {
                 Rata-Rata Nilai Tugas Per Mata Kuliah
               </h3>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {Object.entries(grades.per_matkul).map(([kode, val]) => (
-                  <div
-                    key={kode}
-                    className="flex items-center justify-between rounded-sm border border-stroke/70 bg-[#F7FAFC] p-3.5"
-                  >
-                    <div>
-                      <span className="font-mono text-xs font-bold text-[#0369A1]">{kode}</span>
-                      <span className="block text-[11px] text-secondary">
-                        {val.total_tugas} tugas dinilai
+                {Object.entries(grades.per_matkul).map(([kode, val]) => {
+                  const courseName = val.nama || courseNameByCode.get(kode);
+                  return (
+                    <div
+                      key={kode}
+                      className="flex min-w-0 items-center justify-between gap-3 rounded-[8px] border-[1px] border-stroke bg-[#F7FAFC] p-3.5"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <span className="font-mono text-[11px] font-semibold text-[#0369A1]">
+                          {kode}
+                        </span>
+                        {courseName && (
+                          <span className="mt-0.5 block truncate text-xs font-semibold text-foreground">
+                            {courseName}
+                          </span>
+                        )}
+                        <span className="block text-[11px] text-secondary">
+                          {val.total_tugas} tugas dinilai
+                        </span>
+                      </div>
+                      <span className="shrink-0 rounded-[6px] border-[1px] border-stroke bg-white px-2.5 py-1 font-mono text-lg font-bold text-foreground tabular-nums">
+                        {val.rata_nilai.toFixed(1)}
                       </span>
                     </div>
-                    <span className="rounded border border-stroke bg-white px-2.5 py-1 font-mono text-lg font-bold text-foreground">
-                      {val.rata_nilai.toFixed(1)}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

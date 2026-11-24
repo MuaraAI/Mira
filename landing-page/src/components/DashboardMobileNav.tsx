@@ -7,7 +7,7 @@ import {
   LayoutDashboard,
   CalendarDays,
   CheckSquare,
-  UserCheck,
+  MessagesSquare,
   Ellipsis,
   BellRing,
   X,
@@ -17,20 +17,22 @@ import { Monogram } from "@/components/Monogram";
 import { FocusDialog } from "@/components/FocusDialog";
 import { lockScroll } from "@/lib/scroll-lock";
 import { LoginTodayBadge } from "@/components/SecurityWidgets";
+import type { SocialProfile } from "@/lib/social";
 
 export function DashboardMobileNav({
   nim,
+  profile = null,
   hasSiakad = true,
   authed = false,
 }: {
   nim?: string | null;
+  profile?: SocialProfile | null;
   hasSiakad?: boolean;
   authed?: boolean;
 }) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
 
-  // Close drawer on Escape key
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape" && isOpen) {
@@ -41,7 +43,6 @@ export function DashboardMobileNav({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen]);
 
-  // Kunci scroll halaman selagi drawer terbuka.
   useEffect(() => {
     if (!isOpen) return;
     return lockScroll();
@@ -51,45 +52,39 @@ export function DashboardMobileNav({
     { href: "/dashboard", label: "Ringkasan", icon: LayoutDashboard, exact: true },
     { href: "/dashboard/jadwal", label: "Jadwal", icon: CalendarDays },
     { href: "/dashboard/tugas", label: "Tugas", icon: CheckSquare },
-    { href: "/dashboard/presensi", label: "Presensi", icon: UserCheck },
+    { href: "/dashboard/komunitas", label: "Komunitas", icon: MessagesSquare },
   ];
-  const isActive = (href: string, exact?: boolean) => (exact ? pathname === href : pathname.startsWith(href));
-  // "Lainnya" menyala saat halaman aktif bukan salah satu tab cepat, supaya posisi pengguna tetap jelas.
+  const isActive = (href: string, exact?: boolean) =>
+    exact ? pathname === href : pathname.startsWith(href);
   const moreActive = !quickNav.some(({ href, exact }) => isActive(href, exact));
 
   return (
     <>
       {/* Mobile Topbar */}
-      <header className="lg:hidden sticky top-0 z-40 flex h-16 items-center justify-between px-4 bg-white/90 backdrop-blur-xl border-b-2 border-px-soft">
-        <Link href="/dashboard" className="flex items-center gap-2.5">
-          <span className="px-frame flex h-8 w-8 items-center justify-center overflow-hidden bg-white [--px-line:#CFE2EE]">
-            <Monogram className="w-6 h-6" />
-          </span>
-          <div className="flex flex-col">
-            <span className="font-display font-bold text-sm tracking-tight text-foreground">
-              Mira
-            </span>
-          </div>
+      <header className="sticky top-0 z-40 flex h-[52px] items-center justify-between border-b-[1px] border-stroke bg-white/95 px-3.5 backdrop-blur-md lg:hidden">
+        <Link href="/dashboard" className="flex items-center gap-2">
+          <Monogram className="h-7 w-7 shrink-0" />
+          <span className="font-home-display text-sm tracking-[0.04em] text-foreground">Mira</span>
         </Link>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-1.5">
           {authed && <LoginTodayBadge compact />}
           <Link
             href="/dashboard/notifikasi"
             aria-label="Buka pengaturan notifikasi"
             aria-current={pathname.startsWith("/dashboard/notifikasi") ? "page" : undefined}
-            className="px-frame flex min-h-[44px] min-w-[44px] items-center justify-center bg-white text-foreground [--px-line:#CFE2EE] hover:bg-px-tint"
+            className="flex h-9 w-9 items-center justify-center rounded-[8px] text-secondary transition-colors hover:bg-[#F0F7FB] hover:text-foreground"
           >
-            <BellRing className="h-5 w-5" aria-hidden="true" />
+            <BellRing className="h-[18px] w-[18px]" aria-hidden="true" />
           </Link>
         </div>
       </header>
 
       {/* Mobile Drawer (Slide-Over) */}
       {isOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 flex">
+        <div className="fixed inset-0 z-50 flex lg:hidden">
           <div
-            className="modal-backdrop fixed inset-0 bg-[#072033]/50 backdrop-blur-[2px]"
+            className="modal-backdrop fixed inset-0 bg-[#072033]/50"
             onClick={() => setIsOpen(false)}
             aria-hidden="true"
           />
@@ -98,22 +93,24 @@ export function DashboardMobileNav({
             open={isOpen}
             onClose={() => setIsOpen(false)}
             labelledBy="drawer-title"
-            className="drawer-panel relative z-10 flex h-full w-[82%] max-w-[300px] flex-col bg-white shadow-[2px_0_0_0_#163A55,6px_0_0_0_#0369A1]"
+            className="drawer-panel relative z-10 flex h-full w-[82%] max-w-[300px] flex-col overflow-hidden rounded-r-[12px] bg-white shadow-2xl"
           >
-            <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b-2 border-px-soft pl-4 pr-2">
-              <Link href="/dashboard" onClick={() => setIsOpen(false)} className="flex items-center gap-2.5">
-                <span className="px-frame flex h-8 w-8 items-center justify-center overflow-hidden bg-white [--px-line:#CFE2EE]">
-                  <Monogram className="h-6 w-6" />
-                </span>
-                <span id="drawer-title" className="font-display text-sm font-bold text-foreground">
-                  Menu Mira
+            <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b-[1px] border-stroke pl-4 pr-2">
+              <Link
+                href="/dashboard"
+                onClick={() => setIsOpen(false)}
+                className="flex items-center gap-2.5"
+              >
+                <Monogram className="h-6 w-6" />
+                <span id="drawer-title" className="font-home-display text-sm text-foreground">
+                  Mira
                 </span>
               </Link>
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
                 aria-label="Tutup menu"
-                className="flex h-11 w-11 items-center justify-center text-secondary transition-colors hover:bg-px-tint hover:text-foreground"
+                className="flex h-11 w-11 items-center justify-center rounded-[6px] text-secondary transition-colors hover:bg-[#F0F7FB] hover:text-foreground"
               >
                 <X className="h-5 w-5" aria-hidden="true" />
               </button>
@@ -122,8 +119,10 @@ export function DashboardMobileNav({
             <div className="min-h-0 flex-1">
               <DashboardSidebar
                 nim={nim}
+                profile={profile}
                 hasSiakad={hasSiakad}
                 showBrand={false}
+                inDrawer
                 hideHrefs={quickNav.map((item) => item.href)}
                 onItemClick={() => setIsOpen(false)}
               />
@@ -132,8 +131,11 @@ export function DashboardMobileNav({
         </div>
       )}
 
-      {/* Mobile Bottom Navigation Bar */}
-      <nav aria-label="Navigasi cepat bawah" className="dashboard-bottom-nav lg:hidden fixed inset-x-0 bottom-0 z-40">
+      {/* Edge-to-edge Mobile Bottom Navigation */}
+      <nav
+        aria-label="Navigasi cepat bawah"
+        className="dashboard-bottom-nav fixed inset-x-0 bottom-0 z-40 lg:hidden"
+      >
         <div className="grid grid-cols-5">
           {quickNav.map(({ href, label, icon: Icon, exact }) => {
             const active = isActive(href, exact);
@@ -164,7 +166,7 @@ export function DashboardMobileNav({
             <span className="bottom-nav-icon" aria-hidden="true">
               <Ellipsis className="h-[18px] w-[18px]" />
             </span>
-            <span className="bottom-nav-label">Lainnya</span>
+            <span className="bottom-nav-label">Menu</span>
           </button>
         </div>
       </nav>

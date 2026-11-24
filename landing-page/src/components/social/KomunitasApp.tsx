@@ -771,7 +771,7 @@ export function KomunitasApp() {
   return (
     <>
       <SocialLinkContext.Provider value={linkHandlers}>
-      <div className="chat-ui -mx-2 -mt-3 flex h-[calc(100dvh-9rem-env(safe-area-inset-bottom))] min-h-[360px] min-w-0 flex-col overflow-hidden bg-white sm:-mx-4 md:mx-0 md:mt-0 md:h-[calc(100dvh-9.75rem-env(safe-area-inset-bottom))] md:flex-row md:shadow-[0_0_0_2px_#163A55,6px_6px_0_0_#CFE2EE] lg:h-[calc(100dvh-5.5rem)] lg:min-h-[520px]">
+      <div className="chat-ui -mx-2 -mt-3 flex h-[calc(100dvh-9rem-env(safe-area-inset-bottom))] min-h-[360px] min-w-0 flex-col overflow-hidden bg-white sm:-mx-4 md:mx-0 md:mt-0 md:h-[calc(100dvh-9.75rem-env(safe-area-inset-bottom))] md:flex-row md:rounded-[12px] md:border-[1px] md:border-[#D9E5ED] lg:h-[calc(100dvh-5.5rem)] lg:min-h-[520px]">
         <SpaceRail
           inbox={inbox}
           view={view}

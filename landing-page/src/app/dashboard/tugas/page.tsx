@@ -127,34 +127,34 @@ function TaskCard({
 
   return (
     <article
-      className={`glass-card flex h-full flex-col p-4 sm:p-5 ${
+      className={`glass-card flex h-full min-w-0 flex-col overflow-hidden p-4 sm:p-5 ${
         done ? "[--px-line:#99D5CC] [--px-drop:#CCEBE6]" : countdown?.tone === "overdue" || countdown?.tone === "urgent" ? "[--px-line:#FDBA74] [--px-drop:#FFEDD5]" : ""
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex min-w-0 items-start justify-between gap-3">
         <p className="min-w-0 truncate font-mono text-[11px] font-bold uppercase tracking-wide text-[#0369A1]">
           {task.mata_kuliah || task.kode || "Tugas Kuliah"}
         </p>
         {done ? (
-          <span className="inline-flex shrink-0 items-center gap-1 bg-[#0F766E] px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-white">
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-[4px] bg-[#0F766E] px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-white">
             <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
             Dikumpul
           </span>
         ) : countdown ? (
-          <span className={`shrink-0 px-2 py-0.5 font-mono text-[10px] font-bold uppercase ${TONE_CLASS[countdown.tone]}`}>
+          <span className={`shrink-0 rounded-[4px] px-2 py-0.5 font-mono text-[10px] font-bold uppercase ${TONE_CLASS[countdown.tone]}`}>
             {countdown.text}
           </span>
         ) : null}
       </div>
 
-      <h2 className="mt-1.5 text-base font-bold leading-snug text-foreground">{task.judul}</h2>
+      <h2 className="mt-1.5 break-words text-base font-bold leading-snug text-foreground">{task.judul}</h2>
       <p className="mt-0.5 text-xs text-secondary">
         {[task.pertemuan && `Pertemuan ${task.pertemuan}`, task.kelas && `Kelas ${task.kelas}`].filter(Boolean).join(" · ")}
       </p>
 
       {task.deskripsi && (
-        <div className="mt-3">
-          <p className={`whitespace-pre-line text-sm leading-relaxed text-secondary ${!open && longDesc ? "line-clamp-3" : ""}`}>
+        <div className="mt-3 min-w-0">
+          <p className={`whitespace-pre-line break-words text-sm leading-relaxed text-secondary ${!open && longDesc ? "line-clamp-3" : ""}`}>
             {task.deskripsi}
           </p>
           {longDesc && (
@@ -171,7 +171,7 @@ function TaskCard({
         </div>
       )}
 
-      <div className="mt-3 flex items-center gap-2 border-t-2 border-dashed border-px-soft pt-3 text-xs">
+      <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1.5 border-t-[1px] border-dashed border-stroke pt-3 text-xs">
         <Clock className={`h-3.5 w-3.5 shrink-0 ${done ? "text-secondary" : "text-[#9A3412]"}`} aria-hidden="true" />
         <span className="text-secondary">Batas</span>
         <span className={`font-mono font-semibold ${done ? "text-foreground" : "text-[#9A3412]"}`}>{formatShortDate(deadline, task.selesai)}</span>
@@ -181,12 +181,12 @@ function TaskCard({
               Nilai <strong className="text-base text-[#0369A1]">{gradeValue(submission.nilai)}</strong>
             </span>
           ) : (
-            <span className="ml-auto bg-[#F0F7FB] px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-secondary">Belum dinilai</span>
+            <span className="ml-auto rounded-[4px] bg-[#F0F7FB] px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-secondary">Belum dinilai</span>
           ))}
       </div>
 
       {submission?.link_tugas && (
-        <div className="mt-3">
+        <div className="mt-3 min-w-0">
           <LinkCard url={submission.link_tugas} check={linkCheck} checking={linkChecking} onRecheck={onRecheckLink} compact />
         </div>
       )}
@@ -359,7 +359,7 @@ export default function TugasPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <PageHeader
         title="Tugas Kuliah & Deadline"
         description={`${allRows.length} tugas semester ini, langsung dari MyBest.`}
@@ -388,21 +388,35 @@ export default function TugasPage() {
         </div>
       )}
 
-      <div role="tablist" aria-label="Filter tugas" className="grid grid-cols-3 gap-1 bg-px-tint p-1 shadow-[0_-2px_0_0_#CFE2EE,0_2px_0_0_#CFE2EE,-2px_0_0_0_#CFE2EE,2px_0_0_0_#CFE2EE] sm:w-[26rem]">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            role="tab"
-            aria-selected={filter === t.key}
-            onClick={() => setFilter(t.key)}
-            className={`min-h-10 px-2 font-mono text-xs font-bold transition-colors duration-200 ${
-              filter === t.key ? `${t.active} text-white shadow-[2px_2px_0_0_#072033]` : "text-secondary hover:bg-white hover:text-foreground"
-            }`}
-          >
-            {t.label} ({t.count})
-          </button>
-        ))}
+      <div
+        role="tablist"
+        aria-label="Filter tugas"
+        className="grid w-full grid-cols-3 gap-1 rounded-[10px] border-[1px] border-stroke bg-[#F0F7FB] p-1 sm:inline-flex sm:w-auto"
+      >
+        {tabs.map((t) => {
+          const active = filter === t.key;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setFilter(t.key)}
+              className={`inline-flex min-h-[38px] items-center justify-center gap-1.5 whitespace-nowrap rounded-[6px] px-2.5 text-xs font-medium transition-colors duration-200 sm:px-3.5 ${
+                active ? `${t.active} text-white` : "text-secondary hover:bg-white hover:text-foreground"
+              }`}
+            >
+              <span>{t.label}</span>
+              <span
+                className={`rounded-[9999px] px-1.5 py-0.5 font-mono text-[10px] leading-none tabular-nums ${
+                  active ? "bg-white/20 text-white" : "bg-white text-secondary"
+                }`}
+              >
+                {t.count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {actionMessage && (

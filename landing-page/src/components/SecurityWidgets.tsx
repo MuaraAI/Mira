@@ -21,16 +21,23 @@ export function LoginTodayBadge({ compact = false }: { compact?: boolean }) {
       href="/dashboard/sesi"
       aria-label={label}
       title={label}
-      className={`px-chip flex shrink-0 items-center gap-1.5 font-mono text-[11px] font-semibold transition-colors ${
-        compact ? "min-h-[44px] px-2.5" : "px-2.5 py-1"
-      } ${alert ? "bg-[#FFF1F2] text-[#BE123C] hover:bg-[#FFE4E6]" : "bg-[#F0F7FB] text-[#0369A1] hover:bg-px-highlight"}`}
+      className={`flex shrink-0 items-center gap-1.5 rounded-[5px] border-[1px] border-stroke border-l-[2.5px] bg-white font-mono text-[11px] font-medium text-foreground transition-colors hover:border-[#072033] ${
+        compact ? "h-8 px-2.5" : "h-9 px-2.5"
+      } ${alert ? "border-l-[#BE123C]" : "border-l-[#0369A1]"}`}
     >
-      {alert ? <ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" /> : <LogIn className="h-3.5 w-3.5" aria-hidden="true" />}
-      <span className="tabular-nums" aria-hidden="true">{logins ?? "–"}x</span>
-      <span className={compact && alert ? "hidden min-[400px]:inline" : ""} aria-hidden="true">
-        {compact ? "login" : "login hari ini"}
-      </span>
-      {alert && <span className="tabular-nums" aria-hidden="true">· {failed} gagal</span>}
+      {alert ? (
+        <ShieldAlert className="h-3.5 w-3.5 shrink-0 text-[#BE123C]" aria-hidden="true" />
+      ) : (
+        <LogIn className="h-3.5 w-3.5 shrink-0 text-[#0369A1]" aria-hidden="true" />
+      )}
+      <span className="tabular-nums" aria-hidden="true">{logins ?? "-"}x</span>
+      {!compact && <span className="text-secondary" aria-hidden="true">login hari ini</span>}
+      {compact && !alert && <span className="text-secondary" aria-hidden="true">login</span>}
+      {alert && (
+        <span className="font-semibold text-[#BE123C] tabular-nums" aria-hidden="true">
+          · {failed} gagal
+        </span>
+      )}
     </Link>
   );
 }

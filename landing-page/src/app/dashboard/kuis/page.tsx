@@ -352,10 +352,10 @@ export default function KuisPage() {
                           pkg.id
                         )
                       }
-                      className={`${ghostButtonClass} text-xs py-1.5 flex items-center gap-1`}
+                      className="inline-flex min-h-[38px] items-center justify-center gap-1.5 rounded-[6px] border-[1px] border-stroke bg-white px-3 text-xs font-medium text-foreground transition-colors hover:border-[#072033]"
                       title="Buka di tab peramban penuh"
                     >
-                      <Maximize2 className="w-3 h-3" aria-hidden="true" />
+                      <Maximize2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                       <span>Tab</span>
                     </button>
                     <button
@@ -369,9 +369,9 @@ export default function KuisPage() {
                           pkg.id
                         )
                       }
-                      className="px-3.5 py-1.5 rounded-pill bg-[#0369A1] hover:bg-[#0284C7] text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+                      className="inline-flex min-h-[38px] items-center justify-center gap-1.5 rounded-[6px] border-[1px] border-[#072033] bg-[#072033] px-3.5 text-xs font-medium text-white transition-colors hover:bg-white hover:text-[#072033]"
                     >
-                      <Play className="w-3 h-3 fill-current" aria-hidden="true" />
+                      <Play className="h-3.5 w-3.5 shrink-0 fill-current" aria-hidden="true" />
                       <span>Mulai</span>
                     </button>
                   </div>

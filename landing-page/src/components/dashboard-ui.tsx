@@ -1,37 +1,39 @@
 "use client";
 
 import Image from "next/image";
+import { Loader2 } from "lucide-react";
 import { ApiError } from "@/lib/api";
 
 export const inputClass =
-  "px-input min-h-11 w-full px-4 py-2.5 text-base sm:text-sm text-foreground placeholder:text-secondary/60";
+  "px-input min-h-11 w-full px-4 py-2.5 text-base sm:text-[13.5px] text-foreground placeholder:text-secondary/60";
 
 export const primaryButtonClass =
-  "px-btn inline-flex min-h-11 items-center justify-center gap-2 px-5 py-2.5 text-sm font-bold";
+  "px-btn inline-flex min-h-11 items-center justify-center gap-2 px-5 py-2.5 text-[13px] font-normal tracking-[0.015em]";
 
 export const ghostButtonClass =
-  "px-btn-ghost inline-flex min-h-11 items-center justify-center gap-2 px-4 py-2 text-sm font-semibold";
+  "px-btn-ghost inline-flex min-h-11 items-center justify-center gap-2 px-4 py-2 text-[13px] font-normal";
 
 export function LoadingState({ label = "Memuat data" }: { label?: string }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-5 py-16" role="status" aria-live="polite">
-      <div className="px-loader" aria-hidden="true">
-        <span />
-        <span />
-        <span />
-        <span />
-      </div>
-      <p className="font-mono text-xs font-semibold text-secondary">
-        {label}
-        <span className="px-cursor" aria-hidden="true">_</span>
-      </p>
+    <div
+      className="flex flex-col items-center justify-center gap-4 py-16"
+      role="status"
+      aria-live="polite"
+    >
+      <Loader2 className="h-7 w-7 animate-spin text-[#0369A1]" aria-hidden="true" />
+      <p className="font-mono text-xs text-secondary">{label}...</p>
     </div>
   );
 }
 
-/** Placeholder pixel selama data belum datang, supaya teks tidak berganti dari fallback ke data asli. */
+/** Placeholder shimmer selama data belum tiba, mencegah lonjakan tata letak. */
 export function Skeleton({ className = "h-4 w-24" }: { className?: string }) {
-  return <span className={`px-skeleton inline-block align-middle ${className}`} aria-hidden="true" />;
+  return (
+    <span
+      className={`inline-block rounded-[8px] bg-[#EAF3F9] align-middle ${className}`}
+      aria-hidden="true"
+    />
+  );
 }
 
 export function ErrorState({
@@ -42,11 +44,14 @@ export function ErrorState({
   onRetry?: () => void;
 }) {
   return (
-    <div className="glass-card p-8 text-center" role="alert">
-      <p className="font-mono text-xs font-bold uppercase tracking-widest text-[#BE123C]">
+    <div
+      className="rounded-[16px] border-[1px] border-[#FDA4AF] bg-white p-8 text-center shadow-[0_12px_32px_-22px_rgba(190,18,60,0.18)]"
+      role="alert"
+    >
+      <p className="font-mono text-xs uppercase tracking-widest text-[#BE123C]">
         {error?.code ?? "ERROR"}
       </p>
-      <p className="mt-2 text-sm text-secondary">
+      <p className="mt-2 text-[13.5px] leading-relaxed text-secondary">
         {error?.message ?? "Terjadi kesalahan saat memuat data."}
       </p>
       {onRetry && (
@@ -58,9 +63,21 @@ export function ErrorState({
   );
 }
 
-export function EmptyState({ title, description, mascot }: { title: string; description?: string; mascot?: string }) {
+export function EmptyState({
+  title,
+  description,
+  mascot,
+}: {
+  title: string;
+  description?: string;
+  mascot?: string;
+}) {
   return (
-    <div className="glass-card p-8 text-center" role="status" aria-live="polite">
+    <div
+      className="rounded-[16px] border-[1px] border-stroke bg-white p-8 text-center"
+      role="status"
+      aria-live="polite"
+    >
       {mascot && (
         <Image
           src={mascot}
@@ -71,8 +88,10 @@ export function EmptyState({ title, description, mascot }: { title: string; desc
           aria-hidden="true"
         />
       )}
-      <p className="text-sm font-bold text-foreground">{title}</p>
-      {description && <p className="mt-1 text-sm text-secondary">{description}</p>}
+      <p className="text-[14.5px] text-foreground">{title}</p>
+      {description && (
+        <p className="mt-1.5 text-[13px] leading-relaxed text-secondary">{description}</p>
+      )}
     </div>
   );
 }
@@ -85,19 +104,22 @@ export function PageHeader({
   description?: string;
 }) {
   return (
-    <div className="mb-6 border-b-2 border-dashed border-px-soft pb-5">
-      <h1 className="flex items-center gap-3 text-2xl sm:text-3xl font-display font-bold tracking-tight text-foreground">
-        <span className="h-2.5 w-2.5 shrink-0 bg-[#0369A1] shadow-[3px_3px_0_0_#9CC6E0]" aria-hidden="true" />
+    <div className="mb-4 border-b-[1px] border-stroke pb-3.5 sm:mb-6 sm:pb-5">
+      <h1 className="text-xl font-semibold tracking-[-0.015em] text-foreground sm:text-[28px] sm:font-normal">
         {title}
       </h1>
-      {description && <p className="mt-2 max-w-3xl text-sm leading-relaxed text-secondary">{description}</p>}
+      {description && (
+        <p className="mt-1 max-w-3xl text-xs leading-relaxed text-secondary sm:mt-2 sm:text-[13.5px]">
+          {description}
+        </p>
+      )}
     </div>
   );
 }
 
 export function ChannelTypeBadge({ type }: { type: string }) {
   return (
-    <span className="px-chip inline-flex items-center bg-px-tint px-2.5 py-0.5 text-[11px] font-bold font-mono text-[#0369A1] uppercase">
+    <span className="inline-flex items-center rounded-[4px] border-[1px] border-stroke bg-[#F7FAFC] px-2 py-0.5 font-mono text-[10.5px] uppercase text-secondary">
       {type}
     </span>
   );
@@ -106,11 +128,16 @@ export function ChannelTypeBadge({ type }: { type: string }) {
 export function ChannelActiveBadge({ active }: { active: boolean }) {
   return (
     <span
-      className={`px-chip inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold ${
-        active ? "bg-[#F0F7FB] text-[#0F766E]" : "bg-white text-secondary"
+      className={`inline-flex items-center gap-1.5 rounded-[9999px] border-[1px] px-3 py-1 text-xs ${
+        active
+          ? "border-[#0F766E]/30 bg-[#F0F7FB] text-[#0F766E]"
+          : "border-stroke bg-white text-secondary"
       }`}
     >
-      <span className={`h-1.5 w-1.5 ${active ? "bg-[#0F766E]" : "bg-secondary/50"}`} aria-hidden="true" />
+      <span
+        className={`h-1.5 w-1.5 rounded-[9999px] ${active ? "bg-[#0F766E]" : "bg-secondary/50"}`}
+        aria-hidden="true"
+      />
       {active ? "Aktif" : "Belum Aktif"}
     </span>
   );

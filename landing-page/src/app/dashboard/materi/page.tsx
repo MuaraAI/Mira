@@ -11,6 +11,8 @@ import {
   ExternalLink,
   User,
   Eye,
+  PlayCircle,
+  Presentation,
 } from "lucide-react";
 import { apiDownload, ApiError, useApi } from "@/lib/api";
 import {
@@ -50,6 +52,26 @@ interface MaterialItem {
   update?: string | null;
 }
 
+interface VideoItem {
+  id: string;
+  judul: string;
+  url: string;
+  thumb?: string | null;
+  kategori?: string | null;
+}
+
+interface SlideItem {
+  id: string;
+  judul: string;
+  deskripsi?: string | null;
+  url: string;
+  icon?: string | null;
+  kategori?: string | null;
+}
+
+type LearningMedia = { video: VideoItem[]; slide: SlideItem[] };
+type MateriView = "dosen" | "resmi" | "video" | "slide";
+
 export default function MateriPage() {
   const { notify } = useDialog();
   useEffect(() => preloadPdfjs(), []);
@@ -57,7 +79,7 @@ export default function MateriPage() {
   // Jadwal MyBest dipakai untuk hari kuliah + cadangan kode dosen bila kartu mata kuliah tidak mencantumkannya.
   const scheduleApi = useApi<{ kode: string; nama: string; hari?: string; kode_dosen?: string }[]>("/v1/elearning/schedule");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  const [view, setView] = useState<"dosen" | "resmi">("dosen");
+  const [view, setView] = useState<MateriView>("dosen");
   const [preview, setPreview] = useState<{ url: string; title: string; subtitle?: string } | null>(null);
   const [downloadingUrl, setDownloadingUrl] = useState<string | null>(null);
 
@@ -106,6 +128,9 @@ export default function MateriPage() {
 
   const materialsApi = useApi<MaterialItem[]>(
     token ? `/v1/elearning/materials?token=${token}` : "/v1/elearning/materials"
+  );
+  const mediaApi = useApi<LearningMedia>(
+    token ? `/v1/elearning/learning-media?token=${token}` : "/v1/elearning/learning-media"
   );
 
   if (coursesApi.loading) {
@@ -194,16 +219,19 @@ export default function MateriPage() {
         url: p.url,
       }));
 
+  const media = mediaApi.data ?? { video: [], slide: [] };
   const tabs = [
-    { key: "dosen" as const, label: `Materi Dosen${materialsApi.loading ? "" : ` (${materiDosen.length})`}` },
-    { key: "resmi" as const, label: `Paket Resmi (${resmiPackages.length})` },
+    { key: "dosen" as const, label: "Materi Dosen", count: materialsApi.loading ? null : materiDosen.length },
+    { key: "video" as const, label: "Video", count: mediaApi.loading ? null : media.video.length },
+    { key: "slide" as const, label: "Slide", count: mediaApi.loading ? null : media.slide.length },
+    { key: "resmi" as const, label: "Paket Resmi", count: resmiPackages.length },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <PageHeader
         title="Bahan Ajar & Modul Kuliah"
-        description="Materi dari dosen dan paket resmi kampus (slide, modul, silabus, RPS, RTM)."
+        description="Materi tambahan dosen, video pembelajaran, slide, dan paket resmi kampus (silabus, RPS, modul, RTM)."
       />
 
       <CourseSelect
@@ -214,51 +242,145 @@ export default function MateriPage() {
 
       {/* Ringkasan mata kuliah aktif */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-secondary">
-        <span className="px-chip bg-px-tint px-2 py-0.5 font-mono font-bold text-[#0369A1]">{courseCode}</span>
-        <span className="inline-flex items-center gap-1.5">
-          <User className="h-3.5 w-3.5 text-[#0369A1]" aria-hidden="true" />
+        <span className="rounded-[6px] border-[1px] border-stroke bg-[#F0F7FB] px-2 py-0.5 font-mono font-semibold text-[#0369A1]">
+          {courseCode}
+        </span>
+        <span className="inline-flex min-w-0 items-center gap-1.5">
+          <User className="h-3.5 w-3.5 shrink-0 text-[#0369A1]" aria-hidden="true" />
           <span className="shrink-0">Dosen Pengampu:</span>
           <DosenInfo kode={dosen} />
         </span>
       </div>
 
-      <div role="tablist" aria-label="Jenis bahan ajar" className="grid grid-cols-2 gap-1 bg-px-tint p-1 shadow-[0_-2px_0_0_#CFE2EE,0_2px_0_0_#CFE2EE,-2px_0_0_0_#CFE2EE,2px_0_0_0_#CFE2EE] sm:w-96">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            role="tab"
-            aria-selected={view === t.key}
-            onClick={() => setView(t.key)}
-            className={`min-h-10 px-2 font-mono text-xs font-bold transition-colors duration-200 ${
-              view === t.key ? "bg-[#0369A1] text-white shadow-[2px_2px_0_0_#072033]" : "text-secondary hover:bg-white hover:text-foreground"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+      <div
+        role="tablist"
+        aria-label="Jenis bahan ajar"
+        className="grid w-full grid-cols-2 gap-1.5 rounded-[10px] border-[1px] border-stroke bg-[#F0F7FB] p-1.5 sm:inline-flex sm:w-auto sm:flex-wrap"
+      >
+        {tabs.map((t) => {
+          const active = view === t.key;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setView(t.key)}
+              className={`inline-flex min-h-[38px] items-center justify-center gap-1.5 whitespace-nowrap rounded-[6px] px-3 text-xs font-medium transition-colors duration-200 ${
+                active
+                  ? "bg-[#072033] text-white"
+                  : "text-secondary hover:bg-white hover:text-foreground"
+              }`}
+            >
+              <span>{t.label}</span>
+              {t.count !== null && (
+                <span
+                  className={`rounded-[9999px] px-1.5 py-0.5 font-mono text-[10px] leading-none tabular-nums ${
+                    active ? "bg-white/15 text-white" : "bg-white text-secondary"
+                  }`}
+                >
+                  {t.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
-      {view === "resmi" ? (
-        <ul className="page-in glass-card divide-y-2 divide-dashed divide-px-soft">
+      {view === "video" ? (
+        mediaApi.loading ? (
+          <LoadingState label="Memuat video pembelajaran..." />
+        ) : media.video.length === 0 ? (
+          <EmptyState
+            title="Belum ada video pembelajaran."
+            description="Dosen belum membagikan tautan video untuk mata kuliah ini di MyBest."
+          />
+        ) : (
+          <ul className="page-in grid gap-4 sm:grid-cols-2">
+            {media.video.map((video) => (
+              <li key={video.id} className="glass-card overflow-hidden">
+                <a href={video.url} target="_blank" rel="noopener noreferrer" className="group block">
+                  <span className="relative block aspect-video w-full overflow-hidden bg-[#131b26]">
+                    {video.thumb ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={video.thumb}
+                        alt=""
+                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                    ) : (
+                      <span className="flex h-full w-full items-center justify-center text-[#7DD3FC]">
+                        <PlayCircle className="h-10 w-10" aria-hidden="true" />
+                      </span>
+                    )}
+                    <span className="absolute inset-0 flex items-center justify-center">
+                      <span className="px-icon flex h-12 w-12 items-center justify-center bg-white/90 text-[#0369A1]">
+                        <PlayCircle className="h-6 w-6" aria-hidden="true" />
+                      </span>
+                    </span>
+                  </span>
+                  <span className="block p-4">
+                    <span className="block text-sm font-bold text-foreground">{video.judul}</span>
+                    <span className="mt-1 inline-flex items-center gap-1.5 font-mono text-[11px] font-bold text-[#0369A1]">
+                      <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                      Tonton video
+                    </span>
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        )
+      ) : view === "slide" ? (
+        mediaApi.loading ? (
+          <LoadingState label="Memuat slide pembelajaran..." />
+        ) : media.slide.length === 0 ? (
+          <EmptyState
+            title="Belum ada slide pembelajaran."
+            description="Dokumen slide untuk mata kuliah ini belum tersedia di MyBest."
+          />
+        ) : (
+          <ul className="page-in grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {media.slide.map((item) => (
+              <li key={item.id} className="glass-card flex flex-col p-4">
+                <span className="px-icon flex h-9 w-9 items-center justify-center">
+                  <Presentation className="h-4 w-4" aria-hidden="true" />
+                </span>
+                <p className="mt-3 text-sm font-bold text-foreground">{item.judul}</p>
+                <p className="mt-1 flex-1 text-xs text-secondary">{item.deskripsi || "-"}</p>
+                <a
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-btn mt-4 inline-flex min-h-10 items-center justify-center gap-1.5 px-3 text-xs font-bold"
+                >
+                  <Download className="h-4 w-4" aria-hidden="true" />
+                  Unduh
+                </a>
+              </li>
+            ))}
+          </ul>
+        )
+      ) : view === "resmi" ? (
+        <ul className="page-in min-w-0 divide-y-[1px] divide-stroke overflow-hidden rounded-[10px] border-[1px] border-stroke bg-white">
           {resmiPackages.map((pkg) => {
             const Icon = BAHAN_AJAR_ICONS[pkg.category] ?? Layers;
             return (
-              <li key={pkg.key}>
+              <li key={pkg.key} className="min-w-0">
                 <a
                   href={pkg.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group flex min-h-16 items-center gap-3 px-4 py-3 transition-colors hover:bg-[#F0F7FB] sm:px-5"
+                  className="group flex min-h-16 min-w-0 items-center gap-3 px-4 py-3 transition-colors hover:bg-[#F0F7FB] sm:px-5"
                 >
-                  <span className="px-icon h-9 w-9 shrink-0">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] border-[1px] border-stroke bg-[#F0F7FB] text-[#0369A1]">
                     <Icon className="h-4 w-4" aria-hidden="true" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-bold text-foreground">{pkg.title}</span>
+                    <span className="block break-words text-sm font-semibold text-foreground">{pkg.title}</span>
                     <span className="block truncate text-xs text-secondary">{pkg.desc}</span>
                   </span>
-                  <span className="inline-flex shrink-0 items-center gap-1.5 font-mono text-[11px] font-bold text-[#0369A1]">
+                  <span className="inline-flex shrink-0 items-center gap-1.5 font-mono text-[11px] font-semibold text-[#0369A1]">
                     <Download className="h-4 w-4 transition-transform group-hover:translate-y-0.5" aria-hidden="true" />
                     <span className="hidden sm:inline">ZIP</span>
                   </span>
@@ -282,30 +404,30 @@ export default function MateriPage() {
           </button>
         </div>
       ) : (
-        <ul className="page-in glass-card divide-y-2 divide-dashed divide-px-soft">
+        <ul className="page-in min-w-0 divide-y-[1px] divide-stroke overflow-hidden rounded-[10px] border-[1px] border-stroke bg-white">
           {materiDosen.map((m) => {
             const busy = downloadingUrl === m.file_url;
             return (
-              <li key={m.id} className="flex items-center gap-3 px-4 py-3 sm:px-5">
-                <span className="px-icon h-9 w-9 shrink-0">
+              <li key={m.id} className="flex min-w-0 items-center gap-3 px-4 py-3.5 sm:px-5">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] border-[1px] border-stroke bg-[#F0F7FB] text-[#0369A1]">
                   <FileText className="h-4 w-4" aria-hidden="true" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-bold leading-snug text-foreground">{m.judul}</span>
+                  <span className="block break-words text-sm font-semibold leading-snug text-foreground">{m.judul}</span>
                   <span className="block truncate text-xs text-secondary">
                     {[m.update, m.deskripsi].filter(Boolean).join(" · ") || "-"}
                   </span>
                 </span>
                 {m.file_url ? (
                   m.file_url.startsWith("/v1/") ? (
-                    <span className="flex shrink-0 items-center gap-2">
+                    <span className="flex shrink-0 items-center gap-1.5 sm:gap-2">
                       <button
                         type="button"
                         onClick={() => setPreview({ url: m.file_url!, title: m.judul, subtitle: m.kode || undefined })}
                         aria-label={`Lihat dan ringkas ${m.judul}`}
-                        className="px-btn inline-flex min-h-10 items-center gap-1.5 px-3 text-xs font-bold"
+                        className="inline-flex h-9 min-w-9 items-center justify-center gap-1.5 rounded-[6px] border-[1px] border-[#072033] bg-[#072033] px-2.5 text-xs font-medium text-white transition-colors hover:bg-white hover:text-[#072033] sm:px-3"
                       >
-                        <Eye className="h-4 w-4" aria-hidden="true" />
+                        <Eye className="h-4 w-4 shrink-0" aria-hidden="true" />
                         <span className="hidden sm:inline">Lihat</span>
                       </button>
                       <button
@@ -313,9 +435,9 @@ export default function MateriPage() {
                         onClick={() => handleDownloadMaterial(m.file_url!, m.judul)}
                         disabled={busy}
                         aria-label={`Unduh ${m.judul}`}
-                        className="px-btn-ghost inline-flex min-h-10 min-w-10 items-center justify-center gap-1.5 px-3 text-xs font-bold"
+                        className="inline-flex h-9 min-w-9 items-center justify-center gap-1.5 rounded-[6px] border-[1px] border-stroke bg-white px-2.5 text-xs font-medium text-foreground transition-colors hover:border-[#072033] disabled:opacity-60 sm:px-3"
                       >
-                        <Download className="h-4 w-4" aria-hidden="true" />
+                        <Download className="h-4 w-4 shrink-0" aria-hidden="true" />
                         <span className="hidden sm:inline">{busy ? "Mengunduh..." : "Unduh"}</span>
                       </button>
                     </span>
@@ -325,9 +447,9 @@ export default function MateriPage() {
                       target="_blank"
                       rel="noopener noreferrer"
                       aria-label={`Buka ${m.judul}`}
-                      className="px-btn inline-flex min-h-10 shrink-0 items-center gap-1.5 px-3 text-xs font-bold"
+                      className="inline-flex h-9 min-w-9 shrink-0 items-center justify-center gap-1.5 rounded-[6px] border-[1px] border-[#072033] bg-[#072033] px-2.5 text-xs font-medium text-white transition-colors hover:bg-white hover:text-[#072033] sm:px-3"
                     >
-                      <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                      <ExternalLink className="h-4 w-4 shrink-0" aria-hidden="true" />
                       <span className="hidden sm:inline">Buka</span>
                     </a>
                   )

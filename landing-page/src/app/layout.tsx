@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { Analytics } from "@vercel/analytics/react";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
+import { TopProgressBar } from "@/components/TopProgressBar";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_TITLE, SITE_URL, GITHUB_URL } from "@/lib/site";
 import "./globals.css";
 
@@ -99,6 +100,51 @@ const pixelify = localFont({
   display: "swap",
   // Hanya huruf. Angka dan simbol memakai Space Grotesk karena di Pixelify "2" dan "Z" bentuknya sama.
   declarations: [{ prop: "unicode-range", value: "U+0041-005A, U+0061-007A" }],
+});
+
+const aestetico = localFont({
+  src: [
+    {
+      path: "../../public/fonts/Aestetico-Regular.otf",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "../../public/fonts/Aestetico-Medium.otf",
+      weight: "500",
+      style: "normal",
+    },
+    {
+      path: "../../public/fonts/Aestetico-SemiBold.otf",
+      weight: "600",
+      style: "normal",
+    },
+    {
+      path: "../../public/fonts/Aestetico-Bold.otf",
+      weight: "700",
+      style: "normal",
+    },
+  ],
+  variable: "--font-aestetico",
+  display: "swap",
+  adjustFontFallback: false,
+  // Versi trial Aestetico mengganti tanda hubung & sebagian angka dengan glif "DEMO"; batasi ke huruf Latin, spasi, koma, titik.
+  declarations: [{ prop: "unicode-range", value: "U+0020, U+002C, U+002E, U+0041-005A, U+0061-007A" }],
+});
+
+const minevia = localFont({
+  src: [
+    {
+      path: "../../public/fonts/Minevia-Regular.otf",
+      weight: "400",
+      style: "normal",
+    },
+  ],
+  variable: "--font-minevia",
+  display: "swap",
+  adjustFontFallback: false,
+  // Versi Trial Minevia menggambar kotak .notdef pada angka & sebagian tanda baca; batasi ke huruf Latin.
+  declarations: [{ prop: "unicode-range", value: "U+0020, U+0041-005A, U+0061-007A" }],
 });
 
 export const viewport: Viewport = {
@@ -263,7 +309,7 @@ export default function RootLayout({
   return (
     <html
       lang="id"
-      className={`${spaceGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable} ${pixelify.variable}`}
+      className={`${spaceGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable} ${pixelify.variable} ${aestetico.variable} ${minevia.variable}`}
     >
       <head>
         <script
@@ -278,6 +324,7 @@ export default function RootLayout({
         >
           Langsung ke konten utama
         </a>
+        <TopProgressBar />
         {children}
         <ServiceWorkerRegistration />
         <Analytics />

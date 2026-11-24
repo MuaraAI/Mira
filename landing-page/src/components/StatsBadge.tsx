@@ -8,12 +8,11 @@ interface PublicStats {
   branches?: { name: string; active_users_30d: number }[];
 }
 
-/** Label ramah kode cabang internal (fallback: kode mentah). */
 function formatId(n: number): string {
   return new Intl.NumberFormat("id-ID").format(n);
 }
 
-export function StatsBadge() {
+export function StatsBadge({ className = "mt-6 text-secondary" }: { className?: string }) {
   const { data } = useApi<PublicStats>("/v1/stats", { refreshMs: 60_000 });
 
   if (!data?.users?.total_all_time) return null;
@@ -24,7 +23,10 @@ export function StatsBadge() {
   const branchesCount = data.branches?.length || 0;
 
   return (
-    <p className="mt-6 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs font-semibold text-secondary" aria-label="Statistik pengguna terkini">
+    <p
+      className={`flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs font-semibold ${className}`}
+      aria-label="Statistik pengguna terkini"
+    >
       <span>Digunakan oleh {formatId(users)} mahasiswa</span>
       {branchesCount > 0 && <span aria-hidden="true">·</span>}
       {branchesCount > 0 && <span>{branchesCount} cabang UBSI</span>}

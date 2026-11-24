@@ -3,10 +3,11 @@
 import { useRef, useState } from "react";
 import { ArrowLeft, LogIn, MailCheck, RotateCcw, Send } from "lucide-react";
 import { apiFetch, ApiError } from "@/lib/api";
-import { inputClass, primaryButtonClass } from "@/components/dashboard-ui";
 import { PASSWORD_SYSTEM_LABEL, PasswordSystem } from "@/lib/security";
 
-const fieldClass = `${inputClass} min-h-12 text-base sm:text-sm`;
+const fieldClass = "auth-input text-base sm:text-[13.5px]";
+const authButtonClass =
+  "inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[12px] bg-[#072033] px-5 py-3 text-[13px] font-normal tracking-[0.015em] text-white transition-colors hover:bg-[#0369A1] disabled:cursor-not-allowed disabled:opacity-60";
 const RESET_TTL_MINUTES = 60;
 
 export function maskEmail(email: string) {
@@ -44,7 +45,15 @@ function useFieldErrors() {
   return { flag, bind, hasError, clear };
 }
 
-function SystemToggle({ value, onChange, disabled }: { value: PasswordSystem; onChange: (v: PasswordSystem) => void; disabled?: boolean }) {
+function SystemToggle({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: PasswordSystem;
+  onChange: (v: PasswordSystem) => void;
+  disabled?: boolean;
+}) {
   // Login dan reset password hanya untuk MyBest. Tautan SIAKAD dikelola di
   // dalam dashboard (Sesi & Keamanan), bukan di layar login.
   const systems: PasswordSystem[] = ["mybest"];
@@ -60,10 +69,10 @@ function SystemToggle({ value, onChange, disabled }: { value: PasswordSystem; on
             aria-checked={active}
             disabled={disabled}
             onClick={() => onChange(key)}
-            className={`flex min-h-11 items-center justify-center font-mono text-xs font-bold transition-colors ${
+            className={`flex min-h-11 items-center justify-center rounded-[12px] border-[1px] px-3 text-[12px] tracking-[0.02em] transition-colors ${
               active
-                ? "bg-[#072033] text-white shadow-[3px_3px_0_0_#0369A1]"
-                : "bg-white text-secondary shadow-[inset_0_0_0_2px_#CFE2EE] hover:text-foreground"
+                ? "border-[#072033] bg-[#072033] text-white"
+                : "border-stroke bg-white text-secondary hover:border-[#0369A1] hover:text-foreground"
             }`}
           >
             {PASSWORD_SYSTEM_LABEL[key]}
@@ -77,7 +86,10 @@ function SystemToggle({ value, onChange, disabled }: { value: PasswordSystem; on
 function ErrorNote({ error }: { error: ApiError | null }) {
   if (!error) return null;
   return (
-    <p role="alert" className="bg-[#FFF1F2] px-3 py-2.5 text-sm leading-snug text-[#BE123C] shadow-[inset_0_0_0_2px_#FDA4AF]">
+    <p
+      role="alert"
+      className="rounded-[12px] border-[1px] border-[#FDA4AF] bg-[#FFF1F2] px-3.5 py-2.5 text-[13px] leading-relaxed text-[#BE123C]"
+    >
       {error.message}
     </p>
   );
@@ -88,9 +100,12 @@ function BackToLogin({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="group inline-flex min-h-11 items-center gap-2 font-mono text-xs font-semibold text-secondary transition-colors hover:text-[#0369A1]"
+      className="group inline-flex min-h-11 items-center gap-2 text-[13px] text-secondary transition-colors hover:text-[#0369A1]"
     >
-      <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" aria-hidden="true" />
+      <ArrowLeft
+        className="h-4 w-4 transition-transform group-hover:-translate-x-0.5"
+        aria-hidden="true"
+      />
       Kembali ke login
     </button>
   );
@@ -122,21 +137,35 @@ export function ForgotPasswordView({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (busy) return;
-    const missing = [!/^\d{6,12}$/.test(nim.trim()) && "nim", !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim()) && "email"].filter(
-      Boolean
-    ) as string[];
+    const missing = [
+      !/^\d{6,12}$/.test(nim.trim()) && "nim",
+      !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim()) && "email",
+    ].filter(Boolean) as string[];
     if (missing.length) {
-      setError(new ApiError("INVALID_INPUT", missing.length === 2 ? "Isi NIM dan email dengan benar." : missing[0] === "nim" ? "NIM harus berupa angka." : "Format email belum benar.", 0));
+      setError(
+        new ApiError(
+          "INVALID_INPUT",
+          missing.length === 2
+            ? "Isi NIM dan email dengan benar."
+            : missing[0] === "nim"
+              ? "NIM harus berupa angka."
+              : "Format email belum benar.",
+          0
+        )
+      );
       flag(missing);
       return;
     }
     setBusy(true);
     setError(null);
     try {
-      await apiFetch("/v1/auth/forgot-password", { json: { nim: nim.trim(), email: email.trim(), system } });
+      await apiFetch("/v1/auth/forgot-password", {
+        json: { nim: nim.trim(), email: email.trim(), system },
+      });
       setSent({ system, email: email.trim().toLowerCase() });
     } catch (err) {
-      const apiErr = err instanceof ApiError ? err : new ApiError("ERROR", "Gagal mengirim link. Coba lagi.", 0);
+      const apiErr =
+        err instanceof ApiError ? err : new ApiError("ERROR", "Gagal mengirim link. Coba lagi.", 0);
       setError(apiErr);
       flag(apiErr.fields ?? []);
     } finally {
@@ -151,7 +180,7 @@ export function ForgotPasswordView({
       <SystemToggle value={system} onChange={setSystem} disabled={busy} />
 
       <div ref={bind("nim")}>
-        <label htmlFor="forgot-nim" className="mb-2 block text-sm font-semibold text-foreground">
+        <label htmlFor="forgot-nim" className="mb-2 block text-[13px] text-foreground">
           NIM
         </label>
         <input
@@ -170,7 +199,7 @@ export function ForgotPasswordView({
       </div>
 
       <div ref={bind("email")}>
-        <label htmlFor="forgot-email" className="mb-2 block text-sm font-semibold text-foreground">
+        <label htmlFor="forgot-email" className="mb-2 block text-[13px] text-foreground">
           Email terdaftar di {PASSWORD_SYSTEM_LABEL[system]}
         </label>
         <input
@@ -191,12 +220,12 @@ export function ForgotPasswordView({
 
       <ErrorNote error={error} />
 
-      <button type="submit" disabled={busy} className={`${primaryButtonClass} min-h-12 w-full`}>
+      <button type="submit" disabled={busy} className={authButtonClass}>
         <Send className="h-4 w-4" aria-hidden="true" />
         {busy ? "Mengirim link..." : "Kirim link reset"}
       </button>
 
-      <div className="border-t-2 border-dashed border-px-soft pt-2">
+      <div className="border-t-[1px] border-stroke pt-3">
         <BackToLogin onClick={onBack} />
       </div>
     </form>
@@ -204,45 +233,56 @@ export function ForgotPasswordView({
 }
 
 /** Langkah 2: link sudah di email. Password baru disetel di situs kampus lewat link itu, bukan di Mira. */
-function ResetLinkSent({ sent, onResend, onBack }: { sent: SentInfo; onResend: () => void; onBack: () => void }) {
+function ResetLinkSent({
+  sent,
+  onResend,
+  onBack,
+}: {
+  sent: SentInfo;
+  onResend: () => void;
+  onBack: () => void;
+}) {
   const label = PASSWORD_SYSTEM_LABEL[sent.system];
   return (
     <div className="login-form-in space-y-5" role="status">
       <div className="flex items-start gap-3">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center bg-[#0F766E] text-white shadow-[3px_3px_0_0_#072033]">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-[#0F766E] text-white">
           <MailCheck className="h-5 w-5" aria-hidden="true" />
         </span>
         <div className="min-w-0">
-          <p className="font-display text-lg font-bold text-foreground">Cek email kamu</p>
-          <p className="mt-0.5 text-sm text-secondary">
-            Link reset {label} dikirim ke <span className="whitespace-nowrap font-semibold text-foreground">{maskEmail(sent.email)}</span>
+          <p className="text-[16px] text-foreground">Cek email kamu</p>
+          <p className="mt-0.5 text-[13px] leading-relaxed text-secondary">
+            Link reset {label} dikirim ke{" "}
+            <span className="whitespace-nowrap text-foreground">{maskEmail(sent.email)}</span>
           </p>
         </div>
       </div>
 
-      <ol className="space-y-2.5 bg-[#F0F7FB] px-4 py-3.5 text-sm text-foreground shadow-[inset_0_0_0_2px_#CFE2EE]">
+      <ol className="space-y-2.5 rounded-[14px] border-[1px] border-stroke bg-surface-alt px-4 py-3.5 text-[13px] text-foreground">
         {[
           `Buka email dari ${label}. Cek folder Spam kalau belum masuk.`,
           `Klik link reset. Berlaku ${RESET_TTL_MINUTES} menit.`,
           `Buat password baru di situs ${label}, lalu login lagi di Mira.`,
         ].map((text, i) => (
-          <li key={text} className="flex gap-2.5">
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center bg-[#072033] font-mono text-[10px] font-bold text-white">{i + 1}</span>
-            <span className="leading-snug">{text}</span>
+          <li key={text} className="flex items-start gap-2.5">
+            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-[9999px] bg-[#072033] font-mono text-[10px] text-white">
+              {i + 1}
+            </span>
+            <span className="leading-relaxed">{text}</span>
           </li>
         ))}
       </ol>
 
-      <button type="button" onClick={onBack} className={`${primaryButtonClass} min-h-12 w-full`}>
+      <button type="button" onClick={onBack} className={authButtonClass}>
         <LogIn className="h-4 w-4" aria-hidden="true" />
         Kembali ke login
       </button>
 
-      <div className="border-t-2 border-dashed border-px-soft pt-2">
+      <div className="border-t-[1px] border-stroke pt-3">
         <button
           type="button"
           onClick={onResend}
-          className="inline-flex min-h-11 items-center gap-1.5 font-mono text-xs font-semibold text-[#0369A1] hover:underline"
+          className="inline-flex min-h-11 items-center gap-1.5 text-[12.5px] text-[#0369A1] hover:underline"
         >
           <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
           Belum masuk? Kirim ulang
@@ -251,4 +291,3 @@ function ResetLinkSent({ sent, onResend, onBack }: { sent: SentInfo; onResend: (
     </div>
   );
 }
-

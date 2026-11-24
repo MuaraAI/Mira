@@ -14,6 +14,8 @@ import {
   ChevronDown,
   CalendarDays,
   Repeat,
+  MessageSquare,
+  Send,
 } from "lucide-react";
 import { apiFetch, useApi, clearApiCache } from "@/lib/api";
 import {
@@ -313,6 +315,38 @@ export default function PresensiPage() {
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [liveNote, setLiveNote] = useState<string | null>(null);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackSesuai, setFeedbackSesuai] = useState(true);
+  const [feedbackSending, setFeedbackSending] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
+
+  async function handleSendFeedback() {
+    if (!token) return;
+    const komentar = feedbackText.trim();
+    if (!komentar) {
+      setFeedbackError("Tulis komentar untuk dosen terlebih dahulu.");
+      return;
+    }
+    setFeedbackSending(true);
+    setFeedbackMessage(null);
+    setFeedbackError(null);
+    try {
+      const result = await apiFetch<{ success: boolean; message?: string }>(
+        "/v1/elearning/presence/feedback",
+        { method: "POST", json: { token, nilai: feedbackSesuai, komentar, absen_path: absenPath } }
+      );
+      if (!result.success) throw new Error(result.message || "Komentar gagal dikirim.");
+      setFeedbackMessage(result.message || "Komentar berhasil dikirim.");
+      setFeedbackText("");
+      clearApiCache("/v1/elearning/presence");
+      presenceApi.reload();
+    } catch (error) {
+      setFeedbackError(error instanceof Error ? error.message : "Komentar gagal dikirim.");
+    } finally {
+      setFeedbackSending(false);
+    }
+  }
 
   // Absen baru dibuka dosen saat halaman sedang terbuka: beri tahu langsung.
   const openNow =
@@ -473,6 +507,9 @@ export default function PresensiPage() {
           setOpenRecord(null);
           setSubmitMessage(null);
           setSubmitError(null);
+          setFeedbackMessage(null);
+          setFeedbackError(null);
+          setFeedbackText("");
         }}
       />
 
@@ -626,6 +663,80 @@ export default function PresensiPage() {
             >
               {submitError || submitMessage}
             </div>
+          )}
+
+          {token && (
+            <section className="glass-card p-4 sm:p-6" aria-labelledby="feedback-title">
+              <div className="mb-4 flex items-center gap-3">
+                <span className="px-icon flex h-9 w-9 shrink-0 items-center justify-center">
+                  <MessageSquare className="h-4 w-4" aria-hidden="true" />
+                </span>
+                <div className="min-w-0">
+                  <h3 id="feedback-title" className="text-base font-display font-bold text-foreground">
+                    Komentar Pengajaran Dosen
+                  </h3>
+                  <p className="text-xs text-secondary">Komentar dikirim bersama presensi mata kuliah ini.</p>
+                </div>
+              </div>
+
+              <label
+                htmlFor="feedback-komentar"
+                className="mb-2 block font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-secondary"
+              >
+                Berikan Komentar Anda Terhadap Pengajaran Dosen
+              </label>
+              <textarea
+                id="feedback-komentar"
+                className="px-input min-h-24 w-full p-3 text-sm"
+                placeholder="Tulis komentar untuk dosen pengampu..."
+                maxLength={1000}
+                value={feedbackText}
+                onChange={(event) => setFeedbackText(event.target.value)}
+              />
+
+              <fieldset className="mt-4">
+                <legend className="sr-only">Penilaian pengajaran</legend>
+                <div className="flex flex-wrap gap-x-6 gap-y-2">
+                  {[
+                    { value: true, label: "Sesuai" },
+                    { value: false, label: "Tidak Sesuai" },
+                  ].map((option) => (
+                    <label
+                      key={option.label}
+                      className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm font-semibold text-foreground"
+                    >
+                      <input
+                        type="radio"
+                        name="nilai-pengajaran"
+                        className="h-4 w-4 accent-[#0369A1]"
+                        checked={feedbackSesuai === option.value}
+                        onChange={() => setFeedbackSesuai(option.value)}
+                      />
+                      {option.label}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+
+              {(feedbackMessage || feedbackError) && (
+                <div
+                  role="status"
+                  className={`px-frame mt-4 break-words p-3 text-sm ${feedbackError ? "bg-[#FFF1F2] text-[#BE123C] [--px-line:#FDA4AF]" : "bg-[#F0FDF4] text-[#0F766E] [--px-line:#99D5CC]"}`}
+                >
+                  {feedbackError || feedbackMessage}
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={handleSendFeedback}
+                disabled={feedbackSending || !feedbackText.trim()}
+                className="px-btn mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 px-5 text-sm font-bold sm:w-auto"
+              >
+                <Send className="h-4 w-4" aria-hidden="true" />
+                {feedbackSending ? "Mengirim komentar..." : "Kirim Komentar"}
+              </button>
+            </section>
           )}
 
           {upcomingMakeups.length > 0 && (

@@ -1,5 +1,4 @@
 from pathlib import Path
-import pytest
 from app.modules.elearning import (
     solve_captcha,
     parse_courses,
@@ -9,6 +8,8 @@ from app.modules.elearning import (
     parse_quiz,
     inspect_session_status,
     parse_quiz_questions,
+    parse_feedback_form,
+    parse_learning_media,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -315,3 +316,63 @@ def test_course_schedule_regular_format_unchanged():
     assert (first["hari"], first["jam"]) == ("Selasa", "09:10-10:50")
     days = {c["hari"] for c in parse_courses(_sch_fixture())}
     assert days <= {"Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"}
+
+
+_FEEDBACK_HTML = """
+<form action="/komentar-mhs" method="post">
+  <input type="hidden" name="_token" value="dummy-token">
+  <textarea name="komentar"></textarea>
+  <input type="radio" name="nilai" value="1" checked>
+  <input type="radio" name="nilai" value="0">
+  <input type="hidden" name="pertemuan" value="dummy-pertemuan">
+  <input type="hidden" name="id" value="dummy-id">
+</form>
+"""
+
+_MEDIA_HTML = """
+<div class="tab-pane" id="profile">
+  <iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" title="Video Algoritma"></iframe>
+</div>
+<div class="tab-pane" id="contact">
+  <div class="doc-block">
+    <div class="doc-title">Slide</div>
+    <div class="doc-desc">Materi tayang presentasi</div>
+    <a href="https://students.example.test/mhs_download/bahan_ajar/slide/207.zip">Download</a>
+  </div>
+  <div class="doc-block">
+    <div class="doc-title">RPS</div>
+    <a href="https://students.example.test/mhs_download/bahan_ajar/rps/207.zip">Download</a>
+  </div>
+</div>
+"""
+
+
+def test_parse_feedback_form_keeps_hidden_fields_and_skips_radio():
+    form = parse_feedback_form(_FEEDBACK_HTML)
+    assert form["available"] is True
+    assert form["action"] == "/komentar-mhs"
+    assert form["inputs"] == {
+        "_token": "dummy-token",
+        "pertemuan": "dummy-pertemuan",
+        "id": "dummy-id",
+    }
+
+
+def test_parse_feedback_form_absent():
+    assert parse_feedback_form("<html><body></body></html>")["available"] is False
+
+
+def test_parse_learning_media_video_and_slide():
+    media = parse_learning_media(_MEDIA_HTML)
+    assert len(media["video"]) == 1
+    assert media["video"][0]["judul"] == "Video Algoritma"
+    assert media["video"][0]["thumb"].startswith("https://img.youtube.com/vi/")
+    assert [s["kategori"] for s in media["slide"]] == ["slide", "rps"]
+    assert media["slide"][0]["url"].endswith("slide/207.zip")
+
+
+def test_parse_learning_media_real_snapshot():
+    html = (FIXTURES / "el_learning_1.html").read_text(encoding="utf-8")
+    media = parse_learning_media(html)
+    assert "slide" in {s["kategori"] for s in media["slide"]}
+    assert isinstance(media["video"], list)

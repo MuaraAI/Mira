@@ -23,16 +23,23 @@ export default function PwaPushBanner() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let alive = true;
     const dismissedAt = Number(window.localStorage.getItem(DISMISS_KEY) || 0);
     if (Date.now() - dismissedAt < DISMISS_DAYS * 86400_000) return;
     if (isIosNotInstalled()) {
       setMode("install-ios");
       return;
     }
+    if (process.env.NODE_ENV !== "production") return;
     if (!isPushSupported() || getNotificationPermission() !== "default") return;
-    getExistingSubscription().then((sub) => {
-      if (!sub) setMode("enable");
-    });
+    getExistingSubscription()
+      .then((sub) => {
+        if (alive && !sub) setMode("enable");
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
   }, []);
 
   const dismiss = useCallback(() => {

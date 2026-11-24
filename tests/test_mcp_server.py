@@ -5,18 +5,8 @@ from app.mcp_server import (
     server,
     _build_headers,
     _resolve_credentials,
-    mira_whoami,
     mira_get_schedule,
-    mira_get_grades,
-    mira_get_profile,
-    mira_get_khs,
-    mira_get_krs,
-    mira_get_uts,
-    mira_get_courses,
-    mira_get_presence,
     mira_submit_presence,
-    mira_get_quiz,
-    mira_get_quiz_questions,
     mira_submit_quiz_answer,
 )
 
@@ -24,11 +14,11 @@ from app.mcp_server import (
 async def test_mcp_tool_listing():
     tools = await server.list_tools()
     tool_names = {t.name for t in tools}
-    # Satu namespace: 40 tool akademik tanpa alias lama
-    assert len(tool_names) == 40
+    # Satu namespace: 42 tool akademik tanpa alias lama
+    assert len(tool_names) == 42
     assert not any(n.startswith("ubsi_") for n in tool_names)
 
-    # Pastikan kedua namespace (mira_* dan mira_*) terdaftar lengkap
+    # Pastikan seluruh tool mira_* terdaftar lengkap
     core_suffixes = [
         "whoami", "get_schedule", "get_grades", "get_profile", "get_khs", "get_krs",
         "get_uts", "get_courses", "get_presence", "submit_presence", "get_quiz",
@@ -37,7 +27,8 @@ async def test_mcp_tool_listing():
         "get_discussion_comments", "submit_discussion_comment", "create_discussion",
         "get_elearning_profile", "get_makeup_classes", "get_elearning_guides", "get_uas",
         "get_academic_calendar", "get_prodi_contacts", "get_certificates", "get_lecturers",
-        "get_api_docs", "get_materials", "get_assignments", "search_library", "get_news",
+        "get_api_docs", "get_materials", "get_learning_media", "submit_teaching_feedback",
+        "get_assignments", "search_library", "get_news",
         "get_repository", "get_dashboard", "get_grades_recap", "get_exams", "get_exam_schedule",
     ]
     for s in core_suffixes:
@@ -52,7 +43,6 @@ def test_mcp_context_credentials_override_empty_tool_args():
 
 @pytest.mark.asyncio
 async def test_mcp_call_tool_propagates_headers_to_all_tools():
-    from app.mcp_server import _current_mcp_context, mira_whoami
     ctx = MagicMock()
     ctx.headers = {"x-api-key": "muara_ubsi_propagated_test_key_12345678"}
 
@@ -398,7 +388,7 @@ async def test_mcp_presence_and_quiz_write_tools():
     assert parsed_docs["success"] is True
     assert "endpoints" in parsed_docs["data"]
     assert "mcp" in parsed_docs["data"]
-    assert parsed_docs["data"]["mcp"]["total_tools"] == 40
+    assert parsed_docs["data"]["mcp"]["total_tools"] == 42
 
     res_docs_cat = await mira_get_api_docs(category="elearning")
     parsed_docs_cat = json.loads(res_docs_cat)
@@ -408,7 +398,7 @@ async def test_mcp_presence_and_quiz_write_tools():
 
 @pytest.mark.asyncio
 async def test_mcp_dual_execution_all_80_tools():
-    """Memverifikasi seluruh 40 tool `mira_*` dapat dieksekusi tanpa error."""
+    """Memverifikasi seluruh 42 tool `mira_*` dapat dieksekusi tanpa error."""
     dummy_args = {
         "upload_assignment": {"token_tugas": "tok", "filename": "tugas.pdf", "file_base64": "YQ=="},
         "submit_assignment": {"token_send": "tok", "link_tugas": "https://github.com/test"},
@@ -421,6 +411,7 @@ async def test_mcp_dual_execution_all_80_tools():
         "get_exam_schedule": {"exam_type": "uts"},
         "submit_quiz_answer": {"id_soal": "1", "data_jawab": "A"},
         "search_library": {"query": "python"},
+        "submit_teaching_feedback": {"token": "tok", "komentar": "Materi sesuai RPS"},
     }
 
     mock_resp = AsyncMock()
@@ -433,7 +424,7 @@ async def test_mcp_dual_execution_all_80_tools():
     with patch("httpx.AsyncClient.get", return_value=mock_resp), \
          patch("httpx.AsyncClient.post", return_value=mock_resp):
         tools = await server.list_tools()
-        assert len(tools) == 40
+        assert len(tools) == 42
         for t in tools:
             args = {}
             for k, v in dummy_args.items():

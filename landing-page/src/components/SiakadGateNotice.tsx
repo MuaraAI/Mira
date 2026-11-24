@@ -19,11 +19,11 @@ export function SiakadGateNotice({ kind }: { kind: "device_pending" | "relink" }
     <div className="glass-card space-y-3 border-l-4 border-l-[#92400E] p-6">
       <div className="flex items-start gap-3">
         {isPending ? (
-          <ShieldAlert className="mt-0.5 h-5 w-5 text-[#92400E]" aria-hidden="true" />
+          <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-[#92400E]" aria-hidden="true" />
         ) : (
-          <ShieldX className="mt-0.5 h-5 w-5 text-[#B91C1C]" aria-hidden="true" />
+          <ShieldX className="mt-0.5 h-5 w-5 shrink-0 text-[#B91C1C]" aria-hidden="true" />
         )}
-        <div className="space-y-1">
+        <div className="min-w-0 flex-1 space-y-1">
           <h2 className="text-base font-display font-bold text-foreground">
             {isPending ? "Perangkat ini belum diizinkan" : "Password SIAKAD berubah di portal kampus"}
           </h2>

@@ -1,32 +1,46 @@
 "use client";
 
-import { ImagePlus, Moon, Sun } from "lucide-react";
+import { Check, ImagePlus, Moon, Sun } from "lucide-react";
 import { useDialog } from "@/components/ConfirmDialog";
 import { WALLPAPERS, useWallpaper, wallpaperStyle } from "@/lib/wallpaper";
 
-/** Pilih wallpaper chat + atur kecerahannya, dengan pratinjau bubble supaya hasilnya langsung terlihat. */
+/** Pilih wallpaper Mira atau pola minimalis + atur kecerahannya secara responsif di semua perangkat. */
 export function WallpaperPicker() {
   const { notify } = useDialog();
   const wallpaper = useWallpaper();
   const { stored, brightness } = wallpaper;
 
+  const miraWallpapers = WALLPAPERS.filter((w) => w.category === "mira");
+  const minimalWallpapers = WALLPAPERS.filter((w) => w.category === "minimal");
+
   return (
     <div className="space-y-5">
-      {/* Pratinjau */}
-      <div className="h-40 overflow-hidden p-3 shadow-[0_0_0_2px_#CFE2EE]" style={wallpaper.style} aria-label="Pratinjau wallpaper">
-        <div className="flex flex-col gap-2">
-          <span className="max-w-[75%] self-start bg-white px-3 py-2 text-[13px] text-[#072033] shadow-[0_0_0_2px_#D9E5ED]">Halo, sudah lihat jadwal besok?</span>
-          <span className="max-w-[75%] self-end bg-[#D7E9F5] px-3 py-2 text-[13px] text-[#072033] shadow-[0_0_0_2px_#9CC6E0]">Sudah, kelas jam 8 ya</span>
-        </div>
+      {/* Pratinjau langsung dengan bubble Telegram-style */}
+      <div
+        className="flex h-44 flex-col justify-center gap-2 overflow-hidden rounded-[12px] border-[1px] border-[#D9E5ED] p-3.5"
+        style={wallpaper.style}
+        aria-label="Pratinjau wallpaper"
+      >
+        <span className="max-w-[78%] self-start rounded-[14px] rounded-tl-[4px] border-[1px] border-[#DFECF4] bg-white px-3 py-2 text-[13px] text-[#072033] shadow-[0_1px_2px_rgba(7,32,51,0.08)]">
+          Halo, sudah lihat jadwal besok?
+        </span>
+        <span className="max-w-[78%] self-end rounded-[14px] rounded-tr-[4px] border-[1px] border-[#C5E0F3] bg-[#E1F1FC] px-3 py-2 text-[13px] text-[#072033] shadow-[0_1px_2px_rgba(7,32,51,0.06)]">
+          Sudah, kelas jam 8 pagi ya
+        </span>
       </div>
 
       {/* Kecerahan */}
       <div>
         <div className="mb-2 flex items-center justify-between">
-          <label htmlFor="wallpaper-brightness" className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#3B5A70]">
+          <label
+            htmlFor="wallpaper-brightness"
+            className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.14em] text-[#3B5A70]"
+          >
             Kecerahan
           </label>
-          <span className="font-mono text-xs font-semibold text-[#072033]">{brightness}%</span>
+          <span className="font-mono text-xs font-semibold tabular-nums text-[#072033]">
+            {brightness}%
+          </span>
         </div>
         <div className="flex items-center gap-3">
           <Moon className="h-4 w-4 shrink-0 text-[#3B5A70]" aria-hidden="true" />
@@ -42,7 +56,7 @@ export function WallpaperPicker() {
           />
           <Sun className="h-4 w-4 shrink-0 text-[#A16207]" aria-hidden="true" />
         </div>
-        <div className="mt-2 flex gap-2">
+        <div className="mt-2.5 grid grid-cols-3 gap-2">
           {[
             { label: "Gelap", value: 25 },
             { label: "Asli", value: 50 },
@@ -53,8 +67,10 @@ export function WallpaperPicker() {
               type="button"
               onClick={() => wallpaper.setBrightness(p.value)}
               aria-pressed={brightness === p.value}
-              className={`min-h-9 flex-1 text-xs font-semibold transition-colors ${
-                brightness === p.value ? "bg-[#0369A1] text-white" : "bg-[#F0F7FB] text-[#3B5A70] hover:bg-[#DCEBF5]"
+              className={`min-h-[36px] rounded-[6px] border-[1px] text-xs font-medium transition-colors ${
+                brightness === p.value
+                  ? "border-[#072033] bg-[#072033] text-white"
+                  : "border-[#D9E5ED] bg-white text-[#3B5A70] hover:border-[#0369A1] hover:text-[#072033]"
               }`}
             >
               {p.label}
@@ -63,38 +79,104 @@ export function WallpaperPicker() {
         </div>
       </div>
 
-      {/* Pilihan wallpaper */}
+      {/* Wallpaper Mira Bawaan */}
       <div>
-        <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-[#3B5A70]">Wallpaper</p>
-        <div className="grid grid-cols-4 gap-2">
-          {WALLPAPERS.map((w) => (
-            <button
-              key={w.id}
-              type="button"
-              onClick={() => wallpaper.choose(w.id)}
-              aria-pressed={stored.id === w.id}
-              className={`flex aspect-[3/4] flex-col justify-end p-1 text-[11px] font-semibold text-[#072033] transition-shadow ${
-                stored.id === w.id ? "shadow-[0_0_0_3px_#0369A1]" : "shadow-[0_0_0_2px_#CFE2EE] hover:shadow-[0_0_0_2px_#5FA3CC]"
-              }`}
-              style={wallpaperStyle({ id: w.id })}
-            >
-              <span className="bg-white/90 px-1 py-0.5">{w.label}</span>
-            </button>
-          ))}
+        <div className="mb-2 flex items-baseline justify-between gap-2">
+          <p className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.14em] text-[#3B5A70]">
+            Wallpaper Mira
+          </p>
+          <span className="text-[11px] text-[#648296]">Responsif HP &amp; Laptop</span>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {miraWallpapers.map((w) => {
+            const active = stored.id === w.id;
+            return (
+              <button
+                key={w.id}
+                type="button"
+                onClick={() => wallpaper.choose(w.id)}
+                aria-pressed={active}
+                className={`group relative flex aspect-[4/5] flex-col justify-end overflow-hidden rounded-[10px] border-[2px] p-1.5 text-left transition-all ${
+                  active
+                    ? "border-[#0369A1] ring-2 ring-[#0369A1]/25"
+                    : "border-[#D9E5ED] hover:border-[#5FA3CC]"
+                }`}
+                style={wallpaperStyle({ id: w.id, brightness: 50 })}
+              >
+                {active && (
+                  <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-[9999px] bg-[#0369A1] text-white">
+                    <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" />
+                  </span>
+                )}
+                <span
+                  className="rounded-[6px] px-1.5 py-1 text-[10.5px] font-semibold leading-tight text-white"
+                  style={{ backgroundColor: "rgba(7, 32, 51, 0.76)" }}
+                >
+                  <span className="block truncate">{w.label}</span>
+                  {w.sublabel && (
+                    <span className="block truncate text-[9.5px] font-normal text-[#BAE6FD]">
+                      {w.sublabel}
+                    </span>
+                  )}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Pola Minimalis & Foto Sendiri */}
+      <div>
+        <p className="mb-2 font-mono text-[10.5px] font-semibold uppercase tracking-[0.14em] text-[#3B5A70]">
+          Minimalis &amp; Foto Sendiri
+        </p>
+        <div className="grid grid-cols-3 gap-2">
+          {minimalWallpapers.map((w) => {
+            const active = stored.id === w.id;
+            return (
+              <button
+                key={w.id}
+                type="button"
+                onClick={() => wallpaper.choose(w.id)}
+                aria-pressed={active}
+                className={`relative flex aspect-[4/3] flex-col justify-end overflow-hidden rounded-[10px] border-[2px] p-1.5 text-left transition-all ${
+                  active
+                    ? "border-[#0369A1] ring-2 ring-[#0369A1]/25"
+                    : "border-[#D9E5ED] hover:border-[#5FA3CC]"
+                }`}
+                style={wallpaperStyle({ id: w.id, brightness: 50 })}
+              >
+                {active && (
+                  <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-[9999px] bg-[#0369A1] text-white">
+                    <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" />
+                  </span>
+                )}
+                <span className="rounded-[5px] bg-white/90 px-1.5 py-0.5 text-[10.5px] font-semibold text-[#072033]">
+                  {w.label}
+                </span>
+              </button>
+            );
+          })}
+
           {wallpaper.hasCustomImage && (
             <button
               type="button"
               onClick={() => wallpaper.choose("custom")}
               aria-pressed={stored.id === "custom"}
-              className={`flex aspect-[3/4] flex-col justify-end p-1 text-[11px] font-semibold text-[#072033] transition-shadow ${
-                stored.id === "custom" ? "shadow-[0_0_0_3px_#0369A1]" : "shadow-[0_0_0_2px_#CFE2EE] hover:shadow-[0_0_0_2px_#5FA3CC]"
+              className={`relative flex aspect-[4/3] flex-col justify-end overflow-hidden rounded-[10px] border-[2px] p-1.5 text-left transition-all ${
+                stored.id === "custom"
+                  ? "border-[#0369A1] ring-2 ring-[#0369A1]/25"
+                  : "border-[#D9E5ED] hover:border-[#5FA3CC]"
               }`}
               style={wallpaperStyle({ id: "custom", image: stored.image, brightness: 50 })}
             >
-              <span className="bg-white/90 px-1 py-0.5">Fotoku</span>
+              <span className="rounded-[5px] bg-white/90 px-1.5 py-0.5 text-[10.5px] font-semibold text-[#072033]">
+                Fotoku
+              </span>
             </button>
           )}
-          <label className="flex aspect-[3/4] cursor-pointer flex-col items-center justify-center gap-1 bg-[#F0F7FB] p-1 text-center text-[11px] font-semibold text-[#0369A1] shadow-[0_0_0_2px_#CFE2EE] transition-shadow hover:shadow-[0_0_0_2px_#5FA3CC]">
+
+          <label className="flex aspect-[4/3] cursor-pointer flex-col items-center justify-center gap-1 rounded-[10px] border-[1px] border-dashed border-[#9CC6E0] bg-[#F5F9FC] p-1.5 text-center text-[11px] font-medium text-[#0369A1] transition-colors hover:border-[#0369A1] hover:bg-[#EAF3F9]">
             <input
               type="file"
               accept="image/*"
@@ -110,11 +192,13 @@ export function WallpaperPicker() {
                 }
               }}
             />
-            <ImagePlus className="h-5 w-5" aria-hidden="true" />
+            <ImagePlus className="h-4 w-4" aria-hidden="true" />
             <span>{wallpaper.hasCustomImage ? "Ganti foto" : "Foto sendiri"}</span>
           </label>
         </div>
-        <p className="mt-2 text-xs text-[#3B5A70]">Tersimpan di perangkat ini.</p>
+        <p className="mt-2.5 text-[11.5px] text-[#648296]">
+          Pengaturan otomatis menyesuaikan rasio layar HP, tablet, dan laptop.
+        </p>
       </div>
     </div>
   );
