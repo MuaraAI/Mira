@@ -352,6 +352,71 @@ async def test_connect_siakad_wrong_password_rejected(fake_redis):
 
 
 @pytest.mark.asyncio
+async def test_connect_siakad_stops_on_credentials_rejection_with_clear_message(fake_redis):
+    """Jika kampus menolak karena password salah, berhenti di percobaan 1 dan tampilkan pesan jelas."""
+    calls = 0
+
+    async def fake_verify(nim, pwd, session=None, captcha=None, outcomes=None):
+        nonlocal calls
+        calls += 1
+        if outcomes is not None:
+            outcomes["studentv2"] = ("credentials", ["These credentials do not match our records."])
+        return False
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        res = await _login_elearning_only(ac)
+        token = res.cookies.get("ubsi_session")
+        auth = {"Authorization": f"Bearer {token}"}
+
+        with patch("app.modules.auth.verify_siakad_login", side_effect=fake_verify):
+            denied = await ac.post(
+                "/v1/auth/credentials",
+                json={"system": "siakad", "password": "password-salah"},
+                headers=auth,
+            )
+
+    assert calls == 1
+    assert denied.status_code == 400
+    err = denied.json()["error"]
+    assert err["code"] == "INVALID_CREDENTIALS"
+    assert "These credentials do not match our records." in err["message"]
+    assert "CAPTCHA" not in err["message"]
+
+
+@pytest.mark.asyncio
+async def test_connect_siakad_retries_only_on_captcha_failure(fake_redis):
+    """Jika alasan penolakan adalah CAPTCHA, server mengulang tantangan lalu sukses di percobaan ke-2."""
+    calls = 0
+
+    async def fake_verify(nim, pwd, session=None, captcha=None, outcomes=None):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            if outcomes is not None:
+                outcomes["studentv2"] = ("captcha", ["Kode keamanan salah"])
+            return False
+        return True
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        res = await _login_elearning_only(ac)
+        token = res.cookies.get("ubsi_session")
+        auth = {"Authorization": f"Bearer {token}"}
+
+        with patch("app.modules.auth.verify_siakad_login", side_effect=fake_verify):
+            connected = await ac.post(
+                "/v1/auth/credentials",
+                json={"system": "siakad", "password": "password-benar"},
+                headers=auth,
+            )
+
+    assert calls == 2
+    assert connected.status_code == 200
+    assert connected.json()["data"]["connected"] is True
+
+
+@pytest.mark.asyncio
 async def test_connect_credentials_requires_session(fake_redis):
     """API key/master tidak boleh memakai endpoint hubungkan kredensial."""
     transport = ASGITransport(app=app)

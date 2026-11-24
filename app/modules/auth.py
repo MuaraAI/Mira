@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from app.config import settings
 from app.envelope import success_response, error_response
 from app.limiter import limiter
-from app.modules.studentv2 import StudentV2Client, studentv2_client
+from app.modules.studentv2 import StudentV2Client
 from app.modules.elearning import ElearningClient, elearning_client
 from app.deps import require_siakad_enabled
 from app.login_guard import LOGIN_IP_LIMIT, login_guard
@@ -294,7 +294,7 @@ async def login(req_body: LoginRequest, request: Request):
 
     nim = req_body.nim.strip()
 
-    from app.maintenance import is_whitelisted, maintenance_active, maintenance_response
+    from app.maintenance import is_whitelisted, maintenance_active
 
     if maintenance_active() and not is_whitelisted(nim):
         raise HTTPException(
@@ -907,30 +907,33 @@ async def connect_credentials(body: ConnectCredentialsRequest, request: Request)
     pwd = body.password.strip()
 
     # SIAKAD juga memakai CAPTCHA: selesaikan lewat OCR dengan tantangan baru
-    # tiap percobaan, berhenti saat alasan bukan lagi "captcha".
+    # tiap percobaan, berhenti segera saat alasan bukan lagi "captcha".
     sv_ok = False
-    for attempt in range(MAX_CAPTCHA_ATTEMPTS):
+    last_reason = "unknown"
+    last_errors: list[str] = []
+    for _ in range(MAX_CAPTCHA_ATTEMPTS):
         try:
             sv_session, sv_candidates = await candidate_session("siakad", nim)
         except Exception as err:
             logger.warning("Gagal ambil CAPTCHA SIAKAD untuk %s: %s", nim, err)
             sv_candidates = []
         if not sv_candidates:
+            last_reason = "captcha"
             break
+        outcomes: dict[str, tuple[str, list[str]]] = {}
         sv_ok = await verify_siakad_login(
-            nim, pwd, session=sv_session, captcha=sv_candidates[0]
+            nim, pwd, session=sv_session, captcha=sv_candidates[0], outcomes=outcomes
         )
         if sv_ok:
+            break
+        last_reason, last_errors = outcomes.get("studentv2", ("unknown", []))
+        if last_reason != "captcha":
             break
 
     if not sv_ok:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=error_response(
-                code="INVALID_CREDENTIALS",
-                message="Password SIAKAD salah atau kode CAPTCHA tidak valid",
-                module="auth",
-            ),
+            detail=_rejection_detail("studentv2", last_reason, last_errors),
         )
 
     clear_login_block("studentv2", nim)
