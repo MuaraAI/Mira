@@ -5,18 +5,8 @@ from app.mcp_server import (
     server,
     _build_headers,
     _resolve_credentials,
-    mira_whoami,
     mira_get_schedule,
-    mira_get_grades,
-    mira_get_profile,
-    mira_get_khs,
-    mira_get_krs,
-    mira_get_uts,
-    mira_get_courses,
-    mira_get_presence,
     mira_submit_presence,
-    mira_get_quiz,
-    mira_get_quiz_questions,
     mira_submit_quiz_answer,
 )
 
@@ -53,7 +43,6 @@ def test_mcp_context_credentials_override_empty_tool_args():
 
 @pytest.mark.asyncio
 async def test_mcp_call_tool_propagates_headers_to_all_tools():
-    from app.mcp_server import _current_mcp_context, mira_whoami
     ctx = MagicMock()
     ctx.headers = {"x-api-key": "muara_ubsi_propagated_test_key_12345678"}
 
