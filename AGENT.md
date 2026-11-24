@@ -153,6 +153,11 @@ Kontribusi ke repositori ini **hanya dibuka untuk Anggota Muara AI** yang bersta
 * **Mobile Floor 360px:** Seluruh tampilan antarmuka wajib responsif dan bebas overflow horizontal (`scrollWidth <= clientWidth`) hingga lebar layar minimum 360px.
 * **Aksesibilitas (WCAG AAA):** Rasio kontras teks utama minimal 7:1 (saat ini Deep Water mencapai 15.8:1), tombol drawer mobile wajib merespons tombol keyboard `Escape`, dan sertakan skip-link ke `#main-content`.
 
+### 3b. Zero Internal Planning / Scratch Docs di Git
+* **DILARANG meng-commit dokumen planning, design spec, catatan insiden/debug sementara, atau draft release hasil kerja AI agent** ke repositori GitHub (contoh: `docs/specs/`, `docs/superpowers/`, `docs/prd/`, `docs/releases/`, `docs/*-plan.md`, `docs/*-design.md`, `docs/login-captcha-recovery.md`, `h.md`, dll.).
+* Semua file rencana/desain internal agen wajib tetap lokal (di-ignore lewat `.gitignore`) atau disimpan di direktori artifact lokal agen.
+* Folder `docs/` di git **hanya** boleh berisi dokumentasi produk & operasional resmi (`api.md`, `architecture.md`, `anti-ban.md`, `mcp.md`, `deploy.md`, `remote-access.md`).
+
 ### 4. Verification Gate Before Claiming Completion
 Sebelum menyatakan tugas selesai, agen **WAJIB** menjalankan pengujian nyata:
 1. **Backend Tests:**
