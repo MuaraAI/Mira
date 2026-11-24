@@ -34,7 +34,7 @@ jobs:
               '',
               'Pull Request ini ditutup otomatis karena akun Anda belum terdaftar sebagai anggota/kolaborator organisasi **MuaraAI**.',
               '',
-              '- Jika Anda adalah anggota Muara AI dan mahasiswa aktif UBSI, pastikan Anda sudah bergabung ke organisasi GitHub `MuaraAI` lalu hubungi maintainer (`@Curzyori`, `@MyKineID`, atau `@Seeyaa77`).',
+              '- Jika Anda adalah anggota Muara AI dan mahasiswa aktif UBSI, pastikan Anda sudah bergabung ke organisasi GitHub `MuaraAI` atau hubungi tim maintainer **Muara AI** (`admin@muaraai.com`).',
               '- Jika Anda menemukan bug atau ingin mengusulkan perbaikan, silakan buka **GitHub Issue** menggunakan template yang tersedia.',
             ].join('\n');
 

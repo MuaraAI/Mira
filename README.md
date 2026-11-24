@@ -16,7 +16,7 @@ Dashboard PWA, REST API, dan MCP Server untuk SIAKAD, MyBest, Ujian Online, Perp
 ![Next.js](https://img.shields.io/badge/Next.js-15-000000?style=flat-square&logo=nextdotjs&logoColor=white)
 ![Tests](https://img.shields.io/badge/tests-100%25%20offline-0F766E?style=flat-square)
 
-[Video](#lihat-mira-dalam-2-menit) · [Fitur](#fitur) · [Keamanan](#keamanan) · [Quickstart](#quickstart) · [MCP Server](#mcp-server) · [Dokumentasi](#dokumentasi) · [Tim](#tim)
+[Video](#lihat-mira-dalam-2-menit) · [Fitur](#fitur) · [Keamanan](#keamanan) · [Quickstart](#quickstart) · [MCP Server](#mcp-server) · [Dokumentasi](#dokumentasi) · [Kontribusi](#kontribusi)
 
 </div>
 
@@ -153,17 +153,9 @@ Konfigurasi Cursor, Codex, dan Hermes ada di [docs/mcp.md](docs/mcp.md).
 | [promo-video/README.md](promo-video/README.md) | Video tutorial Mira 2:16 (Remotion), narasi & SFX ElevenLabs, paket posting YouTube dan Instagram |
 | [SECURITY.md](SECURITY.md) · [PRIVACY.md](PRIVACY.md) · [DMCA.md](DMCA.md) · [Syarat Layanan](https://mira.muaraai.com/terms) | Keamanan & Legal |
 
-## Tim
+## Kontribusi
 
-Dikembangkan oleh [Muara AI](https://github.com/MuaraAI), mahasiswa Informatika UBSI Kampus Pontianak.
-
-| | Nama | Peran |
-|---|---|---|
-| <img src="https://github.com/Curzyori.png" width="40" /> | **Yuken Velino** · [@Curzyori](https://github.com/Curzyori) | Founder, Backend |
-| <img src="https://github.com/MyKineID.png" width="40" /> | **Verzio Yamanansyah** · [@MyKineID](https://github.com/MyKineID) | Co-Founder, Frontend |
-| <img src="https://github.com/Seeyaa77.png" width="40" /> | **M Raffli Aldiansyah** · [@Seeyaa77](https://github.com/Seeyaa77) | Co-Founder, Hacker |
-
-### Kontribusi
+Dikembangkan oleh **[Muara AI](https://github.com/MuaraAI)** (mahasiswa Informatika UBSI Kampus Pontianak).
 
 Kontribusi ke repositori ini **hanya dibuka untuk Anggota Muara AI yang berstatus mahasiswa aktif UBSI**, dan **wajib menggunakan branch baru + Pull Request** ke `main` (dilarang direct push ke `main`). Baca aturan lengkap di [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -171,7 +163,7 @@ Kontribusi ke repositori ini **hanya dibuka untuk Anggota Muara AI yang berstatu
 
 Mira adalah proyek **tidak resmi** dan tidak berafiliasi dengan Universitas Bina Sarana Informatika. Semua merek dan data akademik adalah milik UBSI dan pemiliknya masing-masing. Risiko penggunaan ditanggung pengguna.
 
-Pihak UBSI yang keberatan dengan proyek ini dapat menghubungi [@Curzyori](https://github.com/Curzyori) atau `admin@muaraai.com`. Repositori akan diarsipkan atau dihapus secara kooperatif.
+Pihak UBSI yang keberatan dengan proyek ini dapat menghubungi **Muara AI** melalui `admin@muaraai.com`. Repositori akan diarsipkan atau dihapus secara kooperatif.
 
 ## Lisensi
 
