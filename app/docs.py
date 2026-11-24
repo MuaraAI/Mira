@@ -785,8 +785,8 @@ API_DOCS_DATA: dict[str, Any] = {
     "mcp": {
         "server_url": "https://api.muaraai.com/v1/mira/mcp",
         "transport": "streamable-http",
-        "total_tools": 40,
-        "tools_note": "Tersedia 40 fungsi akademik dengan satu namespace: mira_*. Alias lama sudah dihapus.",
+        "total_tools": 42,
+        "tools_note": "Tersedia 42 fungsi akademik dengan satu namespace: mira_*. Alias lama sudah dihapus.",
         "tools": [
             # SIAKAD
             {"name": "mira_get_profile", "category": "siakad", "description": "Biodata lengkap mahasiswa, kelas, prodi, dan status akademik."},
