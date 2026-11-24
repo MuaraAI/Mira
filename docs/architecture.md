@@ -204,7 +204,6 @@ UBSI-API/ (Repo: MuaraAI/Mira)
 │   ├── architecture.md        # Request lifecycle, session pool, and cache flow
 │   ├── anti-ban.md            # Account security & safety protocols
 │   ├── deploy.md              # VPS PM2 production operations
-│   ├── login-captcha-recovery.md # Riwayat perbaikan login & CAPTCHA
 │   ├── mcp.md                 # MCP Server reference & 40 tool catalog
 │   └── remote-access.md       # Caddy, Nginx, & Cloudflare Tunnel guide
 ├── ecosystem.config.cjs       # PM2 production config (`ubsi-api` + `ubsi-mcp`)

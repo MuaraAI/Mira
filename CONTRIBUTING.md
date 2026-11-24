@@ -77,6 +77,7 @@ Sebelum membuka Pull Request, pastikan semua aturan berikut terpenuhi:
 - **Strict Offline TDD**: seluruh unit dan integration test di `tests/` **wajib 100% offline** (dilarang mengirim request HTTP langsung ke `*.bsi.ac.id` atau menyentuh Redis/Supabase produksi). Gunakan snapshot HTML anonim di `tests/fixtures/`.
 - **Data Dummy Saja**: dilarang memakai NIM, password, email, atau token asli di dalam test, fixture, komentar, atau body PR. Gunakan nilai dummy (`12345678`, `password-dummy`, `test@example.com`).
 - **Zero Secrets Rule**: jangan pernah men-stage atau meng-commit `.env`, API key, cookie sesi, atau kredensial apa pun. Periksa `git status` dan `git diff --cached` sebelum push.
+- **Zero Internal Planning Docs di Git**: jangan pernah meng-commit dokumen planning/design/spec internal atau catatan debug agen (`docs/specs/`, `docs/superpowers/`, `docs/prd/`, `docs/releases/`, `docs/*-plan.md`, `docs/*-design.md`). Folder `docs/` hanya untuk dokumentasi resmi produk.
 - **Skema Ganda Social (SQLite + Supabase Postgres)**: setiap perubahan tabel/kolom fitur komunitas (`app/social/db.py`) wajib memperbarui jalur SQLite, jalur Postgres (`_PG_EXTRA_TABLES` / `_ADDED_COLUMNS`), dan menambahkan migration baru di `supabase/migrations/` (lihat [supabase/README.md](supabase/README.md)).
 - **Dokumentasi Ikut Kode**: perubahan endpoint, perilaku auth, atau skema wajib memperbarui dokumen terkait (`README.md`, `AGENT.md`, `docs/*.md`) di PR yang sama.
 - **Verification Gate**:

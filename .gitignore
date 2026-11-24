@@ -13,6 +13,11 @@ anti-slop/
 docs/superpowers/
 .superpowers/
 docs/prd/
+docs/specs/
+docs/releases/
+docs/*-plan.md
+docs/*-design.md
+docs/login-captcha-recovery.md
 audit-artifacts/
 .worktrees/
 /example/
