@@ -36,6 +36,6 @@ We respect the intellectual property rights of Universitas Bina Sarana Informati
 
 Please submit any DMCA, intellectual property, or institutional policy concerns directly to the project maintainer via:
 
-- **Maintainer**: Yuken Velino
-- **GitHub**: [@Curzyori](https://github.com/Curzyori)
+- **Organization**: [Muara AI](https://github.com/MuaraAI)
+- **Email**: `admin@muaraai.com`
 - **Notice Handling**: Upon receipt of a valid and verified notice, the maintainer will promptly review and take appropriate action, including modifying the relevant parser modules, disabling endpoints, or archiving the repository.

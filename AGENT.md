@@ -11,10 +11,7 @@ Selamat datang di repositori **Mira** (`MuaraAI/Mira`, sebelumnya UBSI API). Dok
 * **Repositori Resmi:** [https://github.com/MuaraAI/Mira](https://github.com/MuaraAI/Mira) (Organisasi: `MuaraAI`, Public)
 * **Domain Produksi:** [https://mira.muaraai.com](https://mira.muaraai.com) (Redirect: `ubsi-api.muaraai.com`)
 * **Lisensi:** MIT License
-* **Core Team & Maintainers:**
-  - **Yuken Velino** ([@Curzyori](https://github.com/Curzyori)) — Founder | Backend (Informatika, FTI UBSI)
-  - **Verzio Yamanansyah** ([@MyKineID](https://github.com/MyKineID)) — Co-Founder | Frontend (Informatika, FTI UBSI)
-  - **Muhammad Raffli Aldiansyah** ([@Seeyaa77](https://github.com/Seeyaa77)) — Co-Founder | Hacker (Informatika, FTI UBSI)
+* **Organisasi & Maintainer:** [Muara AI](https://github.com/MuaraAI) (Informatika, FTI UBSI Kampus Pontianak) · `admin@muaraai.com`
 
 ---
 

@@ -35,4 +35,4 @@
 
 ## 4. Reporting Vulnerabilities
 
-If you discover a security vulnerability or credential exposure risk, please report it privately to the maintainers (`@Curzyori`, `@MyKineID`, `@Seeyaa77`) rather than opening a public issue.
+If you discover a security vulnerability or credential exposure risk, please report it privately to **Muara AI** (`admin@muaraai.com`) rather than opening a public issue.

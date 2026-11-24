@@ -56,8 +56,8 @@ Repository contributions are restricted exclusively to **Muara AI members** who 
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be reported directly to the project maintainers:
 
-- **Lead Maintainer**: Yuken Velino ([@Curzyori](https://github.com/Curzyori))
-- **Organization**: [MuaraAI](https://github.com/MuaraAI)
+- **Maintainers**: [Muara AI](https://github.com/MuaraAI)
+- **Email**: `admin@muaraai.com`
 
 All complaints will be reviewed and investigated promptly and fairly. All community leaders are obligated to respect the privacy and security of the reporter of any incident.
 

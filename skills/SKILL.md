@@ -4,7 +4,7 @@ version: 3.5.0
 description: Agent skill for consuming, extending, and operating Mira (Academic Operating System, REST API Aggregator, & MCP Server for UBSI Services).
 metadata:
   repository: https://github.com/MuaraAI/Mira
-  author: Yuken Velino (@Curzyori)
+  author: Muara AI
   program: Informatika
   faculty: Teknik & Informatika
   institution: Universitas Bina Sarana Informatika (UBSI) Kampus Kota Pontianak
@@ -22,10 +22,7 @@ Panduan operasional dan referensi teknis bagi AI Coding Agent dan pengembang yan
 
 - **Repository**: [https://github.com/MuaraAI/Mira](https://github.com/MuaraAI/Mira) (Public)
 - **Domain Produksi**: [https://mira.muaraai.com](https://mira.muaraai.com) · API Gateway: `https://api.muaraai.com/v1/mira`
-- **Core Team (Muara AI — Informatika, FTI UBSI Pontianak)**:
-  - **Yuken Velino** ([@Curzyori](https://github.com/Curzyori)) — Founder, Backend
-  - **Verzio Yamanansyah** ([@MyKineID](https://github.com/MyKineID)) — Co-Founder, Frontend
-  - **Muhammad Raffli Aldiansyah** ([@Seeyaa77](https://github.com/Seeyaa77)) — Co-Founder, Hacker
+- **Organisasi & Maintainer**: **[Muara AI](https://github.com/MuaraAI)** (Informatika, FTI UBSI Kampus Pontianak) · `admin@muaraai.com`
 - **Syarat Kontribusi**: Hanya dibuka untuk **Anggota Muara AI** yang berstatus **mahasiswa aktif UBSI**, dan **wajib menggunakan branch baru + Pull Request** ke `main` (tanpa direct push). Lihat [`CONTRIBUTING.md`](../CONTRIBUTING.md).
 - **Dokumentasi Lengkap**:
   - [`README.md`](../README.md) — Gambaran umum produk, keamanan, dan quickstart.
