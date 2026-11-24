@@ -116,7 +116,7 @@ export function parseShareLink(raw: string): ParsedLink | null {
     }
     return { ...base, provider: "github", label: "GitHub" };
   }
-  if (["youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"].includes(host)) {
+  if (["youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be", "youtube-nocookie.com"].includes(host)) {
     const segments = path.split("/").filter(Boolean);
     const vid = host === "youtu.be" ? segments[0] : ["shorts", "embed", "live"].includes(segments[0]) ? segments[1] : url.searchParams.get("v");
     if (vid && /^[A-Za-z0-9_-]{11}$/.test(vid)) {

@@ -12,7 +12,31 @@ import { SideSheet } from "@/components/SideSheet";
 
 type Tab = "info" | "pratinjau" | "ringkasan";
 
-const PREVIEW_HOSTS = new Set(["drive.google.com", "docs.google.com", "www.youtube-nocookie.com"]);
+const PREVIEW_HOSTS = new Set([
+  "drive.google.com",
+  "docs.google.com",
+  "www.youtube-nocookie.com",
+  "www.youtube.com",
+]);
+const YOUTUBE_EMBED_HOSTS = new Set(["www.youtube-nocookie.com", "www.youtube.com"]);
+const YOUTUBE_EMBED_PATH = /^\/embed\/[A-Za-z0-9_-]{11}$/;
+
+function resolvePreviewTarget(rawUrl?: string | null): { src: string; isYoutube: boolean } | null {
+  try {
+    const target = new URL(rawUrl ?? "");
+    if (target.protocol !== "https:" || !PREVIEW_HOSTS.has(target.hostname)) return null;
+    const isYoutube = YOUTUBE_EMBED_HOSTS.has(target.hostname);
+    if (isYoutube) {
+      if (!YOUTUBE_EMBED_PATH.test(target.pathname)) return null;
+      // playsinline + rel=0 agar video tidak memaksa fullscreen di mobile dan tetap bersih.
+      target.searchParams.set("playsinline", "1");
+      target.searchParams.set("rel", "0");
+    }
+    return { src: target.toString(), isYoutube };
+  } catch {
+    return null;
+  }
+}
 
 const ACCESS_TEXT: Record<LinkCheck["access"], string> = {
   public: "Publik: siapa pun yang punya link bisa membukanya",
@@ -59,13 +83,9 @@ export function LinkPreviewSheet({ check, onClose }: { check: LinkCheck; onClose
   const needsIframe = !useOwnViewer;
   const hasSummary = state.phase === "pdf";
 
-  let src: string | null = null;
-  try {
-    const target = new URL(check.preview_url ?? "");
-    if (target.protocol === "https:" && PREVIEW_HOSTS.has(target.hostname)) src = target.toString();
-  } catch {
-    src = null;
-  }
+  const previewTarget = resolvePreviewTarget(check.preview_url);
+  const src = previewTarget?.src ?? null;
+  const isYoutube = previewTarget?.isYoutube ?? false;
   const isFolder = check.kind === "folder";
   const openUrl = safeExternalHref(check.normalized_url || check.url) || "#";
 
@@ -136,15 +156,25 @@ export function LinkPreviewSheet({ check, onClose }: { check: LinkCheck; onClose
         ) : (
           <>
             <p className="shrink-0 border-b-2 border-dashed border-px-soft bg-px-tint px-4 py-2 text-[11px] leading-relaxed text-secondary">
-              {isFolder
-                ? "Isi folder seperti yang dilihat dosen. Folder yang belum publik tampil kosong atau meminta login."
-                : "Tampilan berkas seperti yang dilihat dosen. Kalau kosong atau meminta login, link belum publik."}
+              {isYoutube
+                ? "Pratinjau video YouTube seperti yang dilihat dosen. Jika pemilik video menonaktifkan embed, tonton lewat tombol Buka di tab baru."
+                : isFolder
+                  ? "Isi folder seperti yang dilihat dosen. Folder yang belum publik tampil kosong atau meminta login."
+                  : "Tampilan berkas seperti yang dilihat dosen. Kalau kosong atau meminta login, link belum publik."}
             </p>
-            <div className="relative min-h-0 flex-1 bg-[#F7FAFC]">
+            <div
+              className={`relative min-h-0 flex-1 ${
+                isYoutube ? "flex items-center justify-center bg-[#06131E] p-0 sm:p-5" : "bg-[#F7FAFC]"
+              }`}
+            >
               {src ? (
                 <>
                   {!loaded && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center font-mono text-xs text-secondary">
+                    <div
+                      className={`absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 px-6 text-center font-mono text-xs ${
+                        isYoutube ? "text-[#CBE0EE]" : "text-secondary"
+                      }`}
+                    >
                       <span className="inline-flex items-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                         Memuat pratinjau...
@@ -157,16 +187,31 @@ export function LinkPreviewSheet({ check, onClose }: { check: LinkCheck; onClose
                       )}
                     </div>
                   )}
-                  <iframe
-                    title="Pratinjau link"
-                    src={src}
-                    onLoad={() => setLoaded(true)}
-                    className="absolute inset-0 h-full w-full border-0"
-                    sandbox="allow-scripts allow-same-origin allow-popups"
-                    allow="fullscreen; autoplay"
-                    allowFullScreen
-                    referrerPolicy="no-referrer"
-                  />
+                  {isYoutube ? (
+                    <div className="relative aspect-video w-full max-h-full overflow-hidden bg-black sm:rounded-[8px]">
+                      {/* YouTube menolak embed dengan Error 153 jika header Referer dihapus; wajib strict-origin-when-cross-origin. */}
+                      <iframe
+                        title={check.title ? `Video YouTube: ${check.title}` : "Pratinjau video YouTube"}
+                        src={src}
+                        onLoad={() => setLoaded(true)}
+                        className="absolute inset-0 h-full w-full border-0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+                        allowFullScreen
+                        referrerPolicy="strict-origin-when-cross-origin"
+                      />
+                    </div>
+                  ) : (
+                    <iframe
+                      title="Pratinjau link"
+                      src={src}
+                      onLoad={() => setLoaded(true)}
+                      className="absolute inset-0 h-full w-full border-0"
+                      sandbox="allow-scripts allow-same-origin allow-popups"
+                      allow="fullscreen; autoplay"
+                      allowFullScreen
+                      referrerPolicy="no-referrer"
+                    />
+                  )}
                 </>
               ) : (
                 <p className="p-6 text-sm text-secondary">Pratinjau tidak tersedia untuk link ini. Gunakan tombol Buka di tab baru.</p>
