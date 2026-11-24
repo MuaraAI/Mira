@@ -81,7 +81,7 @@ Layanan kuliah UBSI tersebar di enam portal berbeda. Mira menyatukannya dalam sa
 - Personal API Key (`muara_mira_*`) untuk bot Discord, Telegram, atau skrip pribadi.
 - REST API dengan envelope JSON standar dan dokumentasi Swagger.
 - Cache Redis dua tingkat dengan fallback data terakhir saat kampus down.
-- MCP Server dengan 40 tool `mira_*` (satu namespace, tanpa alias lama) untuk AI agent.
+- MCP Server dengan 42 tool `mira_*` (satu namespace, tanpa alias lama) untuk AI agent.
 
 ## Keamanan
 

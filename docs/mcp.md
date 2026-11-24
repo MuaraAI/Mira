@@ -13,7 +13,7 @@ Universal Model Context Protocol (MCP) Server untuk ekosistem akademik Universit
   https://api.muaraai.com/v1/mira/mcp
   ```
 - **Port Produksi Lokal (VPS)**: `127.0.0.1:8350/mcp`
-- **Total Tools Aktif**: **40 Tools** (semua akademik, satu namespace `mira_*`).
+- **Total Tools Aktif**: **42 Tools** (semua akademik, satu namespace `mira_*`).
 - **Keamanan & Isolasi**:
   - Multi-tenant berbasis **Personal API Key** (`muara_mira_<hex>` atau legacy `muara_ubsi_<hex>`) atau **Session Token** (Redis AES-256-GCM).
   - Setiap agent hanya memiliki akses ke akun mahasiswa yang sesuai dengan key-nya.
@@ -98,7 +98,7 @@ http_headers = { "Authorization" = "Bearer muara_mira_YOUR_KEY" }
 
 ---
 
-## 4. Katalog 40 Tool Akademik
+## 4. Katalog 42 Tool Akademik
 
 Setiap tool akademik terdaftar sekali dengan nama `mira_*`. Alias lama sudah dihapus; klien yang masih memakai nama lama akan mendapat error tool tidak dikenal dan perlu mengganti namanya.
 
@@ -123,7 +123,7 @@ Setiap tool akademik terdaftar sekali dengan nama `mira_*`. Alias lama sudah dih
 
 ---
 
-### Kategori B: Elearning MyBest (elearning.bsi.ac.id) — 21 Fungsi
+### Kategori B: Elearning MyBest (elearning.bsi.ac.id) — 23 Fungsi
 
 Seluruh modul mata kuliah di MyBest diidentifikasi menggunakan **token terenkripsi Laravel** yang selalu diawali dengan `eyJ...`. Token ini didapatkan secara otomatis dari tool `mira_get_courses`.
 
@@ -185,7 +185,7 @@ Server MCP Akademik UBSI: https://api.muaraai.com/v1/mira/mcp
 Autentikasi: Authorization: Bearer <PERSONAL_API_KEY_MIRA_ANDA>
 
 Kamu adalah asisten akademik mahasiswa UBSI yang terhubung ke server MCP di atas.
-Anda memiliki akses ke 40 tools MCP dengan namespace `mira_*` untuk membantu perkuliahan harian.
+Anda memiliki akses ke 42 tools MCP dengan namespace `mira_*` untuk membantu perkuliahan harian.
 
 Aturan Kerja & Alur Pemanggilan Tools:
 1. Jadwal & Kelas:

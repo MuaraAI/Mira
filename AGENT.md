@@ -50,7 +50,7 @@ UBSI-API/ (Repo: MuaraAI/Mira)
 │   ├── router_helper.py       # Helper cached_endpoint (caching, single-flight mutex, SWR)
 │   ├── retry.py               # Exponential backoff scraper retry dengan jitter
 │   ├── stats.py               # Analitik penggunaan anonim (HMAC-SHA256 NIM)
-│   ├── mcp_server.py          # MCP Server (40 tool `mira_*`, Streamable HTTP port 8350)
+│   ├── mcp_server.py          # MCP Server (42 tool `mira_*`, Streamable HTTP port 8350)
 │   ├── main.py                # Server entrypoint, middleware auth & CIDR proxy, health, metrics
 │   ├── social/                # Engine Mira Komunitas (dual driver SQLite + Supabase Postgres, SSE events, media)
 │   └── modules/               # Router & Parser tiap domain

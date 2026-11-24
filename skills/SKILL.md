@@ -1,6 +1,6 @@
 ---
 name: mira
-version: 3.5.0
+version: 4.0.0
 description: Agent skill for consuming, extending, and operating Mira (Academic Operating System, REST API Aggregator, & MCP Server for UBSI Services).
 metadata:
   repository: https://github.com/MuaraAI/Mira
@@ -33,7 +33,7 @@ Panduan operasional dan referensi teknis bagi AI Coding Agent dan pengembang yan
   - [`PRIVACY.md`](../PRIVACY.md) — Kebijakan privasi, allowlist profil akademik, dan retensi data.
   - [`DMCA.md`](../DMCA.md) — Hak cipta kampus, landasan *Fair Use*, dan permohonan takedown resmi.
   - [`docs/api.md`](../docs/api.md) — Kamus lengkap endpoint REST API beserta contoh payload JSON.
-  - [`docs/mcp.md`](../docs/mcp.md) — Referensi MCP Server (40 tool `mira_*`) dan integrasi klien agent.
+  - [`docs/mcp.md`](../docs/mcp.md) — Referensi MCP Server (42 tool `mira_*`) dan integrasi klien agent.
   - [`docs/architecture.md`](../docs/architecture.md) — Diagram siklus request, two-tier cache, mutex, session pool, dan layout repo.
   - [`docs/anti-ban.md`](../docs/anti-ban.md) — Protokol proteksi akun kampus (TLS impersonation, cooldown CAPTCHA/429, auto-solve).
   - [`docs/deploy.md`](../docs/deploy.md) — Panduan operasi dan pemeliharaan server production via PM2 (`ubsi-api` + `ubsi-mcp`).
@@ -52,7 +52,7 @@ Panduan operasional dan referensi teknis bagi AI Coding Agent dan pengembang yan
 | **MyBest LMS & Ujian** | `GET /v1/elearning/dashboard` · `/courses` · `/schedule`<br>`GET/POST /v1/elearning/assignments` (upload/submit/download)<br>`GET /v1/elearning/grades`<br>`GET/POST /v1/elearning/presence`<br>`GET /v1/elearning/materials` (download)<br>`GET/POST /v1/elearning/quiz` (questions/question/answer/finish)<br>`GET /v1/elearning/discussions` (comments)<br>`GET /v1/elearning/makeups` · `/toefl`<br>`GET /v1/elearning/exams/{type}` · `/proof/download` | Kartu matkul & token, jadwal kuliah & pengganti, tugas, rekap nilai, presensi hadir, materi ZIP/PDF, ruang kuis CBT (`/exercise-show`), diskusi, TOEFL, dan jadwal/bukti PDF Ujian Online |
 | **Mira Komunitas** | `/v1/social/me` · `/inbox` · `/spaces` · `/dms`<br>`/v1/social/conversations/{id}/messages`<br>`GET /v1/social/stream` (SSE) | Chat ruang + channel & DM (dual driver: Supabase Postgres di produksi, SQLite fallback di dev/test), realtime SSE Redis pub/sub, khusus Session Token dashboard |
 | **Publik & Perpustakaan** | `GET /v1/elibrary/search` · `/book/{id}`<br>`GET /v1/academic/events`<br>`GET /v1/news` · `/{id}`<br>`GET /v1/repository/recent` · `/search`<br>`GET /v1/ejournal/journals` | Katalog OPAC perpustakaan, kalender kegiatan akademik publik, berita resmi WP REST API, EPrints publikasi, dan 23 jurnal ilmiah UBSI |
-| **MCP Server** | `POST https://api.muaraai.com/v1/mira/mcp` | 40 tool AI agent dalam satu namespace `mira_*` (Streamable HTTP, port lokal `127.0.0.1:8350/mcp`) |
+| **MCP Server** | `POST https://api.muaraai.com/v1/mira/mcp` | 42 tool AI agent dalam satu namespace `mira_*` (Streamable HTTP, port lokal `127.0.0.1:8350/mcp`) |
 
 ---
 
