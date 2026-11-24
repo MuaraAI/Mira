@@ -212,6 +212,33 @@ class SessionStore:
             updated += 1
         return updated
 
+    async def attach_device(self, token: str, device_id: str) -> bool:
+        """Ikatkan `device_id` ke sesi legasi di Redis bila belum punya device_id."""
+        if not token or not device_id:
+            return False
+        client = await self.get_client()
+        token_hash = _hash_token(token)
+        key = _KEY_PREFIX + token_hash
+        raw = await client.get(key)
+        if not raw:
+            return False
+        data = _decrypt_payload(raw, settings.API_KEY)
+        if not data or data.get("device_id"):
+            return False
+        data["device_id"] = device_id
+        ttl = await client.ttl(key)
+        await client.set(
+            key,
+            _encrypt_payload(data, settings.API_KEY),
+            ex=ttl if ttl and ttl > 0 else SESSION_TTL_SECONDS,
+        )
+        nim = str(data.get("nim") or "")
+        if nim:
+            device_index_key = _DEVICE_INDEX_PREFIX + nim + ":" + device_id
+            await client.sadd(device_index_key, token_hash)
+            await client.expire(device_index_key, SESSION_TTL_SECONDS)
+        return True
+
     async def delete_all_for_nim(self, nim: str) -> int:
         client = await self.get_client()
         index_key = _INDEX_PREFIX + nim

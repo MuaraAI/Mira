@@ -156,7 +156,43 @@ async def test_me_restores_session_device_cookie_without_new_row(env):
 
 
 @pytest.mark.asyncio
-async def test_me_without_session_device_does_not_insert_row(env):
+async def test_me_bootstraps_first_device_for_legacy_session_without_any_devices(env):
+    token = await _session(env, device_id=None)
+
+    async with _client(token=token) as ac:
+        first = await ac.get("/v1/auth/me")
+    assert first.status_code == 200
+    assert first.json()["data"]["device"]["status"] == "trusted"
+    first_cookie = first.cookies.get("mira_device")
+    assert first_cookie and len(first_cookie) == 64
+    assert _device_count() == 1
+    assert _device_row(first_cookie)[0] == "trusted"
+
+    # Panggilan berikutnya (walau tanpa cookie) memakai device_id yang sudah diikat ke sesi.
+    async with _client(token=token) as ac:
+        second = await ac.get("/v1/auth/me")
+    assert second.status_code == 200
+    assert second.json()["data"]["device"]["status"] == "trusted"
+    assert second.cookies.get("mira_device") == first_cookie
+    assert _device_count() == 1
+
+
+@pytest.mark.asyncio
+async def test_me_bootstraps_existing_unregistered_cookie_when_nim_has_no_devices(env):
+    token = await _session(env, device_id=None)
+    stale_cookie = "c" * 64
+
+    async with _client(token=token, cookies={"mira_device": stale_cookie}) as ac:
+        res = await ac.get("/v1/auth/me")
+    assert res.status_code == 200
+    assert res.json()["data"]["device"]["status"] == "trusted"
+    assert _device_count() == 1
+    assert _device_row(stale_cookie)[0] == "trusted"
+
+
+@pytest.mark.asyncio
+async def test_me_without_session_device_does_not_insert_row_when_device_exists(env):
+    await ensure_device(NIM, "a" * 64, label="Pertama", user_agent="ua-pertama")
     token = await _session(env, device_id=None)
 
     for _ in range(2):
@@ -164,7 +200,8 @@ async def test_me_without_session_device_does_not_insert_row(env):
             res = await ac.get("/v1/auth/me")
         assert res.status_code == 200
         assert res.json()["data"]["device"]["status"] == "missing"
-        assert _device_count() == 0
+        assert not res.cookies.get("mira_device")
+        assert _device_count() == 1
 
 
 @pytest.mark.asyncio

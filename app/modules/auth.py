@@ -566,10 +566,25 @@ async def me(request: Request):
         device_id = getattr(request.state, "device_id", "") or new_device_id()
         device_status = await get_device_status(nim, device_id)
         if device_status != "missing":
-            # /me hanya menyentuh baris yang sudah ada; baris device hanya lahir saat login.
+            # /me menyegarkan last_seen baris yang sudah ada.
             device_status = await ensure_device(
                 nim, device_id, label=device_label(ua), user_agent=ua
             )
+        elif not await list_devices(nim):
+            # Migrasi mulus sesi legasi (login sebelum fitur device-linking):
+            # jika NIM belum punya perangkat sama sekali, daftarkan perangkat aktif
+            # ini sebagai perangkat pertama (trusted) agar akses SIAKAD tidak terkunci 403.
+            device_status = await ensure_device(
+                nim, device_id, label=device_label(ua), user_agent=ua
+            )
+            session_token = request.cookies.get("ubsi_session") or _bearer_token(request)
+            if session_token:
+                try:
+                    from app.session_store import session_store
+
+                    await session_store.attach_device(session_token, device_id)
+                except Exception as exc:
+                    logger.warning("Gagal ikat device_id ke sesi legasi nim=%s: %s", nim, exc)
 
     link_status = await get_link_status(nim, "siakad")
     if link_status is None:
@@ -622,7 +637,7 @@ async def me(request: Request):
             },
         },
     }
-    if auth_type == "session" and not read_device_id(request):
+    if auth_type == "session" and device_status != "missing" and not read_device_id(request):
         response = JSONResponse(content=success_response(data=data))
         is_https, cookie_domain = _session_cookie_options(request)
         issue_device_cookie(response, device_id, is_https=is_https, domain=cookie_domain)
