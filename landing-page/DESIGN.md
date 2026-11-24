@@ -1,7 +1,7 @@
 ---
 version: alpha
-name: UBSI API Semi Pixel-Art (Muara AI sync)
-description: Light estuary design system for the UBSI API landing page and dashboard. Riverbed ink on a clean mist canvas, river current blue accent, diffusion shadows, hydro-motion easing.
+name: Mira Semi Pixel-Art (Muara AI sync)
+description: Light estuary design system for the Mira landing page and dashboard. Riverbed ink on a clean mist canvas, river current blue accent, stepped pixel frames, hydro-motion easing.
 
 colors:
   primary: "#072033"

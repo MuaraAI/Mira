@@ -1,7 +1,7 @@
 ---
 name: mira
 version: 3.5.0
-description: Agent skill for consuming, extending, and operating Mira (Academic Operating System & REST API Aggregator for UBSI Services).
+description: Agent skill for consuming, extending, and operating Mira (Academic Operating System, REST API Aggregator, & MCP Server for UBSI Services).
 metadata:
   repository: https://github.com/MuaraAI/Mira
   author: Yuken Velino (@Curzyori)
@@ -9,34 +9,38 @@ metadata:
   faculty: Teknik & Informatika
   institution: Universitas Bina Sarana Informatika (UBSI) Kampus Kota Pontianak
   license: MIT
-  tags: [ubsi, api, studentv2, mybest, scraping, redis, fastapi]
+  tags: [mira, ubsi, api, mcp, studentv2, mybest, scraping, redis, fastapi]
 ---
 
-# UBSI API Agent Skill
+# Mira Agent Skill
 
-Panduan operasional dan referensi teknis bagi AI Coding Agent dan pengembang yang berinteraksi dengan, mengembangkan, atau mengonsumsi layanan **UBSI API** (`127.0.0.1:8300`).
+Panduan operasional dan referensi teknis bagi AI Coding Agent dan pengembang yang berinteraksi dengan, mengembangkan, atau mengonsumsi layanan **Mira** (`127.0.0.1:8300` REST API & `127.0.0.1:8350/mcp` MCP Server).
 
 ---
 
-## 1. Project & Author Overview
+## 1. Project & Core Team Overview
 
-- **Repository**: [https://github.com/MuaraAI/UBSI-API](https://github.com/MuaraAI/UBSI-API) (Public)
-- **Author**: **Yuken Velino** ([@Curzyori](https://github.com/Curzyori)) — Lead Developer & Creator · Informatika · FTI UBSI Pontianak.
-- **Contributors**:
-  - **Verzio** ([@MyKineID](https://github.com/MyKineID)) — Contributor · Informatika · FTI UBSI Pontianak.
-  - **Muhammad Raffli Aldiansyah** ([@Seeyaa77](https://github.com/Seeyaa77)) — Contributor · Informatika · FTI UBSI Pontianak.
-- **Tujuan**: Otomatisasi personal dan jembatan data terstruktur JSON (jadwal, nilai, tugas, materi) untuk bot asisten mahasiswa dan developer tanpa navigasi manual.
+- **Repository**: [https://github.com/MuaraAI/Mira](https://github.com/MuaraAI/Mira) (Public)
+- **Domain Produksi**: [https://mira.muaraai.com](https://mira.muaraai.com) · API Gateway: `https://api.muaraai.com/v1/mira`
+- **Core Team (Muara AI — Informatika, FTI UBSI Pontianak)**:
+  - **Yuken Velino** ([@Curzyori](https://github.com/Curzyori)) — Founder, Backend
+  - **Verzio Yamanansyah** ([@MyKineID](https://github.com/MyKineID)) — Co-Founder, Frontend
+  - **Muhammad Raffli Aldiansyah** ([@Seeyaa77](https://github.com/Seeyaa77)) — Co-Founder, Hacker
+- **Syarat Kontribusi**: Hanya dibuka untuk **Anggota Muara AI** yang berstatus **mahasiswa aktif UBSI**, dan **wajib menggunakan branch baru + Pull Request** ke `main` (tanpa direct push). Lihat [`CONTRIBUTING.md`](../CONTRIBUTING.md).
 - **Dokumentasi Lengkap**:
-  - [`README.md`](../README.md) — Gambaran umum produk, ringkasan endpoint, dan quick start.
-  - [`CONTRIBUTING.md`](../CONTRIBUTING.md) — Tata cara kontribusi, alur PR, dan struktur pengujian `tests/`.
+  - [`README.md`](../README.md) — Gambaran umum produk, keamanan, dan quickstart.
+  - [`AGENT.md`](../AGENT.md) — Panduan operasional AI agent, peta database ganda, dan arsitektur sesi/perangkat.
+  - [`CONTRIBUTING.md`](../CONTRIBUTING.md) — Syarat kontributor, wajib branch baru, alur PR, dan aturan pengujian.
   - [`CODE_OF_CONDUCT.md`](../CODE_OF_CONDUCT.md) — Norma komunitas & etika rekayasa perangkat lunak Muara AI.
-  - [`SECURITY.md`](../SECURITY.md) — Kebijakan privasi, kredensial lokal, dan etika keamanan.
+  - [`SECURITY.md`](../SECURITY.md) — Kebijakan keamanan, enkripsi at-rest, dan izin perangkat.
+  - [`PRIVACY.md`](../PRIVACY.md) — Kebijakan privasi, allowlist profil akademik, dan retensi data.
   - [`DMCA.md`](../DMCA.md) — Hak cipta kampus, landasan *Fair Use*, dan permohonan takedown resmi.
-  - [`docs/api.md`](../docs/api.md) — Kamus detail 20 endpoint beserta contoh payload JSON.
-  - [`docs/architecture.md`](../docs/architecture.md) — Diagram siklus request, two-tier cache, mutex, dan webhook poller.
-  - [`docs/anti-ban.md`](../docs/anti-ban.md) — Protokol proteksi akun kampus (TLS impersonation, session reuse, jitter).
-  - [`docs/deploy.md`](../docs/deploy.md) — Panduan operasi dan pemeliharaan server production via PM2.
-  - [`docs/remote-access.md`](../docs/remote-access.md) — Panduan setup reverse proxy (Caddy/Nginx), Cloudflare Tunnel, dan otentikasi X-API-Key.
+  - [`docs/api.md`](../docs/api.md) — Kamus lengkap endpoint REST API beserta contoh payload JSON.
+  - [`docs/mcp.md`](../docs/mcp.md) — Referensi MCP Server (40 tool `mira_*`) dan integrasi klien agent.
+  - [`docs/architecture.md`](../docs/architecture.md) — Diagram siklus request, two-tier cache, mutex, session pool, dan layout repo.
+  - [`docs/anti-ban.md`](../docs/anti-ban.md) — Protokol proteksi akun kampus (TLS impersonation, cooldown CAPTCHA/429, auto-solve).
+  - [`docs/deploy.md`](../docs/deploy.md) — Panduan operasi dan pemeliharaan server production via PM2 (`ubsi-api` + `ubsi-mcp`).
+  - [`docs/remote-access.md`](../docs/remote-access.md) — Panduan setup reverse proxy (Caddy/Nginx), Cloudflare Tunnel, dan `TRUSTED_PROXIES` CIDR.
 
 ---
 
@@ -44,14 +48,14 @@ Panduan operasional dan referensi teknis bagi AI Coding Agent dan pengembang yan
 
 | Domain | Key Endpoints | Deskripsi & Scope |
 |---|---|---|
-| **Sistem** | `GET /health`<br>`GET /metrics` | Status server, konektivitas Redis, dan metrik ukuran session pool |
-| **Autentikasi** | `POST /v1/auth/login`<br>`POST /v1/auth/logout`<br>`POST /v1/auth/logout_all`<br>`POST /v1/auth/verify`<br>`GET /v1/auth/me`<br>`POST /v1/auth/credentials`<br>`DELETE /v1/auth/credentials/siakad`<br>`POST /v1/auth/password`<br>`POST /v1/auth/forgot-password` | Login **MyBest-only** (CAPTCHA diselesaikan OCR di server), session token Redis sliding 7 hari, `/me` memuat countdown sesi dan status tautan sistem, tautkan/lepas SIAKAD manual, ganti password kampus, dan reset lewat email |
-| **Notifikasi** | `GET /v1/channels`<br>`POST /v1/channels`<br>`DELETE /v1/channels/{id}`<br>`POST /v1/channels/{id}/test` | Manajemen channel webhook personal mahasiswa (Discord, Telegram, Custom) di SQLite WAL |
-| **SIAKAD** (opsional, tautkan manual) | `GET /v1/studentv2/dashboard`<br>`GET /v1/studentv2/schedule`<br>`GET /v1/studentv2/grades`<br>`GET /v1/studentv2/khs`<br>`GET /v1/studentv2/khs-semester?semester={n}`<br>`GET /v1/studentv2/krs`<br>`GET /v1/studentv2/krs/print`<br>`GET /v1/studentv2/uts`<br>`GET /v1/studentv2/uas`<br>`GET /v1/studentv2/announcements` | Dashboard paralel, jadwal, nilai murni (UTS/UAS/Tugas/Grade), KHS kumulatif dan per semester (IPS), KRS + cetak kartu, ruang ujian UTS/UAS, edaran PDF. Profil memakai allowlist akademik; data pribadi tidak diambil |
-| **MyBest LMS** | `GET /v1/elearning/courses`<br>`GET /v1/elearning/assignments`<br>`GET /v1/elearning/grades`<br>`GET /v1/elearning/presence`<br>`GET /v1/elearning/materials`<br>`GET /v1/elearning/quiz`<br>`GET /v1/elearning/toefl`<br>`GET /v1/elearning/exams/{type}` | Kartu matkul & token, deadline tugas & nilai, rekapitulasi nilai per pertemuan, presensi hadir, materi ZIP/PDF, kuis, TOEFL, dan jadwal ujian |
-| **Perpustakaan** | `GET /v1/elibrary/search?q={query}&opsi={buku}`<br>`GET /v1/elibrary/book/{book_id}` | Pencarian OPAC katalog, metadata buku, klasifikasi, dan stok fisik di rak |
-| **Berita Resmi** | `GET /v1/news?page={1}&per_page={10}&search={query}`<br>`GET /v1/news/{id}`<br>`POST /v1/news/webhook/test` | Berita kampus resmi via native WP REST API (`news.bsi.ac.id`), auto-broadcaster Discord/Telegram/Custom, dan endpoint uji coba |
-| **Publikasi** | `GET /v1/repository/recent`<br>`GET /v1/repository/search?q={query}`<br>`GET /v1/ejournal/journals` | EPrints skripsi/penelitian terbaru dan katalog 23 jurnal ilmiah resmi UBSI via OAI bypass |
+| **Sistem** | `GET /health`<br>`GET /metrics`<br>`GET /v1/capabilities`<br>`GET /v1/maintenance`<br>`GET /v1/stats` | Status server & Redis, metrik session pool, feature flags (`SIAKAD_ENABLED`), maintenance gate, dan statistik publik anonim |
+| **Autentikasi & Perangkat** | `POST /v1/auth/login`<br>`POST /v1/auth/logout` · `/logout_all`<br>`POST /v1/auth/verify`<br>`GET /v1/auth/me`<br>`GET /v1/auth/devices`<br>`POST /v1/auth/devices/{handle}/approve`<br>`DELETE /v1/auth/devices/{handle}`<br>`GET/POST/DELETE /v1/auth/keys`<br>`POST /v1/auth/credentials`<br>`DELETE /v1/auth/credentials/siakad`<br>`POST /v1/auth/password`<br>`POST /v1/auth/forgot-password` | Login **MyBest-only** (puzzle geser MyBest diselesaikan OpenCV di server; SIAKAD OCR ddddocr), sesi Redis AES-256-GCM 7 hari sliding, tautan SIAKAD kanonis per NIM (`account_links`, Fernet), izin per perangkat (`mira_device`, HttpOnly 180 hari), Personal API Keys (`muara_mira_*`), ganti & reset password kampus |
+| **Notifikasi & PWA Push** | `GET/POST/DELETE /v1/channels`<br>`POST /v1/channels/{id}/test`<br>`POST /v1/channels/trigger-reminder`<br>`GET /v1/notifications/pwa/vapid-key`<br>`POST /v1/notifications/pwa/subscribe`<br>`GET/POST /v1/notifications/pwa/categories` | Webhook personal (Discord, Telegram, Custom; config terenkripsi Fernet at-rest + masked di UI, anti-SSRF) dan RFC 8291 VAPID Web Push (9 kategori; mutasi wajib perangkat `trusted`) |
+| **SIAKAD** (opsional, tautkan manual) | `GET /v1/studentv2/dashboard`<br>`GET /v1/studentv2/profile`<br>`GET /v1/studentv2/schedule`<br>`GET /v1/studentv2/grades`<br>`GET /v1/studentv2/khs`<br>`GET /v1/studentv2/khs-semester?semester={n}`<br>`GET /v1/studentv2/krs` · `/krs/print`<br>`GET /v1/studentv2/uts` · `/uas`<br>`GET /v1/studentv2/announcements`<br>`GET /v1/lecturers/{kode}/schedule` | Dashboard paralel, profil allowlist akademik (tanpa PII), jadwal, nilai murni, KHS kumulatif & per semester (IPS), KRS + cetak kartu, ruang ujian UTS/UAS, direktori dosen & prodi. Wajib perangkat `trusted` (`403 SIAKAD_DEVICE_PENDING` bila `pending`) |
+| **MyBest LMS & Ujian** | `GET /v1/elearning/dashboard` · `/courses` · `/schedule`<br>`GET/POST /v1/elearning/assignments` (upload/submit/download)<br>`GET /v1/elearning/grades`<br>`GET/POST /v1/elearning/presence`<br>`GET /v1/elearning/materials` (download)<br>`GET/POST /v1/elearning/quiz` (questions/question/answer/finish)<br>`GET /v1/elearning/discussions` (comments)<br>`GET /v1/elearning/makeups` · `/toefl`<br>`GET /v1/elearning/exams/{type}` · `/proof/download` | Kartu matkul & token, jadwal kuliah & pengganti, tugas, rekap nilai, presensi hadir, materi ZIP/PDF, ruang kuis CBT (`/exercise-show`), diskusi, TOEFL, dan jadwal/bukti PDF Ujian Online |
+| **Mira Komunitas** | `/v1/social/me` · `/inbox` · `/spaces` · `/dms`<br>`/v1/social/conversations/{id}/messages`<br>`GET /v1/social/stream` (SSE) | Chat ruang + channel & DM (dual driver: Supabase Postgres di produksi, SQLite fallback di dev/test), realtime SSE Redis pub/sub, khusus Session Token dashboard |
+| **Publik & Perpustakaan** | `GET /v1/elibrary/search` · `/book/{id}`<br>`GET /v1/academic/events`<br>`GET /v1/news` · `/{id}`<br>`GET /v1/repository/recent` · `/search`<br>`GET /v1/ejournal/journals` | Katalog OPAC perpustakaan, kalender kegiatan akademik publik, berita resmi WP REST API, EPrints publikasi, dan 23 jurnal ilmiah UBSI |
+| **MCP Server** | `POST https://api.muaraai.com/v1/mira/mcp` | 40 tool AI agent dalam satu namespace `mira_*` (Streamable HTTP, port lokal `127.0.0.1:8350/mcp`) |
 
 ---
 
@@ -84,7 +88,7 @@ Format respons kesalahan:
 ## 4. Aturan Penting & Skenario "Jika Ini, Maka Itu" (Rules & Scenarios)
 
 ### Skenario 1: Kredensial Kosong di `.env`
-- **Aturan**: Modul publik (`/health`, `/v1/news`, `/v1/elibrary`, `/v1/repository`, `/v1/ejournal`) harus tetap berjalan normal 100%.
+- **Aturan**: Modul publik (`/health`, `/v1/capabilities`, `/v1/maintenance`, `/v1/academic/events`, `/v1/news`, `/v1/elibrary`, `/v1/repository`, `/v1/ejournal`) harus tetap berjalan normal 100%.
 - **Jika** endpoint privat (`/v1/studentv2/*` atau `/v1/elearning/*`) dipanggil saat kredensial kosong:
   - Kembalikan HTTP 400 dengan error code `CONFIG_MISSING` (jangan sampai server crash atau melempar 500).
 
@@ -96,16 +100,16 @@ Format respons kesalahan:
   - Hanya lemparkan HTTP 502 `UPSTREAM_ERROR` jika data LGG sama sekali belum pernah tersimpan.
 
 ### Skenario 3: Sesi Cookie Kampus Kedaluwarsa
-- **Aturan**: Jangan mengirim request login berulang kali jika sesi masih valid.
+- **Aturan**: Jangan mengirim request login berulang kali jika sesi masih valid; login ulang dilakukan reaktif.
 - **Jika** response dari kampus mengarah kembali ke URL `/login`:
-  - Lakukan re-login otomatis sebanyak 1 kali di latar belakang.
+  - Lakukan re-login otomatis di latar belakang (puzzle geser OpenCV untuk MyBest, OCR ddddocr untuk SIAKAD, maksimal 3 percobaan, hormati cooldown `app/upstream_session.py`).
   - Ulangi request ke URL tujuan secara transparan bagi consumer.
 
 ### Skenario 4: Menambah atau Mengubah Scraper/Parser
-- **Aturan**: Pengujian wajib menerapkan TDD dan berjalan 100% offline.
+- **Aturan**: Pengujian wajib menerapkan TDD dan berjalan 100% offline dengan data dummy saja.
 - **Jika** membuat parser baru atau memperbarui parser yang rusak:
-  - Simpan snapshot HTML ke dalam folder `tests/fixtures/`.
-  - Unit test pytest (`.venv/bin/pytest -v`) harus membaca dari fixture tersebut tanpa melakukan live hit ke server kampus.
+  - Simpan snapshot HTML anonim ke dalam folder `tests/fixtures/`.
+  - Unit test pytest (`.venv/bin/pytest -q`) harus membaca dari fixture tersebut tanpa melakukan live hit ke server kampus.
 
 ### Skenario 5: Permohonan Takedown Otoritas Kampus
 - **Aturan**: Mengedepankan itikad baik (*good faith*) dan kepatuhan akademik.
@@ -116,12 +120,12 @@ Format respons kesalahan:
 - **Aturan**: Jangan bypass auth berdasarkan `request.client.host == '127.0.0.1'` karena reverse proxy pada mesin yang sama meneruskan request dari localhost.
 - **Jika** menambahkan whitelist probe kesehatan (seperti `/health`):
   - Selalu normalisasi path menggunakan `request.url.path.rstrip("/") == "/health"` agar request dengan trailing slash tidak tertolak 401 sebelum handler redirect Starlette berjalan.
-  - Untuk penentuan real IP, jangan percaya `X-Forwarded-For` atau `CF-Connecting-IP` kecuali koneksi socket berasal dari IP yang terdaftar di `TRUSTED_PROXIES`.
+  - Untuk penentuan real IP, jangan percaya `X-Forwarded-For` atau `CF-Connecting-IP` kecuali koneksi socket berasal dari IP/CIDR yang terdaftar di `TRUSTED_PROXIES`.
 
 ### Skenario 7: Penggunaan Helper `cached_endpoint` & Pembersihan Sesi
 - **Aturan**: Gunakan `inspect.isawaitable()` (bukan `asyncio.iscoroutine()`) saat membungkus fungsi scraper yang dijalankan via `loop.run_in_executor()`, agar instance `Future` ter-await sempurna sebelum diparsing.
 - **Jika** menggunakan `SessionPool`:
-  - Pasang background worker di `lifespan` yang memanggil `await pool.evict_idle()` secara periodik (misal setiap 5 menit) untuk membuang sesi idle dan mencegah kebocoran memori.
+  - Pasang background worker di `lifespan` yang memanggil `await pool.evict_idle()` secara periodik untuk membuang sesi idle (TTL 10 menit, LRU maks 150) dan mencegah kebocoran memori.
 
 ---
 
@@ -130,7 +134,7 @@ Format respons kesalahan:
 Setiap pengguna atau server memiliki konfigurasi path, user, dan port yang berbeda-beda. **Jangan berasumsi menggunakan path hardcoded.**
 
 - Untuk setup dan konfigurasi production, rujuk selalu ke:
-  - [`docs/deploy.md`](../docs/deploy.md) — Panduan konfigurasi PM2, environment variables, dan pemeliharaan server.
+  - [`docs/deploy.md`](../docs/deploy.md) — Panduan konfigurasi PM2 (`ubsi-api` + `ubsi-mcp`), environment variables, dan pemeliharaan server.
   - [`ecosystem.config.cjs`](../ecosystem.config.cjs) — Contoh konfigurasi PM2.
   - [`scripts/deploy.sh`](../scripts/deploy.sh) — Script deployment otomatis yang dapat disesuaikan per variabel `VPS_HOST`, `REMOTE_DIR`, dan `REMOTE_VENV`.
 - Untuk pengujian kesehatan live setelah deploy:

@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Effective date:** October 18, 2026 (Updated: November 19, 2026 - v3.5.0)
+**Effective date:** October 18, 2026 (Updated: November 24, 2026 - v3.5.0)
 **Applies to:** Mira (`MuaraAI/Mira`, sebelumnya UBSI API), its hosted dashboard at `mira.muaraai.com` (redirect from `ubsi-api.muaraai.com`), and its API gateway at `api.muaraai.com`.
 
 This project is an unofficial, community-built student tool. This policy explains, in plain terms, what data the service touches, where it lives, how it is protected, and how you can delete it.
@@ -9,22 +9,24 @@ This project is an unofficial, community-built student tool. This policy explain
 
 | Data | Purpose | Where it lives |
 | --- | --- | --- |
-| NIM (student ID) | Identifying your session and academic data | Redis (session), SQLite (API keys) |
-| Campus passwords (SIAKAD, MyBest) | Authenticating you once at login, then reusing the session | Redis, **AES-256-GCM encrypted** |
-| Academic data (schedule, grades, KHS, KRS, exams, attendance, assignments, materials) | Displayed to you in the dashboard | Redis cache (transient, tiered TTL), never persisted to disk |
+| NIM (student ID) | Identifying your session, trusted devices, and academic data | Redis (session), SQLite (`api_keys`, `account_links`, `account_devices`) |
+| Campus passwords (MyBest, optional SIAKAD) | Authenticating you once at login, then reusing/refreshing the campus session | Redis (**AES-256-GCM encrypted** for session) & SQLite `account_links` (**Fernet encrypted** for canonical per-NIM SIAKAD link) |
+| Trusted device metadata (`mira_device` cookie) | Protecting SIAKAD access and persistent writes when signing in from new browsers | SQLite `account_devices` (auto-revoked after 30 days of inactivity) + `HttpOnly` cookie (180 days) |
+| Academic data (schedule, grades, KHS, KRS, exams, attendance, assignments, materials) | Displayed to you in the dashboard (SIAKAD profile uses an academic-only allowlist; sensitive personal info like address/phone/DOB is dropped) | Redis cache (transient, tiered TTL), never persisted to disk |
 | Library / news / repository queries | Public campus data you request | Redis cache (transient) |
-| Webhook channel config (Discord URL / Telegram token) | Sending you notifications you opted into | SQLite, encrypted at rest |
-| Personal API key metadata | Letting you build bots/scripts | SQLite, only a hash is stored (the raw key is shown once at creation) |
+| Webhook channel config (Discord URL / Telegram token) | Sending you notifications you opted into | SQLite `webhook_channels`, **Fernet encrypted at rest** (masked in UI) |
+| Personal API key metadata | Letting you build bots/scripts or connect MCP AI agents | SQLite `api_keys`, only a keyed BLAKE2b hash is stored (the raw key is shown once at creation) |
+| Mira Komunitas (optional social profile, spaces, DMs, avatars) | Peer-to-peer student discussion & chat (public identity is `username`; NIM is never shown to other users) | Supabase Postgres (SQLite fallback in local dev) & local disk (`data/social_media/`) |
 
-We do **not** collect: your real name for marketing, email, phone number, location, browsing history, or anything unrelated to the academic features above.
+We do **not** collect: your real name for marketing, home address, phone number, birth date/place, religion, gender, tuition status, browsing history, or anything unrelated to the academic features above.
 
 ## 2. How Your Credentials Are Protected
 
-- **AES-256-GCM at rest**: Session payloads (including campus passwords) are encrypted with a 256-bit key derived from the server master key. Redis dumps reveal only ciphertext; tampering is rejected by the authentication tag.
-- **No plaintext anywhere**: Passwords are never written to disk, logs, or responses. The dashboard never receives them back after login.
-- **Hashed API keys**: Personal keys (`muara_mira_...` dan legacy `muara_ubsi_...`) are stored only as hashes. The full key is displayed exactly once, at creation.
-- **Cookie hygiene**: The browser session uses an `HttpOnly`, `Secure`, `SameSite=Lax` cookie. JavaScript on the page cannot read it.
-- **Rate limiting**: Login is limited to 5 attempts per minute per NIM; the API is capped at 60 requests per minute per client.
+- **AES-256-GCM & Fernet at rest**: Redis session payloads are encrypted with **AES-256-GCM** (key derived via keyed BLAKE2b from the server master key). Canonical SIAKAD links (`account_links`), Personal API Key credentials, and webhook configs (`webhook_channels`) in SQLite are encrypted with **Fernet** (keyed BLAKE2b KDF).
+- **No plaintext anywhere**: Passwords are never written to disk in plaintext, logs, or responses. The dashboard never receives them back after login.
+- **Hashed API keys**: Personal keys (`muara_mira_...` dan legacy `muara_ubsi_...`) are stored only as keyed BLAKE2b hashes. The full key is displayed exactly once, at creation.
+- **Cookie hygiene & device approval**: The browser session (`ubsi_session`) and device identity (`mira_device`) use `HttpOnly`, `Secure`, `SameSite=Lax` cookies. JavaScript on the page cannot read them. New devices start as `pending` until approved by a trusted device.
+- **Rate limiting**: Login is limited to 10 attempts per minute per IP (with escalating 15m/1h/24h blacklist) and 5 attempts per minute per NIM; the API is capped at 60 requests per minute per client.
 
 ## 3. What Happens in Your Browser
 

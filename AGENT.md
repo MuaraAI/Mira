@@ -23,45 +23,70 @@ Selamat datang di repositori **Mira** (`MuaraAI/Mira`, sebelumnya UBSI API). Dok
 Proyek ini menggunakan arsitektur monorepo dengan pemisahan tegas antara backend Python dan frontend Next.js:
 
 ```text
-UBSI-API/
-├── app/                       # [BACKEND] Core FastAPI Application (Python 3.12+)
-│   ├── config.py              # Pydantic BaseSettings, manajemen environment, TTL cache
+UBSI-API/ (Repo: MuaraAI/Mira)
+├── app/                       # [BACKEND] Core FastAPI & MCP Application (Python 3.12+)
+│   ├── config.py              # Pydantic BaseSettings, manajemen environment, TTL cache, saklar SIAKAD/Maintenance
 │   ├── cache.py               # Redis Two-Tier Cache (Fresh + Last-Known-Good SWR)
-│   ├── session_pool.py        # Multi-tenant SessionPool per-NIM (5-min idle eviction)
-│   ├── limiter.py             # Sliding-window rate limiter (60 req/menit per client IP)
+│   ├── session_store.py       # Sesi dashboard Redis (AES-256-GCM, 7 hari sliding)
+│   ├── session_pool.py        # Multi-tenant SessionPool per-NIM (idle TTL 10 menit, LRU maks 150)
+│   ├── campus_session_store.py# Persistensi cookie sesi kampus di Redis
+│   ├── upstream_session.py    # Cooldown login CAPTCHA/429 & pemulihan sesi kampus reaktif
+│   ├── account_links.py       # Store kanonis tautan kredensial per NIM (SQLite, terenkripsi Fernet)
+│   ├── account_devices.py     # Izin per perangkat (trusted/pending/revoked, idle revoke 30 hari)
+│   ├── device_identity.py     # Cookie perangkat HttpOnly `mira_device` (180 hari)
+│   ├── api_keys_db.py         # Personal API Key (`muara_mira_*` & legacy `muara_ubsi_*`), hash BLAKE2b + Fernet
+│   ├── channels_db.py         # Webhook channel user di SQLite WAL (config terenkripsi Fernet at-rest)
+│   ├── channel_validation.py  # Validasi payload & proteksi anti-SSRF webhook
+│   ├── pwa_push_db.py         # Subscription & preferensi kategori PWA Web Push (SQLite)
+│   ├── pwa_webpush.py         # Pengiriman RFC 8291 VAPID Web Push & broadcast maintenance
+│   ├── captcha_autosolver.py  # Auto-solve CAPTCHA gambar SIAKAD (ddddocr utama, tesseract fallback)
+│   ├── captcha_relay.py       # Helper tantangan sesi CAPTCHA per percobaan
+│   ├── elearning_captcha.py   # Solver puzzle geser MyBest 2026 (OpenCV template matching + /verify-captcha)
+│   ├── limiter.py             # Sliding-window rate limiter (60 req/menit per client IP/identity)
 │   ├── login_guard.py         # Proteksi login: 10x/menit per IP, blacklist bertingkat, log login harian
+│   ├── maintenance.py         # Saklar maintenance mode (503 MAINTENANCE + whitelist NIM)
+│   ├── notifier.py            # Worker notifikasi terjadwal & pengingat event akademik
 │   ├── password_change.py     # Ganti password SIAKAD/MyBest + deteksi password default
 │   ├── password_reset.py      # Lupa password: link reset dikirim kampus ke email + cek NIM-email (HMAC)
-│   ├── deps.py                # Credential dependency injection (Header > .env fallback)
+│   ├── deps.py                # Credential dependency injection (Session/API Key/Account Links/Header > .env)
 │   ├── envelope.py            # Standard clean JSON envelope format
 │   ├── router_helper.py       # Helper cached_endpoint (caching, single-flight mutex, SWR)
 │   ├── retry.py               # Exponential backoff scraper retry dengan jitter
-│   ├── main.py                # Server entrypoint, middleware auth & proxy, health, metrics
-│   └── modules/               # Scraper & Parser tiap domain kampus
-│       ├── studentv2.py       # SIAKAD (students.bsi.ac.id): Jadwal, Nilai, Berita, Dashboard
-│       ├── elearning.py       # MyBest (elearning.bsi.ac.id): Matkul, Tugas, Presensi, Modul, Kuis
+│   ├── stats.py               # Analitik penggunaan anonim (HMAC-SHA256 NIM)
+│   ├── mcp_server.py          # MCP Server (40 tool `mira_*`, Streamable HTTP port 8350)
+│   ├── main.py                # Server entrypoint, middleware auth & CIDR proxy, health, metrics
+│   ├── social/                # Engine Mira Komunitas (dual driver SQLite + Supabase Postgres, SSE events, media)
+│   └── modules/               # Router & Parser tiap domain
+│       ├── auth.py            # Login MyBest-only, sesi, devices, keys, credentials, password, forgot-password
+│       ├── capabilities.py    # Status fitur publik (`GET /v1/capabilities`)
+│       ├── studentv2.py       # SIAKAD (students.bsi.ac.id): Profil akademik, KHS/KHS-semester, KRS+cetak, UTS/UAS
+│       ├── elearning.py       # MyBest (elearning.bsi.ac.id): Matkul, Jadwal, Tugas, Presensi, Modul, Kuis CBT, TOEFL, Ujian
 │       ├── elibrary.py        # Perpustakaan (elibrary.bsi.ac.id): OPAC search, stok buku
 │       ├── news.py            # Portal Berita (news.bsi.ac.id) & Multi-Channel Webhook Broadcaster
 │       ├── repository.py      # EPrints Publikasi (repository.bsi.ac.id): Riset & skripsi terbaru
-│       └── ejournal.py        # E-Journal (ejournal.bsi.ac.id): 23 jurnal aktif via OAI bypass
+│       ├── ejournal.py        # E-Journal (ejournal.bsi.ac.id): 23 jurnal aktif via OAI bypass
+│       ├── academic_events.py # Kalender kegiatan akademik publik (`staffv2.bsi.ac.id`)
+│       ├── lecturers.py       # Jadwal mengajar dosen per kode inisial
+│       ├── channels.py        # CRUD & test webhook notifikasi personal
+│       ├── pwa_push.py        # Endpoint langganan & preferensi PWA Web Push
+│       ├── social.py          # Router HTTP tipis + SSE stream Mira Komunitas (`/v1/social/*`)
+│       ├── links.py           # Pemeriksa keamanan tautan tugas/materi
+│       └── stats.py           # Endpoint statistik penggunaan publik (`/v1/stats`)
 │
-├── landing-page/              # [FRONTEND] Landing Page & Documentation (Next.js 15)
-│   ├── src/app/               # App Router, layout, globals.css, open-graph image, SEO
-│   ├── src/components/        # Komponen UI Deep Water (Navbar, Hero, CodeShowcase, dll.)
+├── landing-page/              # [FRONTEND] Landing Page & Student PWA Dashboard (Next.js 15)
+│   ├── src/app/               # App Router (landing, /login, /dashboard/*, /recap, SEO, OG)
+│   ├── src/components/        # Komponen UI Semi Pixel-Art Light (Navbar, Hero, CBT Room, Social, dll.)
 │   ├── src/data/              # Dataset statis modul kampus, kontributor, dan contoh payload
-│   ├── public/fonts/          # Self-hosted woff2 Google Fonts (Space Grotesk, Inter, JetBrains Mono)
-│   └── DESIGN.md              # Token desain resmi Fluid Currents Light (canvas terang, tinta riverbed, accent biru arus)
+│   ├── public/fonts/          # Self-hosted woff2 Google Fonts (Space Grotesk, Inter, JetBrains Mono, Pixelify Sans)
+│   └── DESIGN.md              # Token desain resmi Semi Pixel-Art Light (canvas terang, tinta riverbed, accent biru arus)
 │
-├── tests/                     # [TEST SUITE] Pytest 100% Offline (78+ Passing Tests)
-│   ├── fixtures/              # Snapshot HTML statis kampus (sv2_*.html, el_*.html)
-│   ├── test_studentv2_*.py    # Parser & router tests untuk SIAKAD
-│   ├── test_elearning_*.py    # Parser & router tests untuk MyBest
-│   ├── test_elibrary_*.py     # Parser & router tests untuk perpustakaan
-│   ├── test_public_*.py       # Parser & router tests untuk News, Repo, E-Journal
-│   └── test_integration.py    # Pipeline integration test
+├── tests/                     # [TEST SUITE] Pytest 100% Offline (677+ Passing Tests)
+│   ├── fixtures/              # Snapshot HTML statis kampus anonim (sv2_*.html, el_*.html)
+│   └── test_*.py              # Unit, parser, router, auth/device, MCP, social, dan integration tests
 │
-├── docs/                      # Dokumentasi teknis, arsitektur, anti-ban, dan deploy
-├── skills/                    # Agent skills & workflows lokal (SKILL.md)
+├── supabase/                  # Cermin resmi SQL migrations Supabase Postgres (`Mira Social`)
+├── docs/                      # Dokumentasi teknis, API, arsitektur, MCP, anti-ban, remote access, dan deploy
+├── skills/                    # Agent skills lokal (`SKILL.md`)
 └── .gitignore                 # Exclusion rules (.env, data/, anti-slop/, graphify-out/)
 ```
 
@@ -69,10 +94,13 @@ UBSI-API/
 
 ## 3. Git Workflow & Contribution Rules (WAJIB DIIKUTI AGENT)
 
-Dilarang keras melakukan direct commit dan direct push ke branch `main`! Setiap agen wajib mengikuti salah satu dari dua alur di bawah:
+### Syarat Kontributor (Eksklusif)
+Kontribusi ke repositori ini **hanya dibuka untuk Anggota Muara AI** yang berstatus **mahasiswa aktif Universitas Bina Sarana Informatika (UBSI)**. Kontribusi eksternal dari luar Muara AI / non-mahasiswa aktif UBSI tidak diterima.
 
-### Alur A: Anggota Tim / Internal Komunitas (Akses Push Langsung)
-1. **Buat Feature Branch Baru:**
+### Alur Wajib Branch Baru & Pull Request
+**Dilarang keras melakukan direct commit dan direct push ke branch `main`!** Setiap perubahan (kode, perbaikan bug, maupun dokumentasi) **wajib menggunakan branch baru** melalui alur berikut:
+
+1. **Buat Feature Branch Baru dari `main`:**
    ```bash
    git checkout main
    git pull origin main
@@ -80,24 +108,19 @@ Dilarang keras melakukan direct commit dan direct push ke branch `main`! Setiap 
    # Contoh: feat/ical-calendar, fix/captcha-solver, docs/api-update
    ```
 2. **Kembangkan Fitur & Lakukan Pengujian Lokal:**
-   Pastikan seluruh test lokal lulus tanpa error.
+   Pastikan seluruh test lokal lulus tanpa error (`.venv/bin/pytest -q`).
 3. **Commit dengan Format Conventional Commits:**
    ```bash
    git add <file-terkait>
    git commit -m "<type>(<scope>): <pesan jelas dan ringkas>"
    # Contoh: feat(elearning): add endpoint for quiz submission list
    ```
-4. **Push Branch ke Remote Repo:**
+4. **Push Branch Baru ke Remote Repo:**
    ```bash
    git push -u origin <nama-branch>
    ```
 5. **Buat Pull Request (PR) ke `main`:**
    Gunakan GitHub CLI (`gh pr create`) atau web GitHub untuk membuka PR, sertakan ringkasan perubahan dan bukti pengujian. Tunggu review/konfirmasi sebelum merge.
-
-### Alur B: Kontributor Eksternal (Open Source)
-1. **Fork Repositori:** Fork `MuaraAI/Mira` ke akun personal GitHub kontributor.
-2. **Kembangkan di Branch Fork:** Kerjakan perubahan pada branch di repositori fork.
-3. **Buka Cross-Repo Pull Request:** Buat PR dari branch fork ke `MuaraAI/Mira:main`.
 
 ---
 
@@ -185,8 +208,8 @@ npm run dev
 ### 0. Peta Database — siapa nyimpen apa (JANGAN TERTUKAR)
 | Data | Penyimpanan | Konfigurasi |
 |---|---|---|
-| Akun, personal API key, sesi login dashboard, channel webhook user | **SQLite** (`data/ubsi.db`) | `SQLITE_DB_PATH` |
-| Cache hasil scraping, sesi kampus MyBest/SIAKAD, stats publik, rate-limit, dedup notifikasi | **Redis** (db 2) | `REDIS_URL` |
+| Akun, tautan SIAKAD (`account_links`, Fernet), izin perangkat (`account_devices`), personal API key (`api_keys`, BLAKE2b + Fernet), channel webhook user (`webhook_channels`, Fernet at-rest), langganan PWA Web Push | **SQLite** (`data/ubsi.db`, WAL) | `SQLITE_DB_PATH` |
+| Sesi login dashboard (`ubsi_session`, AES-256-GCM, 7 hari sliding), cache hasil scraping, sesi kampus MyBest/SIAKAD, stats publik, rate-limit, dedup notifikasi | **Redis** (db 2) | `REDIS_URL` |
 | Social v3: profil komunitas, chat, spaces, mention, reaksi, persahabatan | **Supabase Postgres** — fallback SQLite (tabel `social_*`) saat `SUPABASE_DB_URL` kosong | `SUPABASE_DB_URL` |
 | Upload media avatar/banner komunitas | Disk lokal | `data/social_media/` |
 | Backup harian | VPS `/home/ubuntu/backups/mira` + Google Drive `cg:MuaraAI/backups/mira` | cron `backup_db.sh` |
@@ -234,7 +257,7 @@ ubsi_session (Redis, 7 hari SLIDING)
 ```
 
 * **Sesi Mira 7 hari dan sliding**: setiap resolve sukses me-reset TTL (`app/session_store.py`). User yang membuka Mira sekali seminggu tetap masuk. Jangan menambahkan countdown/expiry kedua di lapisan lain.
-* **Sesi kampus jauh lebih pendek dan dikelola terpisah**: cookie MyBest ~45 menit (sliding), SIAKAD ~2 jam. Kalau cookie kampus mati, backend login ulang otomatis memakai password tersimpan; CAPTCHA diselesaikan `app/captcha_autosolver.py` (ddddocr, ~20 ms). User tidak perlu melakukan apa pun.
+* **Sesi kampus jauh lebih pendek dan dikelola terpisah**: cookie MyBest ~45 menit (sliding), SIAKAD ~2 jam. Kalau cookie kampus mati, backend login ulang otomatis memakai password tersimpan; CAPTCHA SIAKAD diselesaikan OCR `app/captcha_autosolver.py` (ddddocr, ~20 ms), sedangkan puzzle geser MyBest 2026 diselesaikan `app/elearning_captcha.py` (template matching OpenCV + `/verify-captcha`). User tidak perlu melakukan apa pun.
 * Yang memaksa user login ulang **hanya** perubahan password kampus.
 * `SIAKAD_ENABLED=true` di produksi sejak 2026-11-19, tapi **login tetap MyBest-only**. `studentv2_pass` kosong berarti SIAKAD tidak disentuh; password SIAKAD **tidak diwarisi** dari password MyBest (dua sistem kampus punya password sendiri). User menautkan SIAKAD manual di Sesi & Keamanan lewat `POST /v1/auth/credentials`. Lihat `app/modules/auth.py` (blok `raw_sv_pass`).
 * `GET /v1/auth/me` mengembalikan `systems` (boolean, untuk gerbang UI), `session` (countdown dari TTL Redis), dan `links` (`linked_password`: `mybest` / `separate` / `null`). **Jangan mengubah bentuk `systems`** tanpa memperbarui `useRequireSession`, `ChangePasswordCard`, `AuthPortal`, dan `lib/security.ts`.
