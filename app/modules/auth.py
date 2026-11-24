@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from app.config import settings
 from app.envelope import success_response, error_response
 from app.limiter import limiter
-from app.modules.studentv2 import StudentV2Client, studentv2_client
+from app.modules.studentv2 import StudentV2Client
 from app.modules.elearning import ElearningClient, elearning_client
 from app.deps import require_siakad_enabled
 from app.login_guard import LOGIN_IP_LIMIT, login_guard
@@ -294,7 +294,7 @@ async def login(req_body: LoginRequest, request: Request):
 
     nim = req_body.nim.strip()
 
-    from app.maintenance import is_whitelisted, maintenance_active, maintenance_response
+    from app.maintenance import is_whitelisted, maintenance_active
 
     if maintenance_active() and not is_whitelisted(nim):
         raise HTTPException(
