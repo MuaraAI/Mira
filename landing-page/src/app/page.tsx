@@ -3,11 +3,15 @@ import { Hero } from "@/components/Hero";
 import { HowToUse } from "@/components/HowToUse";
 import { StatsSection } from "@/components/StatsSection";
 import { Faq } from "@/components/Faq";
+import { ContributorsSection } from "@/components/ContributorsSection";
 import { Footer } from "@/components/Footer";
-import { getRepositoryStars } from "@/lib/github";
+import { getRepositoryContributors, getRepositoryStars } from "@/lib/github";
 
 export default async function Home() {
-  const stars = await getRepositoryStars();
+  const [stars, contributors] = await Promise.all([
+    getRepositoryStars(),
+    getRepositoryContributors(),
+  ]);
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground selection:bg-accent/25 selection:text-foreground">
@@ -17,6 +21,7 @@ export default async function Home() {
         <HowToUse />
         <StatsSection />
         <Faq />
+        <ContributorsSection contributors={contributors} />
       </main>
       <Footer />
     </div>
