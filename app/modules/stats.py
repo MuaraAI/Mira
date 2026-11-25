@@ -16,4 +16,4 @@ async def public_stats():
         return success_response(data=cached, cached=True)
     data = await get_public_stats()
     await cache.set(_STATS_CACHE_KEY, data, ttl=_STATS_CACHE_TTL)
-    return success_response(data=data, cached=True)
+    return success_response(data=data, cached=False)

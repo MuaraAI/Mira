@@ -2,7 +2,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.main import app
-from app.stats import get_public_stats
+from app.stats import _day, get_public_stats
 
 
 @pytest.mark.asyncio
@@ -64,25 +64,49 @@ async def _stats_with(fake):
 
 
 class BranchFakeRedis(FakeRedis):
-    """Redis tiruan: kode cabang mentah "30" dan nama "UBSI Pontianak" tercatat terpisah."""
-
-    BRANCH_KEYS = [
-        "ubsi:stats:branch:30:2026-10-21",
-        "ubsi:stats:branch:UBSI Pontianak:2026-10-21",
-    ]
+    """Redis tiruan: kode cabang mentah ("30", "05"), nama tampilan, dan data >30 hari."""
 
     async def keys(self, pattern):
+        today = _day(0)
+        expired = _day(32)
         if "branch:" in pattern:
-            return list(self.BRANCH_KEYS)
+            return [
+                f"ubsi:stats:branch:30:{today}",
+                f"ubsi:stats:branch:UBSI Pontianak:{today}",
+                f"ubsi:stats:branch:05:{today}",
+                f"ubsi:stats:branch:99:{expired}",
+            ]
         return await super().keys(pattern)
+
+    async def smembers(self, key):
+        if ":05:" in key:
+            return {"c"}
+        return {"a", "b"}
 
 
 @pytest.mark.asyncio
 async def test_branch_code_and_display_name_are_merged():
-    """Kode mentah SIAKAD ("30") dan nama tampilan adalah kampus sama: 1 cabang, count digabung."""
+    """Kode mentah SIAKAD ("30", "05") diterjemahkan, digabung, dan key >30 hari diabaikan."""
     stats = await _stats_with(BranchFakeRedis())
-    assert [b["name"] for b in stats["branches"]] == ["UBSI Pontianak"]
-    assert stats["branches"][0]["active_users_30d"] == 2
+    assert stats["branches"] == [
+        {"name": "UBSI Pontianak", "active_users_30d": 2},
+        {"name": "UBSI Bekasi", "active_users_30d": 1},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_public_stats_cached_flag_false_on_cache_miss():
+    from unittest.mock import AsyncMock, patch
+
+    with (
+        patch("app.modules.stats.cache.get_fresh", AsyncMock(return_value=None)),
+        patch("app.modules.stats.cache.set", AsyncMock()),
+        patch("app.modules.stats.get_public_stats", AsyncMock(return_value={"users": {}, "branches": []})),
+    ):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.get("/v1/stats")
+    assert response.status_code == 200
+    assert response.json()["cached"] is False
 
 
 @pytest.mark.asyncio
