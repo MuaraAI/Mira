@@ -910,22 +910,29 @@ Returns aggregated, anonymous usage stats of active students and total requests.
   {
     "success": true,
     "data": {
+      "service": "Mira API",
+      "status": "operational",
+      "period": "rolling_30_days",
       "users": {
         "active_24h": 42,
         "active_7d": 128,
-        "active_30d": 350
+        "active_30d": 350,
+        "average_per_day": 18,
+        "total_all_time": 420,
+        "online_now": 5
       },
       "requests": {
-        "total": 14250,
-        "by_module": {
-          "studentv2": 6120,
-          "elearning": 7340,
-          "elibrary": 450,
-          "news": 340
-        }
+        "total_24h": 5902,
+        "total_7d": 34900,
+        "total_30d": 130155,
+        "average_per_day": 3996,
+        "total_all_time": 143856
       },
       "branches": [
-        { "name": "UBSI Pontianak", "active_users": 28 }
+        { "name": "UBSI Pontianak", "active_users_30d": 39, "total_all_time": 43 }
+      ],
+      "programs": [
+        { "name": "Informatika Kampus Kota Pontianak", "active_users_30d": 28 }
       ]
     }
   }

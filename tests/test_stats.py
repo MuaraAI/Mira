@@ -86,11 +86,65 @@ class BranchFakeRedis(FakeRedis):
 
 @pytest.mark.asyncio
 async def test_branch_code_and_display_name_are_merged():
-    """Kode mentah SIAKAD ("30", "05") diterjemahkan, digabung, dan key >30 hari diabaikan."""
+    """Kode mentah SIAKAD ("30", "05") diterjemahkan, digabung, dan total_all_time tetap menghitung key >30 hari."""
     stats = await _stats_with(BranchFakeRedis())
     assert stats["branches"] == [
-        {"name": "UBSI Pontianak", "active_users_30d": 2},
-        {"name": "UBSI Bekasi", "active_users_30d": 1},
+        {"name": "UBSI Pontianak", "active_users_30d": 2, "total_all_time": 2},
+        {"name": "UBSI Bekasi", "active_users_30d": 1, "total_all_time": 1},
+        {"name": "UBSI Cabang 99", "active_users_30d": 0, "total_all_time": 2},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_branch_all_time_persists_and_backfills_permanent_sets():
+    """record_profile menulis set all-time permanen dan get_public_stats mem-backfill key harian."""
+    from unittest.mock import patch
+    from app.stats import record_profile
+
+    class FullBranchRedis(FakeRedis):
+        def __init__(self):
+            super().__init__()
+            today = _day(0)
+            old_retained = _day(33)
+            self.branch_sets = {
+                "ubsi:stats:branch:all:UBSI Pontianak": {"perm1"},
+                f"ubsi:stats:branch:30:{old_retained}": {"ret1"},
+                f"ubsi:stats:branch:UBSI Pontianak:{today}": {"act1"},
+            }
+            self.expiries = {}
+
+        async def sadd(self, key, *members):
+            target = self.branch_sets.setdefault(key, set())
+            target.update(members)
+            return len(members)
+
+        async def expire(self, key, ttl):
+            self.expiries[key] = ttl
+            return True
+
+        async def keys(self, pattern):
+            if "branch:" in pattern:
+                return [k for k in sorted(self.branch_sets) if k.startswith("ubsi:stats:branch:")]
+            if "program:" in pattern:
+                return [k for k in sorted(self.branch_sets) if k.startswith("ubsi:stats:program:")]
+            return await super().keys(pattern)
+
+        async def smembers(self, key):
+            if key in self.branch_sets:
+                return set(self.branch_sets[key])
+            return set()
+
+    fake = FullBranchRedis()
+    with patch("app.cache.cache.get_client", return_value=fake):
+        await record_profile("12345678", "05", "Sistem Informasi")
+        stats = await get_public_stats()
+
+    assert "ubsi:stats:branch:all:UBSI Bekasi" in fake.branch_sets
+    assert "ubsi:stats:branch:all:UBSI Bekasi" not in fake.expiries
+    assert fake.branch_sets["ubsi:stats:branch:all:UBSI Pontianak"] == {"perm1", "ret1", "act1"}
+    assert stats["branches"] == [
+        {"name": "UBSI Pontianak", "active_users_30d": 1, "total_all_time": 3},
+        {"name": "UBSI Bekasi", "active_users_30d": 1, "total_all_time": 1},
     ]
 
 

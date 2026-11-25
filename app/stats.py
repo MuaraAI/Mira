@@ -83,11 +83,68 @@ async def record_profile(nim: str, branch: str | None, program: str | None) -> N
             normalized = " ".join((value or "").split())[:80]
             if not normalized:
                 continue
+            if dimension == "branch":
+                normalized = branch_display(normalized) or normalized
             key = f"{_PREFIX}{dimension}:{normalized}:{day}"
             await client.sadd(key, user_id)
             await client.expire(key, _RETENTION_SECONDS)
+            if dimension == "branch":
+                # Set permanen per cabang (tanpa expire) agar total_all_time tidak ikut kedaluwarsa.
+                await client.sadd(f"{_PREFIX}branch:all:{normalized}", user_id)
     except Exception:
         pass
+
+
+async def _collect_branch_stats(client: Any, valid_30d_days: set[str]) -> list[dict[str, Any]]:
+    """Kumpulkan statistik aktif 30 hari dan total kumulatif all-time per cabang UBSI."""
+    keys = await _iter_keys(client, f"{_PREFIX}branch:*:*")
+    grouped_30d: dict[str, set[str]] = {}
+    retained: dict[str, set[str]] = {}
+    perm_members: dict[str, set[str]] = {}
+    all_time: dict[str, set[str]] = {}
+
+    for key in keys:
+        parts = key.split(":")
+        if len(parts) < 5:
+            continue
+        if parts[3] == "all":
+            raw_name = ":".join(parts[4:])
+            name = branch_display(raw_name) or raw_name
+            members = set(await client.smembers(key))
+            perm_members.setdefault(name, set()).update(members)
+            all_time.setdefault(name, set()).update(members)
+            continue
+
+        raw_name = ":".join(parts[3:-1])
+        # Kode mentah SIAKAD ("30", "05") dan nama tampilan ("UBSI Pontianak", "UBSI Bekasi")
+        # adalah kampus yang sama: satukan di sumber agar tidak dihitung dobel.
+        name = branch_display(raw_name) or raw_name
+        members = set(await client.smembers(key))
+        retained.setdefault(name, set()).update(members)
+        all_time.setdefault(name, set()).update(members)
+        if parts[-1] in valid_30d_days:
+            grouped_30d.setdefault(name, set()).update(members)
+
+    sadd = getattr(client, "sadd", None)
+    if sadd is not None:
+        for name, ids in retained.items():
+            missing = ids - perm_members.get(name, set())
+            if missing:
+                await sadd(f"{_PREFIX}branch:all:{name}", *missing)
+
+    branches = [
+        {
+            "name": name,
+            "active_users_30d": len(grouped_30d.get(name, set())),
+            "total_all_time": max(len(grouped_30d.get(name, set())), len(all_ids)),
+        }
+        for name, all_ids in all_time.items()
+    ]
+    branches.sort(
+        key=lambda item: (item["active_users_30d"], item["total_all_time"]),
+        reverse=True,
+    )
+    return branches
 
 
 async def _sum_requests(client: Any, days: int) -> int:
@@ -156,25 +213,18 @@ async def get_public_stats() -> dict[str, Any]:
         }
 
         valid_30d_days = {_day(offset) for offset in range(30)}
-        branches: list[dict[str, Any]] = []
+        branches = await _collect_branch_stats(client, valid_30d_days)
         programs: list[dict[str, Any]] = []
-        for dimension, output in (("branch", branches), ("program", programs)):
-            keys = await _iter_keys(client, f"{_PREFIX}{dimension}:*:*")
-            grouped: dict[str, set[str]] = {}
-            for key in keys:
-                parts = key.split(":")
-                if len(parts) < 5:
-                    continue
-                if parts[-1] not in valid_30d_days:
-                    continue
-                name = ":".join(parts[3:-1])
-                if dimension == "branch":
-                    # Kode mentah SIAKAD ("30", "05") dan nama tampilan ("UBSI Pontianak", "UBSI Bekasi")
-                    # adalah kampus yang sama: satukan di sumber agar tidak dihitung dobel.
-                    name = branch_display(name) or name
-                grouped.setdefault(name, set()).update(await client.smembers(key))
-            output.extend({"name": name, "active_users_30d": len(ids)} for name, ids in grouped.items())
-            output.sort(key=lambda item: item["active_users_30d"], reverse=True)
+        program_keys = await _iter_keys(client, f"{_PREFIX}program:*:*")
+        grouped_programs: dict[str, set[str]] = {}
+        for key in program_keys:
+            parts = key.split(":")
+            if len(parts) < 5 or parts[3] == "all" or parts[-1] not in valid_30d_days:
+                continue
+            name = ":".join(parts[3:-1])
+            grouped_programs.setdefault(name, set()).update(await client.smembers(key))
+        programs.extend({"name": name, "active_users_30d": len(ids)} for name, ids in grouped_programs.items())
+        programs.sort(key=lambda item: item["active_users_30d"], reverse=True)
 
         return {
             "service": "Mira API",
