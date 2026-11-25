@@ -212,7 +212,7 @@ npm run dev
 | Sesi login dashboard (`ubsi_session`, AES-256-GCM, 7 hari sliding), cache hasil scraping, sesi kampus MyBest/SIAKAD, stats publik, rate-limit, dedup notifikasi | **Redis** (db 2) | `REDIS_URL` |
 | Social v3: profil komunitas, chat, spaces, mention, reaksi, persahabatan | **Supabase Postgres** — fallback SQLite (tabel `social_*`) saat `SUPABASE_DB_URL` kosong | `SUPABASE_DB_URL` |
 | Upload media avatar/banner komunitas | Disk lokal | `data/social_media/` |
-| Backup harian | VPS `/home/ubuntu/backups/mira` + Google Drive `cg:MuaraAI/backups/mira` | cron `backup_db.sh` |
+| Backup otomatis (4x/hari) | VPS `/home/ubuntu/backups/mira` + Google Drive `cg:AutoBackup/MuaraAI/Mira` | cron `backup_db.sh` (`30 3,9,15,21 * * *`) |
 
 * Pemilih driver social ada di `app/social/db.py` → `using_postgres()`. Kode social HARUS lewat `transaction()`/`connect()` dari modul itu — dilarang bikin koneksi psycopg/sqlite sendiri.
 * `social_*` di SQLite = fallback/offline (test suite & dev). Produksi = Supabase.
