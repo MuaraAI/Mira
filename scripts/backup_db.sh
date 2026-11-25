@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
-# Backup harian DB core Mira (SQLite) + media uploads komunitas.
+# Backup otomatis 4x sehari DB core Mira (SQLite) + media uploads komunitas.
 # Aman dijalankan saat aplikasi live (sqlite3 .backup memakai snapshot WAL).
-# Cron: 30 3 * * * /opt/ubsi-api/scripts/backup_db.sh >> /home/ubuntu/backups/mira/backup.log 2>&1
+# Cron: 30 3,9,15,21 * * * /opt/ubsi-api/scripts/backup_db.sh >> /home/ubuntu/backups/mira/backup.log 2>&1
 set -euo pipefail
 
+PATH="${PATH:-/usr/local/bin:/usr/bin:/bin}:/usr/local/bin:/usr/bin:/bin"
+
 DB="${DB_PATH:-/opt/ubsi-api/data/ubsi.db}"
-MEDIA_DIR="/opt/ubsi-api/data/social_media"
+MEDIA_DIR="${MEDIA_DIR:-/opt/ubsi-api/data/social_media}"
 DEST="${BACKUP_DIR:-/home/ubuntu/backups/mira}"
-KEEP_DAYS=14
+GDRIVE_DEST="${GDRIVE_DEST:-cg:AutoBackup/MuaraAI/Mira}"
+KEEP_DAYS="${KEEP_DAYS:-14}"
 
 mkdir -p "$DEST"
 STAMP="$(date +%Y%m%d-%H%M)"
@@ -23,16 +26,19 @@ if [ "$(sqlite3 "$OUT" 'PRAGMA integrity_check;')" != "ok" ]; then
     exit 1
 fi
 
-# 3. Arsipkan DB + media uploads (avatar/banner komunitas) jadi satu paket.
-tar -czf "$OUT.tar.gz" -C "$(dirname "$DB")" "$(basename "$DB")" -C / opt/ubsi-api/data/social_media 2>/dev/null || \
-    tar -czf "$OUT.tar.gz" -C "$(dirname "$DB")" "$(basename "$DB")"
+# 3. Arsipkan snapshot DB terverifikasi (+ media uploads komunitas jika ada).
+if [ -d "$MEDIA_DIR" ]; then
+    tar -czf "$OUT.tar.gz" -C "$DEST" "$(basename "$OUT")" -C "$(dirname "$MEDIA_DIR")" "$(basename "$MEDIA_DIR")"
+else
+    tar -czf "$OUT.tar.gz" -C "$DEST" "$(basename "$OUT")"
+fi
 rm -f "$OUT"
 
-# 4. Off-site: unggah arsip ke Google Drive (cg:MuaraAI/backups/mira).
+# 4. Off-site: unggah arsip ke Google Drive (cg:AutoBackup/MuaraAI/Mira).
 if command -v rclone >/dev/null 2>&1; then
-    rclone copyto "$OUT.tar.gz" "cg:MuaraAI/backups/mira/$(basename "$OUT.tar.gz")" \
-        && rclone delete "cg:MuaraAI/backups/mira" --min-age 30d \
-        && echo "$(date -Is) OFF-SITE OK: cg:MuaraAI/backups/mira/$(basename "$OUT.tar.gz")"
+    rclone copyto "$OUT.tar.gz" "$GDRIVE_DEST/$(basename "$OUT.tar.gz")" \
+        && rclone delete "$GDRIVE_DEST" --min-age 30d \
+        && echo "$(date -Is) OFF-SITE OK: $GDRIVE_DEST/$(basename "$OUT.tar.gz")"
 else
     echo "$(date -Is) rclone tidak ditemukan, lewati off-site" >&2
 fi
