@@ -16,19 +16,17 @@ import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { Monogram } from "@/components/Monogram";
 import { FocusDialog } from "@/components/FocusDialog";
 import { lockScroll } from "@/lib/scroll-lock";
-import { LoginTodayBadge } from "@/components/SecurityWidgets";
+import { DashboardHeaderActions } from "@/components/DashboardHeaderActions";
 import type { SocialProfile } from "@/lib/social";
 
 export function DashboardMobileNav({
   nim,
   profile = null,
   hasSiakad = true,
-  authed = false,
 }: {
   nim?: string | null;
   profile?: SocialProfile | null;
   hasSiakad?: boolean;
-  authed?: boolean;
 }) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
@@ -68,7 +66,7 @@ export function DashboardMobileNav({
         </Link>
 
         <div className="flex items-center gap-1.5">
-          {authed && <LoginTodayBadge compact />}
+          <DashboardHeaderActions compact />
           <Link
             href="/dashboard/notifikasi"
             aria-label="Buka pengaturan notifikasi"

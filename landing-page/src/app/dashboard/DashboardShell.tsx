@@ -11,7 +11,8 @@ import { DashboardMobileNav } from "@/components/DashboardMobileNav";
 import { MuaraBackdrop } from "@/components/MuaraBackdrop";
 import { SOCIAL_PROFILES } from "@/components/SocialIcons";
 import PwaPushBanner from "@/components/PwaPushBanner";
-import { DefaultPasswordBanner, LoginTodayBadge } from "@/components/SecurityWidgets";
+import { DefaultPasswordBanner } from "@/components/SecurityWidgets";
+import { DashboardHeaderActions } from "@/components/DashboardHeaderActions";
 import { DialogProvider } from "@/components/ConfirmDialog";
 import { MaintenanceContent } from "@/components/MaintenanceContent";
 import { useMaintenance } from "@/lib/maintenance";
@@ -118,7 +119,7 @@ function ShellLayout({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Mobile Navigation (Topbar, Bottom dock & Drawer) */}
-      <DashboardMobileNav nim={nim} profile={socialProfile} hasSiakad={hasSiakad} authed={authed} />
+      <DashboardMobileNav nim={nim} profile={socialProfile} hasSiakad={hasSiakad} />
 
       {/* Main Content Area */}
       <div
@@ -160,7 +161,7 @@ function ShellLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-2.5">
-            {authed && <LoginTodayBadge />}
+            <DashboardHeaderActions />
 
             <div className="flex items-center gap-0.5" aria-label="Follow media sosial Mira">
               {SOCIAL_PROFILES.map(({ id, name, handle, href, icon: Icon }) => (

@@ -2,45 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { KeyRound, LogIn, ShieldAlert, X } from "lucide-react";
+import { KeyRound, ShieldAlert, X } from "lucide-react";
 import { PASSWORD_SYSTEM_LABEL, useSecurityStatus, usesDefaultPassword } from "@/lib/security";
-
-/** Jumlah login sukses hari ini untuk akun ini. Merah bila ada login gagal (indikasi orang lain mencoba). */
-export function LoginTodayBadge({ compact = false }: { compact?: boolean }) {
-  const { data } = useSecurityStatus();
-  const logins = data?.logins_today ?? null;
-  const failed = data?.failed_today ?? 0;
-  const alert = failed > 0;
-  const label =
-    logins === null
-      ? "Memuat jumlah login hari ini"
-      : `${logins} kali login hari ini${alert ? `, ${failed} kali gagal` : ""}. Buka Sesi & Keamanan`;
-
-  return (
-    <Link
-      href="/dashboard/sesi"
-      aria-label={label}
-      title={label}
-      className={`flex shrink-0 items-center gap-1.5 rounded-[5px] border-[1px] border-stroke border-l-[2.5px] bg-white font-mono text-[11px] font-medium text-foreground transition-colors hover:border-[#072033] ${
-        compact ? "h-8 px-2.5" : "h-9 px-2.5"
-      } ${alert ? "border-l-[#BE123C]" : "border-l-[#0369A1]"}`}
-    >
-      {alert ? (
-        <ShieldAlert className="h-3.5 w-3.5 shrink-0 text-[#BE123C]" aria-hidden="true" />
-      ) : (
-        <LogIn className="h-3.5 w-3.5 shrink-0 text-[#0369A1]" aria-hidden="true" />
-      )}
-      <span className="tabular-nums" aria-hidden="true">{logins ?? "-"}x</span>
-      {!compact && <span className="text-secondary" aria-hidden="true">login hari ini</span>}
-      {compact && !alert && <span className="text-secondary" aria-hidden="true">login</span>}
-      {alert && (
-        <span className="font-semibold text-[#BE123C] tabular-nums" aria-hidden="true">
-          · {failed} gagal
-        </span>
-      )}
-    </Link>
-  );
-}
 
 const DISMISS_KEY = "mira_default_pw_reminder_dismissed";
 
