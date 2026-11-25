@@ -56,9 +56,9 @@ export function TodayClassCard({
   const watching = item.timing?.state === "soon" || item.timing?.state === "live";
   const path = item.token ? `/v1/elearning/presence?token=${item.token}` : "";
   const presence = useApi<PresenceState>(path, {
-    ttlMs: 10_000,
+    ttlMs: 4_000,
     persistMs: 10 * 60_000,
-    refreshMs: watching ? 20_000 : null,
+    refreshMs: watching ? 10_000 : null,
   });
   const [submitting, setSubmitting] = useState(false);
   const [justPresent, setJustPresent] = useState(false);
