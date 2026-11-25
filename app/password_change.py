@@ -205,8 +205,8 @@ def change_upstream_password(system: str, nim: str, old: str, new: str) -> Chang
             if getattr(client, "_login_failure", None) == "captcha":
                 return ChangeResult(
                     "login_failed",
-                    f"{label} kini mewajibkan CAPTCHA. Ganti password lewat situs resmi "
-                    f"{client.BASE_URL} lalu login ulang di Mira.",
+                    f"Verifikasi keamanan {label} di server sementara gagal. "
+                    f"Coba lagi sebentar atau ganti password lewat situs resmi {client.BASE_URL}.",
                 )
             return ChangeResult("login_failed", f"Password {label} saat ini ditolak server kampus.")
         page_url = f"{client.BASE_URL}{spec['path']}"

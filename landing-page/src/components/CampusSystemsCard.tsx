@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Clock, ExternalLink, GraduationCap, Link2Off, School } from "lucide-react";
-import { apiFetch, ApiError, clearApiCache, useApi } from "@/lib/api";
+import { apiFetch, ApiError, clearApiCache, notifyAuthChanged, useApi } from "@/lib/api";
 import { ghostButtonClass, inputClass } from "@/components/dashboard-ui";
+import { notifySecurityChanged } from "@/lib/security";
 
 /** Bentuk data dari `GET /v1/auth/me` (lihat docs/api.md). */
 export interface MeLinks {
@@ -82,6 +83,9 @@ export function CampusSystemsCard({ me, onChanged }: { me: MeLinks | null; onCha
       setLinking(false);
       clearApiCache("/v1/auth/me");
       clearApiCache("/v1/auth/security");
+      clearApiCache("/v1/studentv2/");
+      notifyAuthChanged();
+      notifySecurityChanged();
       onChanged?.();
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : null;
@@ -103,6 +107,9 @@ export function CampusSystemsCard({ me, onChanged }: { me: MeLinks | null; onCha
       setFeedback({ ok: true, message: "Tautan SIAKAD dilepas." });
       clearApiCache("/v1/auth/me");
       clearApiCache("/v1/auth/security");
+      clearApiCache("/v1/studentv2/");
+      notifyAuthChanged();
+      notifySecurityChanged();
       onChanged?.();
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : null;
@@ -173,41 +180,59 @@ export function CampusSystemsCard({ me, onChanged }: { me: MeLinks | null; onCha
             SIAKAD belum tertaut. Hubungkan supaya KRS, KHS, dan jadwal kuliah muncul di Mira.
           </p>
           {linking ? (
-            <form onSubmit={linkSiakad} className="flex flex-col gap-2 sm:flex-row">
-              <label className="sr-only" htmlFor="siakad-password">
-                Password SIAKAD
-              </label>
-              <input
-                id="siakad-password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-                placeholder="Password SIAKAD"
-                className={`${inputClass} min-w-0 flex-1`}
-                required
-              />
-              <div className="flex gap-2">
-                <button type="submit" disabled={busy !== null} className={`${ghostButtonClass} shrink-0 text-xs`}>
-                  {busy === "link" ? "Menghubungkan..." : "Hubungkan"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLinking(false);
-                    setPassword("");
-                  }}
-                  disabled={busy !== null}
-                  className={`${ghostButtonClass} shrink-0 text-xs`}
+            <form onSubmit={linkSiakad} className="space-y-2">
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <label className="sr-only" htmlFor="siakad-password">
+                  Password SIAKAD
+                </label>
+                <input
+                  id="siakad-password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                  placeholder="Password SIAKAD"
+                  className={`${inputClass} min-w-0 flex-1`}
+                  required
+                />
+                <div className="flex gap-2">
+                  <button type="submit" disabled={busy !== null} className={`${ghostButtonClass} shrink-0 text-xs`}>
+                    {busy === "link" ? "Menghubungkan..." : "Hubungkan"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLinking(false);
+                      setPassword("");
+                    }}
+                    disabled={busy !== null}
+                    className={`${ghostButtonClass} shrink-0 text-xs`}
+                  >
+                    Batal
+                  </button>
+                </div>
+              </div>
+              <div>
+                <Link
+                  href="/lupa-password?system=siakad"
+                  className="text-[11.5px] font-medium text-[#0369A1] hover:underline"
                 >
-                  Batal
-                </button>
+                  Lupa password SIAKAD?
+                </Link>
               </div>
             </form>
           ) : (
-            <button type="button" onClick={() => setLinking(true)} className={`${ghostButtonClass} text-xs`}>
-              Hubungkan SIAKAD
-            </button>
+            <div className="flex flex-wrap items-center gap-3">
+              <button type="button" onClick={() => setLinking(true)} className={`${ghostButtonClass} text-xs`}>
+                Hubungkan SIAKAD
+              </button>
+              <Link
+                href="/lupa-password?system=siakad"
+                className="text-xs font-medium text-[#0369A1] hover:underline"
+              >
+                Lupa password SIAKAD?
+              </Link>
+            </div>
           )}
         </div>
       )}
@@ -241,7 +266,7 @@ export function CampusSystemsCard({ me, onChanged }: { me: MeLinks | null; onCha
       <p className="flex items-start gap-2 border-t border-stroke/60 pt-3 text-[11px] leading-relaxed text-secondary">
         <Link2Off className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
         Kalau kamu ganti password di portal kampus, Mira akan meminta login ulang karena password lama tidak bisa dipakai lagi.
-        Mencabut izin perangkat atau logout dari semua sesi juga langsung mengakhiri sesi.
+        Logout dari semua sesi juga langsung mengakhiri sesi di seluruh perangkat aktif.
       </p>
     </section>
   );

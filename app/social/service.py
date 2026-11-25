@@ -865,8 +865,9 @@ def _join(conn: sqlite3.Connection, nim: str, space: sqlite3.Row) -> Outcome:
     conn.execute("INSERT INTO social_members (space_id, nim, role) VALUES (?, ?, 'member')", (space_id, nim))
     # Anggota baru mulai dari kondisi "sudah dibaca" supaya riwayat lama tidak jadi tumpukan unread.
     conn.execute(
-        "INSERT OR REPLACE INTO social_participants (conversation_id, nim, last_read_id) "
-        "SELECT id, ?, COALESCE(last_message_id, 0) FROM social_conversations WHERE space_id = ?",
+        "INSERT INTO social_participants (conversation_id, nim, last_read_id) "
+        "SELECT id, ?, COALESCE(last_message_id, 0) FROM social_conversations WHERE space_id = ? "
+        "ON CONFLICT (conversation_id, nim) DO UPDATE SET last_read_id = excluded.last_read_id",
         (nim, space_id),
     )
     detail = _space_detail(conn, space_id, "member")

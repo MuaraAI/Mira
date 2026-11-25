@@ -1,7 +1,5 @@
 from typing import Any
-import os
 from fastapi import Request, HTTPException, status
-from app.account_devices import require_trusted_device
 from app.account_links import get_link_secret, get_link_status
 from app.config import Settings, settings
 from app.envelope import error_response
@@ -65,8 +63,6 @@ async def require_studentv2_creds(
         nim = getattr(request.state, "nim", None)
         auth_type = getattr(request.state, "auth_type", "session")
         if nim and auth_type in ("session", "api_key"):
-            if auth_type == "session":
-                await require_trusted_device(request)
             return str(nim), await _require_canonical_siakad(str(nim))
 
     raise HTTPException(

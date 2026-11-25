@@ -97,9 +97,8 @@ To prevent concurrent requests from different student credentials from overwriti
 - Expired sessions trigger immediate invalidation so subsequent calls trigger a clean re-login.
 - Active campus cookies are persisted in Redis (`app/campus_session_store.py`) and restored reactively on expiry via `app/upstream_session.py` (with login cooldowns on CAPTCHA/HTTP 429).
 
-### B. Canonical Account Links & Per-Device Authorization
-- **Canonical SIAKAD Links (`app/account_links.py`)**: Per-NIM SIAKAD credentials are stored in SQLite (`account_links`, encrypted with Fernet) so students do not have to re-link across devices; Personal API Keys read from this canonical store.
-- **Per-Device Approval (`app/account_devices.py` + `app/device_identity.py`)**: Browsers receive an `HttpOnly` `mira_device` cookie (180 days). The first device for a NIM is automatically `trusted`; subsequent devices start as `pending` until approved by a trusted device (idle approvals auto-revoke after 30 days). `pending` devices can use MyBest, while SIAKAD endpoints and persistent writes (API keys, PWA push, webhooks) return `403 SIAKAD_DEVICE_PENDING`.
+### B. Canonical Account Links
+- **Canonical SIAKAD Links (`app/account_links.py`)**: Per-NIM SIAKAD credentials are stored in SQLite (`account_links`, encrypted with Fernet) so students do not have to re-link across sessions or devices; Personal API Keys and background workers read directly from this canonical store. When the campus portal rejects a stored SIAKAD password, the link is marked `needs_relink` and SIAKAD endpoints return `409 SIAKAD_RELINK_REQUIRED`.
 
 ### C. Parallel Dashboard Endpoint (`/v1/studentv2/dashboard` & `/v1/elearning/dashboard`)
 Retrieves 4 critical academic sections (`schedule`, `grades`, `news`, `announcements`) concurrently using `asyncio.gather(..., return_exceptions=True)`:
@@ -128,7 +127,7 @@ Mira includes an automated background watcher for new campus publications:
 UBSI-API/ (Repo: MuaraAI/Mira)
 ├── app/
 │   ├── modules/
-│   │   ├── auth.py            # Auth: Login MyBest-only, session, devices, keys, credentials, password, forgot-password
+│   │   ├── auth.py            # Auth: Login MyBest-only, session, keys, credentials, password, forgot-password
 │   │   ├── capabilities.py    # Public feature flags (`GET /v1/capabilities`)
 │   │   ├── studentv2.py       # SIAKAD: Profil akademik, Jadwal, Nilai, KHS/KHS-semester, KRS+cetak, UTS/UAS, Dashboard
 │   │   ├── elearning.py       # MyBest: Courses, Schedule, Absensi, Tugas, Materi, Kuis CBT, TOEFL, Ujian, Rekap Nilai
@@ -149,8 +148,6 @@ UBSI-API/ (Repo: MuaraAI/Mira)
 │   │   ├── events.py          # Fan-out realtime Redis pub/sub per pengguna (fail-open)
 │   │   └── media.py           # Upload & serving avatar/banner komunitas (`data/social_media/`)
 │   ├── account_links.py       # Store kanonis tautan kredensial SIAKAD per NIM (SQLite, Fernet)
-│   ├── account_devices.py     # Manajemen izin perangkat (trusted/pending/revoked, 30d idle revoke)
-│   ├── device_identity.py     # Cookie perangkat HttpOnly `mira_device` (180 hari)
 │   ├── api_keys_db.py         # Personal API Keys (`muara_mira_*` / legacy `muara_ubsi_*`), BLAKE2b + Fernet
 │   ├── cache.py               # Redis 2-tier cache (fresh + LGG) & single-flight mutex
 │   ├── campus_session_store.py# Persistensi cookie sesi kampus di Redis

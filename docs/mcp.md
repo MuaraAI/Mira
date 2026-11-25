@@ -223,6 +223,6 @@ Setiap tool mengembalikan format JSON standar:
 Kode galat umum yang perlu diperhatikan:
 - `UNAUTHORIZED`: Header `Authorization: Bearer muara_mira_***` (atau legacy `muara_ubsi_***`) tidak disertakan atau salah.
 - `SESSION_EXPIRED`: Sesi akun kampus di Redis telah berakhir; login kembali melalui web dashboard untuk memperbarui sesi.
-- `SIAKAD_DEVICE_PENDING` / `SIAKAD_RELINK_REQUIRED`: Akses SIAKAD butuh perangkat tepercaya atau tautan SIAKAD perlu diperbarui di Sesi & Keamanan.
+- `SIAKAD_RELINK_REQUIRED`: Tautan SIAKAD perlu diperbarui di Sesi & Keamanan.
 - `INVALID_PATH` / `INVALID_URL`: Format URL atau token mengandung skema terlarang (proteksi anti-SSRF).
 - `UPSTREAM_TIMEOUT`: Portal kampus sedang dalam masa pemeliharaan (server akan otomatis melayani data dari *Last-Known-Good cache* dengan status `"stale": true`).

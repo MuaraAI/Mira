@@ -2,7 +2,6 @@
 import pytest
 from starlette.requests import Request
 from fastapi import HTTPException
-from app.account_devices import ensure_device, init_account_devices_db
 from app.account_links import init_account_links_db, set_link
 from app.config import Settings, settings
 from app.deps import require_elearning_creds, require_studentv2_creds
@@ -12,7 +11,6 @@ from app.deps import require_elearning_creds, require_studentv2_creds
 async def tmp_accounts_db(monkeypatch, tmp_path):
     monkeypatch.setattr(settings, "SQLITE_DB_PATH", str(tmp_path / "accounts.sqlite3"))
     await init_account_links_db()
-    await init_account_devices_db()
 
 
 def _request(headers=None) -> Request:
@@ -20,16 +18,13 @@ def _request(headers=None) -> Request:
 
 
 async def test_tier1_session_credentials(tmp_accounts_db):
-    """Sesi trusted membaca password SIAKAD dari store kanonis, bukan salinan sesi."""
-    await ensure_device("12345678", "dev-a", label="Chrome", user_agent="UA")
+    """Sesi aktif membaca password SIAKAD dari store kanonis, bukan salinan sesi."""
     await set_link("12345678", "siakad", kind="password", secret="kanonis-pass")
 
     req = _request()
     req.state.nim = "12345678"
     req.state.elearning_pass = "session_el_pass"
     req.state.auth_type = "session"
-    req.state.device_id = "dev-a"
-    req.state.device_cookie_id = "dev-a"
 
     el_nim, el_pwd = require_elearning_creds(req)
     assert el_nim == "12345678"

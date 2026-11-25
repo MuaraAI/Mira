@@ -557,8 +557,7 @@ class StudentV2Client(UpstreamSession):
                     return False
                 token = m.group(1)
                 if _siakad_captcha_required(r1.text) and captcha is None:
-                    self._login_failure = "captcha"
-                    return False
+                    return self._ocr_login(nim, password)
 
             payload: dict[str, str] = {
                 "_token": token,
@@ -599,6 +598,81 @@ class StudentV2Client(UpstreamSession):
         except Exception as err:
             logger.error("SIAKAD login exception for %s: %s", nim, err)
             return False
+
+    def _ocr_login(self, nim: str, password: str) -> bool:
+        """Login latar SIAKAD dengan menyelesaikan CAPTCHA gambar memakai OCR otomatis."""
+        from app.captcha_autosolver import candidate_session_sync
+
+        attempts = 5
+        login_url = f"{self.BASE_URL}/login"
+        self._login_errors = []
+        for attempt in range(attempts):
+            try:
+                challenge = candidate_session_sync("siakad", nim)
+            except Exception as err:
+                logger.warning("CAPTCHA SIAKAD gagal dibuat untuk %s: %s", nim, err)
+                self._login_failure = "captcha"
+                self._login_errors = []
+                return False
+            if not challenge:
+                self._login_failure = "captcha"
+                return False
+            session, candidates = challenge
+            if not candidates:
+                self._login_failure = "captcha"
+                logger.info(
+                    "OCR CAPTCHA SIAKAD kosong percobaan %s/%s nim=%s",
+                    attempt + 1,
+                    attempts,
+                    nim,
+                )
+                continue
+            token = str(session.get("token") or "")
+            if not token:
+                self._login_failure = "captcha"
+                continue
+            client = self.get_client()
+            apply_session_cookies(client, session.get("cookies") or {}, self.BASE_URL)
+            r2 = client.post(
+                login_url,
+                data={
+                    "_token": token,
+                    "username": nim,
+                    "password": password,
+                    "remember": "on",
+                    "captcha": candidates[0],
+                },
+            )
+            final_url = str(r2.url)
+            if (
+                "mahasiswa/beranda" in final_url
+                or "students.bsi.ac.id/mahasiswa" in final_url
+                or "studentv2.bsi.ac.id/mahasiswa" in final_url
+            ):
+                self._mark_logged_in(nim)
+                return True
+            if r2.status_code == 429:
+                self._login_failure = "throttled"
+                self._login_errors = []
+                return False
+            reason, errors = classify_login_failure(r2.text, _siakad_captcha_required(r2.text))
+            self._login_failure, self._login_errors = reason, errors
+            logger.info(
+                "OCR SIAKAD percobaan %s/%s nim=%s alasan=%s pesan=%s",
+                attempt + 1,
+                attempts,
+                nim,
+                reason,
+                (errors[0][:80] if errors else "-"),
+            )
+            if reason == "credentials":
+                _mark_siakad_link_needs_relink(nim, password)
+                return False
+            if reason != "captcha":
+                return False
+        if not self._login_failure or self._login_failure == "unknown":
+            self._login_failure = "captcha"
+        return False
 
     def fetch_page(self, path: str, nim: str, password: str) -> str:
         # Sesi upstream sliding 45 menit; login ulang hanya saat kampus balas halaman login.

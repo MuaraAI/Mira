@@ -29,8 +29,6 @@ UBSI-API/ (Repo: MuaraAI/Mira)
 │   ├── campus_session_store.py# Persistensi cookie sesi kampus di Redis
 │   ├── upstream_session.py    # Cooldown login CAPTCHA/429 & pemulihan sesi kampus reaktif
 │   ├── account_links.py       # Store kanonis tautan kredensial per NIM (SQLite, terenkripsi Fernet)
-│   ├── account_devices.py     # Izin per perangkat (trusted/pending/revoked, idle revoke 30 hari)
-│   ├── device_identity.py     # Cookie perangkat HttpOnly `mira_device` (180 hari)
 │   ├── api_keys_db.py         # Personal API Key (`muara_mira_*` & legacy `muara_ubsi_*`), hash BLAKE2b + Fernet
 │   ├── channels_db.py         # Webhook channel user di SQLite WAL (config terenkripsi Fernet at-rest)
 │   ├── channel_validation.py  # Validasi payload & proteksi anti-SSRF webhook
@@ -210,7 +208,7 @@ npm run dev
 ### 0. Peta Database — siapa nyimpen apa (JANGAN TERTUKAR)
 | Data | Penyimpanan | Konfigurasi |
 |---|---|---|
-| Akun, tautan SIAKAD (`account_links`, Fernet), izin perangkat (`account_devices`), personal API key (`api_keys`, BLAKE2b + Fernet), channel webhook user (`webhook_channels`, Fernet at-rest), langganan PWA Web Push | **SQLite** (`data/ubsi.db`, WAL) | `SQLITE_DB_PATH` |
+| Akun, tautan SIAKAD (`account_links`, Fernet), personal API key (`api_keys`, BLAKE2b + Fernet), channel webhook user (`webhook_channels`, Fernet at-rest), langganan PWA Web Push | **SQLite** (`data/ubsi.db`, WAL) | `SQLITE_DB_PATH` |
 | Sesi login dashboard (`ubsi_session`, AES-256-GCM, 7 hari sliding), cache hasil scraping, sesi kampus MyBest/SIAKAD, stats publik, rate-limit, dedup notifikasi | **Redis** (db 2) | `REDIS_URL` |
 | Social v3: profil komunitas, chat, spaces, mention, reaksi, persahabatan | **Supabase Postgres** — fallback SQLite (tabel `social_*`) saat `SUPABASE_DB_URL` kosong | `SUPABASE_DB_URL` |
 | Upload media avatar/banner komunitas | Disk lokal | `data/social_media/` |
@@ -263,10 +261,7 @@ ubsi_session (Redis, 7 hari SLIDING)
 * Yang memaksa user login ulang **hanya** perubahan password kampus.
 * `SIAKAD_ENABLED=true` di produksi sejak 2026-11-19, tapi **login tetap MyBest-only**. `studentv2_pass` kosong berarti SIAKAD tidak disentuh; password SIAKAD **tidak diwarisi** dari password MyBest (dua sistem kampus punya password sendiri). User menautkan SIAKAD manual di Sesi & Keamanan lewat `POST /v1/auth/credentials`. Lihat `app/modules/auth.py` (blok `raw_sv_pass`).
 * `GET /v1/auth/me` mengembalikan `systems` (boolean, untuk gerbang UI), `session` (countdown dari TTL Redis), dan `links` (`linked_password`: `mybest` / `separate` / `null`). **Jangan mengubah bentuk `systems`** tanpa memperbarui `useRequireSession`, `ChangePasswordCard`, `AuthPortal`, dan `lib/security.ts`.
-* **Tautan kredensial milik NIM, bukan sesi.** Sejak 2026-11-23 password SIAKAD disimpan kanonis di SQLite `account_links` (terenkripsi Fernet), sehingga pindah device tidak perlu menautkan ulang. Sesi Redis hanya menyimpan `device_id`, bukan salinan SIAKAD yang otoritatif. API key juga membaca SIAKAD dari store ini.
-* **Izin per perangkat.** `account_devices` menyimpan device (`trusted`/`pending`/`revoked`) dengan aturan: device pertama untuk sebuah NIM otomatis `trusted`; device berikutnya `pending` sampai diizinkan device tepercaya; izin dicabut setelah 30 hari tanpa aktivitas. Device `pending` bebas memakai MyBest, tetapi semua jalur SIAKAD (baca maupun tulis) dibalas `403 SIAKAD_DEVICE_PENDING`, dan kredensial tersimpan yang ditolak kampus menjadi `409 SIAKAD_RELINK_REQUIRED`.
-* **Cookie perangkat** `mira_device` (HttpOnly, 180 hari) adalah satu-satunya bukti device; `device_id` dari payload sesi hanya untuk tampilan. Jalur tulis persisten (API key, langganan PWA, channel webhook) wajib device `trusted` supaya data SIAKAD tidak bisa dibawa keluar lewat jalur itu.
-* **`GET /v1/auth/me`** menambah `device: {status}` dan `links.siakad.status`; `GET /v1/auth/devices`, `POST /v1/auth/devices/{id}/approve`, dan `DELETE /v1/auth/devices/{id}` mengelola izin. Mencabut device tepercaya terakhir ditolak `409 LAST_TRUSTED_DEVICE`, dan `logout_all` tidak mencabut izin device.
+* **Tautan kredensial milik NIM, bukan sesi.** Password SIAKAD disimpan kanonis di SQLite `account_links` (terenkripsi Fernet), sehingga pindah device atau login ulang MyBest-only tidak perlu menautkan ulang. Personal API Key dan worker latar (`session_store.get_credentials_for_nim`) membaca store kanonis ini; kredensial tersimpan yang ditolak kampus ditandai `needs_relink` dan membalas `409 SIAKAD_RELINK_REQUIRED`.
 * CAPTCHA kampus diselesaikan server. Form login **tidak** menampilkan CAPTCHA. Endpoint `POST /v1/auth/captcha` sudah dihapus; jangan dihidupkan lagi.
 * Data pribadi SIAKAD **tidak diambil**. `parse_profile` memakai allowlist akademik; tempat/tanggal lahir, alamat, telepon, agama, jenis kelamin, dan kondisi biaya sengaja ditolak di parser. Menambah field ke allowlist = keputusan produk, bukan teknis.
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, LogIn, MailCheck, RotateCcw, Send } from "lucide-react";
 import { apiFetch, ApiError } from "@/lib/api";
 import { PASSWORD_SYSTEM_LABEL, PasswordSystem } from "@/lib/security";
@@ -54,9 +54,8 @@ function SystemToggle({
   onChange: (v: PasswordSystem) => void;
   disabled?: boolean;
 }) {
-  // Login dan reset password hanya untuk MyBest. Tautan SIAKAD dikelola di
-  // dalam dashboard (Sesi & Keamanan), bukan di layar login.
-  const systems: PasswordSystem[] = ["mybest"];
+  // Mahasiswa dapat memilih reset password MyBest maupun SIAKAD sesuai akun yang terkendala.
+  const systems: PasswordSystem[] = ["mybest", "siakad"];
   return (
     <div role="radiogroup" aria-label="Akun yang direset" className="grid grid-cols-2 gap-2">
       {systems.map((key) => {
@@ -134,6 +133,13 @@ export function ForgotPasswordView({
   const [error, setError] = useState<ApiError | null>(null);
   const { flag, bind, hasError, clear } = useFieldErrors();
 
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("system");
+    if (requested === "siakad" || requested === "mybest") {
+      setSystem(requested);
+    }
+  }, []);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (busy) return;
@@ -178,6 +184,11 @@ export function ForgotPasswordView({
   return (
     <form onSubmit={submit} noValidate className="login-form-in space-y-4">
       <SystemToggle value={system} onChange={setSystem} disabled={busy} />
+      {system === "siakad" && (
+        <p className="rounded-[12px] border-[1px] border-stroke bg-surface-alt px-3.5 py-2.5 text-[12px] leading-relaxed text-secondary">
+          Meminta reset password portal SIAKAD (students.bsi.ac.id). Setelah selesai, tautkan ulang password baru di menu Sesi &amp; Keamanan.
+        </p>
+      )}
 
       <div ref={bind("nim")}>
         <label htmlFor="forgot-nim" className="mb-2 block text-[13px] text-foreground">

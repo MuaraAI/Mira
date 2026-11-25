@@ -15,7 +15,6 @@ import {
   Clock,
   Award,
   FileText,
-  ShieldCheck,
 } from "lucide-react";
 import { apiFetch, ApiError, useApi, clearApiCache } from "@/lib/api";
 import PwaPushDeviceSection from "@/components/PwaPushDeviceSection";
@@ -56,7 +55,6 @@ const CATEGORY_ICONS: Record<NotificationCategoryId, typeof Clock> = {
   "pengumuman-siakad": GraduationCap,
   "nilai-keluar": Award,
   "jadwal-ujian": FileText,
-  "perangkat-baru": ShieldCheck,
 };
 
 const withIcons = (categories: ReturnType<typeof availableCategories>) =>

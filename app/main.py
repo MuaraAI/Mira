@@ -34,10 +34,8 @@ from app.modules.lecturers import router as lecturers_router
 from app.modules.academic_events import router as academic_events_router
 from app.stats import record_request
 
-from app.account_devices import get_device_status
 from app.account_links import import_legacy_siakad
 from app.cache import cache
-from app.device_identity import new_device_id, read_device_id
 
 _LEGACY_IMPORT_TTL_SECONDS = 30 * 24 * 3600
 _LEGACY_IMPORT_MARKER = "ubsi:acct:legacy_imported:{nim}"
@@ -130,13 +128,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await init_account_links_db()
     except Exception as exc:
         logger.error("Gagal menginisialisasi tautan akun: %s", exc, exc_info=True)
-
-    try:
-        from app.account_devices import init_account_devices_db
-
-        await init_account_devices_db()
-    except Exception as exc:
-        logger.error("Gagal menginisialisasi registry device: %s", exc, exc_info=True)
 
     async def _eviction_worker():
         from app.file_cache import file_cache
@@ -359,20 +350,10 @@ async def api_key_auth_middleware(request: Request, call_next):
             request.state.studentv2_pass = session_data["studentv2_pass"]
             request.state.session_expires_in = session_data.get("expires_in")
             request.state.auth_type = "session"
-            request.state.device_cookie_id = read_device_id(request)
-            request.state.device_id = (
-                request.state.device_cookie_id
-                or (session_data.get("device_id") or "")
-                or new_device_id()
-            )
             legacy_siakad_pass = session_data.get("studentv2_pass") or ""
-            if legacy_siakad_pass and request.state.device_cookie_id:
+            if legacy_siakad_pass:
                 try:
-                    cookie_device_trusted = (
-                        await get_device_status(session_data["nim"], request.state.device_cookie_id)
-                        == "trusted"
-                    )
-                    if cookie_device_trusted and not await _legacy_import_done(session_data["nim"]):
+                    if not await _legacy_import_done(session_data["nim"]):
                         await import_legacy_siakad(session_data["nim"], legacy_siakad_pass)
                         await _mark_legacy_imported(session_data["nim"])
                 except Exception as exc:

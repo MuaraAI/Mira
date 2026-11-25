@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowUpDown, ExternalLink, GraduationCap, Link2 } from "lucide-react";
 import { useApi } from "@/lib/api";
 import { EmptyState, ErrorState, LoadingState, ghostButtonClass, primaryButtonClass } from "@/components/dashboard-ui";
+import { SiakadGateNotice, siakadGateIssue } from "@/components/SiakadGateNotice";
 import { KHS_SORT_OPTIONS, sortKhsItems, type KhsSortKey } from "@/lib/dashboard-sort";
 interface KhsItem {
   no: number;
@@ -75,7 +76,11 @@ export function KhsSemesterCard() {
     );
   }
 
-  if (khs.error) return <ErrorState error={khs.error} onRetry={khs.reload} />;
+  if (khs.error) {
+    const gate = siakadGateIssue(khs.error);
+    if (gate) return <SiakadGateNotice kind={gate} />;
+    return <ErrorState error={khs.error} onRetry={khs.reload} />;
+  }
 
   const data = khs.data;
   const graded = data?.items ?? [];
