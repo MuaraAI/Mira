@@ -477,11 +477,25 @@ export interface AuthMeResponse {
   };
 }
 
+const AUTH_ME_CHANGED_EVENT = "mira:auth-me-changed";
+
+export function notifyAuthChanged() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(AUTH_ME_CHANGED_EVENT));
+  }
+}
+
 export function useRequireSession() {
   const router = useRouter();
   const { data, loading, error, reload } = useApi<AuthMeResponse>(
     "/v1/auth/me"
   );
+
+  useEffect(() => {
+    const onAuthChanged = () => reload();
+    window.addEventListener(AUTH_ME_CHANGED_EVENT, onAuthChanged);
+    return () => window.removeEventListener(AUTH_ME_CHANGED_EVENT, onAuthChanged);
+  }, [reload]);
 
   useEffect(() => {
     // Hanya redirect ke login jika request sudah SELESAI (bukan sedang loading)

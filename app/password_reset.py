@@ -129,6 +129,11 @@ def request_reset_link(system: str, email: str) -> CampusResult:
     try:
         http = client.get_client()
         page = http.get(f"{base}/forgot-password")
+        page_status = getattr(page, "status_code", 200)
+        if page_status == 429:
+            return CampusResult("throttled", "Link baru saja dikirim. Tunggu 1 menit sebelum minta lagi.")
+        if page_status >= 500:
+            return CampusResult("unknown", f"Server {label} sedang bermasalah ({page_status}). Coba lagi sebentar.")
         csrf = re.search(r'name=["\']_token["\']\s+value=["\']([^"\']+)', page.text) or re.search(
             r"X-CSRF-TOKEN['\"]\s*:\s*['\"]([^'\"]+)", page.text
         ) or re.search(r'name=["\']csrf-token["\']\s+content=["\']([^"\']+)', page.text)
@@ -140,10 +145,17 @@ def request_reset_link(system: str, email: str) -> CampusResult:
                 json={"email": email},
                 headers={"X-CSRF-TOKEN": csrf.group(1), "Accept": "application/json", "Referer": f"{base}/forgot-password"},
             )
+            resp_status = getattr(resp, "status_code", 200)
+            if resp_status == 429:
+                return CampusResult("throttled", "Link baru saja dikirim. Tunggu 1 menit sebelum minta lagi.")
+            if resp_status == 419:
+                return CampusResult("unknown", f"Sesi formulir {label} kedaluwarsa. Coba kirim ulang sebentar lagi.")
             try:
                 data = resp.json()
             except ValueError:
-                data = {}
+                data = None
+            if not isinstance(data, dict):
+                return CampusResult("unknown", f"Respons {label} tidak dikenali ({resp_status}). Coba lagi sebentar.")
             if resp.is_success and data.get("status") == "success":
                 return CampusResult("sent", data.get("message") or "Link reset dikirim ke email.")
             email_errors = (data.get("errors") or {}).get("email") or []
@@ -154,6 +166,13 @@ def request_reset_link(system: str, email: str) -> CampusResult:
             data={"_token": csrf.group(1), "email": email},
             headers={"Referer": f"{base}/forgot-password"},
         )
+        resp_status = getattr(resp, "status_code", 200)
+        if resp_status == 429:
+            return CampusResult("throttled", "Link baru saja dikirim. Tunggu 1 menit sebelum minta lagi.")
+        if resp_status == 419:
+            return CampusResult("unknown", f"Sesi formulir {label} kedaluwarsa. Coba kirim ulang sebentar lagi.")
+        if resp_status >= 500:
+            return CampusResult("unknown", f"Server {label} sedang bermasalah ({resp_status}). Coba lagi sebentar.")
         # Hanya pesan yang BARU muncul setelah submit (flash) yang dihitung, bukan teks statis halaman.
         base_err, base_ok = _page_messages(page.text)
         errors, successes = _page_messages(resp.text)

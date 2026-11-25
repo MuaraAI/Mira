@@ -15,7 +15,6 @@ import {
   MapPin,
   Plus,
   Search,
-  ShieldCheck,
   Trash2,
   UserCheck,
   X,
@@ -1311,14 +1310,10 @@ export function DemoNotifikasiView() {
 
 export function DemoSesiView() {
   const [siakadLinked, setSiakadLinked] = useState(true);
-  const [devices, setDevices] = useState([
-    { id: "dev1", name: "Browser Ini (Desktop)", current: true, status: "Tepercaya" },
-    { id: "dev2", name: "Android PWA", current: false, status: "Tepercaya" },
-  ]);
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Sesi & Keamanan" description="Tautan kredensial kampus dan izin perangkat." />
+      <PageHeader title="Sesi & Keamanan" description="Simulasi tautan kredensial kampus di akun Mira." />
 
       <div className="flex flex-col gap-3 rounded-[10px] border-[1px] border-stroke bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -1340,34 +1335,6 @@ export function DemoSesiView() {
         >
           {siakadLinked ? "Lepas Tautan" : "Tautkan SIAKAD"}
         </button>
-      </div>
-
-      <div className="rounded-[10px] border-[1px] border-stroke bg-white">
-        <p className="border-b-[1px] border-stroke px-5 py-3 font-mono text-[11px] uppercase tracking-[0.14em] text-secondary">
-          Perangkat Terdaftar
-        </p>
-        <div className="divide-y-[1px] divide-stroke">
-          {devices.map((d) => (
-            <div key={d.id} className="flex items-center justify-between gap-3 px-5 py-3.5">
-              <div className="flex items-center gap-2.5">
-                <ShieldCheck className="h-4 w-4 text-[#0F766E]" aria-hidden="true" />
-                <div>
-                  <p className="text-[13.5px] text-foreground">{d.name}</p>
-                  <p className="font-mono text-[11px] text-[#0F766E]">{d.status}</p>
-                </div>
-              </div>
-              {!d.current && (
-                <button
-                  type="button"
-                  onClick={() => setDevices((p) => p.filter((x) => x.id !== d.id))}
-                  className="min-h-[38px] rounded-[6px] border-[1px] border-[#FDA4AF] bg-white px-3 text-xs text-[#BE123C] hover:bg-[#FFF1F2]"
-                >
-                  Cabut Izin
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
       </div>
 
       <div className="flex justify-end">

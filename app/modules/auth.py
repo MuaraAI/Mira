@@ -32,19 +32,7 @@ from app.password_reset import (
 from app.proxy import get_proxy
 from app.upstream_session import clear_login_block
 
-from app.account_devices import (
-    approve_device,
-    device_handle,
-    resolve_device_handle,
-    ensure_device,
-    get_device_status,
-    list_devices,
-    require_trusted_device,
-    revoke_device,
-    LastTrustedDeviceError,
-)
-from app.account_links import get_link_status, set_link, unlink
-from app.device_identity import device_label, issue_device_cookie, new_device_id, read_device_id
+from app.account_links import get_link_secret, get_link_status, set_link, unlink
 
 
 def _session_cookie_options(request: Request) -> tuple[bool, Optional[str]]:
@@ -71,7 +59,7 @@ def _rejection_detail(system: str, reason: str, errors: list[str]) -> dict:
     if reason == "captcha":
         return error_response(
             code="CAPTCHA_INVALID",
-            message=f"Kode CAPTCHA {label} salah atau sudah kedaluwarsa. Isi kode dari gambar terbaru.{quoted}",
+            message=f"Verifikasi CAPTCHA {label} di server gagal atau kedaluwarsa. Coba lagi sebentar.{quoted}",
             module="auth",
         )
     if reason == "throttled":
@@ -418,10 +406,16 @@ async def login(req_body: LoginRequest, request: Request):
 
     from app.session_store import session_store
 
-    ua = request.headers.get("user-agent", "")
-    device_id = read_device_id(request) or new_device_id()
-    await ensure_device(nim, device_id, label=device_label(ua), user_agent=ua)
-    token = await session_store.create(nim, effective_sv_pass, el_pass, device_id=device_id)
+    if effective_sv_pass:
+        await set_link(nim, "siakad", kind="password", secret=effective_sv_pass, status="linked")
+    siakad_linked = bool(effective_sv_pass)
+    if not siakad_linked and settings.SIAKAD_ENABLED:
+        siakad_linked = (await get_link_status(nim, "siakad")) == "linked"
+    siakad_secret = effective_sv_pass
+    if not siakad_secret and siakad_linked:
+        siakad_secret = (await get_link_secret(nim, "siakad")) or ""
+
+    token = await session_store.create(nim, effective_sv_pass, el_pass)
 
     response = JSONResponse(
         status_code=status.HTTP_200_OK,
@@ -431,12 +425,12 @@ async def login(req_body: LoginRequest, request: Request):
                 "token": token,
                 "message": "Login berhasil. Session aktif 7 hari (sliding).",
                 "systems": {
-                    "siakad": bool(effective_sv_pass),
+                    "siakad": siakad_linked,
                     "mybest": True,
                 },
                 "warnings": warnings,
                 "default_password": {
-                    "siakad": is_default_password(effective_sv_pass) if effective_sv_pass else False,
+                    "siakad": is_default_password(siakad_secret) if siakad_secret else False,
                     "mybest": is_default_password(el_pass),
                 },
             }
@@ -454,7 +448,6 @@ async def login(req_body: LoginRequest, request: Request):
         samesite=cookie_samesite,
         domain=cookie_domain,
     )
-    issue_device_cookie(response, device_id, is_https=is_https, domain=cookie_domain)
     return response
 
 
@@ -534,7 +527,6 @@ async def me(request: Request):
             data={
                 "identity": "master",
                 "nim": None,
-                "device": {"status": "trusted"},
                 "session": None,
                 "systems": {"siakad": True, "mybest": True},
                 # Master memakai kredensial per-request (header), bukan sesi tertaut.
@@ -559,33 +551,6 @@ async def me(request: Request):
     sv_pass = getattr(request.state, "studentv2_pass", "") or ""
     el_pass = getattr(request.state, "elearning_pass", "") or ""
 
-    ua = request.headers.get("user-agent", "")
-    device_id = ""
-    device_status = "trusted"
-    if auth_type == "session":
-        device_id = getattr(request.state, "device_id", "") or new_device_id()
-        device_status = await get_device_status(nim, device_id)
-        if device_status != "missing":
-            # /me menyegarkan last_seen baris yang sudah ada.
-            device_status = await ensure_device(
-                nim, device_id, label=device_label(ua), user_agent=ua
-            )
-        elif not await list_devices(nim):
-            # Migrasi mulus sesi legasi (login sebelum fitur device-linking):
-            # jika NIM belum punya perangkat sama sekali, daftarkan perangkat aktif
-            # ini sebagai perangkat pertama (trusted) agar akses SIAKAD tidak terkunci 403.
-            device_status = await ensure_device(
-                nim, device_id, label=device_label(ua), user_agent=ua
-            )
-            session_token = request.cookies.get("ubsi_session") or _bearer_token(request)
-            if session_token:
-                try:
-                    from app.session_store import session_store
-
-                    await session_store.attach_device(session_token, device_id)
-                except Exception as exc:
-                    logger.warning("Gagal ikat device_id ke sesi legasi nim=%s: %s", nim, exc)
-
     link_status = await get_link_status(nim, "siakad")
     if link_status is None:
         # Sesi legasi belum punya baris kanonis; password di sesi menandakan tautan.
@@ -608,9 +573,12 @@ async def me(request: Request):
     # Password SIAKAD bisa berbeda dari MyBest (kampus memakai dua sistem akun).
     # `linked_password` memberi tahu UI apakah tautan SIAKAD memakai password
     # yang sama atau password terpisah, supaya user tidak bingung saat ganti.
+    sv_secret = sv_pass
+    if siakad_available and not sv_secret:
+        sv_secret = await get_link_secret(nim, "siakad") or ""
     if not siakad_available:
         linked_password = None
-    elif sv_pass and sv_pass == el_pass:
+    elif sv_secret and sv_secret == el_pass:
         linked_password = "mybest"
     else:
         linked_password = "separate"
@@ -618,7 +586,6 @@ async def me(request: Request):
     data = {
         "nim": nim,
         "auth_type": auth_type,
-        "device": {"status": device_status},
         "session": session_info,
         # Kontrak lama tetap: boolean siap pakai untuk gerbang UI.
         "systems": {"siakad": siakad_available, "mybest": bool(el_pass)},
@@ -637,109 +604,7 @@ async def me(request: Request):
             },
         },
     }
-    if auth_type == "session" and device_status != "missing" and not read_device_id(request):
-        response = JSONResponse(content=success_response(data=data))
-        is_https, cookie_domain = _session_cookie_options(request)
-        issue_device_cookie(response, device_id, is_https=is_https, domain=cookie_domain)
-        return response
     return success_response(data=data)
-
-
-@router.get("/devices")
-async def list_my_devices(request: Request):
-    """Daftar perangkat akun. Hanya perangkat tepercaya yang boleh melihatnya.
-
-    `device_id` mentah tidak dikirim ke klien karena nilai itu dipakai gerbang
-    sebagai bukti perangkat. Klien hanya menerima `handle` HMAC.
-    """
-    nim = _require_session_nim(request)
-    await require_trusted_device(request)
-    devices = await list_devices(nim)
-    current_device = str(getattr(request.state, "device_cookie_id", "") or "")
-    data = [
-        {
-            "handle": device_handle(nim, device["device_id"]),
-            "label": device["label"],
-            "user_agent": device.get("user_agent"),
-            "status": device["status"],
-            "last_seen": device.get("last_seen"),
-            "is_current": bool(current_device) and device["device_id"] == current_device,
-        }
-        for device in devices
-    ]
-    return success_response(data={"devices": data, "total": len(data)})
-
-
-@router.post("/devices/{handle}/approve")
-async def approve_my_device(handle: str, request: Request):
-    """Izinkan perangkat pending; hanya perangkat tepercaya yang boleh menyetujui."""
-    nim = _require_session_nim(request)
-    approved_by = await require_trusted_device(request)
-    device_id = await resolve_device_handle(nim, handle)
-    if not device_id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=error_response(
-                code="DEVICE_NOT_FOUND",
-                message="Perangkat tidak ditemukan atau sudah dicabut",
-                module="auth",
-            ),
-        )
-    approved = await approve_device(nim, device_id, approved_by=approved_by)
-    if not approved:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=error_response(
-                code="DEVICE_NOT_FOUND",
-                message="Perangkat tidak ditemukan atau sudah dicabut",
-                module="auth",
-            ),
-        )
-    return success_response(data={"device_id": device_id, "status": "trusted"})
-
-
-@router.delete("/devices/{handle}")
-async def revoke_my_device(handle: str, request: Request):
-    """Cabut perangkat dan akhiri semua sesi yang lahir dari perangkat itu."""
-    nim = _require_session_nim(request)
-    await require_trusted_device(request)
-    device_id = await resolve_device_handle(nim, handle)
-    if not device_id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=error_response(
-                code="DEVICE_NOT_FOUND",
-                message="Perangkat tidak ditemukan atau sudah dicabut",
-                module="auth",
-            ),
-        )
-    try:
-        changed = await revoke_device(nim, device_id)
-    except LastTrustedDeviceError:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=error_response(
-                code="LAST_TRUSTED_DEVICE",
-                message="Perangkat tepercaya terakhir tidak bisa dicabut. "
-                "Izinkan perangkat lain terlebih dahulu.",
-                module="auth",
-            ),
-        )
-    if not changed:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=error_response(
-                code="DEVICE_NOT_FOUND",
-                message="Perangkat tidak ditemukan atau sudah dicabut",
-                module="auth",
-            ),
-        )
-    from app.session_store import session_store
-
-    sessions_ended = await session_store.delete_all_for_device(nim, device_id)
-    return success_response(
-        data={"device_id": device_id, "revoked": True, "sessions_ended": sessions_ended}
-    )
 
 
 class CreateApiKeyRequest(BaseModel):
@@ -773,8 +638,6 @@ async def create_my_api_key(request: Request, body: CreateApiKeyRequest):
             code="SESSION_REQUIRED", message="Pembuatan API Key harus melalui sesi dashboard", module="auth"
         ))
     nim = getattr(request.state, "nim", None)
-    # API key membawa kredensial kampus; hanya perangkat tepercaya yang boleh membuatnya.
-    await require_trusted_device(request)
     sv2_pass = getattr(request.state, "studentv2_pass", None) or ""
     el_pass = getattr(request.state, "elearning_pass", None) or ""
     # MyBest wajib; SIAKAD boleh kosong (key tetap bisa dibuat, tapi endpoint studentv2 terkunci)
@@ -856,15 +719,22 @@ async def security_status(request: Request):
     activity = await login_guard.activity(nim)
     sv_pass = getattr(request.state, "studentv2_pass", "") or ""
     el_pass = getattr(request.state, "elearning_pass", "") or ""
+    sv_secret = ""
+    if settings.SIAKAD_ENABLED:
+        link_status = await get_link_status(nim, "siakad")
+        if link_status == "linked":
+            sv_secret = (await get_link_secret(nim, "siakad")) or sv_pass
+        elif link_status is None:
+            sv_secret = sv_pass
     return success_response(
         data={
             **activity,
             "systems": {
-                "siakad": bool(sv_pass),
+                "siakad": bool(sv_secret),
                 "mybest": bool(el_pass),
             },
             "default_password": {
-                "siakad": is_default_password(sv_pass) if sv_pass else False,
+                "siakad": is_default_password(sv_secret) if sv_secret else False,
                 "mybest": is_default_password(el_pass) if el_pass else False,
             },
         }
@@ -884,10 +754,6 @@ async def connect_credentials(body: ConnectCredentialsRequest, request: Request)
     lalu segarkan salinan sesi aktif. API key membaca store kanonis.
     """
     nim = _require_session_nim(request)
-
-    # Gerbang device: perangkat belum tepercaya tidak boleh menautkan SIAKAD,
-    # apalagi menyentuh store kanonis.
-    await require_trusted_device(request)
 
     if not await limiter.is_allowed(f"connect:{nim}", limit=5):
         raise HTTPException(
@@ -973,9 +839,6 @@ async def disconnect_siakad(request: Request):
     """
     nim = _require_session_nim(request)
 
-    # Gerbang device: perangkat belum tepercaya tidak boleh melepas tautan akun.
-    await require_trusted_device(request)
-
     link_status = await get_link_status(nim, "siakad")
     if link_status is None and (getattr(request.state, "studentv2_pass", "") or ""):
         # Sesi legasi belum punya baris kanonis: anggap tautan hidup seperti /me.
@@ -1036,9 +899,6 @@ async def change_password(body: ChangePasswordRequest, request: Request):
     """Ganti password SIAKAD/MyBest di server kampus, lalu sinkronkan ke sesi & API Key Mira."""
     nim = _require_session_nim(request)
 
-    # Gerbang device: perangkat belum tepercaya tidak boleh memutar password kanonis.
-    await require_trusted_device(request)
-
     field = _STATE_FIELD[body.system]
     label = PASSWORD_SYSTEMS[body.system]["label"]
 
@@ -1054,8 +914,23 @@ async def change_password(body: ChangePasswordRequest, request: Request):
 
     stored = getattr(request.state, field, "") or ""
 
-    if body.system == "siakad" and not settings.SIAKAD_ENABLED:
-        require_siakad_enabled()
+    if body.system == "siakad":
+        if not settings.SIAKAD_ENABLED:
+            require_siakad_enabled()
+        link_status = await get_link_status(nim, "siakad")
+        if link_status == "needs_relink":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=error_response(
+                    code="SIAKAD_RELINK_REQUIRED",
+                    message="Password SIAKAD berubah di portal kampus. Tautkan ulang akun SIAKAD terlebih dahulu di Sesi & Keamanan.",
+                    module="auth",
+                ),
+            )
+        if link_status == "linked":
+            stored = (await get_link_secret(nim, "siakad")) or stored
+        elif link_status == "unlinked":
+            stored = ""
     if not stored:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1106,6 +981,13 @@ async def change_password(body: ChangePasswordRequest, request: Request):
         await set_link(nim, "siakad", kind="password", secret=body.new_password, status="linked")
 
     sessions = await session_store.update_password_for_nim(nim, field, body.new_password)
+    setattr(request.state, field, body.new_password)
+    try:
+        from app.campus_session_store import drop_cookies
+
+        drop_cookies("studentv2" if body.system == "siakad" else "elearning", nim)
+    except Exception:
+        logger.debug("Gagal menghapus cookie sesi %s untuk %s", body.system, nim)
     try:
         keys = await update_keys(nim, field, body.new_password)
     except Exception as err:
@@ -1186,17 +1068,35 @@ async def forgot_password(body: ForgotPasswordRequest, request: Request):
             ["nim", "email"],
         )
 
-    if not await limiter.is_allowed(f"forgot:{body.system}:{email}", limit=1):
+    if not await limiter.is_allowed(f"forgot_try:{body.system}:{email}", limit=5):
         return _field_error(
             status.HTTP_429_TOO_MANY_REQUESTS,
             "RATE_LIMIT_EXCEEDED",
-            "Link baru saja diminta. Tunggu 1 menit sebelum minta lagi.",
+            "Terlalu banyak percobaan lupa password. Tunggu 1 menit sebelum coba lagi.",
             [],
             retry_after=60,
         )
 
+    cooldown_key = f"ubsi:forgot_cooldown:{body.system}:{email}"
+    try:
+        if await redis_client.get(cooldown_key):
+            return _field_error(
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                "RATE_LIMIT_EXCEEDED",
+                "Link baru saja diminta. Tunggu 1 menit sebelum minta lagi.",
+                [],
+                retry_after=60,
+            )
+    except Exception:
+        pass
+
     loop = asyncio.get_running_loop()
     result = await loop.run_in_executor(None, request_reset_link, body.system, email)
+    if result.status in ("sent", "throttled"):
+        try:
+            await redis_client.set(cooldown_key, "1", ex=60)
+        except Exception:
+            pass
     if result.status == "sent":
         return success_response(
             data={

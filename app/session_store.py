@@ -23,7 +23,6 @@ from app.config import settings
 SESSION_TTL_SECONDS = 7 * 24 * 3600
 _KEY_PREFIX = "ubsi:session:"
 _INDEX_PREFIX = "ubsi:session_index:"
-_DEVICE_INDEX_PREFIX = "ubsi:session_device:"
 
 
 def _hash_token(token: str) -> str:
@@ -101,15 +100,12 @@ class SessionStore:
             await self._client.aclose()
             self._client = None
 
-    async def create(
-        self, nim, studentv2_pass, elearning_pass, device_id: Optional[str] = None
-    ) -> str:
+    async def create(self, nim, studentv2_pass, elearning_pass) -> str:
         token = secrets.token_urlsafe(32)
         payload_data = {
             "nim": nim,
             "studentv2_pass": studentv2_pass,
             "elearning_pass": elearning_pass,
-            "device_id": device_id,
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
         encrypted_blob = _encrypt_payload(payload_data, settings.API_KEY)
@@ -119,10 +115,6 @@ class SessionStore:
         index_key = _INDEX_PREFIX + nim
         await client.sadd(index_key, token_hash)
         await client.expire(index_key, SESSION_TTL_SECONDS)
-        if device_id:
-            device_index_key = _DEVICE_INDEX_PREFIX + nim + ":" + device_id
-            await client.sadd(device_index_key, token_hash)
-            await client.expire(device_index_key, SESSION_TTL_SECONDS)
         return token
 
     async def resolve(self, token: str) -> Optional[dict]:
@@ -150,12 +142,6 @@ class SessionStore:
         nim = data.get("nim")
         if nim:
             await client.expire(_INDEX_PREFIX + nim, SESSION_TTL_SECONDS)
-            device_id = data.get("device_id")
-            if device_id:
-                device_index_key = _DEVICE_INDEX_PREFIX + nim + ":" + device_id
-                # sadd juga membangun kembali index yang sudah kedaluwarsa agar pencabutan tetap menemukan token.
-                await client.sadd(device_index_key, token_hash)
-                await client.expire(device_index_key, SESSION_TTL_SECONDS)
         # Sisa umur sesi ikut dikirim: dashboard menampilkan countdown dan
         # memutuskan kapan perlu mengingatkan user login ulang.
         try:
@@ -176,10 +162,6 @@ class SessionStore:
             nim = (data or {}).get("nim", "")
             if nim:
                 await client.srem(_INDEX_PREFIX + nim, token_hash)
-                device_id = (data or {}).get("device_id")
-                if device_id:
-                    device_index_key = _DEVICE_INDEX_PREFIX + nim + ":" + device_id
-                    await client.srem(device_index_key, token_hash)
         await client.delete(key)
 
     async def get_credentials_for_nim(self, nim: str) -> Optional[tuple[str, str, str]]:
@@ -190,7 +172,19 @@ class SessionStore:
             raw = await client.get(_KEY_PREFIX + token_hash)
             data = _decrypt_payload(raw, settings.API_KEY) if raw else None
             if data and data.get("nim") and data.get("elearning_pass"):
-                siakad_pass = str(data.get("studentv2_pass") or "") if settings.SIAKAD_ENABLED else ""
+                siakad_pass = ""
+                if settings.SIAKAD_ENABLED:
+                    from app.account_links import get_link_secret, get_link_status
+
+                    user_nim = str(data["nim"])
+                    try:
+                        link_status = await get_link_status(user_nim, "siakad")
+                        if link_status == "linked":
+                            siakad_pass = str(await get_link_secret(user_nim, "siakad") or "")
+                        elif link_status is None:
+                            siakad_pass = str(data.get("studentv2_pass") or "")
+                    except Exception:
+                        siakad_pass = str(data.get("studentv2_pass") or "")
                 return str(data["nim"]), siakad_pass, str(data["elearning_pass"])
         return None
 
@@ -212,33 +206,6 @@ class SessionStore:
             updated += 1
         return updated
 
-    async def attach_device(self, token: str, device_id: str) -> bool:
-        """Ikatkan `device_id` ke sesi legasi di Redis bila belum punya device_id."""
-        if not token or not device_id:
-            return False
-        client = await self.get_client()
-        token_hash = _hash_token(token)
-        key = _KEY_PREFIX + token_hash
-        raw = await client.get(key)
-        if not raw:
-            return False
-        data = _decrypt_payload(raw, settings.API_KEY)
-        if not data or data.get("device_id"):
-            return False
-        data["device_id"] = device_id
-        ttl = await client.ttl(key)
-        await client.set(
-            key,
-            _encrypt_payload(data, settings.API_KEY),
-            ex=ttl if ttl and ttl > 0 else SESSION_TTL_SECONDS,
-        )
-        nim = str(data.get("nim") or "")
-        if nim:
-            device_index_key = _DEVICE_INDEX_PREFIX + nim + ":" + device_id
-            await client.sadd(device_index_key, token_hash)
-            await client.expire(device_index_key, SESSION_TTL_SECONDS)
-        return True
-
     async def delete_all_for_nim(self, nim: str) -> int:
         client = await self.get_client()
         index_key = _INDEX_PREFIX + nim
@@ -246,18 +213,6 @@ class SessionStore:
         removed = 0
         for token_hash in token_hashes:
             removed += await client.delete(_KEY_PREFIX + token_hash)
-        await client.delete(index_key)
-        return removed
-
-    async def delete_all_for_device(self, nim: str, device_id: str) -> int:
-        """Hapus semua sesi satu device tanpa menyentuh sesi device lain."""
-        client = await self.get_client()
-        index_key = _DEVICE_INDEX_PREFIX + nim + ":" + device_id
-        token_hashes = await client.smembers(index_key)
-        removed = 0
-        for token_hash in token_hashes:
-            removed += await client.delete(_KEY_PREFIX + token_hash)
-            await client.srem(_INDEX_PREFIX + nim, token_hash)
         await client.delete(index_key)
         return removed
 

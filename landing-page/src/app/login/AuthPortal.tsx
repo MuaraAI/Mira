@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Check, Eye, EyeOff, Hash, KeyRound, ShieldBan, X } from "lucide-react";
-import { apiFetch, ApiError, useApi, setApiCache, writeSessionToken } from "@/lib/api";
+import { apiFetch, ApiError, useApi, clearApiCache, writeSessionToken } from "@/lib/api";
 import { Monogram } from "@/components/Monogram";
 import { ForgotPasswordView } from "@/components/auth/PasswordRecovery";
 import { MaintenanceContent } from "@/components/MaintenanceContent";
@@ -572,15 +572,9 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
       if (res?.token) {
         writeSessionToken(res.token);
       }
-      // Prime cache /v1/auth/me seketika agar saat redirect ke /dashboard,
-      // useRequireSession() langsung 0ms (authed = true) tanpa tunggu roundtrip network lagi.
-      if (res?.nim) {
-        setApiCache("/v1/auth/me", {
-          nim: res.nim,
-          auth_type: "session",
-          systems: res.systems ?? { siakad: false, mybest: true },
-        });
-      }
+      // Bersihkan cache sesi lama sebelum mengarah ke dashboard agar /v1/auth/me
+      // memuat status tautan kanonis SIAKAD dan profil mahasiswa secara utuh.
+      clearApiCache();
       mark({ session: "done", redirect: "running" });
       await sleep(150);
       mark({ redirect: "done" });

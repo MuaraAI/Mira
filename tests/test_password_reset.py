@@ -168,3 +168,35 @@ def test_request_reset_link_siakad_json(monkeypatch):
     assert posts[0][1]["json"] == {"email": "budi@gmail.com"}
     assert posts[0][1]["headers"]["X-CSRF-TOKEN"] == "abc123"
 
+
+def test_request_reset_link_siakad_handles_419_and_429(monkeypatch):
+    page = "<script>fetch('x',{headers:{'X-CSRF-TOKEN': 'abc123',}})</script>"
+    monkeypatch.setitem(password_reset.RESET_SYSTEMS["siakad"], "client", _fake_client(page, _Resp("Page Expired", "u", 419), []))
+    assert request_reset_link("siakad", "budi@gmail.com").status == "unknown"
+
+    monkeypatch.setitem(password_reset.RESET_SYSTEMS["siakad"], "client", _fake_client(page, _Resp("Too Many", "u", 429), []))
+    assert request_reset_link("siakad", "budi@gmail.com").status == "throttled"
+
+
+@pytest.mark.asyncio
+async def test_forgot_password_not_found_does_not_lock_cooldown(fake_redis, monkeypatch):
+    """Error not_found tidak boleh membakar cooldown 60 detik sebelum kirim link berhasil."""
+    outcomes = iter([
+        password_reset.CampusResult("not_found", "Email tidak terdaftar."),
+        password_reset.CampusResult("sent", "Terkirim"),
+    ])
+    monkeypatch.setattr("app.modules.auth.request_reset_link", lambda s, e: next(outcomes))
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        first = await ac.post(
+            "/v1/auth/forgot-password", json={"nim": "12345678", "email": "salah@example.com", "system": "siakad"}
+        )
+        second = await ac.post(
+            "/v1/auth/forgot-password", json={"nim": "12345678", "email": "salah@example.com", "system": "siakad"}
+        )
+        third = await ac.post(
+            "/v1/auth/forgot-password", json={"nim": "12345678", "email": "salah@example.com", "system": "siakad"}
+        )
+    assert first.status_code == 404
+    assert second.status_code == 200
+    assert third.status_code == 429
+

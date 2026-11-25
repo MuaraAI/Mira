@@ -1,12 +1,11 @@
 "use client";
 
 import { LogIn, LogOut, ShieldAlert, ShieldCheck, ShieldX, School } from "lucide-react";
-import { useApi } from "@/lib/api";
+import { clearApiCache, notifyAuthChanged, useApi } from "@/lib/api";
 import { useLogout } from "@/lib/logout";
 import { useSecurityStatus } from "@/lib/security";
 import { ChangePasswordCard } from "@/components/ChangePasswordCard";
 import { CampusSystemsCard, type MeLinks } from "@/components/CampusSystemsCard";
-import { DevicesCard } from "@/components/DevicesCard";
 import {
   ErrorState,
   LoadingState,
@@ -37,7 +36,7 @@ export default function SesiPage() {
     <div className="space-y-6">
       <PageHeader
         title="Sesi & Keamanan Akun"
-        description="Aktivitas login, ganti password kampus, profil, dan keluar dari perangkat."
+        description="Aktivitas login, tautan SIAKAD, ganti password kampus, profil, dan keluar dari sesi."
       />
 
 
@@ -50,11 +49,18 @@ export default function SesiPage() {
         }}
       />
 
-      <DevicesCard />
-
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <LoginActivityCard security={securityApi.data} />
-        <ChangePasswordCard nim={meApi.data?.nim ?? ""} status={securityApi.data} />
+        <ChangePasswordCard
+          nim={meApi.data?.nim ?? ""}
+          status={securityApi.data}
+          onChanged={() => {
+            clearApiCache("/v1/auth/me");
+            meApi.reload();
+            securityApi.reload();
+            notifyAuthChanged();
+          }}
+        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

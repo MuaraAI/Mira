@@ -108,7 +108,7 @@ Login utama memvalidasi NIM dan password MyBest, membuat sesi Redis (sliding TTL
   `systems.siakad` bernilai `false` sampai pengguna menautkan SIAKAD dengan password miliknya melalui `/v1/auth/credentials`.
 
 ### `POST /v1/auth/credentials`
-Connects an optional campus system (such as SIAKAD) to the account. Verifies credentials against the upstream campus portal, lalu menulis store kanonis `account_links` (SQLite, terenkripsi Fernet) sebagai sumber kebenaran per NIM; salinan di sesi aktif ikut disegarkan. Personal API Key membaca store kanonis sehingga tidak perlu dimutasi. Hanya perangkat tepercaya yang boleh menautkan (`403 SIAKAD_DEVICE_PENDING`); bila password tersimpan ditolak kampus, status menjadi `409 SIAKAD_RELINK_REQUIRED`.
+Connects an optional campus system (such as SIAKAD) to the account. Verifies credentials against the upstream campus portal, lalu menulis store kanonis `account_links` (SQLite, terenkripsi Fernet) sebagai sumber kebenaran per NIM; salinan di sesi aktif ikut disegarkan. Personal API Key membaca store kanonis sehingga tidak perlu dimutasi. Bila password tersimpan ditolak kampus, status menjadi `409 SIAKAD_RELINK_REQUIRED`.
 - **Access**: Dashboard Session Token only.
 - **Rate Limit**: Max 5 attempts/minute per NIM.
 - **CAPTCHA**: diselesaikan OCR di server dengan tantangan baru per percobaan (maksimal 3). Bila semuanya gagal, endpoint membalas `400 INVALID_CREDENTIALS`.
@@ -177,24 +177,8 @@ Terminates the current device session and clears the session cookie and Redis ke
 Terminates all active sessions across all devices for the authenticated student.
 - **Access**: Session Token Required.
 
-### `GET /v1/auth/devices`
-
-Daftar perangkat akun beserta status izinnya.
-
-```json
-{"success": true, "data": {"devices": [{"device_id": "…", "label": "Chrome · Linux", "status": "trusted", "last_seen": "2026-11-23T10:00:00+00:00", "is_current": true}], "total": 1}}
-```
-
-### `POST /v1/auth/devices/{device_id}/approve`
-
-Hanya device `trusted`. Mengubah device `pending` menjadi `trusted` dan mencatat device penyetuju. Balasan `404 DEVICE_NOT_FOUND` bila device tidak ada atau sudah dicabut.
-
-### `DELETE /v1/auth/devices/{device_id}`
-
-Mencabut izin device dan mengakhiri sesi yang lahir dari device itu. `409 LAST_TRUSTED_DEVICE` bila itu satu-satunya device tepercaya.
-
 ### `GET /v1/auth/me`
-Retrieves authentication state for the calling client: NIM, trusted device status, remaining session lifetime, and per-system link status. Master Key gets `identity: "master"` instead.
+Retrieves authentication state for the calling client: NIM, remaining session lifetime, and per-system link status. Master Key gets `identity: "master"` instead.
 - **Access**: Session Token or Master Key.
 - **Response**:
   ```json
@@ -203,7 +187,6 @@ Retrieves authentication state for the calling client: NIM, trusted device statu
     "data": {
       "nim": "12345678",
       "auth_type": "session",
-      "device": { "status": "trusted" },
       "session": { "expires_in": 604800, "expires_at": "2026-11-26T09:55:09+00:00", "days_left": 7.0 },
       "systems": { "siakad": true, "mybest": true },
       "links": {
@@ -213,7 +196,6 @@ Retrieves authentication state for the calling client: NIM, trusted device statu
     }
   }
   ```
-- `device.status`: `"trusted"` | `"pending"` | `"revoked"` (berdasarkan cookie HttpOnly `mira_device`). Perangkat `pending` bebas memakai MyBest, namun jalur SIAKAD dan tulis persisten (API key, PWA push, webhook) dibalas `403 SIAKAD_DEVICE_PENDING`.
 - `systems` tetap boolean (`siakad`, `mybest`) untuk gerbang UI.
 - `session` dihitung dari TTL Redis. Sesi Mira **7 hari sliding**: setiap request sukses memperpanjang, jadi angkanya berarti "kalau kamu berhenti membuka Mira", bukan "sejak login".
 - `links.<system>.linked_password`: `"mybest"` bila SIAKAD memakai password MyBest yang sama, `"separate"` bila password berbeda, `null` bila belum tertaut. `links.siakad.status`: `"linked"` | `"needs_relink"` | `"unlinked"`. Master Key mengembalikan `"request"` dan `session: null`.
@@ -316,7 +298,7 @@ Returns operational metrics regarding active login session pools and cache statu
 
 All StudentV2 endpoints require active student authentication (session login on a `trusted` device, personal API key `muara_mira_***` / `muara_ubsi_***`, or developer headers `X-Studentv2-NIM` & `X-Studentv2-Pass`).
 
-> Produksi menjalankan `SIAKAD_ENABLED=true`, tetapi login utama tetap **MyBest-only**. Pengguna menautkan SIAKAD secara manual di Sesi & Keamanan (`POST /v1/auth/credentials`) dari perangkat tepercaya. Perangkat `pending` menerima `403 SIAKAD_DEVICE_PENDING`; kredensial tersimpan yang ditolak kampus menerima `409 SIAKAD_RELINK_REQUIRED`; dan saat `SIAKAD_ENABLED=false`, semua endpoint membalas `503 SIAKAD_DISABLED` dengan `error.cta_url` ke `students.bsi.ac.id`. Frontend tetap memprioritaskan MyBest untuk jadwal (`/v1/elearning/schedule`), profil dasar (`/v1/elearning/profile`), dan rekap tugas (`/v1/elearning/grades`).
+> Produksi menjalankan `SIAKAD_ENABLED=true`, tetapi login utama tetap **MyBest-only**. Pengguna menautkan SIAKAD secara manual di Sesi & Keamanan (`POST /v1/auth/credentials`). Kredensial tersimpan yang ditolak kampus menerima `409 SIAKAD_RELINK_REQUIRED`; dan saat `SIAKAD_ENABLED=false`, semua endpoint membalas `503 SIAKAD_DISABLED` dengan `error.cta_url` ke `students.bsi.ac.id`. Frontend tetap memprioritaskan MyBest untuk jadwal (`/v1/elearning/schedule`), profil dasar (`/v1/elearning/profile`), dan rekap tugas (`/v1/elearning/grades`).
 
 ### `GET /v1/studentv2/dashboard`
 Retrieves course schedule, raw grades, news, and circular announcements in parallel within a single request.

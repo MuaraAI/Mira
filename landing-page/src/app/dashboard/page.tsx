@@ -201,7 +201,8 @@ export default function DashboardOverviewPage() {
     ? Math.max(0, Math.round((nextDeadline.getTime() - nowMs) / 3_600_000))
     : null;
 
-  const khsSiaKadMissing = khs.error?.status === 401;
+  const khsSiaKadRelink = khs.error?.status === 409;
+  const khsSiaKadMissing = khs.error?.status === 401 || khsSiaKadRelink;
 
   const liveClass = todayClasses.find((c) => c.timing?.state === "live") ?? null;
   const nextClass =
@@ -310,12 +311,14 @@ export default function DashboardOverviewPage() {
               href: khsSiaKadMissing ? "/dashboard/sesi" : "/dashboard/nilai",
               label: "IPK",
               pending: khs.loading && !khs.data && !khsSiaKadMissing,
-              value: khs.data?.ipk ? khs.data.ipk.toFixed(2) : khsSiaKadMissing ? "Tautkan" : "-",
-              sub: khsSiaKadMissing
-                ? "Tautkan SIAKAD"
-                : khs.data?.total_sks
-                  ? `${khs.data.total_sks} SKS lulus`
-                  : "Belum dirilis",
+              value: khs.data?.ipk ? khs.data.ipk.toFixed(2) : khsSiaKadRelink ? "Tautkan ulang" : khsSiaKadMissing ? "Tautkan" : "-",
+              sub: khsSiaKadRelink
+                ? "SIAKAD butuh tautan ulang"
+                : khsSiaKadMissing
+                  ? "Tautkan SIAKAD"
+                  : khs.data?.total_sks
+                    ? `${khs.data.total_sks} SKS lulus`
+                    : "Belum dirilis",
             },
             {
               href: "#heading-kelas-hari-ini",

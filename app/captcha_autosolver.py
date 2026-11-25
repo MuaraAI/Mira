@@ -24,17 +24,19 @@ MAX_CANDIDATES_PER_CHALLENGE = 4
 
 
 def ocr_candidates(png_bytes: bytes) -> list[str]:
-    """Kandidat jawaban CAPTCHA, ddddocr lebih dulu.
+    """Kandidat jawaban CAPTCHA, ddddocr lebih dulu dengan prioritas panjang 4 karakter.
 
-    ddddocr (ONNX) akurat dan cepat (~20 ms). Tesseract hanya dijalankan kalau
-    ddddocr tidak tersedia atau tidak menghasilkan kandidat: 28 pemanggilan
-    convert+tesseract dulu memakan ~4,5 detik per tantangan, padahal
-    `_ocr_login` hanya memakai kandidat pertama.
+    ddddocr (ONNX) akurat dan cepat (~20 ms). SIAKAD mewajibkan kode CAPTCHA 4 karakter,
+    jadi jika hasil ddddocr panjangnya bukan 4, kita coba tesseract untuk mencari kandidat
+    4 karakter lalu mengurutkannya lebih dulu sebelum fallback ke hasil mentah ddddocr.
     """
     primary = _ddddocr_candidate(png_bytes)
-    if primary:
+    if primary and len(primary[0]) == 4:
         return primary[:MAX_CANDIDATES_PER_CHALLENGE]
-    return _tesseract_candidates(png_bytes)[:MAX_CANDIDATES_PER_CHALLENGE]
+    fallback = _tesseract_candidates(png_bytes)
+    exact_4 = [code for code in fallback if len(code) == 4]
+    combined = list(dict.fromkeys([*exact_4, *primary, *fallback]))
+    return combined[:MAX_CANDIDATES_PER_CHALLENGE]
 
 
 def _tesseract_candidates(png_bytes: bytes) -> list[str]:

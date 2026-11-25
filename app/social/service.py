@@ -127,6 +127,11 @@ def _placeholders(items: Iterable[Any]) -> str:
     return ",".join("?" for _ in items)
 
 
+def _in_sql(prefix: str, items: Iterable[Any], suffix: str = "") -> str:
+    """Bangun klausa parameterized `IN (?, ...)` aman tanpa interpolasi nilai."""
+    return prefix + _placeholders(items) + suffix
+
+
 def _public_profile(row: sqlite3.Row) -> dict[str, Any]:
     keys = row.keys()
     show_nim = bool(row["show_nim"]) if "show_nim" in keys else False
@@ -162,7 +167,7 @@ def _profiles_by_nim(conn: sqlite3.Connection, nims: Iterable[str]) -> dict[str,
     if not unique:
         return {}
     rows = conn.execute(
-        f"SELECT * FROM social_profiles WHERE nim IN ({_placeholders(unique)})", unique
+        _in_sql("SELECT * FROM social_profiles WHERE nim IN (", unique, ")"), unique
     ).fetchall()
     return {row["nim"]: _public_profile(row) for row in rows}
 
@@ -260,16 +265,23 @@ def _serialize_messages(conn: sqlite3.Connection, rows: list[sqlite3.Row]) -> li
     replies: dict[int, sqlite3.Row] = {}
     if reply_ids:
         for r in conn.execute(
-            f"SELECT id, author_nim, body, deleted_at FROM social_messages WHERE id IN ({_placeholders(reply_ids)})",
+            _in_sql(
+                "SELECT id, author_nim, body, deleted_at FROM social_messages WHERE id IN (",
+                reply_ids,
+                ")",
+            ),
             reply_ids,
         ):
             replies[r["id"]] = r
 
     reactions: dict[int, dict[str, list[str]]] = {}
     for r in conn.execute(
-        f"SELECT r.message_id, r.reaction, p.username FROM social_reactions r "
-        f"JOIN social_profiles p ON p.nim = r.nim WHERE r.message_id IN ({_placeholders(ids)}) "
-        f"ORDER BY r.created_at, r.message_id",
+        _in_sql(
+            "SELECT r.message_id, r.reaction, p.username FROM social_reactions r "
+            "JOIN social_profiles p ON p.nim = r.nim WHERE r.message_id IN (",
+            ids,
+            ") ORDER BY r.created_at, r.message_id",
+        ),
         ids,
     ):
         reactions.setdefault(r["message_id"], {}).setdefault(r["reaction"], []).append(r["username"])
@@ -338,7 +350,7 @@ def _store_mentions(conn: sqlite3.Connection, conv: sqlite3.Row, message_id: int
         return
     names = list(usernames)
     rows = conn.execute(
-        f"SELECT nim FROM social_profiles WHERE username IN ({_placeholders(names)})", names
+        _in_sql("SELECT nim FROM social_profiles WHERE username IN (", names, ")"), names
     ).fetchall()
     allowed = set(_recipients(conn, conv))
     for row in rows:
@@ -513,15 +525,19 @@ def _require_media(media_id: Optional[str]) -> Optional[str]:
     return media_id
 
 
+_PROFILE_MEDIA_SQL = {
+    "avatar": "UPDATE social_profiles SET avatar = ? WHERE nim = ?",
+    "banner": "UPDATE social_profiles SET banner = ? WHERE nim = ?",
+}
+
+
 def set_profile_media(nim: str, changes: dict[str, Optional[str]]) -> Outcome:
     """`changes` hanya berisi field yang dikirim klien: {"avatar": id|None, "banner": id|None}."""
     with transaction() as conn:
         me = _require_profile(conn, nim)
-        for field in ("avatar", "banner"):
+        for field, sql in _PROFILE_MEDIA_SQL.items():
             if field in changes:
-                conn.execute(
-                    f"UPDATE social_profiles SET {field} = ? WHERE nim = ?", (_require_media(changes[field]), nim)
-                )
+                conn.execute(sql, (_require_media(changes[field]), nim))
         row = conn.execute("SELECT * FROM social_profiles WHERE nim = ?", (nim,)).fetchone()
         profile = _public_profile(row)
         audience = _presence_audience(conn, nim)
@@ -621,9 +637,13 @@ def inbox(nim: str) -> dict[str, Any]:
         space_ids = [s["id"] for s in space_rows]
         channel_rows = (
             conn.execute(
-                f"SELECT c.*, COALESCE(p.last_read_id, 0) AS last_read_id FROM social_conversations c "
-                f"LEFT JOIN social_participants p ON p.conversation_id = c.id AND p.nim = ? "
-                f"WHERE c.space_id IN ({_placeholders(space_ids)}) ORDER BY c.position, c.id",
+                _in_sql(
+                    "SELECT c.*, COALESCE(p.last_read_id, 0) AS last_read_id FROM social_conversations c "
+                    "LEFT JOIN social_participants p ON p.conversation_id = c.id AND p.nim = ? "
+                    "WHERE c.space_id IN (",
+                    space_ids,
+                    ") ORDER BY c.position, c.id",
+                ),
                 [nim, *space_ids],
             ).fetchall()
             if space_ids
@@ -635,28 +655,34 @@ def inbox(nim: str) -> dict[str, Any]:
         mentions: dict[int, int] = {}
         last_messages: dict[int, sqlite3.Row] = {}
         if conv_ids:
-            ph = _placeholders(conv_ids)
             for r in conn.execute(
-                f"SELECT c.id, COUNT(m.id) AS n FROM social_conversations c "
-                f"LEFT JOIN social_participants p ON p.conversation_id = c.id AND p.nim = ? "
-                f"JOIN social_messages m ON m.conversation_id = c.id "
-                f"AND m.id > COALESCE(p.last_read_id, 0) AND m.author_nim != ? AND m.deleted_at IS NULL "
-                f"WHERE c.id IN ({ph}) GROUP BY c.id",
+                _in_sql(
+                    "SELECT c.id, COUNT(m.id) AS n FROM social_conversations c "
+                    "LEFT JOIN social_participants p ON p.conversation_id = c.id AND p.nim = ? "
+                    "JOIN social_messages m ON m.conversation_id = c.id "
+                    "AND m.id > COALESCE(p.last_read_id, 0) AND m.author_nim != ? AND m.deleted_at IS NULL "
+                    "WHERE c.id IN (",
+                    conv_ids,
+                    ") GROUP BY c.id",
+                ),
                 [nim, nim, *conv_ids],
             ):
                 unread[r["id"]] = r["n"]
             for r in conn.execute(
-                f"SELECT mt.conversation_id AS id, COUNT(*) AS n FROM social_mentions mt "
-                f"LEFT JOIN social_participants p ON p.conversation_id = mt.conversation_id AND p.nim = mt.nim "
-                f"WHERE mt.nim = ? AND mt.conversation_id IN ({ph}) "
-                f"AND mt.message_id > COALESCE(p.last_read_id, 0) GROUP BY mt.conversation_id",
+                _in_sql(
+                    "SELECT mt.conversation_id AS id, COUNT(*) AS n FROM social_mentions mt "
+                    "LEFT JOIN social_participants p ON p.conversation_id = mt.conversation_id AND p.nim = mt.nim "
+                    "WHERE mt.nim = ? AND mt.conversation_id IN (",
+                    conv_ids,
+                    ") AND mt.message_id > COALESCE(p.last_read_id, 0) GROUP BY mt.conversation_id",
+                ),
                 [nim, *conv_ids],
             ):
                 mentions[r["id"]] = r["n"]
             last_ids = [r["last_message_id"] for r in [*dm_rows, *channel_rows] if r["last_message_id"]]
             if last_ids:
                 for r in conn.execute(
-                    f"SELECT * FROM social_messages WHERE id IN ({_placeholders(last_ids)})", last_ids
+                    _in_sql("SELECT * FROM social_messages WHERE id IN (", last_ids, ")"), last_ids
                 ):
                     last_messages[r["id"]] = r
 
@@ -665,8 +691,11 @@ def inbox(nim: str) -> dict[str, Any]:
         dm_ids = [r["id"] for r in dm_rows]
         if dm_ids:
             for r in conn.execute(
-                f"SELECT conversation_id, nim, last_read_id FROM social_participants "
-                f"WHERE conversation_id IN ({_placeholders(dm_ids)}) AND nim != ?",
+                _in_sql(
+                    "SELECT conversation_id, nim, last_read_id FROM social_participants WHERE conversation_id IN (",
+                    dm_ids,
+                    ") AND nim != ?",
+                ),
                 [*dm_ids, nim],
             ):
                 peers[r["conversation_id"]] = r["nim"]
@@ -865,8 +894,9 @@ def _join(conn: sqlite3.Connection, nim: str, space: sqlite3.Row) -> Outcome:
     conn.execute("INSERT INTO social_members (space_id, nim, role) VALUES (?, ?, 'member')", (space_id, nim))
     # Anggota baru mulai dari kondisi "sudah dibaca" supaya riwayat lama tidak jadi tumpukan unread.
     conn.execute(
-        "INSERT OR REPLACE INTO social_participants (conversation_id, nim, last_read_id) "
-        "SELECT id, ?, COALESCE(last_message_id, 0) FROM social_conversations WHERE space_id = ?",
+        "INSERT INTO social_participants (conversation_id, nim, last_read_id) "
+        "SELECT id, ?, COALESCE(last_message_id, 0) FROM social_conversations WHERE space_id = ? "
+        "ON CONFLICT (conversation_id, nim) DO UPDATE SET last_read_id = excluded.last_read_id",
         (nim, space_id),
     )
     detail = _space_detail(conn, space_id, "member")
@@ -921,14 +951,18 @@ def reset_invite(nim: str, space_id: int) -> Outcome:
         return Outcome(_space_detail(conn, space_id, role))
 
 
+_SPACE_MEDIA_SQL = {
+    "avatar": "UPDATE social_spaces SET avatar = ? WHERE id = ?",
+    "banner": "UPDATE social_spaces SET banner = ? WHERE id = ?",
+}
+
+
 def set_space_media(nim: str, space_id: int, changes: dict[str, Optional[str]]) -> Outcome:
     with transaction() as conn:
         role = _require_space_role(conn, space_id, nim, "admin")
-        for field in ("avatar", "banner"):
+        for field, sql in _SPACE_MEDIA_SQL.items():
             if field in changes:
-                conn.execute(
-                    f"UPDATE social_spaces SET {field} = ? WHERE id = ?", (_require_media(changes[field]), space_id)
-                )
+                conn.execute(sql, (_require_media(changes[field]), space_id))
         detail = _space_detail(conn, space_id, role)
         return Outcome(detail, [Event("space.updated", _space_members(conn, space_id), {"space_id": space_id})])
 
@@ -1150,16 +1184,18 @@ def list_messages(
             has_more = len(rows) > limit
             rows = rows[:limit]
         else:
-            params: list[Any] = [conversation_id]
-            clause = ""
             if before is not None:
-                clause = "AND id < ?"
-                params.append(before)
-            rows = conn.execute(
-                f"SELECT * FROM social_messages WHERE conversation_id = ? AND deleted_at IS NULL {clause} "
-                f"ORDER BY id DESC LIMIT ?",
-                [*params, limit + 1],
-            ).fetchall()
+                rows = conn.execute(
+                    "SELECT * FROM social_messages WHERE conversation_id = ? AND deleted_at IS NULL AND id < ? "
+                    "ORDER BY id DESC LIMIT ?",
+                    (conversation_id, before, limit + 1),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT * FROM social_messages WHERE conversation_id = ? AND deleted_at IS NULL "
+                    "ORDER BY id DESC LIMIT ?",
+                    (conversation_id, limit + 1),
+                ).fetchall()
             has_more = len(rows) > limit
             rows = list(reversed(rows[:limit]))
 
