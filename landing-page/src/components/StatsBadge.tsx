@@ -5,7 +5,7 @@ import { useApi } from "@/lib/api";
 interface PublicStats {
   users?: { total_all_time?: number; average_per_day?: number };
   requests?: { total_all_time?: number };
-  branches?: { name: string; active_users_30d: number }[];
+  branches?: { name: string; active_users_30d: number; total_all_time?: number }[];
 }
 
 function formatId(n: number): string {
