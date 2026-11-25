@@ -1,11 +1,20 @@
 "use client";
 
 import { SiakadGateNotice, siakadGateIssue } from "@/components/SiakadGateNotice";
-import { useEffect, useRef, useState } from "react";
-import { BookOpen, Download, Eye, EyeOff, FileSpreadsheet, Share2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowUpDown, BookOpen, Download, Eye, EyeOff, FileSpreadsheet, Filter, Share2, X } from "lucide-react";
 import { toPng } from "html-to-image";
 import { useApi } from "@/lib/api";
 import { gradeValue } from "@/lib/assignments";
+import {
+  GRADE_SORT_OPTIONS,
+  GRADE_STATUS_OPTIONS,
+  courseKey,
+  filterAndSortGradeItems,
+  groupGradesByPertemuan,
+  type GradeSortKey,
+  type GradeStatusFilter,
+} from "@/lib/dashboard-sort";
 import {
   EmptyState,
   ErrorState,
@@ -112,14 +121,20 @@ export default function NilaiPage() {
   const gradesRaw = useApi<ElearningGradesData>("/v1/elearning/grades");
   const coursesApi = useApi<{ kode?: string; kode_mtk?: string; nama: string }[]>("/v1/elearning/courses");
   const profileApi = useApi<StudentProfile>("/v1/elearning/profile");
-  const grades = normalizeElearningGrades(gradesRaw.data);
-  const courseNameByCode = new Map<string, string>();
-  for (const c of coursesApi.data ?? []) {
-    if (c.kode && c.nama) courseNameByCode.set(String(c.kode).trim(), c.nama);
-    if (c.kode_mtk && c.nama) courseNameByCode.set(String(c.kode_mtk).trim(), c.nama);
-  }
+  const grades = useMemo(() => normalizeElearningGrades(gradesRaw.data), [gradesRaw.data]);
+  const courseNameByCode = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of coursesApi.data ?? []) {
+      if (c.kode && c.nama) map.set(String(c.kode).trim(), c.nama);
+      if (c.kode_mtk && c.nama) map.set(String(c.kode_mtk).trim(), c.nama);
+    }
+    return map;
+  }, [coursesApi.data]);
 
   const [flexingOpen, setFlexingOpen] = useState(false);
+  const [courseFilter, setCourseFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<GradeStatusFilter>("all");
+  const [sortBy, setSortBy] = useState<GradeSortKey>("pertemuan_desc");
   const [theme, setTheme] = useState<Theme>("night");
   const [format, setFormat] = useState<Format>("post");
   const [hideNim, setHideNim] = useState(true);
@@ -150,6 +165,36 @@ export default function NilaiPage() {
   // dikirim null, jadi buildShowcase memakai blok MyBest.
   const showcaseData = buildShowcase(profileApi.data ?? null, null, null, null, grades);
   const fileName = `mira-flexing-elearning-${format}.png`;
+  const allGradeItems = useMemo(
+    () => (grades?.per_pertemuan ?? []).flatMap((pert) => pert.items.map((item) => ({ ...item, pertemuan: item.pertemuan || pert.pertemuan }))),
+    [grades],
+  );
+
+  const courseOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const item of allGradeItems) {
+      const key = courseKey(item.kode, item.mata_kuliah);
+      if (!map.has(key)) {
+        const label = item.mata_kuliah || (item.kode ? courseNameByCode.get(item.kode) : undefined) || item.kode || "Lainnya";
+        map.set(key, label);
+      }
+    }
+    return Array.from(map.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, "id", { sensitivity: "base" }));
+  }, [allGradeItems, courseNameByCode]);
+
+  const filteredGradeItems = useMemo(
+    () => filterAndSortGradeItems(allGradeItems, { course: courseFilter, status: statusFilter, sort: sortBy }),
+    [allGradeItems, courseFilter, statusFilter, sortBy],
+  );
+
+  const isGroupedView = sortBy === "pertemuan_desc" || sortBy === "pertemuan_asc";
+  const groupedGrades = useMemo(
+    () => (isGroupedView ? groupGradesByPertemuan(filteredGradeItems, sortBy === "pertemuan_desc" ? "desc" : "asc") : []),
+    [filteredGradeItems, isGroupedView, sortBy],
+  );
+  const hasGradeControls = courseFilter !== "all" || statusFilter !== "all" || sortBy !== "pertemuan_desc";
 
   const renderCardPng = async () => {
     const node = cardRef.current?.querySelector<HTMLElement>(".flexcard-card");
@@ -369,79 +414,209 @@ export default function NilaiPage() {
 
           {Object.keys(grades.per_matkul).length > 0 && (
             <div className="glass-card p-5">
-              <h3 className="mb-3 flex items-center gap-2 font-display text-sm font-bold text-foreground">
-                <BookOpen className="h-4 w-4 text-[#0369A1]" aria-hidden="true" />
-                Rata-Rata Nilai Tugas Per Mata Kuliah
-              </h3>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h3 className="flex items-center gap-2 font-display text-sm font-bold text-foreground">
+                  <BookOpen className="h-4 w-4 text-[#0369A1]" aria-hidden="true" />
+                  Rata-Rata Nilai Tugas Per Mata Kuliah
+                </h3>
+                <span className="text-[11px] text-secondary">Klik kartu untuk menyaring rincian</span>
+              </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {Object.entries(grades.per_matkul).map(([kode, val]) => {
-                  const courseName = val.nama || courseNameByCode.get(kode);
-                  return (
-                    <div
-                      key={kode}
-                      className="flex min-w-0 items-center justify-between gap-3 rounded-[8px] border-[1px] border-stroke bg-[#F7FAFC] p-3.5"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <span className="font-mono text-[11px] font-semibold text-[#0369A1]">
-                          {kode}
-                        </span>
-                        {courseName && (
-                          <span className="mt-0.5 block truncate text-xs font-semibold text-foreground">
-                            {courseName}
+                {Object.entries(grades.per_matkul)
+                  .sort(([, a], [, b]) => b.rata_nilai - a.rata_nilai)
+                  .map(([kode, val]) => {
+                    const courseName = val.nama || courseNameByCode.get(kode);
+                    const key = courseKey(kode, courseName);
+                    const active = courseFilter === key;
+                    return (
+                      <button
+                        key={kode}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => setCourseFilter(active ? "all" : key)}
+                        className={`flex min-w-0 items-center justify-between gap-3 rounded-[8px] border p-3.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-[#0369A1] ${
+                          active
+                            ? "border-[#0369A1] bg-[#F0F7FB]"
+                            : "border-stroke bg-[#F7FAFC] hover:border-[#0369A1]/50 hover:bg-white"
+                        }`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <span className="font-mono text-[11px] font-semibold text-[#0369A1]">
+                            {kode}
                           </span>
-                        )}
-                        <span className="block text-[11px] text-secondary">
-                          {val.total_tugas} tugas dinilai
+                          {courseName && (
+                            <span className="mt-0.5 block truncate text-xs font-semibold text-foreground">
+                              {courseName}
+                            </span>
+                          )}
+                          <span className="block text-[11px] text-secondary">
+                            {val.total_tugas} tugas dinilai
+                          </span>
+                        </div>
+                        <span className="shrink-0 rounded-[6px] border-[1px] border-stroke bg-white px-2.5 py-1 font-mono text-lg font-bold text-foreground tabular-nums">
+                          {val.rata_nilai.toFixed(1)}
                         </span>
-                      </div>
-                      <span className="shrink-0 rounded-[6px] border-[1px] border-stroke bg-white px-2.5 py-1 font-mono text-lg font-bold text-foreground tabular-nums">
-                        {val.rata_nilai.toFixed(1)}
-                      </span>
-                    </div>
-                  );
-                })}
+                      </button>
+                    );
+                  })}
               </div>
             </div>
           )}
 
           <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="flex items-center gap-2 font-display text-sm font-bold text-foreground">
-                <FileSpreadsheet className="h-4 w-4 text-[#0369A1]" aria-hidden="true" />
-                Rincian Penilaian Tugas Per Pertemuan
-              </h3>
-              <span className="font-mono text-xs text-secondary">
-                Total {grades.per_pertemuan.length} pertemuan terdaftar
-              </span>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="flex items-center gap-2 font-display text-sm font-bold text-foreground">
+                  <FileSpreadsheet className="h-4 w-4 text-[#0369A1]" aria-hidden="true" />
+                  {isGroupedView ? "Rincian Penilaian Tugas Per Pertemuan" : "Rincian Penilaian Tugas"}
+                </h3>
+                <span className="font-mono text-xs text-secondary">
+                  {filteredGradeItems.length} dari {grades.total_tugas} tugas
+                </span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {courseOptions.length > 1 && (
+                  <label className="relative flex min-w-0 flex-1 items-center sm:flex-initial">
+                    <span className="sr-only">Filter mata kuliah</span>
+                    <Filter className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-secondary" aria-hidden="true" />
+                    <select
+                      value={courseFilter}
+                      onChange={(e) => setCourseFilter(e.target.value)}
+                      aria-label="Filter mata kuliah"
+                      className="min-h-10 w-full max-w-full rounded-[8px] border border-stroke bg-white py-1.5 pl-8 pr-3 text-xs font-medium text-foreground focus-visible:outline-2 focus-visible:outline-[#0369A1] sm:w-48"
+                    >
+                      <option value="all">Semua mata kuliah</option>
+                      {courseOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+
+                <label className="relative flex min-w-0 flex-1 items-center sm:flex-initial">
+                  <span className="sr-only">Filter status nilai</span>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value as GradeStatusFilter)}
+                    aria-label="Filter status nilai"
+                    className="min-h-10 w-full rounded-[8px] border border-stroke bg-white px-3 py-1.5 text-xs font-medium text-foreground focus-visible:outline-2 focus-visible:outline-[#0369A1] sm:w-36"
+                  >
+                    {GRADE_STATUS_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="relative flex min-w-0 flex-1 items-center sm:flex-initial">
+                  <span className="sr-only">Urutkan nilai tugas</span>
+                  <ArrowUpDown className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-secondary" aria-hidden="true" />
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as GradeSortKey)}
+                    aria-label="Urutkan nilai tugas"
+                    className="min-h-10 w-full rounded-[8px] border border-stroke bg-white py-1.5 pl-8 pr-3 text-xs font-medium text-foreground focus-visible:outline-2 focus-visible:outline-[#0369A1] sm:w-48"
+                  >
+                    {GRADE_SORT_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {hasGradeControls && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCourseFilter("all");
+                      setStatusFilter("all");
+                      setSortBy("pertemuan_desc");
+                    }}
+                    className="inline-flex min-h-10 items-center gap-1 rounded-[8px] border border-stroke bg-[#F7FAFC] px-2.5 text-xs font-semibold text-secondary hover:bg-white hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" aria-hidden="true" />
+                    Reset
+                  </button>
+                )}
+              </div>
             </div>
 
-            {grades.per_pertemuan.map((pert) => (
-              <div key={pert.pertemuan} className="glass-card overflow-hidden">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stroke bg-[#F7FAFC] p-4">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-block rounded bg-[#0369A1] px-2.5 py-1 font-mono text-xs font-bold text-white">
-                      Pertemuan {pert.pertemuan}
-                    </span>
-                    <span className="text-xs text-secondary">
-                      {pert.total_tugas} tugas ({pert.sudah_dinilai} dinilai)
-                    </span>
+            {filteredGradeItems.length === 0 ? (
+              <div className="glass-card p-6 text-center">
+                <p className="text-sm font-semibold text-foreground">Tidak ada tugas yang cocok dengan filter ini.</p>
+                <p className="mt-1 text-xs text-secondary">Ubah filter mata kuliah/status atau tekan Reset.</p>
+              </div>
+            ) : isGroupedView ? (
+              groupedGrades.map((pert) => (
+                <div key={pert.pertemuan} className="glass-card overflow-hidden">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stroke bg-[#F7FAFC] p-4">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block rounded bg-[#0369A1] px-2.5 py-1 font-mono text-xs font-bold text-white">
+                        Pertemuan {pert.pertemuan}
+                      </span>
+                      <span className="text-xs text-secondary">
+                        {pert.total_tugas} tugas ({pert.sudah_dinilai} dinilai)
+                      </span>
+                    </div>
+                    {pert.rata_nilai != null && (
+                      <span className="rounded-pill border border-[#0F766E]/20 bg-[#F0F7FB] px-2.5 py-0.5 font-mono text-xs font-semibold text-[#0F766E]">
+                        Rata-rata: {pert.rata_nilai.toFixed(1)}
+                      </span>
+                    )}
                   </div>
-                  {pert.rata_nilai != null && (
-                    <span className="rounded-pill border border-[#0F766E]/20 bg-[#F0F7FB] px-2.5 py-0.5 font-mono text-xs font-semibold text-[#0F766E]">
-                      Rata-rata: {pert.rata_nilai.toFixed(1)}
-                    </span>
-                  )}
-                </div>
 
+                  <div className="divide-y divide-stroke/60">
+                    {pert.items.map((item) => {
+                      const score = gradeValue(item.nilai);
+                      return (
+                        <div key={`${pert.pertemuan}-${item.id || item.judul}`} className="flex flex-wrap items-center justify-between gap-2 p-3.5">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-foreground">{item.judul}</p>
+                            <p className="font-mono text-[11px] text-secondary">
+                              {[item.kode, item.mata_kuliah || (item.kode ? courseNameByCode.get(item.kode) : undefined), item.tanggal_kumpul].filter(Boolean).join(" · ") || "-"}
+                            </p>
+                            {item.komentar_dosen && (
+                              <p className="mt-1 text-xs text-secondary">{item.komentar_dosen}</p>
+                            )}
+                          </div>
+                          <span
+                            className={`shrink-0 rounded border px-2.5 py-1 font-mono text-sm font-bold ${
+                              score === null
+                                ? "border-stroke bg-[#F7FAFC] text-secondary"
+                                : "border-[#0F766E]/30 bg-[#F0F7FB] text-[#0F766E]"
+                            }`}
+                          >
+                            {score === null ? "Belum dinilai" : score.toFixed(0)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="glass-card overflow-hidden">
                 <div className="divide-y divide-stroke/60">
-                  {pert.items.map((item) => {
+                  {filteredGradeItems.map((item, idx) => {
                     const score = gradeValue(item.nilai);
                     return (
-                      <div key={item.id || item.judul} className="flex flex-wrap items-center justify-between gap-2 p-3.5">
+                      <div key={`${item.id || item.judul}-${idx}`} className="flex flex-wrap items-center justify-between gap-2 p-3.5">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-foreground">{item.judul}</p>
-                          <p className="font-mono text-[11px] text-secondary">
-                            {[item.kode, item.mata_kuliah, item.tanggal_kumpul].filter(Boolean).join(" · ") || "-"}
+                          <div className="flex flex-wrap items-center gap-2">
+                            {item.pertemuan && (
+                              <span className="inline-block shrink-0 rounded bg-[#0369A1] px-2 py-0.5 font-mono text-[10px] font-bold text-white">
+                                P{item.pertemuan}
+                              </span>
+                            )}
+                            <p className="truncate text-sm font-semibold text-foreground">{item.judul}</p>
+                          </div>
+                          <p className="mt-0.5 font-mono text-[11px] text-secondary">
+                            {[item.kode, item.mata_kuliah || (item.kode ? courseNameByCode.get(item.kode) : undefined), item.tanggal_kumpul].filter(Boolean).join(" · ") || "-"}
                           </p>
                           {item.komentar_dosen && (
                             <p className="mt-1 text-xs text-secondary">{item.komentar_dosen}</p>
@@ -461,7 +636,7 @@ export default function NilaiPage() {
                   })}
                 </div>
               </div>
-            ))}
+            )}
           </div>
         </>
       )}

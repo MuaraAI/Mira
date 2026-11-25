@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  ArrowUpDown,
   CheckCircle2,
   ChevronDown,
   Clock,
   Edit3,
   ExternalLink,
+  Filter as FilterIcon,
   Link as LinkIcon,
   Send,
   TriangleAlert,
@@ -25,6 +27,12 @@ import {
   ghostButtonClass,
 } from "@/components/dashboard-ui";
 import { describeDeadline, findSubmission, formatShortDate, gradeValue, parseDeadline, type DeadlineTone } from "@/lib/assignments";
+import {
+  TASK_SORT_OPTIONS,
+  courseKey,
+  filterAndSortTaskRows,
+  type TaskSortKey,
+} from "@/lib/dashboard-sort";
 import { LinkCard } from "@/components/LinkCard";
 import { SideSheet } from "@/components/SideSheet";
 import { FilePreviewSheet } from "@/components/FilePreviewSheet";
@@ -226,6 +234,8 @@ export default function TugasPage() {
     refreshMs: 5 * 60_000,
   });
   const [filter, setFilter] = useState<Filter>("pending");
+  const [courseFilter, setCourseFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<TaskSortKey>("default");
   const [actionMessage, setActionMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [previewTask, setPreviewTask] = useState<TaskItem | null>(null);
   const [now, setNow] = useState<Date | null>(null);
@@ -268,6 +278,31 @@ export default function TugasPage() {
     return { pendingRows: pending, completedRows: completed, allRows: [...pending, ...completed] };
   }, [data]);
 
+  const courseOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of allRows) {
+      const key = courseKey(r.task.kode, r.task.mata_kuliah);
+      if (!map.has(key)) {
+        map.set(key, r.task.mata_kuliah || r.task.kode || "Lainnya");
+      }
+    }
+    return Array.from(map.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, "id", { sensitivity: "base" }));
+  }, [allRows]);
+
+  const visiblePending = useMemo(
+    () => filterAndSortTaskRows(pendingRows, courseFilter, sortBy),
+    [pendingRows, courseFilter, sortBy],
+  );
+  const visibleCompleted = useMemo(
+    () => filterAndSortTaskRows(completedRows, courseFilter, sortBy),
+    [completedRows, courseFilter, sortBy],
+  );
+  const visibleAll = useMemo(
+    () => filterAndSortTaskRows(allRows, courseFilter, sortBy),
+    [allRows, courseFilter, sortBy],
+  );
   // Server sudah tahu jenis link yang sebenarnya (mis. open?id=... ternyata folder): rapikan isian ke link bersihnya.
   useEffect(() => {
     const result = draftCheck.result;
@@ -294,8 +329,8 @@ export default function TugasPage() {
   if (error) return <ErrorState error={error} onRetry={reload} />;
 
   const failedCourses = data?.failed_courses ?? [];
-  const rows = filter === "pending" ? pendingRows : filter === "completed" ? completedRows : allRows;
-
+  const rows = filter === "pending" ? visiblePending : filter === "completed" ? visibleCompleted : visibleAll;
+  const hasCustomFilter = courseFilter !== "all" || sortBy !== "default";
   const previewPath = previewTask ? taskFilePath(previewTask) : null;
 
   function openSubmitModal(row: Row) {
@@ -353,9 +388,9 @@ export default function TugasPage() {
   }
 
   const tabs: { key: Filter; label: string; count: number; active: string }[] = [
-    { key: "pending", label: "Belum", count: pendingRows.length, active: "bg-[#9A3412]" },
-    { key: "completed", label: "Selesai", count: completedRows.length, active: "bg-[#0F766E]" },
-    { key: "all", label: "Semua", count: allRows.length, active: "bg-[#0369A1]" },
+    { key: "pending", label: "Belum", count: visiblePending.length, active: "bg-[#9A3412]" },
+    { key: "completed", label: "Selesai", count: visibleCompleted.length, active: "bg-[#0F766E]" },
+    { key: "all", label: "Semua", count: visibleAll.length, active: "bg-[#0369A1]" },
   ];
 
   return (
@@ -388,37 +423,93 @@ export default function TugasPage() {
         </div>
       )}
 
-      <div
-        role="tablist"
-        aria-label="Filter tugas"
-        className="grid w-full grid-cols-3 gap-1 rounded-[10px] border-[1px] border-stroke bg-[#F0F7FB] p-1 sm:inline-flex sm:w-auto"
-      >
-        {tabs.map((t) => {
-          const active = filter === t.key;
-          return (
-            <button
-              key={t.key}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => setFilter(t.key)}
-              className={`inline-flex min-h-[38px] items-center justify-center gap-1.5 whitespace-nowrap rounded-[6px] px-2.5 text-xs font-medium transition-colors duration-200 sm:px-3.5 ${
-                active ? `${t.active} text-white` : "text-secondary hover:bg-white hover:text-foreground"
-              }`}
-            >
-              <span>{t.label}</span>
-              <span
-                className={`rounded-[9999px] px-1.5 py-0.5 font-mono text-[10px] leading-none tabular-nums ${
-                  active ? "bg-white/20 text-white" : "bg-white text-secondary"
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div
+          role="tablist"
+          aria-label="Filter status tugas"
+          className="grid w-full grid-cols-3 gap-1 rounded-[10px] border-[1px] border-stroke bg-[#F0F7FB] p-1 sm:inline-flex sm:w-auto"
+        >
+          {tabs.map((t) => {
+            const active = filter === t.key;
+            return (
+              <button
+                key={t.key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setFilter(t.key)}
+                className={`inline-flex min-h-[38px] items-center justify-center gap-1.5 whitespace-nowrap rounded-[6px] px-2.5 text-xs font-medium transition-colors duration-200 sm:px-3.5 ${
+                  active ? `${t.active} text-white` : "text-secondary hover:bg-white hover:text-foreground"
                 }`}
               >
-                {t.count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+                <span>{t.label}</span>
+                <span
+                  className={`rounded-[9999px] px-1.5 py-0.5 font-mono text-[10px] leading-none tabular-nums ${
+                    active ? "bg-white/20 text-white" : "bg-white text-secondary"
+                  }`}
+                >
+                  {t.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
 
+        {allRows.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            {courseOptions.length > 1 && (
+              <label className="relative flex min-w-0 flex-1 items-center sm:flex-initial">
+                <span className="sr-only">Filter mata kuliah</span>
+                <FilterIcon className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-secondary" aria-hidden="true" />
+                <select
+                  value={courseFilter}
+                  onChange={(e) => setCourseFilter(e.target.value)}
+                  aria-label="Filter mata kuliah"
+                  className="min-h-10 w-full max-w-full rounded-[8px] border border-stroke bg-white py-1.5 pl-8 pr-3 text-xs font-medium text-foreground focus-visible:outline-2 focus-visible:outline-[#0369A1] sm:w-52"
+                >
+                  <option value="all">Semua mata kuliah ({courseOptions.length})</option>
+                  {courseOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            <label className="relative flex min-w-0 flex-1 items-center sm:flex-initial">
+              <span className="sr-only">Urutkan tugas</span>
+              <ArrowUpDown className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-secondary" aria-hidden="true" />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as TaskSortKey)}
+                aria-label="Urutkan tugas"
+                className="min-h-10 w-full rounded-[8px] border border-stroke bg-white py-1.5 pl-8 pr-3 text-xs font-medium text-foreground focus-visible:outline-2 focus-visible:outline-[#0369A1] sm:w-44"
+              >
+                {TASK_SORT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {hasCustomFilter && (
+              <button
+                type="button"
+                onClick={() => {
+                  setCourseFilter("all");
+                  setSortBy("default");
+                }}
+                className="inline-flex min-h-10 items-center gap-1 rounded-[8px] border border-stroke bg-[#F7FAFC] px-2.5 text-xs font-semibold text-secondary hover:bg-white hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" aria-hidden="true" />
+                Reset
+              </button>
+            )}
+          </div>
+        )}
+      </div>
       {actionMessage && (
         <div
           className={`px-frame flex items-center justify-between gap-3 p-3 text-sm ${
@@ -440,7 +531,9 @@ export default function TugasPage() {
         <EmptyState
           mascot="/maskot/mura-tugas-done.png"
           title={
-            filter === "pending" && failedCourses.length > 0
+            courseFilter !== "all"
+              ? "Tidak ada tugas di mata kuliah ini untuk tab tersebut."
+              : filter === "pending" && failedCourses.length > 0
               ? "Belum bisa memastikan tugas yang tertunda."
               : filter === "pending"
               ? "Hebat! Tidak ada tugas yang tertunda."
@@ -448,10 +541,10 @@ export default function TugasPage() {
               ? "Belum ada tugas yang dikumpulkan."
               : "Belum ada tugas perkuliahan terdaftar."
           }
-          description="Cek lagi nanti, atau lihat instruksi dosen di MyBest."
+          description={courseFilter !== "all" ? "Coba pilih mata kuliah lain atau tekan Reset." : "Cek lagi nanti, atau lihat instruksi dosen di MyBest."}
         />
       ) : (
-        <div className="page-in grid grid-cols-1 gap-5 p-[2px] md:grid-cols-2" key={filter}>
+        <div className="page-in grid grid-cols-1 gap-5 p-[2px] md:grid-cols-2" key={`${filter}-${courseFilter}-${sortBy}`}>
           {rows.map((row) => (
             <TaskCard
               key={row.task.id}
