@@ -1493,12 +1493,12 @@ def inspect_session_status(html: str) -> dict[str, Any]:
                 info[" ".join(label[0].get_all_text().split()).lower()] = " ".join(val[0].get_all_text().split())
 
     # In MyBest (2026 revamp), attendance check-in works via TWO possible forms:
-    # 1. Legacy form: <form action="simpan-absen|absen"> (older MyBest layout)
-    # 2. New form:    <form action="komentar-mhs">  (feedback-based form on /absen-mhs)
-    # Both trigger presence update on upstream. Prefer komentar-mhs if present, else legacy.
+    # 1. Dedicated attendance form: <form action="simpan-absen|mhs-absen|absen">
+    # 2. Feedback-based attendance form: <form action="komentar-mhs"> (when no dedicated absen form exists)
+    # Prefer the dedicated absen form when both appear on the page so attendance is never bypassed.
+    absen_form = page.css("form[action*='simpan-absen'], form[action*='mhs-absen'], form[action*='absen']")
     komentar_form = page.css("form[action*='komentar-mhs']")
-    absen_form = page.css("form[action*='simpan-absen'], form[action*='absen']")
-    target_form = komentar_form[0] if komentar_form else (absen_form[0] if absen_form else None)
+    target_form = absen_form[0] if absen_form else (komentar_form[0] if komentar_form else None)
     can_submit = bool(target_form)
 
     status_raw = _session_status_button(page) or ("Absen Masuk" if can_submit else "Tidak Diketahui")
@@ -2796,6 +2796,20 @@ async def invalidate_elearning_user_cache(nim: str, token: Optional[str] = None,
         logger.warning("Gagal membersihkan cache elearning untuk NIM %s: %s", nim, exc)
 
 
+def _extract_presence_error(html: str) -> Optional[str]:
+    """Ambil pesan error/validasi Laravel dari halaman respons presensi MyBest jika ada."""
+    if not html or "<" not in html:
+        return None
+    page = Adaptor(html)
+    for selector in (".alert-danger", ".invalid-feedback", ".error-message"):
+        nodes = page.css(selector)
+        for node in nodes:
+            text = " ".join(node.get_all_text().split()).strip()
+            if text:
+                return text[:200]
+    return None
+
+
 async def submit_presence(
     nim: str, password: str, token: Optional[str] = None, absen_path: str = "absen-mhs"
 ) -> dict[str, Any]:
@@ -2821,6 +2835,7 @@ async def submit_presence(
                 continue
 
         if not target_token or not info:
+            logger.info("submit_presence skipped: no active session (path=%s)", absen_path)
             return {
                 "success": False,
                 "status": "Tidak Ada Sesi Aktif",
@@ -2831,6 +2846,12 @@ async def submit_presence(
         info = inspect_session_status(html)
 
     if not info["can_submit"]:
+        logger.info(
+            "submit_presence blocked: can_submit=False path=%s status=%s course=%s",
+            absen_path,
+            info.get("status_raw"),
+            info.get("matakuliah"),
+        )
         return {
             "success": False,
             "status": info["status_raw"],
@@ -2841,24 +2862,86 @@ async def submit_presence(
 
     action_url = info.get("form_action") or f"/{absen_path}/{target_token}"
     inputs = dict(info.get("form_inputs") or {})
-    # Force nilai=1 (Pengajaran Sesuai) — the dict comprehension in
-    # inspect_session_status picks the LAST input value, which is "0" (Tidak Sesuai).
-    # Presence submission should always send nilai=1 so attendance is recorded positively.
-    inputs["nilai"] = "1"
-    inputs.setdefault("komentar", "")
+    if "komentar-mhs" in action_url:
+        # Force nilai=1 (Pengajaran Sesuai) & isi komentar default non-kosong agar
+        # validasi Laravel /komentar-mhs tidak menolak payload kosong secara diam-diam.
+        inputs["nilai"] = "1"
+        if not (inputs.get("komentar") or "").strip():
+            inputs["komentar"] = "Pengajaran sesuai."
     try:
         resp = await pooled_elearning_client.post_page(action_url, nim, password, data=inputs)
         status_code = getattr(resp, "status_code", 200)
         headers = getattr(resp, "headers", {})
         loc = str(headers.get("location", "") if hasattr(headers, "get") else "")
         if status_code not in (200, 302) or is_logged_out_response(resp) or "/login" in loc:
+            logger.warning(
+                "submit_presence rejected: path=%s action=%s status=%s loc=%s course=%s",
+                absen_path,
+                action_url,
+                status_code,
+                loc,
+                info.get("matakuliah"),
+            )
             return {
                 "success": False,
                 "status": "ERROR",
                 "message": "Gagal mencatat presensi: sesi MyBest kedaluwarsa atau upstream menolak.",
             }
 
+        # Verifikasi pasca-submit: pada 302 (Laravel PRG) muat ulang halaman absen untuk
+        # memastikan MyBest benar-benar menerima kehadiran dan bukan redirect validasi gagal.
+        verify_html = getattr(resp, "text", "") or ""
+        if status_code == 302:
+            verify_html = await pooled_elearning_client.fetch_page(
+                f"/{absen_path}/{target_token}", nim, password
+            )
+
+        upstream_err = _extract_presence_error(verify_html)
+        if upstream_err:
+            logger.warning(
+                "submit_presence upstream error: path=%s action=%s status=%s err=%s course=%s",
+                absen_path,
+                action_url,
+                status_code,
+                upstream_err,
+                info.get("matakuliah"),
+            )
+            return {
+                "success": False,
+                "status": "REJECTED",
+                "matakuliah": info["matakuliah"],
+                "dosen": info["dosen"],
+                "message": f"Presensi ditolak MyBest: {upstream_err}",
+            }
+
+        if verify_html and "<" in verify_html:
+            after_status = inspect_session_status(verify_html)
+            after_presence = annotate_presence(parse_presence(verify_html))
+            if after_status["can_submit"] and not after_presence["present_today"]:
+                logger.warning(
+                    "submit_presence unverified: form still open after POST path=%s action=%s status=%s loc=%s course=%s",
+                    absen_path,
+                    action_url,
+                    status_code,
+                    loc,
+                    info.get("matakuliah"),
+                )
+                return {
+                    "success": False,
+                    "status": "UNVERIFIED",
+                    "matakuliah": info["matakuliah"],
+                    "dosen": info["dosen"],
+                    "message": "MyBest belum mencatat kehadiran (form presensi masih terbuka). Coba ulangi atau cek langsung di MyBest.",
+                }
+
         await invalidate_elearning_user_cache(nim, target_token, absen_path)
+        logger.info(
+            "submit_presence ok: path=%s action=%s status=%s course=%s",
+            absen_path,
+            action_url,
+            status_code,
+            info.get("matakuliah"),
+        )
 
         return {
             "success": True,
