@@ -903,7 +903,7 @@ Manually triggers instant event reminders (category: `matkul-besok` or `quiz-tug
 Public privacy-preserving usage metrics.
 
 ### `GET /v1/stats`
-Returns aggregated, anonymous usage stats of active students and total requests. Student NIMs are hashed with HMAC-SHA256 for privacy.
+Returns aggregated, anonymous usage stats of active students and total requests. Student NIMs are hashed with HMAC-SHA256 for privacy. Branch and program breakdowns are attributed automatically from MyBest (`/v1/elearning/courses`, `/v1/elearning/dashboard`, `/v1/elearning/presence`), NIM prodi prefixes, and SIAKAD `/v1/studentv2/profile`, with campus suffixes normalized cleanly across branches and PSDKU campuses.
 - **Access**: Public
 - **Response**:
   ```json
@@ -932,7 +932,7 @@ Returns aggregated, anonymous usage stats of active students and total requests.
         { "name": "UBSI Pontianak", "active_users_30d": 39, "total_all_time": 43 }
       ],
       "programs": [
-        { "name": "Informatika Kampus Kota Pontianak", "active_users_30d": 28 }
+        { "name": "Informatika", "active_users_30d": 28, "total_all_time": 31 }
       ]
     }
   }

@@ -202,3 +202,147 @@ async def test_online_now_counts_only_recent_users():
     data = await _stats_with(fake)
 
     assert data["users"]["online_now"] == 1
+
+
+def test_normalize_program_and_nim_prefix():
+    from app.stats import normalize_program, program_from_nim
+
+    assert normalize_program("Informatika Kampus Kota Pontianak") == "Informatika"
+    assert normalize_program("Sistem Informasi Kampus Kota Pontianak") == "Sistem Informasi"
+    assert normalize_program("Sistem Informasi Akuntansi Kampus Kota Pontianak") == "Sistem Informasi Akuntansi"
+    assert normalize_program("Sistem Informasi Akuntansi Kampus Bogor") == "Sistem Informasi Akuntansi"
+    assert normalize_program("Sistem Informasi") == "Sistem Informasi"
+    assert normalize_program("") is None
+
+    assert program_from_nim("15000001") == "Informatika"
+    assert program_from_nim("17000002") == "Teknologi Informasi"
+    assert program_from_nim("19000003") == "Sistem Informasi"
+    assert program_from_nim("44000004") == "Ilmu Komunikasi"
+    assert program_from_nim("63000005") == "Akuntansi"
+    assert program_from_nim("64000006") == "Manajemen"
+    assert program_from_nim("99999999") is None
+
+
+@pytest.mark.asyncio
+async def test_programs_merge_campus_suffix_and_include_all_time_backfill():
+    from unittest.mock import patch
+    from app.stats import record_profile
+
+    class ProgramFakeRedis(FakeRedis):
+        def __init__(self):
+            super().__init__()
+            today = _day(0)
+            old_retained = _day(33)
+            self.data_sets = {
+                f"ubsi:stats:program:Informatika Kampus Kota Pontianak:{old_retained}": {"ret1"},
+                f"ubsi:stats:program:Informatika Kampus Kota Pontianak:{today}": {"act1", "act2"},
+                f"ubsi:stats:program:Sistem Informasi Kampus Kota Pontianak:{today}": {"si_ptk"},
+                f"ubsi:stats:program:Sistem Informasi:{today}": {"si_bks"},
+                "ubsi:stats:program:all:Informatika Kampus Kota Pontianak": {"perm_if"},
+            }
+            self.hashes = {}
+            self.expiries = {}
+
+        async def sadd(self, key, *members):
+            target = self.data_sets.setdefault(key, set())
+            target.update(members)
+            return len(members)
+
+        async def srem(self, key, *members):
+            target = self.data_sets.get(key)
+            if target is not None:
+                target.difference_update(members)
+            return 1
+
+        async def hget(self, key, field):
+            return self.hashes.get(key, {}).get(field)
+
+        async def hset(self, key, field, value):
+            self.hashes.setdefault(key, {})[field] = value
+            return 1
+
+        async def expire(self, key, ttl):
+            self.expiries[key] = ttl
+            return True
+
+        async def keys(self, pattern):
+            if "program:" in pattern:
+                return [k for k in sorted(self.data_sets) if k.startswith("ubsi:stats:program:")]
+            if "branch:" in pattern:
+                return [k for k in sorted(self.data_sets) if k.startswith("ubsi:stats:branch:")]
+            return await super().keys(pattern)
+
+        async def smembers(self, key):
+            return set(self.data_sets.get(key, set()))
+
+    fake = ProgramFakeRedis()
+    with patch("app.cache.cache.get_client", return_value=fake):
+        await record_profile("63000005", "05", "Akuntansi", authoritative_program=False)
+        # Koreksi otoritatif untuk NIM yang sama (mis. 63 Pontianak -> Sistem Informasi Akuntansi)
+        # tidak boleh dihitung dobel di Akuntansi.
+        await record_profile("63000005", "Pontianak", "Sistem Informasi Akuntansi Kampus Kota Pontianak", authoritative_program=True)
+        stats = await get_public_stats()
+
+    assert "ubsi:stats:program:all:Sistem Informasi" in fake.data_sets
+    assert "ubsi:stats:program:all:Sistem Informasi" not in fake.expiries
+    assert stats["programs"] == [
+        {"name": "Informatika", "active_users_30d": 2, "total_all_time": 4},
+        {"name": "Sistem Informasi", "active_users_30d": 2, "total_all_time": 2},
+        {"name": "Sistem Informasi Akuntansi", "active_users_30d": 1, "total_all_time": 1},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_record_request_infers_program_from_nim_without_overwriting_authoritative():
+    from unittest.mock import patch
+    from app.stats import _identity, record_profile, record_request
+
+    class ReqFakeRedis(FakeRedis):
+        def __init__(self):
+            super().__init__()
+            self.data_sets = {}
+            self.hashes = {}
+            self.expiries = {}
+
+        async def sadd(self, key, *members):
+            target = self.data_sets.setdefault(key, set())
+            target.update(members)
+            return len(members)
+
+        async def srem(self, key, *members):
+            target = self.data_sets.get(key)
+            if target is not None:
+                target.difference_update(members)
+            return 1
+
+        async def hget(self, key, field):
+            return self.hashes.get(key, {}).get(field)
+
+        async def hset(self, key, field, value):
+            self.hashes.setdefault(key, {})[field] = value
+            return 1
+
+        async def incr(self, key):
+            self.values[key] = int(self.values.get(key) or 0) + 1
+            return self.values[key]
+
+        async def expire(self, key, ttl):
+            self.expiries[key] = ttl
+            return True
+
+        async def zadd(self, key, mapping):
+            self.online.update(mapping)
+            return len(mapping)
+
+    fake = ReqFakeRedis()
+    with patch("app.cache.cache.get_client", return_value=fake):
+        await record_request("elearning", "44000004")
+        await record_profile("17000002", "Bandung", "Teknologi Informasi", authoritative_program=True)
+        # NIM inference berikutnya tidak boleh menimpa prodi otoritatif yang sudah tersimpan
+        await record_profile("63000005", "Pontianak", "Sistem Informasi Akuntansi", authoritative_program=True)
+        await record_request("elearning", "63000005")
+
+    uid_63 = _identity("63000005")
+    assert _identity("44000004") in fake.data_sets["ubsi:stats:program:all:Ilmu Komunikasi"]
+    assert uid_63 in fake.data_sets["ubsi:stats:program:all:Sistem Informasi Akuntansi"]
+    assert uid_63 not in fake.data_sets.get("ubsi:stats:program:all:Akuntansi", set())

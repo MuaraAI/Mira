@@ -1,5 +1,6 @@
 import asyncio
-from datetime import datetime
+from collections import OrderedDict
+from datetime import datetime, timezone
 import hashlib
 import json
 import logging
@@ -159,6 +160,8 @@ def parse_courses(html: str) -> list[dict[str, Any]]:
         kode_mtk = info.get("kode mtk", "")
         item_id = hashlib.sha256(f"{kode_mtk}:{hari}:{jam}:{info.get('ruang', '')}".encode()).hexdigest()[:12]
 
+        kampus = info.get("kampus", "").strip() or None
+
         courses.append({
             "id": item_id,
             "kode": kode_mtk,
@@ -167,6 +170,7 @@ def parse_courses(html: str) -> list[dict[str, Any]]:
             "hari": hari,
             "jam": jam,
             "ruang": info.get("ruang", ""),
+            "kampus": kampus,
             "kode_dosen": info.get("dosen", "-"),
             "kelompok_praktek": kel_praktek,
             "kode_gabung": kode_gabung,
@@ -474,6 +478,58 @@ def _session_status_button(page: Any) -> Optional[str]:
     return None
 
 
+def _extract_absen_profile_fields(page: Adaptor) -> tuple[Optional[str], Optional[str]]:
+    """Ambil (kelas, prodi) dari form tersembunyi/modal halaman /absen-mhs/{token}."""
+    kelas_inp = page.css("input[name='kelas']")
+    prodi_inp = page.css("input[name='prodi']")
+    kelas = " ".join((kelas_inp[0].attrib.get("value") or "").split()) if kelas_inp else ""
+    prodi = " ".join((prodi_inp[0].attrib.get("value") or "").split()) if prodi_inp else ""
+    return (kelas or None), (prodi or None)
+
+
+_REGULAR_CLASS_BRANCH_RE = re.compile(r"^(?:DPG\.)?\d{2}\.\d[A-Z]\.(\d{2})(?:\.[A-Z0-9]+)?$", re.IGNORECASE)
+_MERGED_CLASS_BRANCH_RE = re.compile(r"^(?:KG|DG)\.\d+\.(\d{2})\.[A-Z0-9]+$", re.IGNORECASE)
+
+
+def extract_branch_from_kelas(kelas: Optional[str]) -> Optional[str]:
+    """Turunkan nama cabang UBSI dari kode kelas MyBest (mis. 19.1C.05, DPG.15.1C.30.A, KG.101.03.C)."""
+    from app.modules.studentv2 import branch_display
+
+    raw = " ".join((kelas or "").split())
+    if not raw:
+        return None
+    for pattern in (_REGULAR_CLASS_BRANCH_RE, _MERGED_CLASS_BRANCH_RE):
+        m = pattern.match(raw)
+        if m:
+            return branch_display(m.group(1))
+    return None
+
+
+def extract_branch_from_courses(courses: list[dict[str, Any]]) -> Optional[str]:
+    """Ambil cabang kampus mahasiswa dari daftar mata kuliah MyBest (/sch).
+
+    Memprioritaskan field `kampus` langsung (menghindari anomali kode kelas), lalu fallback
+    ke kode cabang pada `kelas` / `kelompok_praktek` / `kode_gabung`.
+    """
+    from app.modules.studentv2 import branch_display
+
+    if not courses:
+        return None
+    ordered = sorted(courses, key=lambda c: bool(c.get("kode_gabung")))
+    for c in ordered:
+        kampus = (c.get("kampus") or "").strip()
+        if kampus:
+            resolved = branch_display(kampus)
+            if resolved:
+                return resolved
+    for c in ordered:
+        for field in ("kelas", "kelompok_praktek", "kode_gabung"):
+            resolved = extract_branch_from_kelas(c.get(field))
+            if resolved:
+                return resolved
+    return None
+
+
 def parse_presence(html: str) -> dict[str, Any]:
     page = Adaptor(html)
     tiles = page.css("div.info-tiles")
@@ -565,10 +621,12 @@ def parse_presence(html: str) -> dict[str, Any]:
         marker in status_sesi.lower() for marker in ("selesai", "belum", "tutup", "sudah", "telah", "hadir")
     )
 
+    modal_kelas, modal_prodi = _extract_absen_profile_fields(page)
     return {
         "kode_mtk": info.get("kode mtk"),
         "matakuliah": info.get("matakuliah") or info.get("mata kuliah"),
-        "kelas": info.get("kelas"),
+        "kelas": info.get("kelas") or modal_kelas,
+        "prodi": modal_prodi,
         "dosen": info.get("dosen"),
         "ruang": info.get("ruang"),
         "hari": info.get("hari"),
@@ -1520,12 +1578,14 @@ def inspect_session_status(html: str) -> dict[str, Any]:
             if inp.attrib.get("name")
         }
 
+    modal_kelas, modal_prodi = _extract_absen_profile_fields(page)
     return {
         "status_raw": status_raw,
         "can_submit": can_submit,
         "kode_mtk": info.get("kode mtk"),
         "matakuliah": info.get("mata kuliah") or info.get("matakuliah"),
-        "kelas": info.get("kelas"),
+        "kelas": info.get("kelas") or modal_kelas,
+        "prodi": modal_prodi,
         "dosen": info.get("dosen"),
         "ruang": info.get("ruang"),
         "hari": info.get("hari"),
@@ -2289,35 +2349,90 @@ def extract_clean_token(raw_input: Optional[str]) -> Optional[str]:
 
 # API Routes
 
-@router.get("/courses")
-async def get_courses(creds: tuple[str, str] = Depends(require_elearning_creds)):
-    nim, password = creds
-    return await cached_endpoint(
+_ELEARNING_STATS_SEEN_MAX = 2048
+_elearning_stats_seen: OrderedDict[tuple[str, str, int, Optional[str], Optional[str], bool], None] = OrderedDict()
+
+
+async def _record_elearning_stats(
+    nim: str,
+    *,
+    branch: Optional[str] = None,
+    program: Optional[str] = None,
+    authoritative_program: bool = False,
+) -> None:
+    """Catat cabang & prodi MyBest ke stats anonim sekali per kombinasi/hari tanpa memblokir rute."""
+    if not nim or (not branch and not program):
+        return
+    try:
+        from app.stats import program_from_nim, record_profile
+
+        effective_program = program or (None if authoritative_program else program_from_nim(nim))
+        if not branch and not effective_program:
+            return
+        day = datetime.now(timezone.utc).date().isoformat()
+        key = (day, nim, id(record_profile), branch, effective_program, authoritative_program)
+        if key in _elearning_stats_seen:
+            _elearning_stats_seen.move_to_end(key)
+            return
+        _elearning_stats_seen[key] = None
+        if len(_elearning_stats_seen) > _ELEARNING_STATS_SEEN_MAX:
+            _elearning_stats_seen.popitem(last=False)
+        await record_profile(
+            nim,
+            branch,
+            effective_program,
+            authoritative_program=authoritative_program,
+        )
+    except Exception:
+        pass
+
+
+async def _record_stats_from_courses(nim: str, courses: Any) -> None:
+    if not isinstance(courses, list):
+        return
+    branch = extract_branch_from_courses(courses)
+    await _record_elearning_stats(nim, branch=branch, authoritative_program=False)
+
+
+async def _record_stats_from_presence(nim: str, data: Any) -> None:
+    if not isinstance(data, dict):
+        return
+    branch = extract_branch_from_kelas(data.get("kelas"))
+    prodi = (data.get("prodi") or "").strip() or None
+    await _record_elearning_stats(
+        nim,
+        branch=branch,
+        program=prodi,
+        authoritative_program=bool(prodi),
+    )
+
+
+async def _cached_courses_response(nim: str, password: str) -> dict[str, Any]:
+    res = await cached_endpoint(
         module="elearning",
         # Versi kunci dinaikkan saat bentuk hasil parser berubah. Entri lama
-        # (mis. `hari: ""` untuk kelas hari ini) tidak boleh tersaji lagi.
-        name="courses-v2",
+        # (mis. tanpa field `kampus`) tidak boleh menghalangi atribusi cabang.
+        name="courses-v3",
         fetch=lambda: pooled_elearning_client.fetch_page("/sch", nim, password),
         parse=_parse_and_record_courses,
         ttl=settings.TTL_ASSIGNMENTS,
         cache_params={"nim": nim},
     )
+    await _record_stats_from_courses(nim, res.get("data"))
+    return res
+
+
+@router.get("/courses")
+async def get_courses(creds: tuple[str, str] = Depends(require_elearning_creds)):
+    nim, password = creds
+    return await _cached_courses_response(nim, password)
 
 
 @router.get("/schedule")
 async def get_schedule(creds: tuple[str, str] = Depends(require_elearning_creds)):
     """Jadwal perkuliahan mingguan dari Elearning MyBest (alternatif /v1/studentv2/schedule)."""
     nim, password = creds
-    return await cached_endpoint(
-        module="elearning",
-        # Versi kunci dinaikkan saat bentuk hasil parser berubah. Entri lama
-        # (mis. `hari: ""` untuk kelas hari ini) tidak boleh tersaji lagi.
-        name="courses-v2",
-        fetch=lambda: pooled_elearning_client.fetch_page("/sch", nim, password),
-        parse=_parse_and_record_courses,
-        ttl=settings.TTL_ASSIGNMENTS,
-        cache_params={"nim": nim},
-    )
+    return await _cached_courses_response(nim, password)
 
 def _parse_and_record_courses(html: str) -> list[dict[str, Any]]:
     """Parse jadwal lalu catat jadwal mengajar dosennya (anonim) untuk profil dosen.
@@ -2480,7 +2595,7 @@ async def get_presence(
             presence["total_kehadiran"] = len(records)
         return annotate_presence(presence)
 
-    return await cached_endpoint(
+    res = await cached_endpoint(
         module="elearning",
         name="presence",
         fetch=_fetch_presence,
@@ -2489,6 +2604,8 @@ async def get_presence(
         cache_params={"token": clean_token, "nim": nim} if absen_path == "absen-mhs" else {"token": clean_token, "nim": nim, "absen": absen_path},
         allow_stale=False,
     )
+    await _record_stats_from_presence(nim, res.get("data"))
+    return res
 
 @router.get("/materials")
 async def get_materials(
@@ -2774,6 +2891,8 @@ async def invalidate_elearning_user_cache(nim: str, token: Optional[str] = None,
             f"{cache.make_key('elearning', 'presence', nim=nim)}:lgg",
             f"{cache.make_key('elearning', 'courses', nim=nim)}:fresh",
             f"{cache.make_key('elearning', 'courses', nim=nim)}:lgg",
+            f"{cache.make_key('elearning', 'courses-v3', nim=nim)}:fresh",
+            f"{cache.make_key('elearning', 'courses-v3', nim=nim)}:lgg",
             f"{cache.make_key('elearning', 'assignments', nim=nim, token='all')}:fresh",
             f"{cache.make_key('elearning', 'assignments', nim=nim, token='all')}:lgg",
             f"{cache.make_key('elearning', 'grades', nim=nim, token='all')}:fresh",
@@ -3984,7 +4103,7 @@ async def get_elearning_dashboard(creds: tuple[str, str] = Depends(require_elear
             )
 
     results = await asyncio.gather(
-        _section("courses", "/sch", _parse_and_record_courses, settings.TTL_ASSIGNMENTS),
+        _section("courses-v3", "/sch", _parse_and_record_courses, settings.TTL_ASSIGNMENTS),
         _section("assignments", "/assignment", parse_assignments, settings.TTL_ASSIGNMENTS),
         _section("makeups", "/kuliah-pengganti", parse_makeup_classes, settings.TTL_ASSIGNMENTS),
         _section("quiz", "/exercise", parse_quiz, settings.TTL_ASSIGNMENTS),
@@ -4000,7 +4119,8 @@ async def get_elearning_dashboard(creds: tuple[str, str] = Depends(require_elear
             errors.append(str(item))
             continue
         name, response = item
-        dashboard[name] = response["data"]
+        out_name = "courses" if name == "courses-v3" else name
+        dashboard[out_name] = response["data"]
         if not response.get("cached"):
             all_cached = False
 
@@ -4012,5 +4132,6 @@ async def get_elearning_dashboard(creds: tuple[str, str] = Depends(require_elear
 
     if "courses" in dashboard:
         dashboard["schedule"] = dashboard["courses"]
+        await _record_stats_from_courses(nim, dashboard["courses"])
 
     return success_response(data=dashboard, cached=all_cached)
