@@ -155,6 +155,7 @@ async def get_public_stats() -> dict[str, Any]:
             "total_all_time": total_requests_all,
         }
 
+        valid_30d_days = {_day(offset) for offset in range(30)}
         branches: list[dict[str, Any]] = []
         programs: list[dict[str, Any]] = []
         for dimension, output in (("branch", branches), ("program", programs)):
@@ -164,9 +165,11 @@ async def get_public_stats() -> dict[str, Any]:
                 parts = key.split(":")
                 if len(parts) < 5:
                     continue
+                if parts[-1] not in valid_30d_days:
+                    continue
                 name = ":".join(parts[3:-1])
                 if dimension == "branch":
-                    # Kode mentah SIAKAD ("30") dan nama tampilan ("UBSI Pontianak")
+                    # Kode mentah SIAKAD ("30", "05") dan nama tampilan ("UBSI Pontianak", "UBSI Bekasi")
                     # adalah kampus yang sama: satukan di sumber agar tidak dihitung dobel.
                     name = branch_display(name) or name
                 grouped.setdefault(name, set()).update(await client.smembers(key))

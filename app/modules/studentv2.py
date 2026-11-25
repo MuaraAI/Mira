@@ -31,14 +31,37 @@ router = APIRouter(prefix="/v1/studentv2", tags=["studentv2"])
 
 # Kode lokasi cabang SIAKAD -> nama tampilan. Diperluas seiring cabang baru teridentifikasi.
 BRANCH_NAMES: dict[str, str] = {
+    "00": "UBSI Jakarta",
+    "02": "UBSI Bogor",
+    "03": "UBSI Bandung",
+    "04": "UBSI Surakarta",
+    "05": "UBSI Bekasi",
+    "06": "UBSI Depok",
+    "07": "UBSI Tangerang",
+    "08": "UBSI Karawang",
+    "09": "UBSI Yogyakarta",
+    "10": "UBSI Tasikmalaya",
+    "11": "UBSI Semarang",
+    "12": "UBSI Medan",
+    "15": "UBSI Palembang",
+    "20": "UBSI Banjarmasin",
+    "21": "UBSI Denpasar",
+    "22": "UBSI Purwokerto",
+    "25": "UBSI Sukabumi",
     "30": "UBSI Pontianak",
 }
 
 
 def branch_display(code: Optional[str]) -> Optional[str]:
-    """Terjemahkan kode cabang SIAKAD ('30') menjadi nama tampilan ('UBSI Pontianak')."""
+    """Terjemahkan kode cabang SIAKAD ('30', '05') menjadi nama tampilan ('UBSI Pontianak', 'UBSI Bekasi')."""
     raw = (code or "").strip()
-    return BRANCH_NAMES.get(raw, raw) or None
+    if not raw:
+        return None
+    if raw in BRANCH_NAMES:
+        return BRANCH_NAMES[raw]
+    if raw.isdigit():
+        return f"UBSI Cabang {raw}"
+    return raw
 
 
 _SIAKAD_CAPTCHA_RE = re.compile(r"""name=["']captcha["']|Kode CAPTCHA|data-login-captcha""", re.IGNORECASE)
