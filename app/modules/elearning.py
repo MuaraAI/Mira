@@ -18,7 +18,7 @@ logger = logging.getLogger("app.elearning")
 _ASSIGNMENT_FETCH_CONCURRENCY = 4
 _ASSIGNMENT_FETCH_ATTEMPTS = 2
 _ASSIGNMENTS_PARTIAL_TTL = 60
-_PRESENCE_REKAP_TTL = 30
+_PRESENCE_REKAP_TTL = 10
 # Batas percobaan login latar saat CAPTCHA/verifikasi ditolak kampus.
 MAX_CAPTCHA_ATTEMPTS = 3
 
@@ -462,7 +462,8 @@ def parse_assignments(html: str) -> dict[str, list[dict[str, Any]]]:
 
 _STATUS_BUTTON_SELECTOR = "div.col-xl-3 button, button.btn-warning, button.btn-success, button.btn-info, button.btn-danger, center button"
 _NON_STATUS_BUTTONS = {"", "kirim", "×", "close", "tutup"}
-
+_ABSEN_FORM_SELECTOR = "form[action*='simpan-absen'], form[action*='mhs-absen'], form[action*='absen']"
+_KOMENTAR_FORM_SELECTOR = "form[action*='komentar-mhs']"
 
 def _session_status_button(page: Any) -> Optional[str]:
     """Teks tombol status sesi absen; abaikan tombol form/modal seperti "Kirim"."""
@@ -487,9 +488,8 @@ def parse_presence(html: str) -> dict[str, Any]:
 
     status_sesi = _session_status_button(page)
     # MyBest 2026: saat dosen membuka absen, tombol status ("Belum Mulai"/"Sudah Selesai") hilang dan
-    # diganti form /komentar-mhs (tombolnya cuma "Kirim"). Form itulah tanda absen sedang dibuka,
-    # berlaku untuk absen reguler (/absen-mhs) maupun pengganti (/absen-mhs-pengganti).
-    if page.css("form[action*='komentar-mhs']") and not (
+    # diganti form absen (/mhs-absen, /simpan-absen) atau /komentar-mhs (tombolnya bisa cuma "Kirim").
+    if (page.css(_ABSEN_FORM_SELECTOR) or page.css(_KOMENTAR_FORM_SELECTOR)) and not (
         status_sesi and any(m in status_sesi.lower() for m in ("selesai", "sudah", "telah", "hadir"))
     ):
         status_sesi = "Absen Masuk"
@@ -1496,8 +1496,8 @@ def inspect_session_status(html: str) -> dict[str, Any]:
     # 1. Dedicated attendance form: <form action="simpan-absen|mhs-absen|absen">
     # 2. Feedback-based attendance form: <form action="komentar-mhs"> (when no dedicated absen form exists)
     # Prefer the dedicated absen form when both appear on the page so attendance is never bypassed.
-    absen_form = page.css("form[action*='simpan-absen'], form[action*='mhs-absen'], form[action*='absen']")
-    komentar_form = page.css("form[action*='komentar-mhs']")
+    absen_form = page.css(_ABSEN_FORM_SELECTOR)
+    komentar_form = page.css(_KOMENTAR_FORM_SELECTOR)
     target_form = absen_form[0] if absen_form else (komentar_form[0] if komentar_form else None)
     can_submit = bool(target_form)
 
@@ -2797,16 +2797,33 @@ async def invalidate_elearning_user_cache(nim: str, token: Optional[str] = None,
 
 
 def _extract_presence_error(html: str) -> Optional[str]:
-    """Ambil pesan error/validasi Laravel dari halaman respons presensi MyBest jika ada."""
+    """Ambil pesan error/validasi Laravel & SweetAlert flash dari respons presensi MyBest."""
     if not html or "<" not in html:
         return None
     page = Adaptor(html)
+    for selector, attr in ((".flash-error", "data-flasherror"), (".flash-jam", "data-flashjam")):
+        for node in page.css(selector):
+            val = " ".join((node.attrib.get(attr) or "").split()).strip()
+            if val:
+                return val[:200]
     for selector in (".alert-danger", ".invalid-feedback", ".error-message"):
         nodes = page.css(selector)
         for node in nodes:
             text = " ".join(node.get_all_text().split()).strip()
             if text:
                 return text[:200]
+    return None
+
+
+def _extract_presence_flash_success(html: str) -> Optional[str]:
+    """Ambil pesan sukses SweetAlert flash (.flash-tambah[data-flashdata]) dari respons MyBest."""
+    if not html or "<" not in html:
+        return None
+    page = Adaptor(html)
+    for node in page.css(".flash-tambah"):
+        val = " ".join((node.attrib.get("data-flashdata") or "").split()).strip()
+        if val:
+            return val[:200]
     return None
 
 
@@ -2861,6 +2878,7 @@ async def submit_presence(
         }
 
     action_url = info.get("form_action") or f"/{absen_path}/{target_token}"
+    submitted_dedicated_absen = "komentar-mhs" not in action_url
     inputs = dict(info.get("form_inputs") or {})
     if "komentar-mhs" in action_url:
         # Force nilai=1 (Pengajaran Sesuai) & isi komentar default non-kosong agar
@@ -2915,25 +2933,46 @@ async def submit_presence(
             }
 
         if verify_html and "<" in verify_html:
+            flash_ok = _extract_presence_flash_success(verify_html)
             after_status = inspect_session_status(verify_html)
-            after_presence = annotate_presence(parse_presence(verify_html))
-            if after_status["can_submit"] and not after_presence["present_today"]:
-                logger.warning(
-                    "submit_presence unverified: form still open after POST path=%s action=%s status=%s loc=%s course=%s",
-                    absen_path,
-                    action_url,
-                    status_code,
-                    loc,
-                    info.get("matakuliah"),
-                )
-                return {
-                    "success": False,
-                    "status": "UNVERIFIED",
-                    "matakuliah": info["matakuliah"],
-                    "dosen": info["dosen"],
-                    "message": "MyBest belum mencatat kehadiran (form presensi masih terbuka). Coba ulangi atau cek langsung di MyBest.",
-                }
-
+            after_action = after_status.get("form_action") or ""
+            transitioned_to_feedback = submitted_dedicated_absen and "komentar-mhs" in after_action
+            if not flash_ok and not transitioned_to_feedback and after_status["can_submit"]:
+                after_presence = annotate_presence(parse_presence(verify_html))
+                if not after_presence["present_today"]:
+                    # MyBest 2026 mengisi tabel #myTable lewat DataTables AJAX /rekap-side/{token};
+                    # cek langsung sebelum menandai UNVERIFIED agar tidak false-negative.
+                    m = re.findall(r"rekap-side/([^\"'\s]+)", verify_html)
+                    rekap_tok = extract_clean_token(m[0]) if m else target_token
+                    try:
+                        rekap_raw = await pooled_elearning_client.fetch_page(
+                            f"/rekap-side/{rekap_tok}", nim, password
+                        )
+                        rekap_records = parse_presence_rekap(rekap_raw)
+                        if rekap_records:
+                            after_presence["riwayat"] = rekap_records
+                            after_presence["total_kehadiran"] = len(rekap_records)
+                            after_presence = annotate_presence(after_presence)
+                    except Exception as rekap_err:
+                        logger.debug("Fallback verifikasi rekap-side gagal: %s", rekap_err)
+                if not after_presence["present_today"]:
+                    await invalidate_elearning_user_cache(nim, target_token, absen_path)
+                    logger.warning(
+                        "submit_presence unverified: form still open after POST path=%s action=%s after_action=%s status=%s loc=%s course=%s",
+                        absen_path,
+                        action_url,
+                        after_action,
+                        status_code,
+                        loc,
+                        info.get("matakuliah"),
+                    )
+                    return {
+                        "success": False,
+                        "status": "UNVERIFIED",
+                        "matakuliah": info["matakuliah"],
+                        "dosen": info["dosen"],
+                        "message": "MyBest belum mencatat kehadiran (form presensi masih terbuka). Coba ulangi atau cek langsung di MyBest.",
+                    }
         await invalidate_elearning_user_cache(nim, target_token, absen_path)
         logger.info(
             "submit_presence ok: path=%s action=%s status=%s course=%s",

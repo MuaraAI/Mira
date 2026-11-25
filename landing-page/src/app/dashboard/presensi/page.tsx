@@ -302,11 +302,11 @@ export default function PresensiPage() {
   // Polling hanya saat menunggu dosen membuka absen (menjelang/selama kelas hari ini). Di luar itu tidak
   // ada pembaruan otomatis, jadi tampilan tidak berubah-ubah sendiri.
   const watching = !alreadyPresent && (activeTiming?.state === "soon" || activeTiming?.state === "live");
-  const refreshMs = watching ? 15_000 : null;
+  const refreshMs = watching ? 8_000 : null;
 
   // Tunggu daftar mapel dulu: tanpa token, backend akan men-scrape ulang daftar mapel + mapel pertama (lambat & sia-sia).
   const presencePath = activeCourse ? (token ? `/v1/elearning/presence?${absenQuery}` : "/v1/elearning/presence") : "";
-  const presenceApi = useApi<PresenceData>(presencePath, { ttlMs: 5_000, refreshMs, persistMs: PRESENCE_PERSIST_MS });
+  const presenceApi = useApi<PresenceData>(presencePath, { ttlMs: 3_000, refreshMs, persistMs: PRESENCE_PERSIST_MS });
   const pData = presenceApi.data;
 
   useEffect(() => setServerPresent(Boolean(pData?.present_today)), [pData?.present_today]);
