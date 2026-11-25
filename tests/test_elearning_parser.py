@@ -58,15 +58,18 @@ def test_parse_courses_v2_jadwal_card():
     assert teori["kode_dosen"] == "TDL"
     assert teori["sks"] == 2
     assert teori["ruang"] == "EN2-P1"
+    assert teori["kampus"] == "Pontianak"
     assert teori["kelompok_praktek"] is None
     assert teori["token_absen"] and teori["token_learning"] and teori["token_assignment"] and teori["token_diskusi"]
 
     praktek = next(c for c in courses if c["nama"] == "DASAR PEMROGRAMAN")
     assert praktek["kelompok_praktek"] == "DPG.15.1A.01.A"
+    assert praktek["kampus"] == "Pontianak"
     assert praktek["hari"] == "Kamis"
 
     gabung = next(c for c in courses if c["nama"] == "PENDIDIKAN PANCASILA")
     assert gabung["kode_gabung"] == "KG.101.30.C"
+    assert gabung["kampus"] == "Pontianak"
     assert gabung["jadwal"]["jam"] == "07:30-09:10"
 
 def test_parse_courses_legacy_pricing_plan_still_supported():
@@ -219,6 +222,8 @@ def test_inspect_session_status():
     assert status_selesai["kode_mtk"] == "101"
     assert status_selesai["dosen"] == "BDM"
     assert status_selesai["ruang"] == "EL2-P1"
+    assert status_selesai["kelas"] == "KG.101.30.C"
+    assert status_selesai["prodi"] == "Ilmu Komputer"
 
     html_active = (FIXTURES / "el_absen_active.html").read_text(encoding="utf-8")
     status_active = inspect_session_status(html_active)
@@ -376,3 +381,17 @@ def test_parse_learning_media_real_snapshot():
     media = parse_learning_media(html)
     assert "slide" in {s["kategori"] for s in media["slide"]}
     assert isinstance(media["video"], list)
+
+
+def test_extract_branch_from_courses_prefers_kampus_and_falls_back_to_kelas():
+    from app.modules.elearning import extract_branch_from_courses
+
+    assert extract_branch_from_courses([
+        {"kelas": "15.1A.01", "kampus": "Pontianak"},
+        {"kelas": "KG.101.30.C", "kampus": None},
+    ]) == "UBSI Pontianak"
+    assert extract_branch_from_courses([{"kelas": "19.1C.05"}]) == "UBSI Bekasi"
+    assert extract_branch_from_courses([{"kelompok_praktek": "DPG.15.1C.30.A"}]) == "UBSI Pontianak"
+    assert extract_branch_from_courses([{"kode_gabung": "KG.153.03.J"}]) == "UBSI Bandung"
+    assert extract_branch_from_courses([{"kelas": "15.1A.99"}]) == "UBSI Cabang 99"
+    assert extract_branch_from_courses([]) is None

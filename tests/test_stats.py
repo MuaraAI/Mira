@@ -202,3 +202,68 @@ async def test_online_now_counts_only_recent_users():
     data = await _stats_with(fake)
 
     assert data["users"]["online_now"] == 1
+
+
+def test_normalize_program():
+    from app.stats import normalize_program
+
+    assert normalize_program("Informatika Kampus Kota Pontianak") == "Informatika"
+    assert normalize_program("Sistem Informasi Kampus Kota Pontianak") == "Sistem Informasi"
+    assert normalize_program("Sistem Informasi Akuntansi Kampus Kota Pontianak") == "Sistem Informasi Akuntansi"
+    assert normalize_program("Sistem Informasi Akuntansi Kampus Bogor") == "Sistem Informasi Akuntansi"
+    assert normalize_program("Sistem Informasi") == "Sistem Informasi"
+    assert normalize_program("") is None
+
+
+@pytest.mark.asyncio
+async def test_programs_merge_campus_suffix_and_include_all_time_backfill():
+    from unittest.mock import patch
+    from app.stats import record_profile
+
+    class ProgramFakeRedis(FakeRedis):
+        def __init__(self):
+            super().__init__()
+            today = _day(0)
+            old_retained = _day(33)
+            self.data_sets = {
+                f"ubsi:stats:program:Informatika Kampus Kota Pontianak:{old_retained}": {"ret1"},
+                f"ubsi:stats:program:Informatika Kampus Kota Pontianak:{today}": {"act1", "act2"},
+                f"ubsi:stats:program:Sistem Informasi Kampus Kota Pontianak:{today}": {"si_ptk"},
+                f"ubsi:stats:program:Sistem Informasi:{today}": {"si_bks"},
+                "ubsi:stats:program:all:Informatika Kampus Kota Pontianak": {"perm_if"},
+            }
+            self.expiries = {}
+
+        async def sadd(self, key, *members):
+            target = self.data_sets.setdefault(key, set())
+            target.update(members)
+            return len(members)
+
+        async def expire(self, key, ttl):
+            self.expiries[key] = ttl
+            return True
+
+        async def keys(self, pattern):
+            if "program:" in pattern:
+                return [k for k in sorted(self.data_sets) if k.startswith("ubsi:stats:program:")]
+            if "branch:" in pattern:
+                return [k for k in sorted(self.data_sets) if k.startswith("ubsi:stats:branch:")]
+            return await super().keys(pattern)
+
+        async def smembers(self, key):
+            return set(self.data_sets.get(key, set()))
+
+    fake = ProgramFakeRedis()
+    with patch("app.cache.cache.get_client", return_value=fake):
+        await record_profile("12345678", "Pontianak", "Sistem Informasi Akuntansi Kampus Kota Pontianak")
+        stats = await get_public_stats()
+
+    assert "ubsi:stats:program:all:Sistem Informasi" in fake.data_sets
+    assert "ubsi:stats:program:all:Sistem Informasi" not in fake.expiries
+    assert "ubsi:stats:program:all:Sistem Informasi Akuntansi" in fake.data_sets
+    assert "ubsi:stats:branch:all:UBSI Pontianak" in fake.data_sets
+    assert stats["programs"] == [
+        {"name": "Informatika", "active_users_30d": 2, "total_all_time": 4},
+        {"name": "Sistem Informasi", "active_users_30d": 2, "total_all_time": 2},
+        {"name": "Sistem Informasi Akuntansi", "active_users_30d": 1, "total_all_time": 1},
+    ]

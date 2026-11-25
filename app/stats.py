@@ -4,9 +4,10 @@ from __future__ import annotations
 import functools
 import hashlib
 import hmac
+import re
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Callable
 
 from app.cache import cache
 from app.config import settings
@@ -34,6 +35,17 @@ _ALLOWED_STAT_MODULES = frozenset({
     "social",
     "lecturers",
 })
+
+_PROGRAM_CAMPUS_SUFFIX_RE = re.compile(r"\s+Kampus\b.*$", re.IGNORECASE)
+
+
+def normalize_program(value: str | None) -> str | None:
+    """Normalisasi nama prodi dengan membuang akhiran 'Kampus Kota ...' agar PSDKU & utama menyatu."""
+    normalized = " ".join((value or "").split())[:80]
+    if not normalized:
+        return None
+    stripped = _PROGRAM_CAMPUS_SUFFIX_RE.sub("", normalized).strip()
+    return stripped[:80] or normalized
 
 
 def _day(offset: int = 0) -> str:
@@ -79,25 +91,31 @@ async def record_profile(nim: str, branch: str | None, program: str | None) -> N
     try:
         client = await cache.get_client()
         user_id = _identity(nim)
-        for dimension, value in (("branch", branch), ("program", program)):
-            normalized = " ".join((value or "").split())[:80]
+        for dimension, raw_value, normalizer in (
+            ("branch", branch, lambda v: branch_display(" ".join(v.split())[:80])),
+            ("program", program, normalize_program),
+        ):
+            cleaned = " ".join((raw_value or "").split())[:80]
+            normalized = normalizer(cleaned) if cleaned else None
             if not normalized:
                 continue
-            if dimension == "branch":
-                normalized = branch_display(normalized) or normalized
             key = f"{_PREFIX}{dimension}:{normalized}:{day}"
             await client.sadd(key, user_id)
             await client.expire(key, _RETENTION_SECONDS)
-            if dimension == "branch":
-                # Set permanen per cabang (tanpa expire) agar total_all_time tidak ikut kedaluwarsa.
-                await client.sadd(f"{_PREFIX}branch:all:{normalized}", user_id)
+            # Set permanen per dimensi (tanpa expire) agar total_all_time tidak ikut kedaluwarsa.
+            await client.sadd(f"{_PREFIX}{dimension}:all:{normalized}", user_id)
     except Exception:
         pass
 
 
-async def _collect_branch_stats(client: Any, valid_30d_days: set[str]) -> list[dict[str, Any]]:
-    """Kumpulkan statistik aktif 30 hari dan total kumulatif all-time per cabang UBSI."""
-    keys = await _iter_keys(client, f"{_PREFIX}branch:*:*")
+async def _collect_dimension_stats(
+    client: Any,
+    dimension: str,
+    valid_30d_days: set[str],
+    normalizer: Callable[[str], str | None],
+) -> list[dict[str, Any]]:
+    """Kumpulkan statistik aktif 30 hari & kumulatif all-time dengan normalisasi + backfill."""
+    keys = await _iter_keys(client, f"{_PREFIX}{dimension}:*:*")
     grouped_30d: dict[str, set[str]] = {}
     retained: dict[str, set[str]] = {}
     perm_members: dict[str, set[str]] = {}
@@ -109,16 +127,14 @@ async def _collect_branch_stats(client: Any, valid_30d_days: set[str]) -> list[d
             continue
         if parts[3] == "all":
             raw_name = ":".join(parts[4:])
-            name = branch_display(raw_name) or raw_name
+            name = normalizer(raw_name) or raw_name
             members = set(await client.smembers(key))
             perm_members.setdefault(name, set()).update(members)
             all_time.setdefault(name, set()).update(members)
             continue
 
         raw_name = ":".join(parts[3:-1])
-        # Kode mentah SIAKAD ("30", "05") dan nama tampilan ("UBSI Pontianak", "UBSI Bekasi")
-        # adalah kampus yang sama: satukan di sumber agar tidak dihitung dobel.
-        name = branch_display(raw_name) or raw_name
+        name = normalizer(raw_name) or raw_name
         members = set(await client.smembers(key))
         retained.setdefault(name, set()).update(members)
         all_time.setdefault(name, set()).update(members)
@@ -130,21 +146,22 @@ async def _collect_branch_stats(client: Any, valid_30d_days: set[str]) -> list[d
         for name, ids in retained.items():
             missing = ids - perm_members.get(name, set())
             if missing:
-                await sadd(f"{_PREFIX}branch:all:{name}", *missing)
+                await sadd(f"{_PREFIX}{dimension}:all:{name}", *missing)
 
-    branches = [
+    items = [
         {
             "name": name,
             "active_users_30d": len(grouped_30d.get(name, set())),
             "total_all_time": max(len(grouped_30d.get(name, set())), len(all_ids)),
         }
         for name, all_ids in all_time.items()
+        if all_ids or grouped_30d.get(name)
     ]
-    branches.sort(
+    items.sort(
         key=lambda item: (item["active_users_30d"], item["total_all_time"]),
         reverse=True,
     )
-    return branches
+    return items
 
 
 async def _sum_requests(client: Any, days: int) -> int:
@@ -213,18 +230,18 @@ async def get_public_stats() -> dict[str, Any]:
         }
 
         valid_30d_days = {_day(offset) for offset in range(30)}
-        branches = await _collect_branch_stats(client, valid_30d_days)
-        programs: list[dict[str, Any]] = []
-        program_keys = await _iter_keys(client, f"{_PREFIX}program:*:*")
-        grouped_programs: dict[str, set[str]] = {}
-        for key in program_keys:
-            parts = key.split(":")
-            if len(parts) < 5 or parts[3] == "all" or parts[-1] not in valid_30d_days:
-                continue
-            name = ":".join(parts[3:-1])
-            grouped_programs.setdefault(name, set()).update(await client.smembers(key))
-        programs.extend({"name": name, "active_users_30d": len(ids)} for name, ids in grouped_programs.items())
-        programs.sort(key=lambda item: item["active_users_30d"], reverse=True)
+        branches = await _collect_dimension_stats(
+            client,
+            "branch",
+            valid_30d_days,
+            lambda raw: branch_display(raw) or raw,
+        )
+        programs = await _collect_dimension_stats(
+            client,
+            "program",
+            valid_30d_days,
+            lambda raw: normalize_program(raw) or raw,
+        )
 
         return {
             "service": "Mira API",

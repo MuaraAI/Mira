@@ -78,11 +78,19 @@ def test_parse_profile():
 def test_class_label_and_branch_display():
     from app.modules.studentv2 import branch_display, class_label
 
-    # Kode dikenal -> nama; kode angka asing -> "UBSI Cabang <code>"; nama teks -> apa adanya; kosong -> None.
+    # Kode dikenal -> nama; kode angka asing -> "UBSI Cabang <code>"; nama teks -> ternormalisasi; kosong -> None.
     assert branch_display("30") == "UBSI Pontianak"
     assert branch_display("05") == "UBSI Bekasi"
     assert branch_display("99") == "UBSI Cabang 99"
     assert branch_display("UBSI Pontianak") == "UBSI Pontianak"
+    assert branch_display("Pontianak") == "UBSI Pontianak"
+    assert branch_display("Bekasi") == "UBSI Bekasi"
+    assert branch_display("Solo") == "UBSI Surakarta"
+    assert branch_display("Bogor A") == "UBSI Bogor"
+    assert branch_display("Depok 1") == "UBSI Depok"
+    assert branch_display("Tangerang A") == "UBSI Tangerang"
+    assert branch_display("Kampus Kota Pontianak") == "UBSI Pontianak"
+    assert branch_display("Margonda") == "UBSI Margonda"
     assert branch_display("") is None
     assert branch_display(None) is None
 
