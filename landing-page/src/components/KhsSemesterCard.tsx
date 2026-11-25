@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ExternalLink, GraduationCap, Link2 } from "lucide-react";
+import { ArrowUpDown, ExternalLink, GraduationCap, Link2 } from "lucide-react";
 import { useApi } from "@/lib/api";
 import { EmptyState, ErrorState, LoadingState, ghostButtonClass, primaryButtonClass } from "@/components/dashboard-ui";
-
+import { KHS_SORT_OPTIONS, sortKhsItems, type KhsSortKey } from "@/lib/dashboard-sort";
 interface KhsItem {
   no: number;
   kode: string;
@@ -35,9 +35,10 @@ interface KhsSemesterData {
  */
 export function KhsSemesterCard() {
   const [semester, setSemester] = useState<string>("");
+  const [sortBy, setSortBy] = useState<KhsSortKey>("no");
   const path = semester ? `/v1/studentv2/khs-semester?semester=${encodeURIComponent(semester)}` : "/v1/studentv2/khs-semester";
   const khs = useApi<KhsSemesterData>(path);
-
+  const sortedGraded = useMemo(() => sortKhsItems(khs.data?.items ?? [], sortBy), [khs.data?.items, sortBy]);
   if (khs.loading && !khs.data) return <LoadingState label="Memuat KHS semester" />;
 
   if (khs.error?.status === 401) {
@@ -93,22 +94,43 @@ export function KhsSemesterCard() {
           </p>
         </div>
 
-        {options.length > 1 && (
-          <label className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-wider text-secondary">
-            Semester
-            <select
-              value={String(semester || data?.semester || options[0]?.semester || "")}
-              onChange={(e) => setSemester(e.target.value)}
-              className="min-h-10 border-2 border-stroke bg-white px-2 font-mono text-xs text-foreground"
-            >
-              {options.map((opt) => (
-                <option key={String(opt.semester)} value={String(opt.semester)}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {options.length > 1 && (
+            <label className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-wider text-secondary">
+              Semester
+              <select
+                value={String(semester || data?.semester || options[0]?.semester || "")}
+                onChange={(e) => setSemester(e.target.value)}
+                className="min-h-10 rounded-[8px] border border-stroke bg-white px-2.5 font-mono text-xs text-foreground focus-visible:outline-2 focus-visible:outline-[#0369A1]"
+              >
+                {options.map((opt) => (
+                  <option key={String(opt.semester)} value={String(opt.semester)}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          {graded.length > 1 && (
+            <label className="relative flex items-center">
+              <span className="sr-only">Urutkan mata kuliah KHS</span>
+              <ArrowUpDown className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-secondary" aria-hidden="true" />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as KhsSortKey)}
+                aria-label="Urutkan mata kuliah KHS"
+                className="min-h-10 rounded-[8px] border border-stroke bg-white py-1.5 pl-8 pr-3 text-xs font-medium text-foreground focus-visible:outline-2 focus-visible:outline-[#0369A1]"
+              >
+                {KHS_SORT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
       </div>
 
       {graded.length === 0 ? (
@@ -135,7 +157,7 @@ export function KhsSemesterCard() {
 
           <div className="glass-card overflow-hidden">
             <ul className="divide-y divide-stroke/60">
-              {graded.map((item) => (
+              {sortedGraded.map((item) => (
                 <li key={`${item.kode}-${item.no}`} className="flex items-center justify-between gap-3 p-3.5">
                   <div className="flex min-w-0 items-center gap-3">
                     <span className="shrink-0 font-mono text-[11px] font-bold text-secondary">{item.no}</span>

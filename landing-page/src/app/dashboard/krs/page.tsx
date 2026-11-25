@@ -1,9 +1,11 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { SiakadGateNotice, siakadGateIssue } from "@/components/SiakadGateNotice";
-import { ExternalLink, FileText, Link2, Printer } from "lucide-react";
+import { ArrowUpDown, ExternalLink, FileText, Link2, Printer } from "lucide-react";
 import { useApi } from "@/lib/api";
+import { KRS_SORT_OPTIONS, sortKrsItems, type KrsSortKey } from "@/lib/dashboard-sort";
 import {
   EmptyState,
   ErrorState,
@@ -35,7 +37,8 @@ interface KrsData {
  */
 export default function KrsPage() {
   const krs = useApi<KrsData>("/v1/studentv2/krs");
-
+  const [sortBy, setSortBy] = useState<KrsSortKey>("no");
+  const sortedItems = useMemo(() => sortKrsItems(krs.data?.items ?? [], sortBy), [krs.data?.items, sortBy]);
   if (krs.loading && !krs.data) return <LoadingState label="Memuat Kartu Rencana Studi" />;
 
   const notLinked = krs.error?.status === 401;
@@ -118,21 +121,41 @@ export default function KrsPage() {
                 <FileText className="h-4 w-4 text-[#0369A1]" aria-hidden="true" />
                 Daftar Mata Kuliah
               </h3>
-              {krs.data.can_print && (
-                <a
-                  href={krs.data.cetak_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`${ghostButtonClass} text-xs`}
-                >
-                  <Printer className="h-3.5 w-3.5" aria-hidden="true" />
-                  Cetak kartu KRS
-                </a>
-              )}
+              <div className="flex flex-wrap items-center gap-2">
+                {krs.data.items.length > 1 && (
+                  <label className="relative flex items-center">
+                    <span className="sr-only">Urutkan mata kuliah KRS</span>
+                    <ArrowUpDown className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-secondary" aria-hidden="true" />
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value as KrsSortKey)}
+                      aria-label="Urutkan mata kuliah KRS"
+                      className="min-h-10 rounded-[8px] border border-stroke bg-white py-1.5 pl-8 pr-3 text-xs font-medium text-foreground focus-visible:outline-2 focus-visible:outline-[#0369A1]"
+                    >
+                      {KRS_SORT_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                {krs.data.can_print && (
+                  <a
+                    href={krs.data.cetak_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`${ghostButtonClass} text-xs`}
+                  >
+                    <Printer className="h-3.5 w-3.5" aria-hidden="true" />
+                    Cetak kartu KRS
+                  </a>
+                )}
+              </div>
             </div>
 
             <ul className="divide-y divide-stroke/60">
-              {krs.data.items.map((item) => (
+              {sortedItems.map((item) => (
                 <li key={`${item.kode}-${item.no}`} className="flex items-center justify-between gap-3 p-3.5">
                   <div className="flex min-w-0 items-center gap-3">
                     <span className="shrink-0 font-mono text-[11px] font-bold text-secondary">{item.no}</span>
