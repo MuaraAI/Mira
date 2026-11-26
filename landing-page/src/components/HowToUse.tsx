@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowUpRight, Github } from "lucide-react";
 import { ParallaxFrame, RevealOnScroll } from "./HomeParallax";
 import type { RepositoryContributor } from "@/lib/github";
-import { GITHUB_URL } from "@/lib/public-links";
+import { GITHUB_URL, SKILLS_URL } from "@/lib/public-links";
 
 interface PortalSummary {
   name: string;
@@ -83,7 +83,7 @@ const FLOW_STEPS: FlowStep[] = [
   },
 ];
 
-const CONTRIBUTION_TOPICS = ["Parser Portal Kampus", "UI Mobile & PWA", "Testing & Bugfix"];
+const CONTRIBUTION_TOPICS = ["Parser Portal Kampus", "UI Mobile & PWA", "Testing & Bugfix", "Agent Skills & MCP"];
 
 function formatCommits(count: number): string {
   return `${new Intl.NumberFormat("id-ID").format(count)} ${count === 1 ? "commit" : "commits"}`;
@@ -238,6 +238,35 @@ export function HowToUse({ contributors = [] }: { contributors?: RepositoryContr
                 Nemu bug saat portal kampus berubah atau punya ide fitur baru? Buka Issue atau kirim
                 Pull Request lewat branch baru di repositori resmi kami.
               </p>
+
+              <div className="mt-5 min-w-0 rounded-[8px] border-[1px] border-stroke bg-white p-3.5 sm:p-4">
+                <p className="font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#0369A1]">
+                  AGENT SKILLS KONTRIBUTOR
+                </p>
+                <p className="mt-1.5 text-[12.5px] leading-relaxed text-secondary">
+                  Pakai Claude Code, Cursor, Codex, atau agent lain? Pasang skill resmi Mira agar
+                  aturan TDD offline, skema ganda, dan desain otomatis diikuti:
+                </p>
+                <div className="mt-2.5 min-w-0 overflow-x-auto rounded-[6px] bg-[#131b26] px-3 py-2 font-mono text-[11.5px] text-[#7DD3FC]">
+                  npx skills add MuaraAI/Mira --skill mira-backend --skill mira-web
+                </div>
+                <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                  <a
+                    href={SKILLS_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-[#0369A1] underline underline-offset-4 hover:text-[#072033]"
+                  >
+                    Katalog skills.sh
+                  </a>
+                  <Link
+                    href="/developers#dev-skills"
+                    className="font-medium text-[#0369A1] underline underline-offset-4 hover:text-[#072033]"
+                  >
+                    Dokumentasi API, MCP &amp; Skills
+                  </Link>
+                </div>
+              </div>
 
               <div className="mt-6 flex flex-wrap items-center gap-2.5">
                 <a

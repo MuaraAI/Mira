@@ -85,8 +85,8 @@ export const FAQ: { q: string; a: string }[] = [
     a: "Password dienkripsi di server: salinan sesi aktif 7 hari memakai AES-256-GCM di Redis, dan tautan SIAKAD disimpan terenkripsi Fernet per NIM di SQLite agar kamu tidak perlu menautkan ulang saat berganti perangkat. Keduanya dipakai supaya server bisa memperbarui login kampus otomatis saat sesi portal kedaluwarsa, dan dapat dicabut kapan saja lewat Sesi & Keamanan atau logout semua perangkat. Akses API dan MCP membutuhkan Personal API Key milikmu.",
   },
   {
-    q: "Gimana cara pakai REST API dan MCP?",
-    a: `Masuk ke dashboard, buat Personal API Key, lalu kirim lewat header Authorization: Bearer. Panduan pengembang ada di ${SITE_URL}/developers, katalog endpoint JSON ada di ${API_DOCS_URL}, dan AI agent seperti Claude, ChatGPT, Codex, atau Cursor bisa tersambung ke server MCP 42 tools di ${MCP_URL}.`,
+    q: "Gimana cara pakai REST API, MCP, dan Agent Skills?",
+    a: `Masuk ke dashboard, buat Personal API Key, lalu kirim lewat header Authorization: Bearer. Panduan pengembang, prompt siap pakai, dan contoh kode ada di ${SITE_URL}/developers, katalog endpoint JSON ada di ${API_DOCS_URL}, server MCP 42 tools tersedia di ${MCP_URL}, dan Agent Skills resmi bisa dipasang dengan "npx skills add MuaraAI/Mira" (https://skills.sh/muaraai/mira).`,
   },
   {
     q: "Bisa dipakai di HP?",

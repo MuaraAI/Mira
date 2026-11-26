@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   KeyRound,
   Plus,
@@ -8,14 +9,24 @@ import {
   Copy,
   Check,
   AlertCircle,
-  ShieldCheck,
   Code2,
   X,
-  Clock,
   Blocks,
   Sparkles,
+  Terminal,
+  ExternalLink,
 } from "lucide-react";
 import { apiFetch, ApiError, useApi, clearApiCache } from "@/lib/api";
+import { API_DOCS_URL, MCP_URL, SKILLS_URL } from "@/lib/public-links";
+import {
+  KEY_PLACEHOLDER,
+  MIRA_SKILLS,
+  SKILL_INSTALL_COMMANDS,
+  buildMcpAgentPrompt,
+  buildMcpSnippets,
+  buildRestAgentPrompt,
+  buildRestSnippets,
+} from "@/lib/developer-prompts";
 import {
   EmptyState,
   ErrorState,
@@ -39,72 +50,6 @@ interface ApiKeyItem {
 
 const MAX_KEYS = 5;
 
-const MCP_URL = "https://api.muaraai.com/v1/mira/mcp";
-
-const MCP_SNIPPETS: { id: string; label: string; hint: string; code: string }[] = [
-  {
-    id: "claude-code",
-    label: "Claude Code",
-    hint: "Jalankan sekali di terminal, lalu restart sesi Claude Code.",
-    code: `claude mcp add --transport http mira-academic \\\n  ${MCP_URL} \\\n  --header "Authorization: Bearer muara_mira_YOUR_KEY"`,
-  },
-  {
-    id: "cursor",
-    label: "Cursor",
-    hint: "Simpan sebagai .cursor/mcp.json di root project kamu.",
-    code: JSON.stringify(
-      {
-        mcpServers: {
-          "mira-academic": {
-            url: MCP_URL,
-            headers: { Authorization: "Bearer muara_mira_YOUR_KEY" },
-          },
-        },
-      },
-      null,
-      2
-    ),
-  },
-  {
-    id: "codex",
-    label: "Codex CLI",
-    hint: "Tambahkan ke ~/.codex/config.toml.",
-    code: `[mcp_servers.mira-academic]\nurl = "${MCP_URL}"\nhttp_headers = { "Authorization" = "Bearer muara_mira_YOUR_KEY" }`,
-  },
-  {
-    id: "hermes",
-    label: "Hermes Agent",
-    hint: "Tambahkan ke blok mcp_servers di ~/.hermes/config.yaml.",
-    code: `mcp_servers:\n  mira-academic:\n    url: ${MCP_URL}\n    headers:\n      Authorization: "Bearer muara_mira_YOUR_KEY"`,
-  },
-];
-
-const MCP_AGENT_PROMPT = `Tolong pasang dan integrasikan Model Context Protocol (MCP) server akademik kampus UBSI (Mira) ke lingkungan kerja kamu saat ini.
-
-1. Setup Koneksi MCP:
-- Nama server: mira-academic
-- URL Endpoint: https://api.muaraai.com/v1/mira/mcp (Transport: Streamable HTTP)
-- Header Otentikasi: Authorization: Bearer <MASUKKAN_PERSONAL_API_KEY_KAMU>
-- Silakan pasang konfigurasi ini ke config MCP yang sesuai dengan tool yang kamu gunakan:
-  * Claude Code: Jalankan \`claude mcp add --transport http mira-academic https://api.muaraai.com/v1/mira/mcp --header "Authorization: Bearer <KEY>"\`
-  * Cursor: Tambahkan ke file \`.cursor/mcp.json\`
-  * Hermes Agent: Tambahkan ke blok \`mcp_servers\` di \`~/.hermes/config.yaml\`
-  * Codex CLI: Tambahkan ke blok \`[mcp_servers.mira-academic]\` di \`~/.codex/config.toml\`
-
-2. Dokumentasikan ke Memory Project:
-Catat aturan dan kapabilitas Mira Academic OS ini ke dalam file panduan context kamu (seperti \`AGENTS.md\`, \`CLAUDE.md\`, atau \`SOUL.md\`):
-- Peran: Asisten akademik cerdas untuk mahasiswa UBSI berbasis data real-time akun kampus sendiri.
-- Cakupan 6 Layanan Kampus:
-  * SIAKAD (opsional, tautkan di Sesi & Keamanan): rekap Nilai Murni, KHS semester, KRS, dan kartu ujian.
-  * MyBest LMS: Mata kuliah aktif, pelacak tugas & deadline, presensi kehadiran mandiri, unduh materi kuliah, dan kuis.
-  * Ujian Online: Jadwal ujian semester dan kartu peserta via SSO MyBest.
-  * Perpustakaan OPAC: Pencarian katalog buku fisik & stok cabang.
-  * Berita Kampus: Pengumuman dan warta resmi universitas.
-  * Repository: Arsip skripsi dan publikasi riset kampus.
-- Konvensi Tools: Seluruh fungsi akademik menggunakan namespace tools \`mira_*\` (seperti \`mira_get_schedule\`, \`mira_get_assignments\`, \`mira_get_courses\`, \`mira_get_grades\`, dll.).
-
-Setelah terpasang, konfirmasikan bahwa koneksi MCP sudah siap dan bantu saya memeriksa jadwal kuliah atau tugas hari ini.`;
-
 export default function ApiKeysPage() {
   const { confirm, notify } = useDialog();
   const { data, loading, error, reload } = useApi<{ keys: ApiKeyItem[]; total: number }>(
@@ -117,7 +62,7 @@ export default function ApiKeysPage() {
   const [saving, setSaving] = useState(false);
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [docsTab, setDocsTab] = useState<"rest" | "mcp">("rest");
+  const [docsTab, setDocsTab] = useState<"rest" | "mcp" | "skills">("rest");
   const [copiedBlock, setCopiedBlock] = useState<string | null>(null);
   const [revokingId, setRevokingId] = useState<number | null>(null);
 
@@ -141,9 +86,10 @@ export default function ApiKeysPage() {
   const keys = data?.keys || [];
   const atLimit = keys.length >= MAX_KEYS;
 
-  const activePrompt = createdKey
-    ? MCP_AGENT_PROMPT.replace("<MASUKKAN_PERSONAL_API_KEY_KAMU>", createdKey)
-    : MCP_AGENT_PROMPT;
+  const mcpPrompt = buildMcpAgentPrompt(createdKey);
+  const restPrompt = buildRestAgentPrompt(createdKey);
+  const mcpSnippets = buildMcpSnippets(createdKey);
+  const restSnippets = buildRestSnippets(createdKey);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -330,7 +276,7 @@ export default function ApiKeysPage() {
         </div>
       )}
 
-      {/* DOKUMENTASI: REST API & MCP SERVER */}
+      {/* DOKUMENTASI: REST API, MCP SERVER & AGENT SKILLS */}
       <div className="glass-card p-6 space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
@@ -338,15 +284,13 @@ export default function ApiKeysPage() {
             <span>Cara Menghubungkan Akun kamu</span>
           </div>
 
-          <div className="flex items-center gap-1.5 p-1 bg-[#F0F7FB] border border-stroke rounded-pill self-start">
+          <div className="flex flex-wrap items-center gap-1.5 p-1 bg-[#F0F7FB] border border-stroke rounded-pill self-start">
             <button
               type="button"
               onClick={() => setDocsTab("rest")}
               aria-pressed={docsTab === "rest"}
               className={`px-seg-btn inline-flex items-center gap-1.5 ${
-                docsTab === "rest"
-                  ? "px-seg-on"
-                  : ""
+                docsTab === "rest" ? "px-seg-on" : ""
               }`}
             >
               <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />
@@ -357,52 +301,138 @@ export default function ApiKeysPage() {
               onClick={() => setDocsTab("mcp")}
               aria-pressed={docsTab === "mcp"}
               className={`px-seg-btn inline-flex items-center gap-1.5 ${
-                docsTab === "mcp"
-                  ? "px-seg-on"
-                  : ""
+                docsTab === "mcp" ? "px-seg-on" : ""
               }`}
             >
               <Blocks className="h-3.5 w-3.5" aria-hidden="true" />
               MCP Server
+            </button>
+            <button
+              type="button"
+              onClick={() => setDocsTab("skills")}
+              aria-pressed={docsTab === "skills"}
+              className={`px-seg-btn inline-flex items-center gap-1.5 ${
+                docsTab === "skills" ? "px-seg-on" : ""
+              }`}
+            >
+              <Terminal className="h-3.5 w-3.5" aria-hidden="true" />
+              Agent Skills
             </button>
           </div>
         </div>
 
         {docsTab === "rest" ? (
           <>
-            <p className="text-xs text-secondary leading-relaxed">
-              Sertakan kunci di header{" "}
-              <code className="text-[#0369A1] font-mono">Authorization: Bearer muara_...</code> atau{" "}
-              <code className="text-[#0369A1] font-mono">X-API-Key: muara_...</code> pada setiap pemanggilan HTTP.
-            </p>
-
-            <div className="bg-[#131B26] p-4 rounded-xl border border-white/10 font-mono text-xs text-code-text overflow-x-auto space-y-3">
-              <div>
-                <p className="text-code-text/60 text-[11px] mb-1"># 1. Ambil Jadwal Kuliah kamu lewat cURL:</p>
-                <pre className="text-[#7DD3FC]">
-                  {`curl -H "Authorization: Bearer muara_mira_YOUR_KEY" \\
-  https://api.muaraai.com/v1/mira/v1/elearning/schedule`}
-                </pre>
-              </div>
-              <div className="pt-2 border-t border-white/10">
-                <p className="text-code-text/60 text-[11px] mb-1"># 2. Skrip Python Otomasi:</p>
-                <pre className="text-code-text/90">
-{`import requests
-
-headers = {"Authorization": "Bearer muara_mira_YOUR_KEY"}
-res = requests.get("https://api.muaraai.com/v1/mira/v1/elearning/schedule", headers=headers)
-print(res.json())`}
-                </pre>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-secondary leading-relaxed">
+              <p>
+                Sertakan kunci di header{" "}
+                <code className="text-[#0369A1] font-mono">Authorization: Bearer muara_...</code> atau{" "}
+                <code className="text-[#0369A1] font-mono">X-API-Key: muara_...</code> pada setiap pemanggilan HTTP.
+              </p>
+              <div className="flex flex-wrap items-center gap-3 font-medium">
+                <Link href="/developers" className="text-[#0369A1] underline underline-offset-4 hover:text-[#072033]">
+                  Dokumentasi Lengkap
+                </Link>
+                <a
+                  href={API_DOCS_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[#0369A1] underline underline-offset-4 hover:text-[#072033]"
+                >
+                  <span>Katalog JSON (/v1/docs)</span>
+                  <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                </a>
               </div>
             </div>
+
+            <div className="rounded-xl border border-[#0369A1]/30 bg-gradient-to-br from-[#F0F7FB] to-white p-5 space-y-3 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-[#0369A1]/15 pb-2.5">
+                <div>
+                  <p className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                    <Sparkles className="h-4 w-4 text-[#0369A1]" aria-hidden="true" />
+                    Prompt Siap Pakai untuk Bot / REST API
+                  </p>
+                  <p className="text-[11px] text-secondary mt-0.5">
+                    Tempel ke agent atau LLM saat ingin membangun bot Discord, Telegram, atau skrip otomasi lewat Mira REST API.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCopyBlock(restPrompt, "rest-prompt")}
+                  className={`${primaryButtonClass} text-xs py-1.5 px-3 shrink-0 self-start sm:self-auto`}
+                  aria-label="Salin prompt REST API untuk agent"
+                >
+                  {copiedBlock === "rest-prompt" ? (
+                    <>
+                      <Check className="h-3.5 w-3.5 text-white" aria-hidden="true" />
+                      <span>Tersalin!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>Salin Prompt</span>
+                    </>
+                  )}
+                </button>
+              </div>
+              <div className="bg-[#131B26] p-3.5 rounded-lg border border-white/10 font-mono text-[11px] leading-relaxed text-[#E2F1FC] overflow-x-auto whitespace-pre-wrap break-words">
+                {restPrompt}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {restSnippets.map((s) => (
+                <div key={s.id} className="min-w-0 rounded-xl border border-stroke overflow-hidden bg-[#131B26]">
+                  <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-white/10">
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-code-text font-sans">{s.label}</p>
+                      <p className="text-[10px] text-code-text/60 mt-0.5 font-sans">{s.hint}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyBlock(s.code, `rest-${s.id}`)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-pill border border-white/20 text-[11px] font-semibold text-code-text hover:bg-white/10 transition-colors shrink-0"
+                      aria-label={`Salin contoh ${s.label}`}
+                    >
+                      {copiedBlock === `rest-${s.id}` ? (
+                        <>
+                          <Check className="h-3 w-3 text-emerald-400" aria-hidden="true" />
+                          <span>Tersalin</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3 w-3" aria-hidden="true" />
+                          <span>Salin</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <pre className="px-4 py-3 font-mono text-[11px] leading-relaxed text-[#7DD3FC] overflow-x-auto">
+                    {s.code}
+                  </pre>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-[11px] text-secondary leading-relaxed">
+              Ingin agent coding otomatis memahami seluruh endpoint &amp; error code Mira? Buka tab{" "}
+              <button
+                type="button"
+                onClick={() => setDocsTab("skills")}
+                className="font-semibold text-[#0369A1] underline underline-offset-4 hover:text-[#072033]"
+              >
+                Agent Skills
+              </button>{" "}
+              atau jalankan <code className="font-mono text-[#0369A1]">{SKILL_INSTALL_COMMANDS.mcpApi}</code>.
+            </p>
           </>
-        ) : (
+        ) : docsTab === "mcp" ? (
           <>
             <p className="text-xs text-secondary leading-relaxed">
               Personal API Key yang sama bisa dipakai untuk menyambungkan akademik UBSI kamu ke{" "}
-              <strong className="text-foreground">AI Agent</strong> (Claude Code, Cursor, Codex, Hermes) lewat{" "}
-              <strong className="text-foreground">MCP (Model Context Protocol)</strong>. Satu koneksi, 40 tools akademik:
-              jadwal, nilai &amp; KHS, KRS, kuis online, tugas &amp; link submit, presensi DataTables, bahan ajar, forum diskusi, kalender, berita, perpustakaan, dan kamus dokumentasi API
+              <strong className="text-foreground">AI Agent</strong> (Claude Code, Cursor, Codex, Hermes, Claude Desktop) lewat{" "}
+              <strong className="text-foreground">MCP (Model Context Protocol)</strong>. Satu koneksi, 42 tools akademik:
+              jadwal, nilai &amp; KHS, KRS, kuis &amp; ujian online, tugas &amp; link submit, presensi DataTables, bahan ajar, forum diskusi, kalender, berita, perpustakaan, dan kamus dokumentasi API
               langsung dari chat agent kamu.
             </p>
 
@@ -412,17 +442,17 @@ print(res.json())`}
                 <div>
                   <p className="text-sm font-bold text-foreground flex items-center gap-1.5">
                     <Sparkles className="h-4 w-4 text-[#0369A1]" aria-hidden="true" />
-                    Prompt Siap Pakai untuk Agent
+                    Prompt Siap Pakai untuk Agent (MCP + Skill)
                   </p>
                   <p className="text-[11px] text-secondary mt-0.5">
-                    Tempel prompt ini sebagai pesan pertama agar agent langsung paham base URL dan tools akademik kamu.
+                    Tempel prompt ini sebagai pesan pertama agar agent otomatis memasang skill mira-mcp, endpoint Streamable HTTP, dan aturan konfirmasi [WRITE].
                   </p>
                 </div>
                 <button
                   type="button"
-                  onClick={() => handleCopyBlock(activePrompt, "agent-prompt")}
+                  onClick={() => handleCopyBlock(mcpPrompt, "agent-prompt")}
                   className={`${primaryButtonClass} text-xs py-1.5 px-3 shrink-0 self-start sm:self-auto`}
-                  aria-label="Salin prompt untuk agent"
+                  aria-label="Salin prompt MCP untuk agent"
                 >
                   {copiedBlock === "agent-prompt" ? (
                     <>
@@ -437,8 +467,8 @@ print(res.json())`}
                   )}
                 </button>
               </div>
-              <div className="bg-[#131B26] p-3.5 rounded-lg border border-white/10 font-mono text-[11px] leading-relaxed text-[#7DD3FC] overflow-x-auto whitespace-pre-wrap">
-                {activePrompt}
+              <div className="bg-[#131B26] p-3.5 rounded-lg border border-white/10 font-mono text-[11px] leading-relaxed text-[#E2F1FC] overflow-x-auto whitespace-pre-wrap break-words">
+                {mcpPrompt}
               </div>
             </div>
 
@@ -468,13 +498,13 @@ print(res.json())`}
             <div className="space-y-2">
               <p className="text-xs font-bold text-foreground">Konfigurasi Per Agent Client</p>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {MCP_SNIPPETS.map((s) => (
-                  <div key={s.id} className="rounded-xl border border-stroke overflow-hidden bg-[#131B26]">
-                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/10">
-                      <div>
+                {mcpSnippets.map((s) => (
+                  <div key={s.id} className="min-w-0 rounded-xl border border-stroke overflow-hidden bg-[#131B26]">
+                    <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-white/10">
+                      <div className="min-w-0">
                         <p className="text-xs font-bold text-code-text font-sans flex items-center gap-1.5">
-                          <Blocks className="h-3.5 w-3.5 text-[#7DD3FC]" aria-hidden="true" />
-                          {s.label}
+                          <Blocks className="h-3.5 w-3.5 text-[#7DD3FC] shrink-0" aria-hidden="true" />
+                          <span className="truncate">{s.label}</span>
                         </p>
                         <p className="text-[10px] text-code-text/60 mt-0.5 font-sans">{s.hint}</p>
                       </div>
@@ -506,9 +536,107 @@ print(res.json())`}
             </div>
 
             <p className="text-[11px] text-secondary leading-relaxed">
-              Ganti <code className="font-mono text-[#0369A1]">muara_mira_YOUR_KEY</code> dengan Personal API Key kamu di atas.
+              Ganti <code className="font-mono text-[#0369A1]">{KEY_PLACEHOLDER}</code> dengan Personal API Key kamu di atas.
               Kunci dikirim sebagai header HTTP saat agent memanggil tools, aman dan tidak disimpan server.
             </p>
+          </>
+        ) : (
+          <>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs text-secondary leading-relaxed">
+              <p>
+                Pasang <strong className="text-foreground">Mira Agent Skills</strong> agar AI Coding Agent
+                (Claude Code, Cursor, Codex, Gemini CLI, Hermes, Antigravity) langsung menguasai alur 42 tools MCP,
+                keamanan <code className="font-mono text-[#0369A1]">[WRITE]</code>, REST API, dan playbook kontributor.
+              </p>
+              <a
+                href={SKILLS_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 font-semibold text-[#0369A1] underline underline-offset-4 hover:text-[#072033] shrink-0"
+              >
+                <span>Buka di skills.sh</span>
+                <ExternalLink className="h-3 w-3" aria-hidden="true" />
+              </a>
+            </div>
+
+            <div className="space-y-3">
+              {[
+                {
+                  id: "skill-all",
+                  label: "Pasang Seluruh 5 Skill Mira",
+                  hint: "Direkomendasikan jika agent dipakai untuk MCP, REST API, sekaligus kontribusi kode.",
+                  code: SKILL_INSTALL_COMMANDS.all,
+                },
+                {
+                  id: "skill-mcp-api",
+                  label: "Khusus Pengguna MCP & REST API",
+                  hint: "Untuk mengintegrasikan jadwal, tugas, presensi, atau membuat bot mahasiswa.",
+                  code: SKILL_INSTALL_COMMANDS.mcpApi,
+                },
+                {
+                  id: "skill-contrib",
+                  label: "Khusus Kontributor Kode (Muara AI / UBSI)",
+                  hint: "Aturan branch PR, FastAPI offline TDD, dual-DB SQLite + Supabase, Next.js 15, & SEO.",
+                  code: SKILL_INSTALL_COMMANDS.contributors,
+                },
+              ].map((item) => (
+                <div key={item.id} className="min-w-0 rounded-xl border border-stroke overflow-hidden bg-[#131B26]">
+                  <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-white/10">
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-code-text font-sans">{item.label}</p>
+                      <p className="text-[10px] text-code-text/60 mt-0.5 font-sans">{item.hint}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyBlock(item.code, item.id)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-pill border border-white/20 text-[11px] font-semibold text-code-text hover:bg-white/10 transition-colors shrink-0"
+                      aria-label={`Salin perintah ${item.label}`}
+                    >
+                      {copiedBlock === item.id ? (
+                        <>
+                          <Check className="h-3 w-3 text-emerald-400" aria-hidden="true" />
+                          <span>Tersalin</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3 w-3" aria-hidden="true" />
+                          <span>Salin</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <pre className="px-4 py-3 font-mono text-[11.5px] leading-relaxed text-[#7DD3FC] overflow-x-auto">
+                    {item.code}
+                  </pre>
+                </div>
+              ))}
+            </div>
+
+            <div className="rounded-xl border border-stroke bg-white overflow-hidden">
+              <ul className="divide-y divide-stroke">
+                {MIRA_SKILLS.map((skill) => (
+                  <li
+                    key={skill.id}
+                    className="grid gap-1.5 px-4 py-3 sm:grid-cols-[200px_1fr] sm:items-baseline sm:gap-4"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <a
+                        href={skill.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono text-xs font-semibold text-[#0369A1] underline underline-offset-4 hover:text-[#072033]"
+                      >
+                        {skill.id}
+                      </a>
+                      <span className="rounded px-1.5 py-0.5 bg-[#F0F7FB] border border-[#CFE2EE] font-mono text-[10px] font-medium text-[#072033]">
+                        {skill.audience}
+                      </span>
+                    </div>
+                    <span className="text-xs text-secondary leading-relaxed">{skill.desc}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </>
         )}
       </div>
