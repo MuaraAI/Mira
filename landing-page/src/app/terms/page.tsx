@@ -1,13 +1,18 @@
 import Link from "next/link";
-import type { Metadata } from "next";
 import { Monogram } from "@/components/Monogram";
+import { buildBreadcrumbJsonLd, buildPageMetadata } from "@/lib/site";
 
-export const metadata: Metadata = {
+export const metadata = buildPageMetadata({
   title: "Syarat dan Ketentuan Layanan",
   description:
-    "Aturan penggunaan Mira: hanya data milik sendiri, dilarang otomasi akademik terlarang, batas rate limit, dan hak kami untuk membatasi akun yang menyalahgunakan layanan.",
-  alternates: { canonical: "/terms" },
-};
+    "Aturan penggunaan Mira UBSI: hanya untuk data milik sendiri, larangan otomasi akademik terlarang, batas rate limit, dan kebijakan pembatasan akun.",
+  path: "/terms",
+});
+
+const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+  { name: "Beranda", path: "/" },
+  { name: "Syarat dan Ketentuan", path: "/terms" },
+]);
 
 const SECTIONS: { title: string; body: string[] }[] = [
   {
@@ -58,7 +63,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
     ],
   },
   {
-    title: "7. Sangguman (Disclaimer)",
+    title: "7. Sanggahan (Disclaimer)",
     body: [
       "Layanan disediakan sebagaimana adanya (as is) tanpa jaminan apa pun. Kami tidak bertanggung jawab atas kehilangan data, kesalahan tampilan nilai, atau kerugian akademik apa pun yang timbul dari penggunaan layanan.",
       "Proyek ini independen dan tidak berafiliasi dengan Universitas Bina Sarana Informatika. Seluruh merek dan data akademik adalah milik masing-masing pemiliknya.",
@@ -146,11 +151,21 @@ export default function TermsPage() {
           <Link href="/privacy" className="font-semibold text-[#0369A1] hover:underline">
             Kebijakan Privasi
           </Link>
+          <Link href="/dmca" className="font-semibold text-[#0369A1] hover:underline">
+            DMCA dan HKI
+          </Link>
+          <Link href="/demo" className="font-semibold text-[#0369A1] hover:underline">
+            Demo Dashboard
+          </Link>
           <Link href="/" className="text-secondary hover:text-foreground">
             Kembali ke Beranda
           </Link>
         </div>
       </main>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
     </div>
   );
 }

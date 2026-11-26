@@ -99,11 +99,12 @@ export function HowToUse({ contributors = [] }: { contributors?: RepositoryContr
   const maxCommits = contributors[0]?.contributions || 1;
 
   return (
-    <section
-      id="cara-pakai"
-      className="border-b-[1px] border-stroke bg-white scroll-mt-24"
-      aria-labelledby="cara-pakai-title"
-    >
+    <>
+      <section
+        id="cara-pakai"
+        className="border-b-[1px] border-stroke bg-white scroll-mt-24"
+        aria-labelledby="cara-pakai-title"
+      >
       {/* Band 1: Asymmetric Editorial Workflow & 6-Portal Map */}
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-24 lg:px-8">
         <div className="grid gap-10 lg:grid-cols-[0.78fr_1.22fr] lg:gap-16">
@@ -168,35 +169,26 @@ export function HowToUse({ contributors = [] }: { contributors?: RepositoryContr
             {FLOW_STEPS.map((step, idx) => (
               <li key={step.code} className="min-w-0">
                 <RevealOnScroll delayMs={idx * 60}>
-                  <div className="py-5 sm:grid sm:grid-cols-[104px_1fr] sm:items-center sm:gap-7 sm:py-8">
-                    <div className="flex items-center gap-3.5 sm:block">
-                      <ParallaxFrame className="h-14 w-14 shrink-0 sm:h-24 sm:w-24">
-                        <Image
-                          src={step.mascot}
-                          alt={step.mascotAlt}
-                          width={104}
-                          height={104}
-                          className="h-14 w-14 object-contain sm:h-24 sm:w-24"
-                        />
-                      </ParallaxFrame>
-                      <div className="min-w-0 flex-1 sm:hidden">
-                        <span className="font-mono text-[11px] tracking-[0.14em] text-[#0369A1]">
-                          {step.code}
-                        </span>
-                        <h3 className="mt-0.5 text-[15.5px] font-medium leading-snug text-foreground">
-                          {step.title}
-                        </h3>
-                      </div>
-                    </div>
-
-                    <div className="mt-2.5 min-w-0 sm:mt-0">
-                      <span className="hidden font-mono text-xs tracking-[0.14em] text-[#0369A1] sm:inline-block">
+                  <div className="grid grid-cols-[56px_1fr] items-center gap-x-3.5 gap-y-2.5 py-5 sm:grid-cols-[104px_1fr] sm:gap-x-7 sm:gap-y-1 sm:py-8">
+                    <ParallaxFrame className="h-14 w-14 shrink-0 sm:row-span-2 sm:h-24 sm:w-24 sm:self-center">
+                      <Image
+                        src={step.mascot}
+                        alt={step.mascotAlt}
+                        width={104}
+                        height={104}
+                        className="h-14 w-14 object-contain sm:h-24 sm:w-24"
+                      />
+                    </ParallaxFrame>
+                    <div className="min-w-0">
+                      <span className="font-mono text-[11px] tracking-[0.14em] text-[#0369A1] sm:text-xs">
                         {step.code}
                       </span>
-                      <h3 className="mt-1 hidden text-[18px] leading-[1.35] tracking-[0.005em] text-foreground sm:block">
+                      <h3 className="mt-0.5 text-[15.5px] font-medium leading-snug text-foreground sm:mt-1 sm:text-[18px] sm:font-normal sm:leading-[1.35] sm:tracking-[0.005em]">
                         {step.title}
                       </h3>
-                      <p className="text-[13px] leading-[1.7] tracking-[0.01em] text-secondary sm:mt-2.5 sm:text-[14px]">
+                    </div>
+                    <div className="col-span-2 min-w-0 sm:col-span-1 sm:col-start-2">
+                      <p className="text-[13px] leading-[1.7] tracking-[0.01em] text-secondary sm:mt-1.5 sm:text-[14px]">
                         {step.description}
                       </p>
                       <p className="mt-2.5 break-words font-mono text-[11px] leading-relaxed text-[#0369A1]">
@@ -210,11 +202,13 @@ export function HowToUse({ contributors = [] }: { contributors?: RepositoryContr
           </ol>
         </div>
       </div>
+      </section>
 
       {/* Band 2: Open Source & Live GitHub Contributors */}
-      <div
+      <section
         id="kontribusi"
-        className="border-t-[1px] border-stroke bg-background py-12 sm:py-20 scroll-mt-24"
+        aria-labelledby="kontribusi-title"
+        className="border-b-[1px] border-stroke bg-background py-12 sm:py-20 scroll-mt-24"
       >
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-start lg:gap-14">
@@ -222,9 +216,12 @@ export function HowToUse({ contributors = [] }: { contributors?: RepositoryContr
               <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#0369A1]">
                 OPEN SOURCE · LISENSI MIT
               </p>
-              <h3 className="mt-2 text-[clamp(1.45rem,2.8vw,2rem)] leading-[1.2] tracking-[-0.005em] text-foreground">
+              <h2
+                id="kontribusi-title"
+                className="mt-2 text-[clamp(1.45rem,2.8vw,2rem)] leading-[1.2] tracking-[-0.005em] text-foreground"
+              >
                 Dibangun terbuka bersama di GitHub.
-              </h3>
+              </h2>
               <p className="mt-3.5 text-[13.5px] leading-[1.75] text-secondary sm:text-[14.5px]">
                 Mira dikembangkan oleh mahasiswa Informatika UBSI di bawah komunitas Muara AI.
                 Seluruh kode sumber terbuka di GitHub agar bisa dipelajari, diaudit, dan
@@ -369,7 +366,7 @@ export function HowToUse({ contributors = [] }: { contributors?: RepositoryContr
             </RevealOnScroll>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </>
   );
 }

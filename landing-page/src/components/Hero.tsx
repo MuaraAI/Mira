@@ -85,8 +85,8 @@ export function Hero() {
               id="hero-title"
               className="font-home-display text-[clamp(2rem,7.2vw,4.15rem)] leading-[1.08] tracking-[0.005em] text-white"
             >
-              Alternatif all-in-one website UBSI,{" "}
-              <span className="text-[#7DD3FC]">tanpa ribet.</span>
+              Satu dashboard untuk MyBest, SIAKAD,{" "}
+              <span className="text-[#7DD3FC]">dan portal UBSI.</span>
             </h1>
 
             <p className="mt-4 max-w-xl text-[14px] leading-[1.7] tracking-[0.01em] text-[#DCEBF5] sm:mt-5 sm:text-[15.5px]">
@@ -142,38 +142,19 @@ export function Hero() {
               </Link>
             </div>
 
-            {/* Mobile: unified 01-06 list without mismatched gray box */}
-            <div className="min-w-0 divide-y-[1px] divide-stroke border-y-[1px] border-stroke lg:hidden">
-              {[...DAILY_FLOWS, ...SUPPORT_FLOWS].map((item) => (
-                <div key={item.code} className="grid grid-cols-[28px_1fr] items-baseline gap-3 py-4">
-                  <span className="font-mono text-[11px] tracking-[0.12em] text-[#0369A1]">
-                    {item.code}
-                  </span>
-                  <div className="min-w-0">
-                    <h3 className="text-[15px] font-medium leading-snug text-foreground">
-                      {item.title}
-                    </h3>
-                    <p className="mt-1 text-[13px] leading-[1.65] text-secondary">
-                      {item.text}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Desktop top tier: 01-03 beside sticky intro */}
-            <div className="hidden min-w-0 divide-y-[1px] divide-stroke border-y-[1px] border-stroke lg:block">
+            {/* Top tier: 01-03 beside sticky intro */}
+            <div className="min-w-0 divide-y-[1px] divide-stroke border-y-[1px] border-stroke">
               {DAILY_FLOWS.map((item, idx) => (
                 <RevealOnScroll key={item.code} delayMs={idx * 70}>
-                  <div className="grid grid-cols-[56px_1fr] items-baseline gap-6 py-6">
-                    <span className="font-mono text-xs tracking-[0.14em] text-[#0369A1]">
+                  <div className="grid grid-cols-[28px_1fr] items-baseline gap-3 py-4 lg:grid-cols-[56px_1fr] lg:gap-6 lg:py-6">
+                    <span className="font-mono text-[11px] tracking-[0.12em] text-[#0369A1] lg:text-xs lg:tracking-[0.14em]">
                       {item.code}
                     </span>
-                    <div>
-                      <h3 className="text-[16.5px] tracking-[0.005em] text-foreground">
+                    <div className="min-w-0">
+                      <h3 className="text-[15px] font-medium leading-snug text-foreground lg:text-[16.5px] lg:font-normal lg:tracking-[0.005em]">
                         {item.title}
                       </h3>
-                      <p className="mt-1.5 text-[13.5px] leading-[1.75] tracking-[0.012em] text-secondary">
+                      <p className="mt-1 text-[13px] leading-[1.65] text-secondary lg:mt-1.5 lg:text-[13.5px] lg:leading-[1.75] lg:tracking-[0.012em]">
                         {item.text}
                       </p>
                     </div>
@@ -183,20 +164,23 @@ export function Hero() {
             </div>
           </div>
 
-          {/* Desktop bottom tier: 04-06 full-width unified architectural strip (no mismatched gray box) */}
-          <ParallaxLayer speed={14} desktopOnly className="hidden lg:block">
+          {/* Bottom tier: 04-06 full-width unified architectural strip */}
+          <ParallaxLayer speed={14} desktopOnly>
             <RevealOnScroll delayMs={100}>
-              <div className="mt-12 border-y-[1px] border-stroke">
-                <div className="grid grid-cols-3 divide-x-[1px] divide-stroke">
+              <div className="border-b-[1px] border-stroke lg:mt-12 lg:border-y-[1px]">
+                <div className="grid grid-cols-1 divide-y-[1px] divide-stroke lg:grid-cols-3 lg:divide-x-[1px] lg:divide-y-0">
                   {SUPPORT_FLOWS.map((item) => (
-                    <div key={item.code} className="min-w-0 px-7 py-7 first:pl-0 last:pr-0">
-                      <span className="font-mono text-xs tracking-[0.14em] text-[#0369A1]">
+                    <div
+                      key={item.code}
+                      className="min-w-0 py-4 lg:px-7 lg:py-7 lg:first:pl-0 lg:last:pr-0"
+                    >
+                      <span className="font-mono text-[11px] tracking-[0.12em] text-[#0369A1] lg:text-xs lg:tracking-[0.14em]">
                         {item.code}
                       </span>
-                      <h3 className="mt-2.5 text-[15.5px] tracking-[0.005em] text-foreground">
+                      <h3 className="mt-1.5 text-[15px] font-medium leading-snug text-foreground lg:mt-2.5 lg:text-[15.5px] lg:font-normal lg:tracking-[0.005em]">
                         {item.title}
                       </h3>
-                      <p className="mt-2 text-[13px] leading-[1.7] tracking-[0.012em] text-secondary">
+                      <p className="mt-1 text-[13px] leading-[1.65] text-secondary lg:mt-2 lg:leading-[1.7] lg:tracking-[0.012em]">
                         {item.text}
                       </p>
                     </div>

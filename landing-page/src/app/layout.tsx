@@ -3,7 +3,7 @@ import localFont from "next/font/local";
 import { Analytics } from "@vercel/analytics/react";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 import { TopProgressBar } from "@/components/TopProgressBar";
-import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_TITLE, SITE_URL, GITHUB_URL } from "@/lib/site";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_TITLE, SITE_URL } from "@/lib/site";
 import "./globals.css";
 
 const spaceGrotesk = localFont({
@@ -26,6 +26,7 @@ const spaceGrotesk = localFont({
   ],
   variable: "--font-space-grotesk",
   display: "swap",
+  preload: true,
 });
 
 const inter = localFont({
@@ -53,6 +54,7 @@ const inter = localFont({
   ],
   variable: "--font-inter",
   display: "swap",
+  preload: false,
 });
 
 const jetbrainsMono = localFont({
@@ -75,81 +77,7 @@ const jetbrainsMono = localFont({
   ],
   variable: "--font-jetbrains-mono",
   display: "swap",
-});
-
-// Pixelify Sans (OFL-1.1): pixel display face shared with muaraai.com, used for dashboard headings.
-const pixelify = localFont({
-  src: [
-    {
-      path: "../../public/fonts/pixelify-sans-latin-500-normal.woff2",
-      weight: "500",
-      style: "normal",
-    },
-    {
-      path: "../../public/fonts/pixelify-sans-latin-600-normal.woff2",
-      weight: "600",
-      style: "normal",
-    },
-    {
-      path: "../../public/fonts/pixelify-sans-latin-700-normal.woff2",
-      weight: "700",
-      style: "normal",
-    },
-  ],
-  variable: "--font-pixel",
-  display: "swap",
-  // Hanya huruf. Angka dan simbol memakai Space Grotesk karena di Pixelify "2" dan "Z" bentuknya sama.
-  declarations: [{ prop: "unicode-range", value: "U+0041-005A, U+0061-007A" }],
-});
-
-const aestetico = localFont({
-  src: [
-    {
-      path: "../../public/fonts/Aestetico-Regular.otf",
-      weight: "400",
-      style: "normal",
-    },
-    {
-      path: "../../public/fonts/Aestetico-Medium.otf",
-      weight: "500",
-      style: "normal",
-    },
-    {
-      path: "../../public/fonts/Aestetico-SemiBold.otf",
-      weight: "600",
-      style: "normal",
-    },
-    {
-      path: "../../public/fonts/Aestetico-Bold.otf",
-      weight: "700",
-      style: "normal",
-    },
-  ],
-  variable: "--font-aestetico",
-  display: "swap",
-  adjustFontFallback: false,
-  // Versi trial Aestetico mengganti tanda hubung & sebagian angka dengan glif "DEMO"; batasi ke huruf Latin, spasi, koma, titik.
-  declarations: [{ prop: "unicode-range", value: "U+0020, U+002C, U+002E, U+0041-005A, U+0061-007A" }],
-});
-
-const grosen = localFont({
-  src: [
-    {
-      path: "../../public/fonts/Grosen-Medium.otf",
-      weight: "500",
-      style: "normal",
-    },
-  ],
-  variable: "--font-grosen",
-  display: "swap",
-  adjustFontFallback: false,
-  // Fontspring DEMO Grosen mengganti angka 4 dan sebagian simbol dengan glif DEMO; batasi ke huruf Latin + tanda baca bersih.
-  declarations: [
-    {
-      prop: "unicode-range",
-      value: "U+0020, U+002C, U+002E, U+003A-003B, U+003F, U+0041-005A, U+0061-007A",
-    },
-  ],
+  preload: false,
 });
 
 export const viewport: Viewport = {
@@ -160,21 +88,6 @@ export const viewport: Viewport = {
   // Keyboard virtual mengecilkan layout (bukan menimpa), seperti aplikasi native: input chat & pencarian tetap terlihat.
   interactiveWidget: "resizes-content",
 };
-
-const SEARCH_TITLE_KEYWORDS = [
-  "Mira UBSI",
-  "Mira Mahasiswa",
-  "UBSI-API",
-  "dashboard mahasiswa UBSI",
-  "jadwal kuliah UBSI",
-  "nilai KHS UBSI",
-  "tugas MyBest UBSI",
-  "presensi MyBest",
-  "Universitas Bina Sarana Informatika",
-  "BSI SIAKAD",
-  "Elearning MyBest UBSI",
-  "Muara AI",
-];
 
 export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
@@ -192,7 +105,6 @@ export const metadata: Metadata = {
   },
   title: { default: SITE_TITLE, template: `%s | ${SITE_NAME}` },
   description: SITE_DESCRIPTION,
-  keywords: SEARCH_TITLE_KEYWORDS,
   authors: [
     { name: "Yuken Velino", url: "https://github.com/Curzyori" },
     { name: "Verzio Yamanansyah", url: "https://github.com/MyKineID" },
@@ -204,7 +116,6 @@ export const metadata: Metadata = {
   category: "education",
   metadataBase: new URL(SITE_URL),
   alternates: {
-    canonical: "/",
     types: { "text/markdown": "/llms.txt" },
   },
   robots: {
@@ -257,7 +168,6 @@ export default function RootLayout({
 }>) {
   const orgId = `${SITE_URL}/#organization`;
   const siteId = `${SITE_URL}/#website`;
-  const appId = `${SITE_URL}/#software`;
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
@@ -266,6 +176,17 @@ export default function RootLayout({
         "@id": orgId,
         name: "Muara AI",
         url: "https://muaraai.com",
+        email: "admin@muaraai.com",
+        logo: {
+          "@type": "ImageObject",
+          url: `${SITE_URL}/icon.png`,
+        },
+        contactPoint: {
+          "@type": "ContactPoint",
+          contactType: "technical support",
+          email: "admin@muaraai.com",
+          availableLanguage: ["Indonesian", "English"],
+        },
         sameAs: [
           "https://github.com/MuaraAI",
           "https://x.com/MuaraAI",
@@ -283,39 +204,12 @@ export default function RootLayout({
         inLanguage: "id-ID",
         publisher: { "@id": orgId },
       },
-      {
-        "@type": ["WebApplication", "EducationalApplication"],
-        "@id": appId,
-        name: SITE_NAME,
-        alternateName: ["UBSI API", "UBSI-API"],
-        url: SITE_URL,
-        description: SITE_DESCRIPTION,
-        applicationCategory: "EducationalApplication",
-        operatingSystem: "Web, Android, iOS (PWA)",
-        softwareVersion: "4.0.0",
-        screenshot: `${SITE_URL}/opengraph-image`,
-        inLanguage: "id-ID",
-        isAccessibleForFree: true,
-        license: `${GITHUB_URL}/blob/main/LICENSE`,
-        codeRepository: GITHUB_URL,
-        featureList: [
-          "Dashboard akademik UBSI: jadwal, tugas, presensi, materi, kuis, nilai KHS, KRS, kartu ujian",
-          "Notifikasi push PWA",
-        ],
-        offers: { "@type": "Offer", price: "0", priceCurrency: "IDR" },
-        author: [
-          { "@type": "Person", name: "Yuken Velino", url: "https://github.com/Curzyori" },
-          { "@type": "Person", name: "Verzio Yamanansyah", url: "https://github.com/MyKineID" },
-          { "@type": "Person", name: "Muhammad Raffli Aldiansyah", url: "https://github.com/Seeyaa77" },
-        ],
-        publisher: { "@id": orgId },
-      },
     ],
   };
   return (
     <html
       lang="id"
-      className={`${spaceGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable} ${pixelify.variable} ${aestetico.variable} ${grosen.variable}`}
+      className={`${spaceGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable}`}
     >
       <head>
         <script

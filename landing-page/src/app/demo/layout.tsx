@@ -1,12 +1,25 @@
-import type { Metadata } from "next";
+import { buildBreadcrumbJsonLd, buildPageMetadata } from "@/lib/site";
 
-export const metadata: Metadata = {
-  title: "Demo Dashboard Interaktif | Mira",
+export const metadata = buildPageMetadata({
+  title: "Demo Dashboard Mahasiswa UBSI Interaktif",
   description:
-    "Simulasi dashboard akademik interaktif Mira UBSI tanpa perlu login dan tanpa API: pantau jadwal kuliah, presensi kehadiran, tugas, kuis, dan nilai dengan data contoh.",
-  alternates: { canonical: "/demo" },
-};
+    "Coba simulasi dashboard akademik Mira UBSI tanpa login: pantau jadwal kuliah, presensi kehadiran, tugas, kuis, KHS, dan layanan kampus contoh.",
+  path: "/demo",
+});
+
+const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+  { name: "Beranda", path: "/" },
+  { name: "Demo Dashboard", path: "/demo" },
+]);
 
 export default function DemoLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      {children}
+    </>
+  );
 }
