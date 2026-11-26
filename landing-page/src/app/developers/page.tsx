@@ -169,9 +169,10 @@ export default function DevelopersPage() {
           REST API &amp; MCP Server Mira UBSI
         </h1>
         <p className="mt-3 text-sm leading-relaxed text-secondary sm:text-base">
-          Hubungkan bot mahasiswa, skrip pengingat, atau AI agent seperti Claude Code, Cursor,
-          Codex, dan Hermes ke ekosistem akademik UBSI melalui REST API dan 42 tools MCP dalam satu
-          namespace <code className="font-mono text-xs text-foreground">mira_*</code>.
+          Mira API (sebelumnya dikenal sebagai UBSI API / BSI API dari Muara AI) memudahkan Anda
+          menghubungkan bot mahasiswa, skrip pengingat, atau AI agent seperti Claude Code, Cursor,
+          Codex, dan Hermes ke ekosistem akademik UBSI (BSI) melalui REST API dan 42 tools MCP dalam
+          satu namespace <code className="font-mono text-xs text-foreground">mira_*</code>.
         </p>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2">

@@ -70,7 +70,7 @@ export function buildBreadcrumbJsonLd(items: { name: string; path: string }[]) {
 export const FAQ: { q: string; a: string }[] = [
   {
     q: "Ini apa sih?",
-    a: "Mira adalah platform terpadu untuk mengakses 6 layanan kampus UBSI sekaligus: SIAKAD (students.bsi.ac.id), MyBest Elearning (elearning.bsi.ac.id), Ujian Online (ujiankampusa.bsi.ac.id), Perpustakaan OPAC (elibrary.bsi.ac.id), Berita Resmi (news.bsi.ac.id), dan Repository Skripsi/Riset (repository.bsi.ac.id) di satu tempat. Proyek independen non-komersial dari komunitas Muara AI, bukan aplikasi resmi UBSI.",
+    a: "Mira (sebelumnya dikenal sebagai UBSI API / Mira API) adalah platform terpadu untuk mengakses 6 layanan kampus Universitas Bina Sarana Informatika / UBSI (BSI) sekaligus: SIAKAD (students.bsi.ac.id), MyBest Elearning (elearning.bsi.ac.id), Ujian Online (ujiankampusa.bsi.ac.id), Perpustakaan OPAC (elibrary.bsi.ac.id), Berita Resmi (news.bsi.ac.id), dan Repository Skripsi/Riset (repository.bsi.ac.id) di satu tempat. Proyek independen non-komersial dari komunitas Muara AI, bukan aplikasi resmi UBSI.",
   },
   {
     q: "Bisa dipakai buat apa aja?",
