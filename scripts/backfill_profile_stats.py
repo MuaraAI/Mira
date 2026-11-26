@@ -38,7 +38,15 @@ from app.modules.elearning import (  # noqa: E402
 )
 from app.modules.studentv2 import branch_display, parse_profile, studentv2_client  # noqa: E402
 from app.session_store import session_store  # noqa: E402
-from app.stats import _PREFIX, _day, _identity, get_public_stats, normalize_program, record_profile  # noqa: E402
+from app.stats import (  # noqa: E402
+    _PREFIX,
+    _RETENTION_SECONDS,
+    _day,
+    _identity,
+    get_public_stats,
+    normalize_program,
+    record_profile,
+)
 
 _DIMENSIONS: tuple[tuple[str, Callable[[str], Optional[str]]], ...] = (
     ("branch", lambda raw: branch_display(raw) or None),
@@ -176,13 +184,15 @@ async def _scan_dimension_state(
         if not members:
             continue
         if parts[3] == "all":
-            name = _norm_for(normalizer, ":".join(parts[4:]))
-            key_buckets.append((key, name, members))
+            raw_name = ":".join(parts[4:])
+            name = _norm_for(normalizer, raw_name)
+            key_buckets.append((key, raw_name, name, "all", members))
             buckets[name] |= members
             continue
         day_str = parts[-1]
-        name = _norm_for(normalizer, ":".join(parts[3:-1]))
-        key_buckets.append((key, name, members))
+        raw_name = ":".join(parts[3:-1])
+        name = _norm_for(normalizer, raw_name)
+        key_buckets.append((key, raw_name, name, day_str, members))
         buckets[name] |= members
         for uid in members:
             prev = daily_latest.get(uid)
@@ -256,7 +266,7 @@ async def _phase1_audit_and_dedup(
                 backfilled_attr += 1
             if len(bset) > 1:
                 deduped += 1
-                for key, bname, members in state["key_buckets"]:
+                for key, _raw_name, bname, _day_or_all, members in state["key_buckets"]:
                     if bname != canon and uid in members:
                         await client.srem(key, uid)
                         members.discard(uid)
@@ -266,9 +276,25 @@ async def _phase1_audit_and_dedup(
             state["existing_attr"][uid] = canon
             state["covered"].add(uid)
 
+        migrated_keys = 0
+        for key, raw_name, norm_name, day_or_all, members in state["key_buckets"]:
+            if not norm_name or raw_name == norm_name or not members:
+                continue
+            target_key = (
+                f"{_PREFIX}{dim}:all:{norm_name}"
+                if day_or_all == "all"
+                else f"{_PREFIX}{dim}:{norm_name}:{day_or_all}"
+            )
+            await client.sadd(target_key, *members)
+            if day_or_all != "all":
+                await client.expire(target_key, _RETENTION_SECONDS)
+            await client.delete(key)
+            migrated_keys += 1
+
         state["multi_users"] = {uid for uid, bs in state["user_buckets"].items() if len(bs) > 1}
         print(
-            f"[Phase 1:{dim} applied] user_attr_added={backfilled_attr} multi_deduped={deduped}"
+            f"[Phase 1:{dim} applied] user_attr_added={backfilled_attr} "
+            f"multi_deduped={deduped} raw_keys_migrated={migrated_keys}"
         )
     return states
 
@@ -399,12 +425,21 @@ async def run_backfill(args: argparse.Namespace) -> int:
         # Phase 3: gentle live campus fetch untuk akun aktif yang masih kosong
         miss_branch = all_users - states["branch"]["covered"]
         miss_prog = all_users - states["program"]["covered"]
+        reverify_uids: set[str] = set()
+        if args.reverify_branches:
+            reverify_uids = {
+                uid
+                for uid, bname in states["branch"]["existing_attr"].items()
+                if bname != "UBSI Pontianak"
+            }
+
         targets: list[tuple[str, str, str, str, bool, bool]] = []
         expired_no_creds = 0
-        for uid in sorted(miss_branch | miss_prog | states["branch"]["multi_users"]):
+        for uid in sorted(miss_branch | miss_prog | states["branch"]["multi_users"] | reverify_uids):
             matching_nim = next((n for n in known_nims if _identity(n) == uid), None)
             if not matching_nim or matching_nim not in active_creds:
-                expired_no_creds += 1
+                if uid in (miss_branch | miss_prog | states["branch"]["multi_users"]):
+                    expired_no_creds += 1
                 continue
             el_pass, sv_pass = active_creds[matching_nim]
             targets.append(
@@ -413,7 +448,7 @@ async def run_backfill(args: argparse.Namespace) -> int:
                     uid,
                     el_pass,
                     sv_pass,
-                    uid in miss_branch or uid in states["branch"]["multi_users"],
+                    uid in miss_branch or uid in states["branch"]["multi_users"] or uid in reverify_uids,
                     uid in miss_prog,
                 )
             )
@@ -425,6 +460,7 @@ async def run_backfill(args: argparse.Namespace) -> int:
         sv_eligible = sum(1 for t in targets if t[3])
         print(
             f"[Phase 3] miss_branch={len(miss_branch)} miss_program={len(miss_prog)} "
+            f"reverify_branches={len(reverify_uids)} "
             f"eligible_live_fetch={len(targets)} (el={el_eligible}, sv={sv_eligible}) "
             f"no_active_creds={expired_no_creds}"
         )
@@ -488,6 +524,7 @@ async def run_backfill(args: argparse.Namespace) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Backfill & deduplikasi statistik cabang/prodi Mira (/v1/stats)")
     parser.add_argument("--apply", action="store_true", help="Terapkan perubahan ke Redis dan ambil data akun aktif yang kosong")
+    parser.add_argument("--reverify-branches", action="store_true", help="Verifikasi ulang cabang non-Pontianak dari MyBest/SIAKAD")
     parser.add_argument("--delay", type=float, default=1.5, help="Jeda antar permintaan akun ke portal kampus (detik, default: 1.5)")
     parser.add_argument("--limit", type=int, default=0, help="Batasi jumlah akun fetch live (0 = semua akun memenuhi syarat)")
     args = parser.parse_args()

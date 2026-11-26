@@ -78,17 +78,33 @@ def test_parse_profile():
 def test_class_label_and_branch_display():
     from app.modules.studentv2 import branch_display, class_label
 
-    # Kode dikenal -> nama; kode angka asing -> "UBSI Cabang <code>"; nama teks -> ternormalisasi; kosong -> None.
+    # Kode dikenal -> nama; kode angka asing -> "UBSI Cabang <code>"; nama teks & building code -> ternormalisasi; kosong -> None.
     assert branch_display("30") == "UBSI Pontianak"
     assert branch_display("05") == "UBSI Bekasi"
+    assert branch_display("04") == "UBSI Bekasi"
+    assert branch_display("03") == "UBSI Tangerang"
+    assert branch_display("07") == "UBSI Kramat 98"
+    assert branch_display("01") == "UBSI Margonda"
+    assert branch_display("02") == "UBSI Fatmawati"
+    assert branch_display("27") == "UBSI BSD"
+    assert branch_display("UBSI Cabang 27") == "UBSI BSD"
     assert branch_display("99") == "UBSI Cabang 99"
     assert branch_display("UBSI Pontianak") == "UBSI Pontianak"
     assert branch_display("Pontianak") == "UBSI Pontianak"
     assert branch_display("Bekasi") == "UBSI Bekasi"
+    assert branch_display("Kaliabang") == "UBSI Bekasi"
+    assert branch_display("Cut Mutia") == "UBSI Bekasi"
     assert branch_display("Solo") == "UBSI Surakarta"
     assert branch_display("Bogor A") == "UBSI Bogor"
     assert branch_display("Depok 1") == "UBSI Depok"
     assert branch_display("Tangerang A") == "UBSI Tangerang"
+    assert branch_display("BSD, Tangerang") == "UBSI BSD"
+    assert branch_display("Kramat, Jakarta") == "UBSI Kramat 98"
+    assert branch_display("Dewisartika A") == "UBSI Dewi Sartika"
+    assert branch_display("Sukabumi (Veteran)") == "UBSI Sukabumi"
+    assert branch_display("N1") == "UBSI BSD"
+    assert branch_display("P1") == "UBSI Pontianak"
+    assert branch_display("B2") == "UBSI Kramat 98"
     assert branch_display("Kampus Kota Pontianak") == "UBSI Pontianak"
     assert branch_display("Margonda") == "UBSI Margonda"
     assert branch_display("") is None
@@ -99,6 +115,18 @@ def test_class_label_and_branch_display():
     assert class_label(profile={"kelas": "1A", "lokal": "01"}) == "1A.01"
     assert class_label(profile={"kelas": "1A"}) == "1A"
     assert class_label() is None
+
+
+def test_ubsi_official_catalog_structure():
+    from app.ubsi_catalog import UBSI_CAMPUSES, UBSI_PROGRAMS
+
+    assert len(UBSI_CAMPUSES) == 28
+    campus_names = {c["name"] for c in UBSI_CAMPUSES}
+    assert {"UBSI Kramat 98", "UBSI BSD", "UBSI Pontianak", "UBSI Kaliabang"}.issubset(campus_names)
+    prodi_by_code = {p["code"]: p["name"] for p in UBSI_PROGRAMS if p["code"]}
+    assert prodi_by_code["15"] == "Informatika"
+    assert prodi_by_code["19"] == "Sistem Informasi"
+    assert prodi_by_code["44"] == "Ilmu Komunikasi"
 
 def test_parse_khs():
     html = (FIXTURES / "sv2_khs.html").read_text(encoding="utf-8")

@@ -26,73 +26,25 @@ from app.upstream_session import (
 )
 from app.proxy import get_proxy
 from app.router_helper import cached_endpoint
+from app.ubsi_catalog import BRANCH_ALIASES as _BRANCH_ALIASES, BRANCH_NAMES
 
 router = APIRouter(prefix="/v1/studentv2", tags=["studentv2"])
-
-# Kode lokasi cabang SIAKAD -> nama tampilan. Diperluas seiring cabang baru teridentifikasi.
-BRANCH_NAMES: dict[str, str] = {
-    "00": "UBSI Jakarta",
-    "02": "UBSI Bogor",
-    "03": "UBSI Bandung",
-    "04": "UBSI Surakarta",
-    "05": "UBSI Bekasi",
-    "06": "UBSI Depok",
-    "07": "UBSI Tangerang",
-    "08": "UBSI Karawang",
-    "09": "UBSI Yogyakarta",
-    "10": "UBSI Tasikmalaya",
-    "11": "UBSI Semarang",
-    "12": "UBSI Medan",
-    "15": "UBSI Palembang",
-    "20": "UBSI Banjarmasin",
-    "21": "UBSI Denpasar",
-    "22": "UBSI Purwokerto",
-    "25": "UBSI Sukabumi",
-    "30": "UBSI Pontianak",
-}
-
-_BRANCH_ALIASES: dict[str, str] = {
-    "pusat": "UBSI Jakarta",
-    "jakarta": "UBSI Jakarta",
-    "bogor": "UBSI Bogor",
-    "bogor a": "UBSI Bogor",
-    "bogor b": "UBSI Bogor",
-    "bandung": "UBSI Bandung",
-    "solo": "UBSI Surakarta",
-    "surakarta": "UBSI Surakarta",
-    "bekasi": "UBSI Bekasi",
-    "depok": "UBSI Depok",
-    "depok 1": "UBSI Depok",
-    "depok a": "UBSI Depok",
-    "tangerang": "UBSI Tangerang",
-    "tangerang a": "UBSI Tangerang",
-    "karawang": "UBSI Karawang",
-    "yogyakarta": "UBSI Yogyakarta",
-    "jogja": "UBSI Yogyakarta",
-    "tasikmalaya": "UBSI Tasikmalaya",
-    "semarang": "UBSI Semarang",
-    "medan": "UBSI Medan",
-    "palembang": "UBSI Palembang",
-    "banjarmasin": "UBSI Banjarmasin",
-    "denpasar": "UBSI Denpasar",
-    "bali": "UBSI Denpasar",
-    "purwokerto": "UBSI Purwokerto",
-    "sukabumi": "UBSI Sukabumi",
-    "pontianak": "UBSI Pontianak",
-    "tegal": "UBSI Tegal",
-}
 
 _BRANCH_PREFIX_RE = re.compile(
     r"^(?:ubsi|kampus(?:\s+(?:kota|kabupaten|utama))?)\s+",
     re.IGNORECASE,
 )
+_FALLBACK_BRANCH_RE = re.compile(r"^ubsi\s+cabang\s+(\d+)$", re.IGNORECASE)
 
 
 def branch_display(code: Optional[str]) -> Optional[str]:
-    """Terjemahkan kode SIAKAD ('30', '05') atau teks Kampus MyBest ('Pontianak') menjadi nama tampilan."""
+    """Terjemahkan kode SIAKAD ('30', '27'), 'UBSI Cabang 27', atau teks MyBest menjadi nama kanonis."""
     raw = " ".join((code or "").split())
     if not raw:
         return None
+    fallback = _FALLBACK_BRANCH_RE.match(raw)
+    if fallback and fallback.group(1) in BRANCH_NAMES:
+        return BRANCH_NAMES[fallback.group(1)]
     if raw in BRANCH_NAMES:
         return BRANCH_NAMES[raw]
     if raw.isdigit():
