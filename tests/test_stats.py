@@ -267,3 +267,157 @@ async def test_programs_merge_campus_suffix_and_include_all_time_backfill():
         {"name": "Sistem Informasi", "active_users_30d": 2, "total_all_time": 2},
         {"name": "Sistem Informasi Akuntansi", "active_users_30d": 1, "total_all_time": 1},
     ]
+
+
+class AttrFakeRedis(FakeRedis):
+    """Redis tiruan dengan dukungan hash (`user_attr`) & `srem` untuk deduplikasi dan 30d aktif."""
+
+    def __init__(self, *, active_30d: set[str] | None = None, retained_days: list[str] | None = None):
+        super().__init__(users_all=set(active_30d or ()))
+        self.sets = {"ubsi:stats:users:all": set(active_30d or ())}
+        self.hashes: dict[str, dict[str, str]] = {}
+        self.expiries: dict[str, int] = {}
+        self._active_30d = set(active_30d or ())
+        self._retained_days = retained_days if retained_days is not None else [_day(0)]
+
+    async def hget(self, key, field):
+        return self.hashes.get(key, {}).get(field)
+
+    async def hset(self, key, field, value):
+        self.hashes.setdefault(key, {})[field] = value
+        return 1
+
+    async def hgetall(self, key):
+        return dict(self.hashes.get(key, {}))
+
+    async def sadd(self, key, *members):
+        target = self.sets.setdefault(key, set())
+        target.update(members)
+        return len(members)
+
+    async def srem(self, key, *members):
+        target = self.sets.get(key)
+        if not target:
+            return 0
+        before = len(target)
+        target.difference_update(members)
+        return before - len(target)
+
+    async def expire(self, key, ttl):
+        self.expiries[key] = ttl
+        return True
+
+    async def keys(self, pattern):
+        if "branch:" in pattern:
+            return [k for k in sorted(self.sets) if k.startswith("ubsi:stats:branch:")]
+        if "program:" in pattern:
+            return [k for k in sorted(self.sets) if k.startswith("ubsi:stats:program:")]
+        if "requests:20" in pattern:
+            return [f"ubsi:stats:requests:{d}" for d in self._retained_days]
+        if "users:20" in pattern:
+            return [f"ubsi:stats:users:{d}" for d in self._retained_days]
+        return []
+
+    async def smembers(self, key):
+        return set(self.sets.get(key, set()))
+
+    async def sunion(self, keys):
+        out = set()
+        for k in keys:
+            if k.startswith("ubsi:stats:users:"):
+                out |= self._active_30d
+        return out
+
+    async def sunionstore(self, dest, keys):
+        self.sets[dest] = set(self.sets.get(dest, set())) | self._active_30d
+        return len(self.sets[dest])
+
+
+@pytest.mark.asyncio
+async def test_record_profile_deduplicates_previous_branch_and_program():
+    from unittest.mock import patch
+    from app.stats import _identity, record_profile
+
+    fake = AttrFakeRedis()
+    nim = "19000001"
+    uid = _identity(nim)
+    with patch("app.cache.cache.get_client", return_value=fake):
+        await record_profile(nim, "05", "Sistem Informasi")
+        await record_profile(nim, "30", "Informatika Kampus Kota Pontianak")
+        stats = await get_public_stats()
+
+    assert uid not in fake.sets.get("ubsi:stats:branch:all:UBSI Bekasi", set())
+    assert uid in fake.sets["ubsi:stats:branch:all:UBSI Pontianak"]
+    assert uid not in fake.sets.get("ubsi:stats:program:all:Sistem Informasi", set())
+    assert uid in fake.sets["ubsi:stats:program:all:Informatika"]
+    assert fake.hashes["ubsi:stats:user_attr:branch"][uid] == "UBSI Pontianak"
+    assert fake.hashes["ubsi:stats:user_attr:program"][uid] == "Informatika"
+    assert sum(b["total_all_time"] for b in stats["branches"]) == 1
+    assert stats["branches"] == [
+        {"name": "UBSI Pontianak", "active_users_30d": 1, "total_all_time": 1}
+    ]
+    assert stats["programs"] == [
+        {"name": "Informatika", "active_users_30d": 1, "total_all_time": 1}
+    ]
+
+
+@pytest.mark.asyncio
+async def test_record_profile_permanent_only_skips_daily_key():
+    from unittest.mock import patch
+    from app.stats import _identity, record_profile
+
+    fake = AttrFakeRedis()
+    nim = "12345678"
+    uid = _identity(nim)
+    with patch("app.cache.cache.get_client", return_value=fake):
+        await record_profile(nim, "30", "Informatika", record_daily=False)
+
+    assert any(k.startswith("ubsi:stats:branch:all:") for k in fake.sets)
+    assert not any(k.startswith("ubsi:stats:branch:UBSI Pontianak:") for k in fake.sets)
+    assert not any(k.startswith("ubsi:stats:program:Informatika:") for k in fake.sets)
+    assert fake.hashes["ubsi:stats:user_attr:branch"][uid] == "UBSI Pontianak"
+    assert fake.hashes["ubsi:stats:user_attr:program"][uid] == "Informatika"
+
+
+@pytest.mark.asyncio
+async def test_active_30d_counts_permanently_attributed_active_users():
+    from unittest.mock import patch
+    from app.stats import _identity
+
+    active_uid = _identity("15000001")
+    idle_uid = _identity("15000002")
+    fake = AttrFakeRedis(active_30d={active_uid})
+    fake.sets["ubsi:stats:users:all"].update({active_uid, idle_uid})
+    # Terdaftar di set permanen saja (mis. tercatat >30 hari lalu), bukan di key harian cabang/prodi.
+    fake.sets["ubsi:stats:branch:all:UBSI Pontianak"] = {active_uid, idle_uid}
+    fake.sets["ubsi:stats:program:all:Informatika"] = {active_uid, idle_uid}
+
+    with patch("app.cache.cache.get_client", return_value=fake):
+        stats = await get_public_stats()
+
+    assert stats["branches"] == [
+        {"name": "UBSI Pontianak", "active_users_30d": 1, "total_all_time": 2}
+    ]
+    assert stats["programs"] == [
+        {"name": "Informatika", "active_users_30d": 1, "total_all_time": 2}
+    ]
+
+
+@pytest.mark.asyncio
+async def test_has_profile_attr_states():
+    from unittest.mock import AsyncMock, patch
+    from app.stats import _identity, has_profile_attr
+
+    fake = AttrFakeRedis()
+    nim = "19000002"
+    with patch("app.cache.cache.get_client", return_value=fake):
+        assert await has_profile_attr(nim, "program") is False
+        await fake.hset("ubsi:stats:user_attr:program", _identity(nim), "Sistem Informasi")
+        assert await has_profile_attr(nim, "program") is True
+
+    mock_client = AsyncMock()
+    with patch("app.cache.cache.get_client", return_value=mock_client):
+        assert await has_profile_attr(nim, "program") is None
+
+    with patch("app.cache.cache.get_client", side_effect=RuntimeError("redis down")):
+        assert await has_profile_attr(nim, "program") is None

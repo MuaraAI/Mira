@@ -86,11 +86,40 @@ async def record_request(module: str, nim: str | None = None) -> None:
         pass
 
 
-async def record_profile(nim: str, branch: str | None, program: str | None) -> None:
-    day = _day()
+async def has_profile_attr(nim: str, dimension: str) -> bool | None:
+    """Cek apakah NIM sudah punya atribut `branch` / `program` kanonis di Redis."""
+    if dimension not in ("branch", "program"):
+        raise ValueError(f"Dimension tidak dikenal: {dimension}")
+    try:
+        client = await cache.get_client()
+        hget = getattr(client, "hget", None)
+        if not callable(hget):
+            return None
+        val = await hget(f"{_PREFIX}user_attr:{dimension}", _identity(nim))
+        if val is None or val == "":
+            return False
+        if isinstance(val, str):
+            return True
+        return None
+    except Exception:
+        return None
+
+
+async def record_profile(
+    nim: str,
+    branch: str | None,
+    program: str | None,
+    *,
+    day: str | None = None,
+    record_daily: bool = True,
+) -> None:
+    target_day = day or _day()
     try:
         client = await cache.get_client()
         user_id = _identity(nim)
+        hget = getattr(client, "hget", None)
+        hset = getattr(client, "hset", None)
+        srem = getattr(client, "srem", None)
         for dimension, raw_value, normalizer in (
             ("branch", branch, lambda v: branch_display(" ".join(v.split())[:80])),
             ("program", program, normalize_program),
@@ -99,9 +128,21 @@ async def record_profile(nim: str, branch: str | None, program: str | None) -> N
             normalized = normalizer(cleaned) if cleaned else None
             if not normalized:
                 continue
-            key = f"{_PREFIX}{dimension}:{normalized}:{day}"
-            await client.sadd(key, user_id)
-            await client.expire(key, _RETENTION_SECONDS)
+            if callable(hget) and callable(hset):
+                attr_key = f"{_PREFIX}user_attr:{dimension}"
+                prev = await hget(attr_key, user_id)
+                if isinstance(prev, str) and prev:
+                    prev_norm = normalizer(prev) or prev
+                    if prev_norm != normalized and callable(srem):
+                        for candidate in {prev, prev_norm}:
+                            await srem(f"{_PREFIX}{dimension}:all:{candidate}", user_id)
+                            if record_daily:
+                                await srem(f"{_PREFIX}{dimension}:{candidate}:{target_day}", user_id)
+                await hset(attr_key, user_id, normalized)
+            if record_daily:
+                key = f"{_PREFIX}{dimension}:{normalized}:{target_day}"
+                await client.sadd(key, user_id)
+                await client.expire(key, _RETENTION_SECONDS)
             # Set permanen per dimensi (tanpa expire) agar total_all_time tidak ikut kedaluwarsa.
             await client.sadd(f"{_PREFIX}{dimension}:all:{normalized}", user_id)
     except Exception:
@@ -113,8 +154,18 @@ async def _collect_dimension_stats(
     dimension: str,
     valid_30d_days: set[str],
     normalizer: Callable[[str], str | None],
+    active_30d_users: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Kumpulkan statistik aktif 30 hari & kumulatif all-time dengan normalisasi + backfill."""
+    canonical_attr: dict[str, str] = {}
+    hgetall = getattr(client, "hgetall", None)
+    if callable(hgetall):
+        raw_attr = await hgetall(f"{_PREFIX}user_attr:{dimension}")
+        if isinstance(raw_attr, dict):
+            for uid, raw_val in raw_attr.items():
+                if isinstance(uid, str) and isinstance(raw_val, str) and raw_val.strip():
+                    canonical_attr[uid] = normalizer(raw_val.strip()) or raw_val.strip()
+
     keys = await _iter_keys(client, f"{_PREFIX}{dimension}:*:*")
     grouped_30d: dict[str, set[str]] = {}
     retained: dict[str, set[str]] = {}
@@ -148,15 +199,28 @@ async def _collect_dimension_stats(
             if missing:
                 await sadd(f"{_PREFIX}{dimension}:all:{name}", *missing)
 
-    items = [
-        {
+    for uid, canon_name in canonical_attr.items():
+        all_time.setdefault(canon_name, set()).add(uid)
+        for bucket_name, bucket_ids in all_time.items():
+            if bucket_name != canon_name:
+                bucket_ids.discard(uid)
+        for bucket_name, bucket_ids in grouped_30d.items():
+            if bucket_name != canon_name:
+                bucket_ids.discard(uid)
+
+    items = []
+    for name, all_ids in all_time.items():
+        active_ids = set(grouped_30d.get(name, set()))
+        if active_30d_users:
+            active_ids |= all_ids & active_30d_users
+        active_ids &= all_ids
+        if not all_ids and not active_ids:
+            continue
+        items.append({
             "name": name,
-            "active_users_30d": len(grouped_30d.get(name, set())),
-            "total_all_time": max(len(grouped_30d.get(name, set())), len(all_ids)),
-        }
-        for name, all_ids in all_time.items()
-        if all_ids or grouped_30d.get(name)
-    ]
+            "active_users_30d": len(active_ids),
+            "total_all_time": max(len(active_ids), len(all_ids)),
+        })
     items.sort(
         key=lambda item: (item["active_users_30d"], item["total_all_time"]),
         reverse=True,
@@ -212,9 +276,12 @@ async def get_public_stats() -> dict[str, Any]:
 
         # 2. Pengguna (rolling window + rata-rata harian riil + total unik all-time)
         users: dict[str, Any] = {}
+        active_30d_members: set[str] = set()
         for label, days in (("active_24h", 1), ("active_7d", 7), ("active_30d", 30)):
             keys = [f"{_PREFIX}users:{_day(offset)}" for offset in range(days)]
             members = await client.sunion(keys) if keys else set()
+            if label == "active_30d" and members:
+                active_30d_members = set(members)
             users[label] = len(members)
         users["average_per_day"] = round(sum(daily_user_counts) / active_days)
         users["total_all_time"] = total_users_all
@@ -235,12 +302,14 @@ async def get_public_stats() -> dict[str, Any]:
             "branch",
             valid_30d_days,
             lambda raw: branch_display(raw) or raw,
+            active_30d_users=active_30d_members,
         )
         programs = await _collect_dimension_stats(
             client,
             "program",
             valid_30d_days,
             lambda raw: normalize_program(raw) or raw,
+            active_30d_users=active_30d_members,
         )
 
         return {

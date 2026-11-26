@@ -908,7 +908,7 @@ Manually triggers instant event reminders (category: `matkul-besok` or `quiz-tug
 Public privacy-preserving usage metrics.
 
 ### `GET /v1/stats`
-Returns aggregated, anonymous usage stats of active students and total requests. Student NIMs are hashed with HMAC-SHA256 for privacy. Branch and program breakdowns are attributed directly from MyBest (`/v1/elearning/courses`, `/v1/elearning/dashboard`, `/v1/elearning/presence`) and SIAKAD (`/v1/studentv2/profile`), with PSDKU campus suffixes normalized cleanly across branches.
+Returns aggregated, anonymous usage stats of active students and total requests. Student NIMs are hashed with HMAC-SHA256 for privacy. Branch and program breakdowns are attributed directly from MyBest (`/v1/elearning/courses`, `/v1/elearning/dashboard` beserta probe satu kali otomatis ke `/absen-mhs/{token}` untuk prodi, `/v1/elearning/presence`) and SIAKAD (`/v1/studentv2/profile`), dengan normalisasi PSDKU, deduplikasi satu cabang/prodi per pengguna (`user_attr`), dan cakupan `active_users_30d` yang selaras dengan himpunan pengguna aktif 30 hari.
 - **Access**: Public
 - **Response**:
   ```json
