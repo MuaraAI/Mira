@@ -55,6 +55,12 @@ export default function NotFound() {
             Coba Demo Dashboard
           </Link>
           <Link
+            href="/panduan"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-[6px] border-[1px] border-stroke bg-white px-5 py-2.5 text-xs font-medium text-foreground transition-colors hover:border-[#072033] sm:text-sm"
+          >
+            Panduan Mahasiswa
+          </Link>
+          <Link
             href="/developers"
             className="inline-flex min-h-[44px] items-center justify-center rounded-[6px] border-[1px] border-stroke bg-white px-5 py-2.5 text-xs font-medium text-foreground transition-colors hover:border-[#072033] sm:text-sm"
           >

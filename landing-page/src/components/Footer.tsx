@@ -85,6 +85,11 @@ export function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/panduan" className={LINK_CLASS}>
+                  Panduan mahasiswa
+                </Link>
+              </li>
+              <li>
                 <Link href="/developers" className={LINK_CLASS}>
                   REST API &amp; MCP
                 </Link>

@@ -13,6 +13,7 @@ const NAV_LINKS = [
   { href: "#stats", label: "Statistik" },
   { href: "#donasi", label: "Donasi" },
   { href: "#faq", label: "FAQ" },
+  { href: "/panduan", label: "Panduan" },
   { href: "/developers", label: "API & MCP" },
 ];
 
@@ -22,6 +23,7 @@ const MOBILE_LINKS = [
   { href: "#stats", label: "Statistik", external: false },
   { href: "#donasi", label: "Donasi", external: false },
   { href: "#faq", label: "FAQ", external: false },
+  { href: "/panduan", label: "Panduan", external: false },
   { href: "/developers", label: "API & MCP", external: false },
   { href: API_DOCS_URL, label: "API Docs JSON", external: true },
   { href: GITHUB_URL, label: "GitHub", external: true },
@@ -124,7 +126,7 @@ export function Navbar({ starsCount }: { starsCount: number | null }) {
 
           <nav
             aria-label="Navigasi utama"
-            className={`hidden items-center gap-0.5 text-[13px] font-normal tracking-[0.015em] md:flex ${
+            className={`hidden items-center gap-0.5 text-[12.5px] font-normal tracking-[0.015em] md:flex lg:text-[13px] ${
               overDark ? "text-white/85" : "text-secondary"
             }`}
           >
@@ -133,7 +135,7 @@ export function Navbar({ starsCount }: { starsCount: number | null }) {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`home-nav-link inline-flex min-h-[44px] items-center whitespace-nowrap px-2.5 lg:px-3.5 ${
+                  className={`home-nav-link inline-flex min-h-[44px] items-center whitespace-nowrap px-2 lg:px-3 ${
                     overDark ? "hover:text-white" : "hover:text-foreground"
                   }`}
                 >
@@ -143,7 +145,7 @@ export function Navbar({ starsCount }: { starsCount: number | null }) {
                 <a
                   key={link.href}
                   href={link.href}
-                  className={`home-nav-link inline-flex min-h-[44px] items-center whitespace-nowrap px-2.5 lg:px-3.5 ${
+                  className={`home-nav-link inline-flex min-h-[44px] items-center whitespace-nowrap px-2 lg:px-3 ${
                     overDark ? "hover:text-white" : "hover:text-foreground"
                   }`}
                 >

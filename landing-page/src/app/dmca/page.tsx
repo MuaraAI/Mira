@@ -91,6 +91,7 @@ export default function DmcaPage() {
           <Link href="/privacy" className="font-semibold text-[#0369A1] hover:underline">Kebijakan Privasi</Link>
           <Link href="/terms" className="font-semibold text-[#0369A1] hover:underline">Syarat dan Ketentuan</Link>
           <Link href="/demo" className="font-semibold text-[#0369A1] hover:underline">Demo Dashboard</Link>
+          <Link href="/panduan" className="font-semibold text-[#0369A1] hover:underline">Panduan Mahasiswa</Link>
           <Link href="/" className="text-secondary hover:text-foreground">Kembali ke Beranda</Link>
         </div>
       </main>
