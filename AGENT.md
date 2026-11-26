@@ -81,7 +81,7 @@ UBSI-API/ (Repo: MuaraAI/Mira)
 │
 ├── supabase/                  # Cermin resmi SQL migrations Supabase Postgres (`Mira Social`)
 ├── docs/                      # Dokumentasi teknis, API, arsitektur, MCP, anti-ban, remote access, dan deploy
-├── skills/                    # Agent skills lokal (`SKILL.md`)
+├── skills/                    # 5 Agent Skills flat (`mira`, `mira-mcp`, `mira-api`, `mira-backend`, `mira-web`)
 └── .gitignore                 # Exclusion rules (.env, data/, anti-slop/, graphify-out/)
 ```
 
