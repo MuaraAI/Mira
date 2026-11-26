@@ -90,8 +90,8 @@ export function Hero() {
             </h1>
 
             <p className="mt-4 max-w-xl text-[14px] leading-[1.7] tracking-[0.01em] text-[#DCEBF5] sm:mt-5 sm:text-[15.5px]">
-              Cek jadwal, tugas, absen, sampai nilai di satu tampilan yang rapi dan ramah dipakai.
-              Login sekali pakai akun kampus, nggak perlu bolak-balik buka banyak portal.
+              Mira dari Muara AI menyatukan MyBest, SIAKAD, dan layanan kampus UBSI (BSI) di satu
+              tampilan yang rapi. Cek jadwal, absen, tugas, sampai nilai cukup sekali login.
             </p>
 
             <div className="mt-7 flex flex-col gap-3 min-[440px]:flex-row min-[440px]:flex-wrap min-[440px]:items-center sm:mt-8 sm:gap-3.5">

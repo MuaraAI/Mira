@@ -16,6 +16,8 @@ Dashboard PWA, REST API, dan MCP Server untuk SIAKAD, MyBest, Ujian Online, Perp
 ![Next.js](https://img.shields.io/badge/Next.js-15-000000?style=flat-square&logo=nextdotjs&logoColor=white)
 ![Tests](https://img.shields.io/badge/tests-100%25%20offline-0F766E?style=flat-square)
 
+**Situs Resmi:** [mira.muaraai.com](https://mira.muaraai.com) · [Demo Interaktif](https://mira.muaraai.com/demo) · [Panduan Mahasiswa](https://mira.muaraai.com/panduan) · [Dokumentasi API & MCP](https://mira.muaraai.com/developers)
+
 [Video](#lihat-mira-dalam-2-menit) · [Fitur](#fitur) · [Keamanan](#keamanan) · [Quickstart](#quickstart) · [MCP Server](#mcp-server) · [Dokumentasi](#dokumentasi) · [Kontribusi](#kontribusi)
 
 </div>
@@ -88,7 +90,6 @@ Layanan kuliah UBSI tersebar di enam portal berbeda. Mira menyatukannya dalam sa
 | Lapisan | Perlindungan |
 |---|---|
 | Kredensial & Sesi | Sesi Redis dienkripsi **AES-256-GCM**; tautan SIAKAD (`account_links`), kredensial Personal API Key, dan konfigurasi webhook (`webhook_channels`) dienkripsi **Fernet** (keyed BLAKE2b KDF) di SQLite |
-| Perangkat Tepercaya | Cookie perangkat `mira_device` (HttpOnly, 180 hari): perangkat pertama otomatis `trusted`, perangkat baru `pending` (akses SIAKAD & jalur tulis persisten diblokir `403 SIAKAD_DEVICE_PENDING` sampai disetujui perangkat tepercaya) |
 | Login | Maks 10 percobaan per menit per IP. Spam = IP diblokir otomatis 15 menit, naik ke 1 jam lalu 24 jam bila diulang |
 | Brute force per akun | Maks 5 percobaan per menit per NIM |
 | Password default | Akun yang masih memakai password bawaan kampus diingatkan di setiap halaman dan bisa langsung ganti password dari Mira |

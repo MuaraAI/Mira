@@ -121,9 +121,10 @@ export function HowToUse({ contributors = [] }: { contributors?: RepositoryContr
                 Bagaimana Mira menyatukan enam portal kampus
               </h2>
               <p className="mt-3.5 text-[13.5px] leading-[1.7] tracking-[0.012em] text-secondary sm:mt-4 sm:text-[14.5px]">
-                Layanan kuliah UBSI tersebar di enam alamat berbeda. Mira menggabungkannya ke dalam
-                satu sesi 7 hari, memperbarui login kampus secara otomatis saat kedaluwarsa, dan
-                menyimpan cadangan data ketika server kampus sedang sibuk.
+                Layanan kuliah UBSI (BSI) tersebar di enam alamat berbeda. Mira dari Muara AI
+                (sebelumnya dikenal sebagai UBSI API / Mira API) menggabungkannya ke dalam satu sesi
+                7 hari, memperbarui login kampus secara otomatis saat kedaluwarsa, dan menyimpan
+                cadangan data ketika server kampus sedang sibuk.
               </p>
 
               <div className="mt-6 divide-y-[1px] divide-stroke border-y-[1px] border-stroke sm:mt-7">
@@ -159,6 +160,12 @@ export function HowToUse({ contributors = [] }: { contributors?: RepositoryContr
                   className="inline-flex min-h-[42px] items-center text-[#0369A1] underline underline-offset-4 transition-colors hover:text-[#075985]"
                 >
                   Coba demo tanpa login
+                </Link>
+                <Link
+                  href="/panduan"
+                  className="inline-flex min-h-[42px] items-center text-secondary underline underline-offset-4 transition-colors hover:text-[#0369A1]"
+                >
+                  Panduan lengkap
                 </Link>
               </div>
             </RevealOnScroll>
