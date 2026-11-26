@@ -2351,6 +2351,31 @@ def extract_clean_token(raw_input: Optional[str]) -> Optional[str]:
 
 _ELEARNING_STATS_SEEN_MAX = 2048
 _elearning_stats_seen: OrderedDict[tuple[str, str, int, Optional[str], Optional[str]], None] = OrderedDict()
+_elearning_program_known: OrderedDict[str, None] = OrderedDict()
+_elearning_program_inflight: set[str] = set()
+_elearning_bg_tasks: set[asyncio.Task] = set()
+
+
+def _remember_program_known(nim: str) -> None:
+    _elearning_program_known[nim] = None
+    _elearning_program_known.move_to_end(nim)
+    if len(_elearning_program_known) > _ELEARNING_STATS_SEEN_MAX:
+        _elearning_program_known.popitem(last=False)
+
+
+def _first_absen_token(courses: Any) -> Optional[str]:
+    """Pilih token_absen pertama yang valid (utamakan kelas non-gabung)."""
+    if not isinstance(courses, list):
+        return None
+    ordered = sorted(
+        (c for c in courses if isinstance(c, dict)),
+        key=lambda c: bool(c.get("kode_gabung")),
+    )
+    for course in ordered:
+        token = extract_clean_token(course.get("token_absen"))
+        if token:
+            return token
+    return None
 
 
 async def _record_elearning_stats(
@@ -2391,6 +2416,51 @@ async def _record_stats_from_presence(nim: str, data: Any) -> None:
     branch = extract_branch_from_kelas(data.get("kelas"))
     prodi = (data.get("prodi") or "").strip() or None
     await _record_elearning_stats(nim, branch=branch, program=prodi)
+    if prodi:
+        _remember_program_known(nim)
+
+
+async def _probe_program_stats(nim: str, password: str, courses: list[dict[str, Any]]) -> None:
+    """Ambil prodi sekali di latar belakang dari halaman /absen-mhs/{token} bila belum tercatat."""
+    try:
+        from app.stats import has_profile_attr
+
+        already = await has_profile_attr(nim, "program")
+        if already is True:
+            _remember_program_known(nim)
+            return
+        if already is None:
+            return
+
+        token = _first_absen_token(courses)
+        if not token:
+            return
+
+        html = await pooled_elearning_client.fetch_page(f"/absen-mhs/{token}", nim, password)
+        kelas, prodi = _extract_absen_profile_fields(Adaptor(html))
+        branch = extract_branch_from_courses(courses) or extract_branch_from_kelas(kelas)
+        if branch or prodi:
+            await _record_elearning_stats(nim, branch=branch, program=prodi)
+        if prodi:
+            _remember_program_known(nim)
+    except Exception as exc:
+        logger.debug("Probe prodi MyBest gagal: %s", exc)
+    finally:
+        _elearning_program_inflight.discard(nim)
+
+
+def _schedule_program_stats_probe(nim: str, password: str, courses: Any) -> None:
+    """Jadwalkan probe prodi non-blocking sekali per NIM agar /courses tidak melambat."""
+    if not nim or not password or not isinstance(courses, list):
+        return
+    if nim in _elearning_program_known or nim in _elearning_program_inflight:
+        return
+    if not _first_absen_token(courses):
+        return
+    _elearning_program_inflight.add(nim)
+    task = asyncio.create_task(_probe_program_stats(nim, password, courses))
+    _elearning_bg_tasks.add(task)
+    task.add_done_callback(_elearning_bg_tasks.discard)
 
 
 async def _cached_courses_response(nim: str, password: str) -> dict[str, Any]:
@@ -2404,7 +2474,9 @@ async def _cached_courses_response(nim: str, password: str) -> dict[str, Any]:
         ttl=settings.TTL_ASSIGNMENTS,
         cache_params={"nim": nim},
     )
-    await _record_stats_from_courses(nim, res.get("data"))
+    courses = res.get("data")
+    await _record_stats_from_courses(nim, courses)
+    _schedule_program_stats_probe(nim, password, courses)
     return res
 
 
@@ -4121,5 +4193,6 @@ async def get_elearning_dashboard(creds: tuple[str, str] = Depends(require_elear
     if "courses" in dashboard:
         dashboard["schedule"] = dashboard["courses"]
         await _record_stats_from_courses(nim, dashboard["courses"])
+        _schedule_program_stats_probe(nim, password, dashboard["courses"])
 
     return success_response(data=dashboard, cached=all_cached)

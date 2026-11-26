@@ -1027,3 +1027,107 @@ async def test_elearning_presence_records_mybest_prodi_and_branch(monkeypatch):
         for c in calls
     )
 
+
+@pytest.mark.asyncio
+async def test_elearning_courses_probes_program_once_in_background(monkeypatch):
+    import asyncio
+    from app.modules.elearning import (
+        _elearning_bg_tasks,
+        _elearning_program_inflight,
+        _elearning_program_known,
+        _elearning_stats_seen,
+    )
+    from app.stats import _identity
+
+    nim = "19000099"
+    monkeypatch.setenv("ELEARNING_NIM", nim)
+    monkeypatch.setenv("ELEARNING_PASS", "secret")
+
+    _elearning_program_known.pop(nim, None)
+    _elearning_program_inflight.discard(nim)
+    for k in [k for k in _elearning_stats_seen if k[1] == nim]:
+        _elearning_stats_seen.pop(k, None)
+
+    sch_v2 = (FIXTURES / "el_sch_v2.html").read_text(encoding="utf-8")
+    absen_html = (FIXTURES / "el_absen_1.html").read_text(encoding="utf-8")
+    probe_calls: list[str] = []
+
+    class ProbeFakeRedis:
+        def __init__(self):
+            self.kv: dict[str, str] = {}
+            self.sets: dict[str, set[str]] = {}
+            self.hashes: dict[str, dict[str, str]] = {}
+
+        async def get(self, key):
+            return self.kv.get(key)
+
+        async def set(self, key, val, ex=None):
+            self.kv[key] = val
+            return True
+
+        async def incr(self, key):
+            val = int(self.kv.get(key) or 0) + 1
+            self.kv[key] = str(val)
+            return val
+
+        async def expire(self, key, ttl):
+            return True
+
+        async def sadd(self, key, *members):
+            s = self.sets.setdefault(key, set())
+            s.update(members)
+            return len(members)
+
+        async def srem(self, key, *members):
+            s = self.sets.get(key, set())
+            s.difference_update(members)
+            return 0
+
+        async def hget(self, key, field):
+            return self.hashes.get(key, {}).get(field)
+
+        async def hset(self, key, field, val):
+            self.hashes.setdefault(key, {})[field] = val
+            return 1
+
+        async def zadd(self, key, mapping):
+            return len(mapping)
+
+    fake_redis = ProbeFakeRedis()
+
+    async def fake_fetch(path, req_nim, req_pw):
+        if path == "/sch":
+            return sch_v2
+        if path.startswith("/absen-mhs/"):
+            probe_calls.append(path)
+            return absen_html
+        raise AssertionError(f"unexpected path {path}")
+
+    with (
+        patch("app.cache.cache.get_client", return_value=fake_redis),
+        patch("app.limiter.limiter.is_allowed", AsyncMock(return_value=True)),
+        patch("app.modules.elearning.pooled_elearning_client.fetch_page", side_effect=fake_fetch),
+    ):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            hdrs = {"X-Elearning-NIM": nim, "X-Elearning-Pass": "secret"}
+            res1 = await ac.get("/v1/elearning/courses", headers=hdrs)
+            assert res1.status_code == 200
+            if _elearning_bg_tasks:
+                await asyncio.gather(*list(_elearning_bg_tasks))
+
+            res2 = await ac.get("/v1/elearning/courses", headers=hdrs)
+            assert res2.status_code == 200
+            if _elearning_bg_tasks:
+                await asyncio.gather(*list(_elearning_bg_tasks))
+
+    uid = _identity(nim)
+    assert len(probe_calls) == 1
+    assert fake_redis.hashes["ubsi:stats:user_attr:branch"][uid] == "UBSI Pontianak"
+    assert fake_redis.hashes["ubsi:stats:user_attr:program"][uid] == "Ilmu Komputer"
+    assert uid in fake_redis.sets["ubsi:stats:program:all:Ilmu Komputer"]
+
+    _elearning_program_known.pop(nim, None)
+    _elearning_program_inflight.discard(nim)
+    for k in [k for k in _elearning_stats_seen if k[1] == nim]:
+        _elearning_stats_seen.pop(k, None)
+
