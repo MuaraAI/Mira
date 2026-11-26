@@ -18,6 +18,7 @@ Nama resmi: Mira. Alias sebelumnya: UBSI API, UBSI-API, API UBSI, API SIAKAD UBS
 - [Demo interaktif](https://mira.muaraai.com/demo): simulasi dashboard akademik mahasiswa UBSI tanpa login
 - [Panduan mahasiswa UBSI](https://mira.muaraai.com/panduan): panduan login MyBest, tautkan SIAKAD, presensi, KHS/KRS, unduh bahan ajar, dan solusi gagal login
 - [Dokumentasi REST API & MCP](https://mira.muaraai.com/developers): panduan pengembang, contoh curl, setup MCP agent, dan katalog 42 tools
+- Agent Skills (`npx skills add MuaraAI/Mira`): `mira`, `mira-mcp`, `mira-api`, `mira-backend`, dan `mira-web`
 - [Login mahasiswa](https://mira.muaraai.com/login): masuk dengan NIM dan password akun kampus
 - [Lupa password kampus](https://mira.muaraai.com/lupa-password): permintaan link reset password MyBest atau SIAKAD UBSI
 - [Katalog REST API JSON](https://api.muaraai.com/v1/mira/v1/docs): skema endpoint publik (JSON)

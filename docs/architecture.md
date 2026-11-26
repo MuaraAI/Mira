@@ -195,7 +195,11 @@ UBSI-API/ (Repo: MuaraAI/Mira)
 │   ├── generate_vapid_keys.py # Generator VAPID keypair untuk PWA Web Push
 │   └── smoke.py               # Live verification CLI tool (auth-aware)
 ├── skills/
-│   └── SKILL.md               # Agent skill definition for AI assistants
+│   ├── mira/SKILL.md          # Router Agent Skill utama
+│   ├── mira-mcp/              # Playbook 42 MCP tools mira_* + references/tools.md
+│   ├── mira-api/              # Integrasi REST API + references/endpoints.md
+│   ├── mira-backend/          # Playbook kontributor FastAPI, scraper & dual-DB
+│   └── mira-web/              # Playbook kontributor Next.js 15, desain & SEO
 ├── docs/
 │   ├── api.md                 # Complete API dictionary & JSON payloads
 │   ├── architecture.md        # Request lifecycle, session pool, and cache flow

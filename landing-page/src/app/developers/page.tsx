@@ -347,6 +347,56 @@ export default function DevelopersPage() {
               </li>
             </ul>
           </section>
+
+          <section aria-labelledby="dev-skills">
+            <h2
+              id="dev-skills"
+              className="font-display text-xl font-bold tracking-tight text-foreground"
+            >
+              5. Agent Skills untuk AI Coding Agent
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-secondary">
+              Pasang skill resmi Mira di repositori <code className="font-mono text-xs">MuaraAI/Mira</code>{" "}
+              agar AI Coding Agent Anda otomatis mengikuti aturan token <code className="font-mono text-xs">eyJ...</code>,
+              konfirmasi aksi tulis <code className="font-mono text-xs">[WRITE]</code>, format envelope JSON,
+              dan panduan kode proyek.
+            </p>
+            <div className="mt-4 space-y-3">
+              <div className="min-w-0 overflow-x-auto rounded-[8px] bg-[#131b26] p-4 text-xs text-[#cdd6f4]">
+                <p className="mb-2 font-mono text-[10.5px] uppercase tracking-[0.12em] text-[#7DD3FC]">
+                  Instalasi via Agent Skills CLI
+                </p>
+                <pre className="font-mono leading-relaxed">{`# Pasang seluruh 5 skill Mira
+npx skills add MuaraAI/Mira
+
+# Atau pasang selektif untuk penggunaan MCP & REST API saja
+npx skills add MuaraAI/Mira --skill mira-mcp --skill mira-api`}</pre>
+              </div>
+              <div className="min-w-0 overflow-hidden rounded-[8px] border border-stroke bg-white">
+                <ul className="divide-y divide-stroke">
+                  {[
+                    { id: "mira", desc: "Router utama untuk memilih skill Mira sesuai tugas dan alamat layanan resmi." },
+                    { id: "mira-mcp", desc: "Panduan 42 tools MCP mira_*, token kursus eyJ..., dan aturan persetujuan [WRITE]." },
+                    { id: "mira-api", desc: "Integrasi REST API /v1/*, Personal API Key, JSON envelope, rate limit, dan kode error." },
+                    { id: "mira-backend", desc: "Playbook kontributor FastAPI, scraper BSI, dual-DB SQLite + Supabase, dan pytest offline." },
+                    { id: "mira-web", desc: "Playbook kontributor Next.js 15, Semi Pixel-Art Light, font .woff2, dan standar SEO." },
+                  ].map((skill) => (
+                    <li
+                      key={skill.id}
+                      className="grid gap-1 px-4 py-2.5 sm:grid-cols-[180px_1fr] sm:items-baseline sm:gap-4"
+                    >
+                      <code className="font-mono text-xs font-semibold text-[#0369A1]">
+                        {skill.id}
+                      </code>
+                      <span className="text-xs leading-relaxed text-secondary sm:text-[13px]">
+                        {skill.desc}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </section>
         </div>
 
         <div className="mt-12 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-stroke pt-6 text-xs">

@@ -139,6 +139,26 @@ claude mcp add --transport http mira-academic https://api.muaraai.com/v1/mira/mc
 
 Konfigurasi Cursor, Codex, dan Hermes ada di [docs/mcp.md](docs/mcp.md).
 
+## Agent Skills
+
+Pasang skill resmi Mira ke AI Coding Agent (**Claude Code**, **Codex**, **Cursor**, **Gemini CLI**, **Hermes**) agar agent langsung memahami arsitektur, aturan keamanan `[WRITE]`, 42 tools MCP, dan endpoint REST API:
+
+```bash
+# Pasang seluruh 5 skill Mira
+npx skills add MuaraAI/Mira
+
+# Atau pasang selektif untuk penggunaan MCP & REST API saja
+npx skills add MuaraAI/Mira --skill mira-mcp --skill mira-api
+```
+
+| Skill | Cakupan |
+|---|---|
+| `mira` | Router utama & peta URL layanan Mira UBSI |
+| `mira-mcp` | Alur 42 tools MCP `mira_*`, chaining token `eyJ...`, dan gerbang `[WRITE]` |
+| `mira-api` | Integrasi REST API (`/v1/*`), Personal API Key, JSON envelope, & error handling |
+| `mira-backend` | Playbook kontributor FastAPI, scraper BSI, dual-DB SQLite + Supabase, & offline pytest |
+| `mira-web` | Playbook kontributor Next.js 15, Semi Pixel-Art Light, font `.woff2`, & SEO |
+
 ## Dokumentasi
 
 | Dokumen | Isi |
