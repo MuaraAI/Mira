@@ -392,6 +392,8 @@ def test_extract_branch_from_courses_prefers_kampus_and_falls_back_to_kelas():
     ]) == "UBSI Pontianak"
     assert extract_branch_from_courses([{"kelas": "19.1C.05"}]) == "UBSI Bekasi"
     assert extract_branch_from_courses([{"kelompok_praktek": "DPG.15.1C.30.A"}]) == "UBSI Pontianak"
-    assert extract_branch_from_courses([{"kode_gabung": "KG.153.03.J"}]) == "UBSI Bandung"
+    assert extract_branch_from_courses([{"kode_gabung": "KG.153.03.J"}]) == "UBSI Tangerang"
+    assert extract_branch_from_courses([{"kelas": "44.1A.27"}]) == "UBSI BSD"
+    assert extract_branch_from_courses([{"kelas": "15.1A.07"}]) == "UBSI Kramat 98"
     assert extract_branch_from_courses([{"kelas": "15.1A.99"}]) == "UBSI Cabang 99"
     assert extract_branch_from_courses([]) is None

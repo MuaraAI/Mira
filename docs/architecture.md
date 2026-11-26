@@ -173,6 +173,7 @@ UBSI-API/ (Repo: MuaraAI/Mira)
 │   ├── session_pool.py        # Pool sesi per-NIM dengan idle TTL (10m) & LRU (150)
 │   ├── session_store.py       # Redis session storage (AES-256-GCM, sliding 7 days TTL)
 │   ├── stats.py               # Privacy-preserving usage metrics (HMAC-SHA256 NIM)
+│   └── ubsi_catalog.py        # Katalog publik lokasi kampus, prodi & kode cabang resmi UBSI
 │   ├── upstream_session.py    # Cooldown CAPTCHA/429 & reactive campus session recovery
 │   └── main.py                # Base FastAPI app, CIDR proxy trust, & global middleware
 ├── landing-page/              # Next.js 15 App Router Frontend & Student PWA Dashboard
