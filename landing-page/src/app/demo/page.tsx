@@ -244,9 +244,14 @@ export default function DemoDashboardPage() {
   const urgentTaskDone = Boolean(taskDoneMap[urgentTask.id]);
   const nearestUts = DEMO_UTS_EXAMS[0];
   const latestAgenda = DEMO_AGENDA[0];
-  const dateLabel = formatDateID();
-  const greetingText = getGreeting();
+  const [dateLabel, setDateLabel] = useState("Mode Demo Interaktif");
+  const [greetingText, setGreetingText] = useState("Selamat datang");
   const primaryActive = MOBILE_PRIMARY_VIEWS.some((item) => item.id === activeView);
+
+  useEffect(() => {
+    setDateLabel(formatDateID());
+    setGreetingText(getGreeting());
+  }, []);
 
   return (
     <DialogProvider>
@@ -496,12 +501,30 @@ export default function DemoDashboardPage() {
         </header>
 
         <main
+          id="main-content"
           className={`flex-1 ${
             isChatMode
               ? "w-full px-2 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-3 sm:px-4 lg:px-5 lg:py-3"
               : "mx-auto w-full max-w-6xl px-4 pb-24 pt-5 sm:px-6 lg:px-8 lg:pb-12 lg:pt-6"
           }`}
         >
+          {!isChatMode ? (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b-[1px] border-stroke pb-3">
+              <div className="min-w-0">
+                <h1 className="font-home-display text-lg leading-tight tracking-tight text-foreground sm:text-xl">
+                  Demo Dashboard Akademik Mira UBSI
+                </h1>
+                <p className="mt-0.5 text-xs text-secondary">
+                  Simulasi interaktif 6 layanan kampus tanpa login dengan data contoh mahasiswa.
+                </p>
+              </div>
+              <span className="shrink-0 rounded-[4px] border-[1px] border-stroke bg-white px-2.5 py-1 font-mono text-[10.5px] uppercase tracking-[0.12em] text-[#0369A1]">
+                Data Contoh
+              </span>
+            </div>
+          ) : (
+            <h1 className="sr-only">Demo Komunitas Mahasiswa Mira UBSI</h1>
+          )}
           {activeView === "ringkasan" ? (
             <div key="ringkasan" className="page-in space-y-5">
               {/* 1. Muara Command Deck: Greeting + Integrated Telemetry + Live Session Dock */}
@@ -531,9 +554,9 @@ export default function DemoDashboardPage() {
                       <p className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-[#9AD8F8]">
                         {dateLabel}
                       </p>
-                      <h1 className="font-home-display mt-1.5 text-[clamp(1.65rem,3vw,2.25rem)] leading-[1.1] tracking-[-0.01em] text-white">
+                      <h2 className="font-home-display mt-1.5 text-[clamp(1.65rem,3vw,2.25rem)] leading-[1.1] tracking-[-0.01em] text-white">
                         {greetingText}, {DEMO_STUDENT.panggilan}
-                      </h1>
+                      </h2>
                       <p className="mt-2 text-[12.5px] text-[#DCEBF5]">
                         <span className="font-mono text-white">{DEMO_STUDENT.nim}</span> ·{" "}
                         {DEMO_STUDENT.prodi}{" "}

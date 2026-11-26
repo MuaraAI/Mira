@@ -42,7 +42,7 @@ html,
 body {
   background-color: var(--bg);
   color: var(--text);
-  font-family: var(--font-grosen), var(--font-inter), system-ui, -apple-system, sans-serif;
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
   font-weight: 500;
   font-variant-numeric: lining-nums;
   max-width: 100vw;
@@ -688,10 +688,10 @@ body::-webkit-scrollbar,
   .chat-in-mine, .chat-in-other, .react-pop, .menu-pop, .sheet-up, .send-fly, .typing-dot, .chat-flash, .heart-burst { animation: none !important; }
 }
 
-/* Homepage & Auth Mira: Grosen Medium font across body copy, Aestetico Sans reserved for display marks. */
+/* Homepage & Auth Mira: Inter across body copy, Space Grotesk reserved for display marks. */
 .mira-home,
 .mira-auth {
-  font-family: var(--font-grosen), var(--font-inter), system-ui, -apple-system, sans-serif;
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
   font-weight: 500;
   font-variant-numeric: lining-nums;
   font-synthesis-weight: none;
@@ -708,15 +708,15 @@ body::-webkit-scrollbar,
 .mira-auth h2,
 .mira-auth h3,
 .mira-auth h4 {
-  font-family: var(--font-grosen), var(--font-inter), system-ui, -apple-system, sans-serif;
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
   font-variant-numeric: lining-nums;
   font-weight: 500;
 }
 
 .mira-home .font-home-display,
 .mira-auth .font-home-display {
-  font-family: var(--font-aestetico), var(--font-space-grotesk), var(--font-grosen), system-ui, sans-serif;
-  font-weight: 600;
+  font-family: var(--font-space-grotesk), var(--font-inter), system-ui, sans-serif;
+  font-weight: 700;
 }
 
 .mira-auth .auth-input {
@@ -933,9 +933,9 @@ body::-webkit-scrollbar,
   }
 }
 
-/* Dashboard & Demo Portal: Grosen Medium + Aestetico Sans modern estuary UI, menggantikan frame kotak pixel pada subhalaman. */
+/* Dashboard & Demo Portal: Inter + Space Grotesk modern estuary UI, menggantikan frame kotak pixel pada subhalaman. */
 .mira-portal {
-  font-family: var(--font-grosen), var(--font-inter), system-ui, sans-serif;
+  font-family: var(--font-inter), system-ui, sans-serif;
   font-weight: 500;
   font-variant-numeric: lining-nums;
   font-synthesis-weight: none;
@@ -957,7 +957,7 @@ body::-webkit-scrollbar,
 }
 
 .mira-portal :is(h1, h2, h3, h4, h5, h6) {
-  font-family: var(--font-grosen), var(--font-inter), system-ui, sans-serif;
+  font-family: var(--font-inter), system-ui, sans-serif;
   font-variant-numeric: lining-nums;
   font-weight: 500;
 }
@@ -973,8 +973,8 @@ body::-webkit-scrollbar,
 }
 
 .mira-portal .font-home-display {
-  font-family: var(--font-aestetico), var(--font-space-grotesk), var(--font-grosen), system-ui, sans-serif;
-  font-weight: 600;
+  font-family: var(--font-space-grotesk), var(--font-inter), system-ui, sans-serif;
+  font-weight: 700;
 }
 
 .mira-portal .glass-card,

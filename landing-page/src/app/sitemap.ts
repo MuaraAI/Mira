@@ -1,15 +1,22 @@
 import { MetadataRoute } from "next";
 import { SITE_URL } from "@/lib/site";
 
+const LAST_UPDATED = new Date("2026-11-26T00:00:00.000Z");
+
 export default function sitemap(): MetadataRoute.Sitemap {
-  const lastModified = new Date();
-  return [
-    { url: SITE_URL, lastModified, changeFrequency: "weekly", priority: 1.0 },
-    { url: `${SITE_URL}/login`, lastModified, changeFrequency: "monthly", priority: 0.6 },
-    { url: `${SITE_URL}/demo`, lastModified, changeFrequency: "monthly", priority: 0.7 },
-    { url: `${SITE_URL}/lupa-password`, lastModified, changeFrequency: "yearly", priority: 0.4 },
-    { url: `${SITE_URL}/privacy`, lastModified, changeFrequency: "yearly", priority: 0.3 },
-    { url: `${SITE_URL}/terms`, lastModified, changeFrequency: "yearly", priority: 0.3 },
-    { url: `${SITE_URL}/dmca`, lastModified, changeFrequency: "yearly", priority: 0.3 },
+  const routes = [
+    "/",
+    "/demo",
+    "/developers",
+    "/login",
+    "/lupa-password",
+    "/privacy",
+    "/terms",
+    "/dmca",
   ];
+
+  return routes.map((route) => ({
+    url: route === "/" ? SITE_URL : `${SITE_URL}${route}`,
+    lastModified: LAST_UPDATED,
+  }));
 }

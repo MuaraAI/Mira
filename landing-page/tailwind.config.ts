@@ -75,9 +75,8 @@ const config: Config = {
         DEFAULT: "2px",
       },
       fontFamily: {
-        sans: ["var(--font-grosen)", "var(--font-inter)", "system-ui", "sans-serif"],
+        sans: ["var(--font-inter)", "system-ui", "sans-serif"],
         display: ["var(--font-space-grotesk)", "var(--font-inter)", "system-ui", "-apple-system", "sans-serif"],
-        aestetico: ["var(--font-aestetico)", "var(--font-space-grotesk)", "var(--font-inter)", "sans-serif"],
         pixel: ["var(--font-pixel)", "var(--font-space-grotesk)", "system-ui", "sans-serif"],
         mono: ["var(--font-jetbrains-mono)", "monospace"],
       },

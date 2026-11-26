@@ -463,23 +463,12 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
     window.scrollTo({ top: 0 });
   }
 
-  // Sudah login: langsung ke dashboard tanpa render form login
-  const { data: me, loading: checkingSession } = useApi<{ nim: string }>("/v1/auth/me");
+  // Sudah login: langsung ke dashboard tanpa menahan SSR form login
+  const { data: me } = useApi<{ nim: string }>("/v1/auth/me");
   const onLogin = view === "login";
   useEffect(() => {
     if (onLogin && me?.nim && phase === "form") router.replace("/dashboard");
   }, [me, router, phase, onLogin]);
-
-  if (onLogin && checkingSession && !me) {
-    return (
-      <div className="mira-auth flex min-h-screen flex-col items-center justify-center bg-background p-4 text-foreground">
-        <div className="flex flex-col items-center gap-3">
-          <Monogram className="h-10 w-10" />
-          <p className="font-mono text-xs text-secondary">Memeriksa sesi login...</p>
-        </div>
-      </div>
-    );
-  }
 
   if (onLogin && me?.nim && phase === "form") {
     return (
@@ -684,13 +673,13 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
         </div>
 
         <div className="relative z-10 mt-auto pb-8">
-          <h2
+          <p
             className="font-home-display max-w-[14ch] text-[clamp(2.65rem,4.4vw,4.15rem)] leading-[1.04] tracking-[-0.015em] text-white"
             style={{ textShadow: "0 12px 32px rgba(4, 18, 32, 0.58)" }}
           >
             Semua urusan kampus UBSI,{" "}
             <span className="text-[#7DD3FC]">di satu layar.</span>
-          </h2>
+          </p>
           <p
             className="mt-5 max-w-[440px] text-[14.5px] leading-[1.7] text-[#E2F0F8]"
             style={{ textShadow: "0 4px 18px rgba(4, 18, 32, 0.65)" }}
@@ -995,6 +984,28 @@ export function AuthPortal({ initialView = "login" }: { initialView?: AuthView }
                 </div>
               )}
             </div>
+
+            {view === "forgot" && (
+              <section
+                aria-labelledby="forgot-guide-heading"
+                className="mt-4 rounded-[10px] border-[1px] border-stroke bg-white p-4 sm:p-5"
+              >
+                <h2
+                  id="forgot-guide-heading"
+                  className="text-[13.5px] font-semibold text-foreground"
+                >
+                  Cara reset password MyBest &amp; SIAKAD
+                </h2>
+                <ol className="mt-2.5 space-y-1.5 text-[12px] leading-relaxed text-secondary">
+                  <li>1. Pilih akun yang terkendala (MyBest Elearning atau SIAKAD).</li>
+                  <li>2. Masukkan NIM mahasiswa dan email aktif yang terdaftar di portal kampus terkait.</li>
+                  <li>3. Buka email dari server kampus dalam 60 menit untuk menyetel password baru.</li>
+                </ol>
+                <p className="mt-2.5 border-t-[1px] border-stroke pt-2.5 text-[11.5px] leading-relaxed text-secondary">
+                  Catatan: MyBest dan SIAKAD memakai password terpisah. Jika mengubah password SIAKAD, tautkan ulang di menu Sesi &amp; Keamanan.
+                </p>
+              </section>
+            )}
 
             <p className="mt-3.5 text-center font-mono text-[11px] text-secondary">
               Mira bukan aplikasi resmi UBSI.

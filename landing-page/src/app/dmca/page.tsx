@@ -1,13 +1,18 @@
 import Link from "next/link";
-import type { Metadata } from "next";
 import { Monogram } from "@/components/Monogram";
+import { buildBreadcrumbJsonLd, buildPageMetadata } from "@/lib/site";
 
-export const metadata: Metadata = {
+export const metadata = buildPageMetadata({
   title: "DMCA dan Hak Kekayaan Intelektual",
   description:
-    "Pemberitahuan hak cipta, kekayaan intelektual, dan prosedur notice and takedown untuk proyek Mira.",
-  alternates: { canonical: "/dmca" },
-};
+    "Pemberitahuan hak cipta, merek, kekayaan intelektual, dan prosedur notice and takedown resmi untuk proyek open-source Mira UBSI.",
+  path: "/dmca",
+});
+
+const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+  { name: "Beranda", path: "/" },
+  { name: "DMCA dan HKI", path: "/dmca" },
+]);
 
 const SECTIONS = [
   {
@@ -85,9 +90,14 @@ export default function DmcaPage() {
         <div className="mt-12 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-stroke pt-6 text-xs">
           <Link href="/privacy" className="font-semibold text-[#0369A1] hover:underline">Kebijakan Privasi</Link>
           <Link href="/terms" className="font-semibold text-[#0369A1] hover:underline">Syarat dan Ketentuan</Link>
+          <Link href="/demo" className="font-semibold text-[#0369A1] hover:underline">Demo Dashboard</Link>
           <Link href="/" className="text-secondary hover:text-foreground">Kembali ke Beranda</Link>
         </div>
       </main>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
     </div>
   );
 }

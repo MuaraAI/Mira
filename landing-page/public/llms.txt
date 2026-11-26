@@ -8,21 +8,24 @@ Nama resmi: Mira. Alias sebelumnya: UBSI API, UBSI-API, API UBSI, API SIAKAD UBS
 
 - Dashboard mahasiswa: jadwal kuliah, tugas dan deadline, presensi kehadiran mandiri, bahan ajar dosen, kuis & ujian online, nilai dan KHS, KRS, kartu ujian, berita resmi kampus, pencarian buku perpustakaan OPAC, dan repositori skripsi.
 - REST API publik dengan Personal API Key (header Authorization: Bearer).
-- Server MCP (Model Context Protocol) dengan 40 tools satu namespace mira_* supaya AI agent seperti Claude, ChatGPT, dan Cursor bisa mengakses data akademik mahasiswa. Alias lama ubsi_* sudah dihapus.
+- Server MCP (Model Context Protocol) dengan 42 tools satu namespace mira_* supaya AI agent seperti Claude, ChatGPT, Codex, dan Cursor bisa mengakses data akademik mahasiswa. Alias lama ubsi_* sudah dihapus.
 - Pengingat kelas, presensi, dan tugas lewat notifikasi PWA (Android/iOS/Desktop), Discord, atau Telegram. Pengecek link tugas (Google Drive/Docs) memberi tahu bila link belum publik.
 - Login ulang otomatis ke SIAKAD dan MyBest saat sesi kampus habis.
 
 ## Tautan
 
 - [Beranda](https://mira.muaraai.com/): penjelasan singkat, cara pakai, fitur dashboard, dan FAQ
+- [Demo interaktif](https://mira.muaraai.com/demo): simulasi dashboard akademik mahasiswa UBSI tanpa login
+- [Dokumentasi REST API & MCP](https://mira.muaraai.com/developers): panduan pengembang, contoh curl, setup MCP agent, dan katalog 42 tools
 - [Login mahasiswa](https://mira.muaraai.com/login): masuk dengan NIM dan password akun kampus
-- [Dokumentasi REST API](https://api.muaraai.com/v1/mira/v1/docs): katalog endpoint publik (JSON)
+- [Lupa password kampus](https://mira.muaraai.com/lupa-password): permintaan link reset password MyBest atau SIAKAD UBSI
+- [Katalog REST API JSON](https://api.muaraai.com/v1/mira/v1/docs): skema endpoint publik (JSON)
 - [Server MCP](https://api.muaraai.com/v1/mira/mcp): endpoint MCP streamable HTTP
 - [Kode sumber di GitHub](https://github.com/MuaraAI/Mira): lisensi MIT
 
 ## Keamanan dan kebijakan
 
-- Kredensial kampus terenkripsi: salinan sesi (AES-256-GCM, aktif 7 hari sliding) dan tautan kanonis SIAKAD per NIM di SQLite (Fernet) dengan izin per perangkat; pengguna bisa logout satu atau semua perangkat.
+- Kredensial kampus terenkripsi: salinan sesi (AES-256-GCM, aktif 7 hari sliding) di Redis dan tautan kanonis SIAKAD per NIM di SQLite (Fernet); pengguna dapat mencabut sesi atau tautan SIAKAD kapan saja dan logout satu atau semua perangkat.
 - [Kebijakan Privasi](https://mira.muaraai.com/privacy)
 - [Syarat dan Ketentuan](https://mira.muaraai.com/terms)
 - [DMCA dan HKI](https://mira.muaraai.com/dmca)

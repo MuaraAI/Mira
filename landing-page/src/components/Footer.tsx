@@ -85,6 +85,16 @@ export function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/developers" className={LINK_CLASS}>
+                  REST API &amp; MCP
+                </Link>
+              </li>
+              <li>
+                <Link href="/lupa-password" className={LINK_CLASS}>
+                  Lupa password kampus
+                </Link>
+              </li>
+              <li>
                 <a
                   href={API_DOCS_URL}
                   target="_blank"

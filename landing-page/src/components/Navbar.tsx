@@ -13,6 +13,7 @@ const NAV_LINKS = [
   { href: "#stats", label: "Statistik" },
   { href: "#donasi", label: "Donasi" },
   { href: "#faq", label: "FAQ" },
+  { href: "/developers", label: "API & MCP" },
 ];
 
 const MOBILE_LINKS = [
@@ -21,7 +22,8 @@ const MOBILE_LINKS = [
   { href: "#stats", label: "Statistik", external: false },
   { href: "#donasi", label: "Donasi", external: false },
   { href: "#faq", label: "FAQ", external: false },
-  { href: API_DOCS_URL, label: "API Docs", external: true },
+  { href: "/developers", label: "API & MCP", external: false },
+  { href: API_DOCS_URL, label: "API Docs JSON", external: true },
   { href: GITHUB_URL, label: "GitHub", external: true },
 ];
 
@@ -122,21 +124,33 @@ export function Navbar({ starsCount }: { starsCount: number | null }) {
 
           <nav
             aria-label="Navigasi utama"
-            className={`hidden items-center gap-1 text-[13px] font-normal tracking-[0.015em] md:flex ${
+            className={`hidden items-center gap-0.5 text-[13px] font-normal tracking-[0.015em] md:flex ${
               overDark ? "text-white/85" : "text-secondary"
             }`}
           >
-            {NAV_LINKS.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className={`home-nav-link inline-flex min-h-[44px] items-center px-3.5 ${
-                  overDark ? "hover:text-white" : "hover:text-foreground"
-                }`}
-              >
-                {link.label}
-              </a>
-            ))}
+            {NAV_LINKS.map((link) =>
+              link.href.startsWith("/") ? (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`home-nav-link inline-flex min-h-[44px] items-center whitespace-nowrap px-2.5 lg:px-3.5 ${
+                    overDark ? "hover:text-white" : "hover:text-foreground"
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              ) : (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  className={`home-nav-link inline-flex min-h-[44px] items-center whitespace-nowrap px-2.5 lg:px-3.5 ${
+                    overDark ? "hover:text-white" : "hover:text-foreground"
+                  }`}
+                >
+                  {link.label}
+                </a>
+              )
+            )}
           </nav>
 
           <div className="flex items-center gap-2.5">
@@ -234,18 +248,32 @@ export function Navbar({ starsCount }: { starsCount: number | null }) {
           <ul className="flex flex-col divide-y-[1px] divide-white/10">
             {MOBILE_LINKS.map((link, index) => (
               <li key={link.href}>
-                <a
-                  href={link.href}
-                  onClick={closeMobileMenu}
-                  tabIndex={mobileMenuOpen ? 0 : -1}
-                  {...(link.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                  className="flex min-h-[54px] items-center justify-between py-3 text-white/90 transition-colors hover:text-white"
-                >
-                  <span className="text-xl font-normal tracking-[0.01em]">{link.label}</span>
-                  <span className="font-mono text-xs text-[#7DD3FC]">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                </a>
+                {!link.external && link.href.startsWith("/") ? (
+                  <Link
+                    href={link.href}
+                    onClick={closeMobileMenu}
+                    tabIndex={mobileMenuOpen ? 0 : -1}
+                    className="flex min-h-[54px] items-center justify-between py-3 text-white/90 transition-colors hover:text-white"
+                  >
+                    <span className="text-xl font-normal tracking-[0.01em]">{link.label}</span>
+                    <span className="font-mono text-xs text-[#7DD3FC]">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                  </Link>
+                ) : (
+                  <a
+                    href={link.href}
+                    onClick={closeMobileMenu}
+                    tabIndex={mobileMenuOpen ? 0 : -1}
+                    {...(link.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                    className="flex min-h-[54px] items-center justify-between py-3 text-white/90 transition-colors hover:text-white"
+                  >
+                    <span className="text-xl font-normal tracking-[0.01em]">{link.label}</span>
+                    <span className="font-mono text-xs text-[#7DD3FC]">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                  </a>
+                )}
               </li>
             ))}
           </ul>

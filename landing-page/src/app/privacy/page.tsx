@@ -1,19 +1,24 @@
 import Link from "next/link";
-import type { Metadata } from "next";
 import { Monogram } from "@/components/Monogram";
+import { buildBreadcrumbJsonLd, buildPageMetadata } from "@/lib/site";
 
-export const metadata: Metadata = {
+export const metadata = buildPageMetadata({
   title: "Kebijakan Privasi",
   description:
-    "Bagaimana Mira memproses, mengenkripsi, dan menghapus data akademik Anda: AES-256-GCM, zero telemetry, dan kontrol penghapusan penuh di tangan Anda.",
-  alternates: { canonical: "/privacy" },
-};
+    "Bagaimana Mira UBSI memproses, mengenkripsi (AES-256-GCM), dan menghapus data akademik Anda, lengkap dengan kontrol penuh tanpa pelacak iklan.",
+  path: "/privacy",
+});
+
+const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+  { name: "Beranda", path: "/" },
+  { name: "Kebijakan Privasi", path: "/privacy" },
+]);
 
 const SECTIONS: { title: string; body: string[] }[] = [
   {
     title: "1. Data yang Kami Proses",
     body: [
-      "NIM (ID mahasiswa): untuk mengidentifikasi sesi dan data akademik Anda. Disimpan di Redis (sesi) dan SQLite (API key, tautan kanonis SIAKAD, perangkat, channel notifikasi, langganan PWA push).",
+      "NIM (ID mahasiswa): untuk mengidentifikasi sesi dan data akademik Anda. Disimpan di Redis (sesi) dan SQLite (API key, tautan kanonis SIAKAD, channel notifikasi, langganan PWA push).",
       "Password kampus (SIAKAD dan MyBest): dipakai untuk verifikasi saat login atau saat menautkan SIAKAD, lalu disimpan terenkripsi agar server bisa login ulang ke portal kampus: salinan sesi di Redis (AES-256-GCM) dan tautan kanonis SIAKAD di SQLite (Fernet, satu baris per NIM). Tidak pernah dikirim kembali ke browser dan tidak pernah ditulis sebagai teks biasa.",
       "Data akademik (jadwal, nilai, KHS, KRS, kartu ujian, presensi, tugas, bahan ajar): ditampilkan hanya kepada Anda dan disimpan sementara di cache Redis dengan TTL berjenjang (10 menit sampai 2 jam). Tidak pernah ditulis ke disk.",
       "Konfigurasi webhook (Discord/Telegram): Anda yang isi sendiri di dashboard, disimpan terenkripsi (Fernet) di SQLite untuk fitur notifikasi yang Anda aktifkan. Nilai rahasia seperti token bot hanya ditampilkan tersamarkan di dashboard.",
@@ -40,7 +45,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
   {
     title: "4. Pihak Ketiga",
     body: [
-      "Tidak ada analytics, tracker, iklan, atau telemetry. Layanan ini tidak melaporkan apa pun ke pihak lain.",
+      "Kami memakai Vercel Web Analytics (agregat tanpa cookie) semata untuk memantau kesehatan trafik halaman publik. Tidak ada iklan, pelacak lintas situs, atau profil pengguna individu.",
       "Traffic keluar dari server adalah ke portal resmi kampus UBSI (untuk mengambil data akademik Anda sendiri), ke kanal notifikasi yang Anda konfigurasi sendiri (Discord/Telegram/webhook pribadi), ke layanan push browser untuk notifikasi PWA, dan ke database Komunitas (Supabase) untuk fitur chat.",
     ],
   },
@@ -156,13 +161,23 @@ export default function PrivacyPage() {
 
         <div className="mt-12 pt-6 border-t border-stroke flex flex-wrap items-center gap-x-6 gap-y-2 text-xs">
           <Link href="/terms" className="font-semibold text-[#0369A1] hover:underline">
-            Terms of Service
+            Syarat dan Ketentuan
+          </Link>
+          <Link href="/dmca" className="font-semibold text-[#0369A1] hover:underline">
+            DMCA dan HKI
+          </Link>
+          <Link href="/demo" className="font-semibold text-[#0369A1] hover:underline">
+            Demo Dashboard
           </Link>
           <Link href="/" className="text-secondary hover:text-foreground">
             Kembali ke Beranda
           </Link>
         </div>
       </main>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
     </div>
   );
 }
