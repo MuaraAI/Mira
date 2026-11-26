@@ -51,17 +51,64 @@ BRANCH_NAMES: dict[str, str] = {
     "30": "UBSI Pontianak",
 }
 
+_BRANCH_ALIASES: dict[str, str] = {
+    "pusat": "UBSI Jakarta",
+    "jakarta": "UBSI Jakarta",
+    "bogor": "UBSI Bogor",
+    "bogor a": "UBSI Bogor",
+    "bogor b": "UBSI Bogor",
+    "bandung": "UBSI Bandung",
+    "solo": "UBSI Surakarta",
+    "surakarta": "UBSI Surakarta",
+    "bekasi": "UBSI Bekasi",
+    "depok": "UBSI Depok",
+    "depok 1": "UBSI Depok",
+    "depok a": "UBSI Depok",
+    "tangerang": "UBSI Tangerang",
+    "tangerang a": "UBSI Tangerang",
+    "karawang": "UBSI Karawang",
+    "yogyakarta": "UBSI Yogyakarta",
+    "jogja": "UBSI Yogyakarta",
+    "tasikmalaya": "UBSI Tasikmalaya",
+    "semarang": "UBSI Semarang",
+    "medan": "UBSI Medan",
+    "palembang": "UBSI Palembang",
+    "banjarmasin": "UBSI Banjarmasin",
+    "denpasar": "UBSI Denpasar",
+    "bali": "UBSI Denpasar",
+    "purwokerto": "UBSI Purwokerto",
+    "sukabumi": "UBSI Sukabumi",
+    "pontianak": "UBSI Pontianak",
+    "tegal": "UBSI Tegal",
+}
+
+_BRANCH_PREFIX_RE = re.compile(
+    r"^(?:ubsi|kampus(?:\s+(?:kota|kabupaten|utama))?)\s+",
+    re.IGNORECASE,
+)
+
 
 def branch_display(code: Optional[str]) -> Optional[str]:
-    """Terjemahkan kode cabang SIAKAD ('30', '05') menjadi nama tampilan ('UBSI Pontianak', 'UBSI Bekasi')."""
-    raw = (code or "").strip()
+    """Terjemahkan kode SIAKAD ('30', '05') atau teks Kampus MyBest ('Pontianak') menjadi nama tampilan."""
+    raw = " ".join((code or "").split())
     if not raw:
         return None
     if raw in BRANCH_NAMES:
         return BRANCH_NAMES[raw]
     if raw.isdigit():
         return f"UBSI Cabang {raw}"
-    return raw
+    core = raw
+    while True:
+        stripped = _BRANCH_PREFIX_RE.sub("", core).strip()
+        if stripped == core:
+            break
+        core = stripped
+    alias = _BRANCH_ALIASES.get(core.lower())
+    if alias:
+        return alias
+    if raw.lower().startswith("ubsi "):
+        return f"UBSI {raw[5:].strip()}"
+    return f"UBSI {core}" if core else None
 
 
 _SIAKAD_CAPTCHA_RE = re.compile(r"""name=["']captcha["']|Kode CAPTCHA|data-login-captcha""", re.IGNORECASE)

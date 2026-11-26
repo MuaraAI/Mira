@@ -5,6 +5,7 @@ from httpx import AsyncClient, ASGITransport
 from app.main import app
 from app.cache import cache
 from app.limiter import limiter
+from app.login_guard import login_guard
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -12,9 +13,11 @@ FIXTURES = Path(__file__).parent / "fixtures"
 def reset_clients():
     cache._client = None
     limiter._client = None
+    login_guard._client = None
     yield
     cache._client = None
     limiter._client = None
+    login_guard._client = None
 
 @pytest.mark.asyncio
 async def test_get_courses_success(monkeypatch):
@@ -918,4 +921,109 @@ async def test_post_presence_feedback_router(monkeypatch):
     assert sent["data"]["_token"] == "dummy-token"
     assert sent["data"]["pertemuan"] == "dummy-pertemuan"
     assert "radio" not in sent["data"]
+
+
+@pytest.mark.asyncio
+async def test_elearning_courses_and_dashboard_record_branch_without_siakad(monkeypatch):
+    monkeypatch.setenv("ELEARNING_NIM", "17000002")
+    monkeypatch.setenv("ELEARNING_PASS", "secret")
+
+    sch_v2 = (FIXTURES / "el_sch_v2.html").read_text(encoding="utf-8")
+    empty_assignments = "<html><body><table></table></body></html>"
+    empty_makeups = "<html><body><div>Tidak ada kuliah pengganti</div></body></html>"
+    quiz_html = (FIXTURES / "el_exercise.html").read_text(encoding="utf-8")
+    profile_html = '<input name="name" value="MHS"><input name="email" value="17000002@bsi.ac.id">'
+
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = None
+    mock_redis.incr.return_value = 1
+
+    async def fake_fetch(path, nim, password):
+        if path == "/sch":
+            return sch_v2
+        if path == "/assignment":
+            return empty_assignments
+        if path == "/kuliah-pengganti":
+            return empty_makeups
+        if path == "/exercise":
+            return quiz_html
+        if path == "/profil":
+            return profile_html
+        raise AssertionError(f"unexpected path {path}")
+
+    calls = []
+
+    async def fake_record_profile(nim, branch, program, **kwargs):
+        calls.append((nim, branch, program, kwargs))
+
+    with patch("redis.asyncio.from_url", return_value=mock_redis), \
+         patch("app.modules.elearning.pooled_elearning_client.fetch_page", side_effect=fake_fetch), \
+         patch("app.stats.record_profile", side_effect=fake_record_profile):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            hdrs = {"X-Elearning-NIM": "17000002", "X-Elearning-Pass": "secret"}
+            res_courses = await ac.get("/v1/elearning/courses", headers=hdrs)
+            assert res_courses.status_code == 200
+            assert res_courses.json()["data"][0]["kampus"] == "Pontianak"
+
+            res_dash = await ac.get("/v1/elearning/dashboard", headers=hdrs)
+            assert res_dash.status_code == 200
+
+    assert any(c[0] == "17000002" and c[1] == "UBSI Pontianak" and c[2] is None for c in calls)
+
+
+@pytest.mark.asyncio
+async def test_elearning_cached_courses_still_records_branch_once(monkeypatch):
+    monkeypatch.setenv("ELEARNING_NIM", "44000004")
+    monkeypatch.setenv("ELEARNING_PASS", "secret")
+
+    cached_courses = [{"kode": "104", "nama": "KOMUNIKASI", "kelas": "44.1A.05", "kampus": "Bekasi"}]
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = None
+    mock_redis.incr.return_value = 1
+
+    calls = []
+
+    async def fake_record_profile(nim, branch, program, **kwargs):
+        calls.append((nim, branch, program, kwargs))
+
+    with patch("redis.asyncio.from_url", return_value=mock_redis), \
+         patch("app.router_helper._read_cache", AsyncMock(return_value=(cached_courses, False))), \
+         patch("app.stats.record_profile", side_effect=fake_record_profile):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res = await ac.get(
+                "/v1/elearning/courses",
+                headers={"X-Elearning-NIM": "44000004", "X-Elearning-Pass": "secret"},
+            )
+    assert res.status_code == 200
+    assert any(c[0] == "44000004" and c[1] == "UBSI Bekasi" and c[2] is None for c in calls)
+
+
+@pytest.mark.asyncio
+async def test_elearning_presence_records_mybest_prodi_and_branch(monkeypatch):
+    monkeypatch.setenv("ELEARNING_NIM", "12345678")
+    monkeypatch.setenv("ELEARNING_PASS", "secret")
+
+    absen_html = (FIXTURES / "el_absen_1.html").read_text(encoding="utf-8")
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = None
+    mock_redis.incr.return_value = 1
+
+    calls = []
+
+    async def fake_record_profile(nim, branch, program, **kwargs):
+        calls.append((nim, branch, program, kwargs))
+
+    with patch("redis.asyncio.from_url", return_value=mock_redis), \
+         patch("app.modules.elearning.pooled_elearning_client.fetch_page", return_value=absen_html), \
+         patch("app.stats.record_profile", side_effect=fake_record_profile):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res = await ac.get(
+                "/v1/elearning/presence?token=tok1",
+                headers={"X-Elearning-NIM": "12345678", "X-Elearning-Pass": "secret"},
+            )
+    assert res.status_code == 200
+    assert any(
+        c[0] == "12345678" and c[1] == "UBSI Pontianak" and c[2] == "Ilmu Komputer"
+        for c in calls
+    )
 
