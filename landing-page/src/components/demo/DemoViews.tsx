@@ -1250,6 +1250,27 @@ export function DemoKeysView() {
           </div>
         ))}
       </div>
+
+      <div className="rounded-[10px] border-[1px] border-stroke bg-[#F0F7FB] p-4 space-y-2.5">
+        <p className="font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#0369A1]">
+          Integrasi MCP (42 Tools mira_*) &amp; Agent Skills
+        </p>
+        <p className="text-xs leading-relaxed text-secondary">
+          Di dashboard asli, satu Personal API Key langsung terhubung ke REST API dan Server MCP
+          Mira serta dilengkapi prompt siap pakai untuk Claude Code, Cursor, Codex, dan Hermes.
+        </p>
+        <div className="min-w-0 overflow-x-auto rounded-[6px] bg-[#131b26] px-3 py-2 font-mono text-[11.5px] text-[#7DD3FC]">
+          npx skills add MuaraAI/Mira
+        </div>
+        <div className="pt-0.5">
+          <Link
+            href="/developers"
+            className="text-xs font-semibold text-[#0369A1] underline underline-offset-4 hover:text-[#075985]"
+          >
+            Buka Dokumentasi API, MCP &amp; Skills
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }

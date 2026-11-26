@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Github, Mail } from "lucide-react";
 import { ParallaxLayer } from "./HomeParallax";
 import { SOCIAL_PROFILES } from "./SocialIcons";
-import { API_DOCS_URL, DONATE_URL, GITHUB_URL, MCP_URL } from "@/lib/public-links";
+import { API_DOCS_URL, DONATE_URL, GITHUB_URL, MCP_URL, SKILLS_URL } from "@/lib/public-links";
 
 const LINK_CLASS =
   "inline-flex min-h-[44px] items-center gap-2 text-secondary transition-colors duration-200 hover:text-[#0369A1]";
@@ -117,6 +117,16 @@ export function Footer() {
                   className={LINK_CLASS}
                 >
                   MCP Server
+                </a>
+              </li>
+              <li>
+                <a
+                  href={SKILLS_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={LINK_CLASS}
+                >
+                  Agent Skills (skills.sh)
                 </a>
               </li>
               <li>

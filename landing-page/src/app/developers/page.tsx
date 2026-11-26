@@ -1,12 +1,21 @@
 import Link from "next/link";
 import { Monogram } from "@/components/Monogram";
-import { API_BASE_URL, API_DOCS_URL, GITHUB_URL, MCP_URL } from "@/lib/public-links";
+import { CopyCodeBlock } from "@/components/CopyCodeBlock";
+import {
+  MIRA_SKILLS,
+  SKILL_INSTALL_COMMANDS,
+  buildMcpAgentPrompt,
+  buildMcpSnippets,
+  buildRestAgentPrompt,
+  buildRestSnippets,
+} from "@/lib/developer-prompts";
+import { API_BASE_URL, API_DOCS_URL, GITHUB_URL, MCP_URL, SKILLS_URL } from "@/lib/public-links";
 import { buildBreadcrumbJsonLd, buildPageMetadata, SITE_URL } from "@/lib/site";
 
 export const metadata = buildPageMetadata({
-  title: "REST API & MCP Server UBSI (42 Tools)",
+  title: "REST API, MCP Server & Agent Skills UBSI (42 Tools)",
   description:
-    "Dokumentasi pengembang Mira UBSI: integrasikan REST API akademik dan server MCP 42 tools mira_* untuk Claude Code, Cursor, Codex, dan bot mahasiswa.",
+    "Dokumentasi pengembang Mira UBSI: integrasikan REST API akademik, server MCP 42 tools mira_*, dan Agent Skills resmi (npx skills add MuaraAI/Mira) untuk AI agent serta bot mahasiswa.",
   path: "/developers",
 });
 
@@ -18,59 +27,20 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
 const techArticleJsonLd = {
   "@context": "https://schema.org",
   "@type": "TechArticle",
-  headline: "REST API & MCP Server Mira UBSI (42 Tools)",
+  headline: "REST API, MCP Server & Agent Skills Mira UBSI (42 Tools)",
   description:
-    "Panduan autentikasi Personal API Key, contoh pemanggilan REST API, konfigurasi MCP Streamable HTTP untuk AI agent, serta katalog 42 tools mira_*.",
+    "Panduan autentikasi Personal API Key, contoh pemanggilan REST API, konfigurasi MCP Streamable HTTP untuk AI agent, instalasi Agent Skills di skills.sh, serta katalog 42 tools mira_*.",
   url: `${SITE_URL}/developers`,
   inLanguage: "id-ID",
   author: { "@id": `${SITE_URL}/#organization` },
   publisher: { "@id": `${SITE_URL}/#organization` },
 };
 
-const CURL_EXAMPLE = `curl -s "${API_BASE_URL}/v1/elearning/courses" \\
-  -H "Authorization: Bearer muara_mira_YOUR_KEY"`;
-
 const ENVELOPE_EXAMPLE = `{
   "success": true,
   "data": [...],
   "cached": false
 }`;
-
-const MCP_SNIPPETS = [
-  {
-    client: "Claude Code CLI",
-    code: `claude mcp add --transport http mira-academic \\
-  ${MCP_URL} \\
-  --header "Authorization: Bearer muara_mira_YOUR_KEY"`,
-  },
-  {
-    client: "Cursor IDE (.cursor/mcp.json)",
-    code: `{
-  "mcpServers": {
-    "mira-academic": {
-      "url": "${MCP_URL}",
-      "headers": {
-        "Authorization": "Bearer muara_mira_YOUR_KEY"
-      }
-    }
-  }
-}`,
-  },
-  {
-    client: "Codex CLI (~/.codex/config.toml)",
-    code: `[mcp_servers.mira-academic]
-url = "${MCP_URL}"
-http_headers = { "Authorization" = "Bearer muara_mira_YOUR_KEY" }`,
-  },
-  {
-    client: "Hermes Agent (~/.hermes/config.yaml)",
-    code: `mcp_servers:
-  mira-academic:
-    url: ${MCP_URL}
-    headers:
-      Authorization: "Bearer muara_mira_YOUR_KEY"`,
-  },
-];
 
 const TOOL_GROUPS = [
   {
@@ -209,9 +179,17 @@ export default function DevelopersPage() {
             href={`${GITHUB_URL}/blob/main/docs/mcp.md`}
             target="_blank"
             rel="noopener noreferrer"
+            className="inline-flex min-h-[42px] items-center justify-center rounded-[6px] border-[1px] border-stroke bg-white px-4 py-2 text-xs font-medium text-foreground transition-colors hover:border-[#072033]"
+          >
+            Panduan MCP di GitHub
+          </a>
+          <a
+            href={SKILLS_URL}
+            target="_blank"
+            rel="noopener noreferrer"
             className="inline-flex min-h-[42px] items-center px-1 text-xs font-medium text-[#0369A1] underline underline-offset-4 hover:text-[#075985]"
           >
-            Lihat Panduan Lengkap di GitHub
+            Katalog skills.sh
           </a>
         </div>
 
@@ -221,7 +199,7 @@ export default function DevelopersPage() {
               id="dev-auth"
               className="font-display text-xl font-bold tracking-tight text-foreground"
             >
-              1. Autentikasi Personal API Key
+              1. Autentikasi Personal API Key &amp; REST API
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-secondary">
               Masuk ke dashboard lewat akun MyBest di{" "}
@@ -233,18 +211,29 @@ export default function DevelopersPage() {
               5 key aktif per akun, key lama <code className="font-mono text-xs">muara_ubsi_...</code>{" "}
               tetap didukung). Kirim key melalui header <code className="font-mono text-xs">Authorization: Bearer</code>.
             </p>
-            <div className="mt-4 space-y-3">
-              <div className="min-w-0 overflow-x-auto rounded-[8px] bg-[#131b26] p-4 text-xs text-[#cdd6f4]">
-                <p className="mb-2 font-mono text-[10.5px] uppercase tracking-[0.12em] text-[#7DD3FC]">
-                  Contoh Request REST API
-                </p>
-                <pre className="font-mono leading-relaxed">{CURL_EXAMPLE}</pre>
-              </div>
-              <div className="min-w-0 overflow-x-auto rounded-[8px] bg-[#131b26] p-4 text-xs text-[#cdd6f4]">
-                <p className="mb-2 font-mono text-[10.5px] uppercase tracking-[0.12em] text-[#7DD3FC]">
-                  Format Envelope Standar (200 OK)
-                </p>
-                <pre className="font-mono leading-relaxed">{ENVELOPE_EXAMPLE}</pre>
+            <div className="mt-4 space-y-4">
+              <CopyCodeBlock
+                accent
+                wrap
+                title="Prompt Siap Pakai untuk AI Agent (Bot & REST API)"
+                hint="Tempel prompt ini ke Claude Code, Cursor, Codex, atau ChatGPT agar agent langsung paham base URL, JSON envelope, batas laju, dan error handling REST API Mira."
+                copyLabel="Salin Prompt"
+                code={buildRestAgentPrompt()}
+              />
+              <div className="grid gap-4 md:grid-cols-2">
+                {buildRestSnippets().map((snippet) => (
+                  <CopyCodeBlock
+                    key={snippet.id}
+                    title={snippet.label}
+                    hint={snippet.hint}
+                    code={snippet.code}
+                  />
+                ))}
+                <CopyCodeBlock
+                  title="Format Envelope Standar (200 OK)"
+                  hint="Semua endpoint mengembalikan JSON bersih dengan metadata cache."
+                  code={ENVELOPE_EXAMPLE}
+                />
               </div>
             </div>
           </section>
@@ -260,20 +249,25 @@ export default function DevelopersPage() {
               Server MCP berjalan di port Streamable HTTP dan mengekspos 42 tools terisolasi per
               akun. Password kampus tetap terenkripsi di server dan tidak pernah dikirim ke model AI.
             </p>
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
-              {MCP_SNIPPETS.map((snippet) => (
-                <div
-                  key={snippet.client}
-                  className="min-w-0 rounded-[8px] border border-stroke bg-white p-4"
-                >
-                  <p className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[#0369A1]">
-                    {snippet.client}
-                  </p>
-                  <div className="mt-2.5 min-w-0 overflow-x-auto rounded-[6px] bg-[#131b26] p-3 text-[11.5px] text-[#cdd6f4]">
-                    <pre className="font-mono leading-relaxed">{snippet.code}</pre>
-                  </div>
-                </div>
-              ))}
+            <div className="mt-4 space-y-4">
+              <CopyCodeBlock
+                accent
+                wrap
+                title="Prompt Siap Pakai untuk AI Agent (Setup MCP + Skill)"
+                hint="Salin prompt ini sebagai instruksi awal agar agent otomatis memasang skill mira-mcp, konfigurasi endpoint Streamable HTTP, dan aturan konfirmasi [WRITE]."
+                copyLabel="Salin Prompt"
+                code={buildMcpAgentPrompt()}
+              />
+              <div className="grid gap-4 md:grid-cols-2">
+                {buildMcpSnippets().map((snippet) => (
+                  <CopyCodeBlock
+                    key={snippet.id}
+                    title={snippet.label}
+                    hint={snippet.hint}
+                    code={snippet.code}
+                  />
+                ))}
+              </div>
             </div>
           </section>
 
@@ -349,45 +343,69 @@ export default function DevelopersPage() {
           </section>
 
           <section aria-labelledby="dev-skills">
-            <h2
-              id="dev-skills"
-              className="font-display text-xl font-bold tracking-tight text-foreground"
-            >
-              5. Agent Skills untuk AI Coding Agent
-            </h2>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2
+                id="dev-skills"
+                className="font-display text-xl font-bold tracking-tight text-foreground"
+              >
+                5. Agent Skills untuk AI Coding Agent &amp; Kontributor
+              </h2>
+              <a
+                href={SKILLS_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono text-xs font-semibold text-[#0369A1] underline underline-offset-4 hover:text-[#075985]"
+              >
+                skills.sh/muaraai/mira
+              </a>
+            </div>
             <p className="mt-2 text-sm leading-relaxed text-secondary">
-              Pasang skill resmi Mira di repositori <code className="font-mono text-xs">MuaraAI/Mira</code>{" "}
+              Pasang skill resmi Mira dari repositori <code className="font-mono text-xs">MuaraAI/Mira</code>{" "}
               agar AI Coding Agent Anda otomatis mengikuti aturan token <code className="font-mono text-xs">eyJ...</code>,
               konfirmasi aksi tulis <code className="font-mono text-xs">[WRITE]</code>, format envelope JSON,
-              dan panduan kode proyek.
+              serta standar kontribusi kode backend dan frontend.
             </p>
-            <div className="mt-4 space-y-3">
-              <div className="min-w-0 overflow-x-auto rounded-[8px] bg-[#131b26] p-4 text-xs text-[#cdd6f4]">
-                <p className="mb-2 font-mono text-[10.5px] uppercase tracking-[0.12em] text-[#7DD3FC]">
-                  Instalasi via Agent Skills CLI
-                </p>
-                <pre className="font-mono leading-relaxed">{`# Pasang seluruh 5 skill Mira
-npx skills add MuaraAI/Mira
-
-# Atau pasang selektif untuk penggunaan MCP & REST API saja
-npx skills add MuaraAI/Mira --skill mira-mcp --skill mira-api`}</pre>
+            <div className="mt-4 space-y-4">
+              <div className="grid gap-3">
+                <CopyCodeBlock
+                  title="Pasang Seluruh 5 Skill Mira"
+                  hint="Cocok bila agent memakai MCP, REST API, sekaligus membantu pengembangan repo."
+                  code={SKILL_INSTALL_COMMANDS.all}
+                />
+                <div className="grid gap-3 md:grid-cols-2">
+                  <CopyCodeBlock
+                    title="Khusus Pengguna MCP & REST API"
+                    hint="Untuk integrasi jadwal, tugas, presensi, atau bot mahasiswa."
+                    code={SKILL_INSTALL_COMMANDS.mcpApi}
+                  />
+                  <CopyCodeBlock
+                    title="Khusus Kontributor Kode"
+                    hint="Memuat aturan FastAPI, dual-DB SQLite + Supabase, Next.js 15, dan SEO."
+                    code={SKILL_INSTALL_COMMANDS.contributors}
+                  />
+                </div>
               </div>
+
               <div className="min-w-0 overflow-hidden rounded-[8px] border border-stroke bg-white">
                 <ul className="divide-y divide-stroke">
-                  {[
-                    { id: "mira", desc: "Router utama untuk memilih skill Mira sesuai tugas dan alamat layanan resmi." },
-                    { id: "mira-mcp", desc: "Panduan 42 tools MCP mira_*, token kursus eyJ..., dan aturan persetujuan [WRITE]." },
-                    { id: "mira-api", desc: "Integrasi REST API /v1/*, Personal API Key, JSON envelope, rate limit, dan kode error." },
-                    { id: "mira-backend", desc: "Playbook kontributor FastAPI, scraper BSI, dual-DB SQLite + Supabase, dan pytest offline." },
-                    { id: "mira-web", desc: "Playbook kontributor Next.js 15, Semi Pixel-Art Light, font .woff2, dan standar SEO." },
-                  ].map((skill) => (
+                  {MIRA_SKILLS.map((skill) => (
                     <li
                       key={skill.id}
-                      className="grid gap-1 px-4 py-2.5 sm:grid-cols-[180px_1fr] sm:items-baseline sm:gap-4"
+                      className="grid gap-1.5 px-4 py-3 sm:grid-cols-[200px_1fr] sm:items-baseline sm:gap-4"
                     >
-                      <code className="font-mono text-xs font-semibold text-[#0369A1]">
-                        {skill.id}
-                      </code>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <a
+                          href={skill.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-xs font-semibold text-[#0369A1] underline underline-offset-4 hover:text-[#075985]"
+                        >
+                          {skill.id}
+                        </a>
+                        <span className="rounded-[4px] border border-[#CFE2EE] bg-[#F0F7FB] px-1.5 py-0.5 font-mono text-[10px] font-medium text-[#072033]">
+                          {skill.audience}
+                        </span>
+                      </div>
                       <span className="text-xs leading-relaxed text-secondary sm:text-[13px]">
                         {skill.desc}
                       </span>

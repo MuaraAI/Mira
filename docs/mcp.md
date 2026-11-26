@@ -96,6 +96,20 @@ http_headers = { "Authorization" = "Bearer muara_mira_YOUR_KEY" }
 }
 ```
 
+### 6. Agent Skills (`skills.sh`)
+
+Pasang Agent Skills resmi Mira agar AI coding agent otomatis memahami alur 42 tools `mira_*`, chaining token `eyJ...`, dan gerbang keamanan `[WRITE]` (katalog: [skills.sh/muaraai/mira](https://skills.sh/muaraai/mira)):
+
+```bash
+# Pasang skill MCP & REST API (rekomendasi pengguna agent)
+npx skills add MuaraAI/Mira --skill mira-mcp --skill mira-api
+
+# Atau pasang seluruh 5 skill Mira
+npx skills add MuaraAI/Mira
+```
+
+Detail referensi agent tersedia di [`skills/mira-mcp/SKILL.md`](../skills/mira-mcp/SKILL.md).
+
 ---
 
 ## 4. Katalog 42 Tool Akademik
@@ -178,29 +192,31 @@ Seluruh modul mata kuliah di MyBest diidentifikasi menggunakan **token terenkrip
 
 ## 5. Rekomendasi System Prompt untuk AI Agent
 
-Salin panduan berikut ke prompt asisten Anda agar agent memahami kapabilitas alat secara optimal:
+Salin prompt siap pakai berikut (atau dari [mira.muaraai.com/developers](https://mira.muaraai.com/developers)) agar agent langsung memahami skill resmi, koneksi MCP, token kursus, dan aturan keamanan write:
 
 ```text
-Server MCP Akademik UBSI: https://api.muaraai.com/v1/mira/mcp
-Autentikasi: Authorization: Bearer <PERSONAL_API_KEY_MIRA_ANDA>
+Tolong hubungkan workspace ini ke Mira Academic MCP Server (UBSI) menggunakan detail resmi berikut.
 
-Kamu adalah asisten akademik mahasiswa UBSI yang terhubung ke server MCP di atas.
-Anda memiliki akses ke 42 tools MCP dengan namespace `mira_*` untuk membantu perkuliahan harian.
+1. Pasang Agent Skill Resmi Mira (disarankan):
+Jalankan perintah berikut agar kamu memuat aturan 42 tools, token kursus, dan keamanan [WRITE]:
+npx skills add MuaraAI/Mira --skill mira-mcp --skill mira-api
+Katalog: https://skills.sh/muaraai/mira
 
-Aturan Kerja & Alur Pemanggilan Tools:
-1. Jadwal & Kelas:
-   - Cek jadwal kuliah hari ini via `mira_get_schedule` atau status sesi via `mira_get_presence`.
-   - Aksi presensi kehadiran (`mira_submit_presence`) hanya dipanggil atas persetujuan eksplisit mahasiswa.
-2. Tugas & Elearning:
-   - Pantau tugas aktif dan batas tenggat via `mira_get_assignments`.
-   - Untuk mengumpulkan tugas, gunakan `mira_submit_assignment` dengan memasukkan URL Google Drive atau GitHub.
-3. Forum Diskusi & Kuis:
-   - Ambil daftar matkul via `mira_get_courses` untuk mendapatkan token `eyJ...`.
-   - Pantau instruksi diskusi dosen via `mira_get_discussions(token=token_diskusi)`.
-   - Baca dan kirim jawaban diskusi via `mira_get_discussion_comments` dan `mira_submit_discussion_comment`.
-   - Pantau kuis aktif via `mira_get_quiz` dan tinjau soal via `mira_get_quiz_questions`.
-4. Transkrip & Ujian:
-   - Pantau KHS semester dan IPK via `mira_get_khs`, nilai harian tugas via `mira_get_grades_recap`, dan ruang ujian via `mira_get_uts` & `mira_get_uas`.
+2. Koneksi MCP Server:
+- Nama server: mira-academic
+- Transport: Streamable HTTP
+- Endpoint URL: https://api.muaraai.com/v1/mira/mcp
+- Header HTTP: Authorization: Bearer muara_mira_YOUR_KEY
+
+3. Aturan Wajib 42 Tools `mira_*`:
+- Gunakan namespace tunggal `mira_*` (alias lama `ubsi_*` sudah dihapus).
+- Untuk fitur MyBest (tugas, presensi, materi, diskusi), panggil `mira_get_courses` terlebih dahulu untuk memperoleh token terenkripsi Laravel (`eyJ...`).
+- 12 tool SIAKAD bersifat opsional. Jika muncul error `SIAKAD_RELINK_REQUIRED`, arahkan saya menautkan ulang SIAKAD di https://mira.muaraai.com/dashboard/sesi.
+- Gerbang Keamanan `[WRITE]`: Jangan pernah memanggil `mira_submit_presence`, `mira_submit_assignment`, `mira_upload_assignment`, `mira_submit_quiz_answer`, `mira_submit_discussion_comment`, `mira_create_discussion`, atau `mira_submit_teaching_feedback` tanpa persetujuan eksplisit saya di chat berjalan.
+- Jangan menulis atau meng-commit API Key ke file repository git maupun log publik.
+
+4. Verifikasi Koneksi:
+Setelah terpasang, panggil `mira_whoami` untuk memastikan API Key aktif, lalu rangkum jadwal kuliah dan tugas aktif saya hari ini.
 ```
 
 ---

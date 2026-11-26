@@ -10,15 +10,16 @@
 Dashboard PWA, REST API, dan MCP Server untuk SIAKAD, MyBest, Ujian Online, Perpustakaan, Berita, dan Repository UBSI.
 
 [![Website](https://img.shields.io/badge/website-mira.muaraai.com-0369A1?style=flat-square)](https://mira.muaraai.com)
+[![skills.sh](https://img.shields.io/badge/skills.sh-5%20skills-072033?style=flat-square)](https://skills.sh/muaraai/mira)
 [![Release](https://img.shields.io/github/v/release/MuaraAI/Mira?style=flat-square&color=0369A1)](https://github.com/MuaraAI/Mira/releases)
 [![License](https://img.shields.io/github/license/MuaraAI/Mira?style=flat-square&color=374151)](LICENSE)
 ![Python](https://img.shields.io/badge/python-3.12%2B-3776AB?style=flat-square&logo=python&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-15-000000?style=flat-square&logo=nextdotjs&logoColor=white)
 ![Tests](https://img.shields.io/badge/tests-100%25%20offline-0F766E?style=flat-square)
 
-**Situs Resmi:** [mira.muaraai.com](https://mira.muaraai.com) · [Demo Interaktif](https://mira.muaraai.com/demo) · [Panduan Mahasiswa](https://mira.muaraai.com/panduan) · [Dokumentasi API & MCP](https://mira.muaraai.com/developers)
+**Situs Resmi:** [mira.muaraai.com](https://mira.muaraai.com) · [Demo Interaktif](https://mira.muaraai.com/demo) · [Panduan Mahasiswa](https://mira.muaraai.com/panduan) · [Dokumentasi API & MCP](https://mira.muaraai.com/developers) · [Agent Skills](https://skills.sh/muaraai/mira)
 
-[Video](#lihat-mira-dalam-2-menit) · [Fitur](#fitur) · [Keamanan](#keamanan) · [Quickstart](#quickstart) · [MCP Server](#mcp-server) · [Dokumentasi](#dokumentasi) · [Kontribusi](#kontribusi)
+[Video](#lihat-mira-dalam-2-menit) · [Fitur](#fitur) · [Keamanan](#keamanan) · [Quickstart](#quickstart) · [MCP Server](#mcp-server) · [Agent Skills](#agent-skills) · [Dokumentasi](#dokumentasi) · [Kontribusi](#kontribusi)
 
 </div>
 
@@ -141,7 +142,7 @@ Konfigurasi Cursor, Codex, dan Hermes ada di [docs/mcp.md](docs/mcp.md).
 
 ## Agent Skills
 
-Pasang skill resmi Mira ke AI Coding Agent (**Claude Code**, **Codex**, **Cursor**, **Gemini CLI**, **Hermes**) agar agent langsung memahami arsitektur, aturan keamanan `[WRITE]`, 42 tools MCP, dan endpoint REST API:
+Pasang skill resmi Mira ([skills.sh/muaraai/mira](https://skills.sh/muaraai/mira)) ke AI Coding Agent (**Claude Code**, **Codex**, **Cursor**, **Gemini CLI**, **Hermes**) agar agent langsung memahami arsitektur, aturan keamanan `[WRITE]`, 42 tools MCP, dan endpoint REST API:
 
 ```bash
 # Pasang seluruh 5 skill Mira
@@ -149,6 +150,9 @@ npx skills add MuaraAI/Mira
 
 # Atau pasang selektif untuk penggunaan MCP & REST API saja
 npx skills add MuaraAI/Mira --skill mira-mcp --skill mira-api
+
+# Atau pasang khusus kontributor kode (Backend & Frontend)
+npx skills add MuaraAI/Mira --skill mira-backend --skill mira-web
 ```
 
 | Skill | Cakupan |
@@ -178,7 +182,7 @@ npx skills add MuaraAI/Mira --skill mira-mcp --skill mira-api
 
 Dikembangkan oleh **[Muara AI](https://github.com/MuaraAI)** (mahasiswa Informatika UBSI Kampus Pontianak).
 
-Kontribusi ke repositori ini **hanya dibuka untuk Anggota Muara AI yang berstatus mahasiswa aktif UBSI**, dan **wajib menggunakan branch baru + Pull Request** ke `main` (dilarang direct push ke `main`). Baca aturan lengkap di [CONTRIBUTING.md](CONTRIBUTING.md).
+Kontribusi ke repositori ini **hanya dibuka untuk Anggota Muara AI yang berstatus mahasiswa aktif UBSI**, dan **wajib menggunakan branch baru + Pull Request** ke `main` (dilarang direct push ke `main`). Baca aturan lengkap di [CONTRIBUTING.md](CONTRIBUTING.md) dan pasang skill kontributor dengan `npx skills add MuaraAI/Mira --skill mira-backend --skill mira-web`.
 
 ## Disclaimer
 

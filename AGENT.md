@@ -9,6 +9,7 @@ Selamat datang di repositori **Mira** (`MuaraAI/Mira`, sebelumnya UBSI API). Dok
 * **Nama Proyek:** Mira (Platform Akademik Modern & REST API Aggregator UBSI)
 * **Deskripsi:** Unofficial Academic Operating System untuk 6 layanan kampus Universitas Bina Sarana Informatika (SIAKAD, Elearning MyBest, Ujian Online, Perpustakaan OPAC, Berita Resmi, dan Repository Riset).
 * **Repositori Resmi:** [https://github.com/MuaraAI/Mira](https://github.com/MuaraAI/Mira) (Organisasi: `MuaraAI`, Public)
+* **Agent Skills (`skills.sh`):** [https://skills.sh/muaraai/mira](https://skills.sh/muaraai/mira) (`npx skills add MuaraAI/Mira`)
 * **Domain Produksi:** [https://mira.muaraai.com](https://mira.muaraai.com) (Redirect: `ubsi-api.muaraai.com`)
 * **Lisensi:** MIT License
 * **Organisasi & Maintainer:** [Muara AI](https://github.com/MuaraAI) (Informatika, FTI UBSI Kampus Pontianak) · `admin@muaraai.com`
@@ -94,6 +95,8 @@ Kontribusi ke repositori ini **hanya dibuka untuk Anggota Muara AI** yang bersta
 
 ### Alur Wajib Branch Baru & Pull Request
 **Dilarang keras melakukan direct commit dan direct push ke branch `main`!** Setiap perubahan (kode, perbaikan bug, maupun dokumentasi) **wajib menggunakan branch baru** melalui alur berikut:
+
+* **Rekomendasi AI Agent & Kontributor:** Pasang skill resmi proyek sebelum mengerjakan PR dengan `npx skills add MuaraAI/Mira --skill mira-backend --skill mira-web` ([skills.sh/muaraai/mira](https://skills.sh/muaraai/mira)), dan jaga agar `skills/*/SKILL.md` tetap sinkron bila ada perubahan endpoint, MCP tools, atau kontrak desain.
 
 1. **Buat Feature Branch Baru dari `main`:**
    ```bash

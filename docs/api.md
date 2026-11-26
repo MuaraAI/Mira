@@ -2,6 +2,11 @@
 
 Mira organizes all endpoints under the `/v1/` prefix. Every endpoint returns a standardized Clean Minimalist JSON envelope.
 
+> **Quick Links & Agent Skills:**
+> - Dokumentasi Web & Prompt Siap Pakai: [mira.muaraai.com/developers](https://mira.muaraai.com/developers)
+> - Katalog Endpoint JSON: [`https://api.muaraai.com/v1/mira/v1/docs`](https://api.muaraai.com/v1/mira/v1/docs)
+> - Pasang Agent Skill REST API untuk AI Coding Agent: `npx skills add MuaraAI/Mira --skill mira-api` ([skills.sh/muaraai/mira](https://skills.sh/muaraai/mira))
+
 ---
 
 ## Response Envelope Format
@@ -296,7 +301,7 @@ Returns operational metrics regarding active login session pools and cache statu
 
 ## 2. StudentV2 (SIAKAD)
 
-All StudentV2 endpoints require active student authentication (session login on a `trusted` device, personal API key `muara_mira_***` / `muara_ubsi_***`, or developer headers `X-Studentv2-NIM` & `X-Studentv2-Pass`).
+All StudentV2 endpoints require active student authentication (active dashboard session, personal API key `muara_mira_***` / `muara_ubsi_***`, or developer headers `X-Studentv2-NIM` & `X-Studentv2-Pass`).
 
 > Produksi menjalankan `SIAKAD_ENABLED=true`, tetapi login utama tetap **MyBest-only**. Pengguna menautkan SIAKAD secara manual di Sesi & Keamanan (`POST /v1/auth/credentials`). Kredensial tersimpan yang ditolak kampus menerima `409 SIAKAD_RELINK_REQUIRED`; dan saat `SIAKAD_ENABLED=false`, semua endpoint membalas `503 SIAKAD_DISABLED` dengan `error.cta_url` ke `students.bsi.ac.id`. Frontend tetap memprioritaskan MyBest untuk jadwal (`/v1/elearning/schedule`), profil dasar (`/v1/elearning/profile`), dan rekap tugas (`/v1/elearning/grades`).
 
@@ -826,7 +831,7 @@ Lists the catalog of 23 official UBSI peer-reviewed scientific journals.
 
 ## 6. Webhook Notification Channels
 
-Manage personal student notification endpoints persisted in local SQLite WAL (`data/ubsi.db`). Seluruh konfigurasi channel (`url`, `bot_token`) dienkripsi **Fernet** at-rest dan di-mask pada respons dashboard (`GET /v1/channels`). Jalur mutasi (`POST`/`DELETE`) mewajibkan perangkat berstatus `trusted`.
+Manage personal student notification endpoints persisted in local SQLite WAL (`data/ubsi.db`). Seluruh konfigurasi channel (`url`, `bot_token`) dienkripsi **Fernet** at-rest dan di-mask pada respons dashboard (`GET /v1/channels`). Jalur mutasi (`POST`/`DELETE`) mewajibkan Session Token dashboard aktif.
 
 ### `GET /v1/channels`
 Lists all active and inactive notification channels registered by the authenticated student (maximum 5 channels per NIM).
@@ -942,7 +947,7 @@ Returns aggregated, anonymous usage stats of active students and total requests.
 
 ## 8. PWA Web Push Notifications
 - `GET /v1/notifications/pwa/vapid-key` — Ambil public VAPID key runtime untuk subscription browser.
-- `POST /v1/notifications/pwa/subscribe` — Daftarkan browser/device PWA (enkripsi RFC 8291, deduplikasi otomatis lintas origin; wajib perangkat `trusted`).
+- `POST /v1/notifications/pwa/subscribe` — Daftarkan browser/device PWA (enkripsi RFC 8291, deduplikasi otomatis lintas origin; wajib Session Token dashboard aktif).
 - `POST /v1/notifications/pwa/unsubscribe` — Cabut subscription perangkat tertentu.
 - `GET /v1/notifications/pwa/devices` — Daftar perangkat PWA aktif milik mahasiswa.
 - `GET /v1/notifications/pwa/categories` & `POST /v1/notifications/pwa/categories` — Manajemen preferensi kategori notifikasi (9 kategori: kuliah, absen, tugas, nilai, kuis, ujian, berita, surat, perpus).
@@ -993,7 +998,8 @@ Tipe event: `message.created` (dengan flag `mentioned`), `message.updated` (fiel
 Mira menyediakan Model Context Protocol (MCP) Server resmi dengan **42 tool AI Agent** dalam satu namespace `mira_*` melalui Streamable HTTP:
 - Endpoint: `https://api.muaraai.com/v1/mira/mcp`
 - Authentication: `Authorization: Bearer muara_mira_<key>` (prefix lama `muara_ubsi_<key>` masih diterima agar key yang sudah beredar tetap berlaku)
-- Full reference, schema specifications, and agent prompt templates: See [docs/mcp.md](mcp.md).
+- Agent Skills (`skills.sh`): `npx skills add MuaraAI/Mira --skill mira-mcp --skill mira-api` ([skills.sh/muaraai/mira](https://skills.sh/muaraai/mira))
+- Full reference, schema specifications, and agent prompt templates: See [docs/mcp.md](mcp.md) and [mira.muaraai.com/developers](https://mira.muaraai.com/developers).
 
 ---
 
