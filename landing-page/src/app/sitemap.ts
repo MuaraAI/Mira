@@ -7,6 +7,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const routes = [
     "/",
     "/demo",
+    "/panduan",
     "/developers",
     "/login",
     "/lupa-password",
